@@ -426,7 +426,7 @@ def _build_task_tree(cameras_folder, camera_select, user_select, show_hidden):
     task_names_list, _ = build_task_list(cameras_folder, camera_select, user_select,
                                          show_hidden_tasks = show_hidden)
     
-    task_tree = {{} for each_task in task_names_list}
+    task_tree = {each_task: {} for each_task in task_names_list}
     
     return task_tree
 
