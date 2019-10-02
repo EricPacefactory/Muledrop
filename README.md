@@ -22,7 +22,7 @@ These scripts rely on a set of library functions (eolib) which are not included 
 
 All new cameras/users/tasks/videos etc. are added using the editior utilties. For now, these must be accessed individually from the editior utilities folder.
 
-To create a new camera, use the create.py script and follow the prompts. Also remember to add a video for the new camera (also using the create.py script). Video file selection is handled by either **ranger** or **tkinter** (see requirements section), so it is best to have one of these installed to simplify setup.
+To create a new camera, use the `create.py` script and follow the prompts. Also remember to add a video for the new camera (also using the `create.py` script). Video file selection is handled by either **ranger** or **tkinter** (see requirements section), so it is best to have one of these installed to simplify setup.
 
 ## Configuration
 
@@ -30,7 +30,7 @@ Once a camera (and video file) entry is available, it can be configured! By defa
 
 Camera analysis is split into two major components: core processing stages & external processing. The core processing stages take in raw video frames and sequentially process them to obtain tracking object metadata. External processing performs functions that occur before & after the core processing stages. These include background capture & generation, snapshot capturing and object metadata saving.
 
-To configure core processing stages, the reconfigure_core.py script can be launched, which acts as a command-line hub interface for all core configuration utilities.
+To configure core processing stages, the `reconfigure_core.py` script can be launched, which acts as a command-line hub interface for all core configuration utilities.
 
 There is currently no hub interface for configuring external processing stages. So these must be launched manually by launching the appropriate scripts inside the configuration_utilites folder.
 
@@ -38,7 +38,7 @@ There is currently no hub interface for configuring external processing stages. 
 
 After configuring a camera, the configuration can be run to collect data that would be used for reporting/rule evaluations. Currently only files are supported.
 
-To run analysis on a camera, use the run_file_collect.py script and follow the prompts.
+To run analysis on a camera, use the `run_file_collect.py` script and follow the prompts.
 
 ## Core Process Stages
 
