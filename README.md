@@ -8,7 +8,7 @@ Small parts of this project rely on a command line tool called [ranger](https://
 
 `sudo apt install ranger`
 
-Simlarly, [tkinter]([https://wiki.python.org/moin/TkInter](https://wiki.python.org/moin/TkInter) is used for providing a GUI selection screen. On Ubuntu, this can be installed as follows:
+Simlarly, [tkinter](https://wiki.python.org/moin/TkInter) is used for providing a GUI selection screen. On Ubuntu, this can be installed as follows:
 
 `sudo apt install python3-tk`
 
@@ -40,8 +40,6 @@ After configuring a camera, the configuration can be run to collect data that wo
 
 To run analysis on a camera, use the run_file_collect.py script and follow the prompts.
 
----
-
 ## Core Process Stages
 
 ##### Frame Capture
@@ -68,8 +66,6 @@ Takes a binary image and attempts to outline all unique foreground elements.
 
 Tries to interpret detections as belonging to persistent objects (which are being repeatedly detected on every frame), and builds a history of positional information of each object.
 
----
-
 ## External Processing
 
 ##### Background Capture/Generation
@@ -83,8 +79,6 @@ Repeatedly saves individual frames of the input video source so that events from
 ##### Object Metadata Capture
 
 Saves object metadata output from the (core) tracker stage. This data can then be evaluated (after-the-fact) to determine if the object broke any rules. Additionally, with the snapshot images it is possible to visualize the object pathing/behavior.
-
----
 
 ## MAJOR TODOs
 
