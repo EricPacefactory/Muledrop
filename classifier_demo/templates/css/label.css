@@ -1,0 +1,175 @@
+
+/* ----------------------------------------------------------------- */
+/* Label page styling */
+/* ----------------------------------------------------------------- */
+
+:root {
+    --page_accent: rgb(199, 64, 2);
+    --page_accent_hl: rgb(199, 100, 8);
+    --page_accent_text: var(--lightest);
+    --page_accent_text_hl: rgb(255, 255, 255);
+}
+
+#nav_label_btn {
+    background: var(--page_accent);
+    font-weight: bold;
+    animation-name: none;
+    color: var(--page_accent_text);
+}
+
+#nav_label_btn:hover {
+    color: var(--page_accent_text);
+}
+
+
+/* ----------------------------------------------------------------- */
+/* Styling for tabbed section */
+/* ----------------------------------------------------------------- */
+
+.tab_wrapper {
+    display: grid;
+    grid-gap: 20px;
+    grid-template-columns: repeat( auto-fit, minmax(250px, 0.25fr) );
+    list-style: none;
+    border-bottom: 1px solid var(--page_accent);
+    padding-bottom: 20px;
+}
+
+.label_task_btn, .active_label_task_btn {
+    cursor: pointer;
+    font-size: 1.25em;
+    padding: 1em;
+    text-align: center;
+}
+
+.label_task_btn {
+    border: 1px solid var(--dark);
+}
+
+.label_task_btn:hover {
+    border: 1px solid var(--lightest);
+    animation-name: label_task_li_hover;
+    animation-duration: 0.25s;
+}
+
+@keyframes label_task_li_hover {
+    from {border: 1px solid var(--dark)}
+    to {border: 1px solid var(--lightest)}
+}
+
+.active_label_task_btn {
+    border: 1px solid var(--darkest);
+    box-shadow: inset 0px 0px 32px rgba(0, 0, 0, 0.75);
+    color: var(--page_accent_text_hl);
+}
+
+
+/* ----------------------------------------------------------------- */
+/* Styling for image display section */
+/* ----------------------------------------------------------------- */
+
+
+.label_img_wrapper {
+    display: grid;
+    grid-template-columns: 1fr min-content 1fr;
+    padding: 1em;
+}
+
+
+.incdec_icon_holder {
+    cursor: pointer;
+    width: 100%;
+    height: 100%;
+    margin: auto;
+    stroke: var(--page_accent);
+    min-width: 50px;
+    max-width: 200px;
+    max-height: 400px;
+}
+
+.incdec_icon_holder:hover {
+    stroke: var(--lightest);
+    animation-name: incdec_btn_hover;
+    animation-duration: 0.25s;
+}
+
+@keyframes incdec_btn_hover {
+    from {stroke: var(--page_accent)}
+    to {stroke: var(--lightest)}
+}
+
+.incdec_icon_holder svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    margin: auto;
+}
+
+.incdec_icon_holder polyline {
+    display: block;
+    margin: 0 auto;
+    stroke-width: 8px;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    fill: none;
+}
+
+.label_img_holder_div {
+    min-width: 250px;
+    min-height: 100px;
+    background-color: var(--darkest);
+    border: 1px solid var(--page_background);
+    cursor: pointer;
+}
+
+.label_img_holder_div:hover {
+    border: 1px solid var(--light);
+}
+
+
+/* ----------------------------------------------------------------- */
+/* Styling for class label buttons section */
+/* ----------------------------------------------------------------- */
+
+.label_classes_ul {
+    display: grid;
+    grid-gap: 20px;
+    padding: 0;
+    list-style: none;
+    grid-template-columns: repeat(5, 1fr);
+}
+
+.label_class_btn, .active_label_class_btn{
+    text-align: center;
+    font-variant: small-caps;
+    font-size: 1.15em;
+    padding: 0.25em;
+}
+
+
+.label_class_btn {
+    border: 1px solid var(--dark);
+}
+
+.active_label_class_btn {
+    background-color: var(--page_accent);
+    box-shadow: inset 0px 4px 4px rgba(0, 0, 0, 0.35);
+    color: var(--page_accent_text_hl);
+    font-weight: bold;
+}
+
+.label_class_div {
+    cursor: pointer;
+    padding: 0.25em;
+}
+
+.label_class_btn:hover {
+    border: 1px solid var(--lightest);
+    animation-name: label_class_li_hover;
+    animation-duration: 0.25s;
+}
+
+@keyframes label_class_li_hover {
+    from {border: 1px solid var(--dark)}
+    to {border: 1px solid var(--lightest)}
+}

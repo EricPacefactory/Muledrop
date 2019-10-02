@@ -1,0 +1,172 @@
+
+/* ----------------------------------------------------------------- */
+/* Global styling */
+/* ----------------------------------------------------------------- */
+
+:root {
+    --menu_bg: rgb(18, 144, 179);
+    --menu_bg_lighter: rgb(28, 159, 196);
+}
+
+/* ----------------------------------------------------------------- */
+/* Wrapper styling */
+
+/* Vertical wrapper holding each of the major page sections */
+.home_wrapper {
+    display: grid;
+    grid-template-rows: auto 2fr 4fr 1fr;
+    grid-gap: 3em;
+    width: 100vw;
+    height: 100vh;
+}
+
+/* Wrapper for the 'Safety-CV' title block */
+.home_title_block{
+    color: var(--accent_1);
+    font-size: 2em;
+    background-color: var(--dark_background);
+    text-align: center;
+    text-transform: uppercase;
+    font-weight: bold;
+    font-style: italic;
+    padding: 0.6em;
+}
+
+/* Wrapper for camera/video/user/task selection boxes */
+.home_selection_panels {
+    /* background-color: #aaa; */
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    grid-gap: 1em;
+    padding: 2em;
+}
+
+/* Wrapper for the configuration links (core/rule/externals) */
+.home_config_panels{
+    /* background-color: #ddd; */
+    display: flex;
+    flex-flow: row nowrap;
+    justify-content: space-evenly;
+    align-items: stretch;
+}
+
+
+/* ----------------------------------------------------------------- */
+/* Dropdown menu selections styling */
+
+.dropdown_wrapper {
+    /* background-color: red; */
+    position: relative;
+    display: inline-block;
+    text-align: center;
+    margin: 0;
+}
+
+/* Dropdown title */
+.select_title {
+    background-color: var(--more_dark);
+    color: white;
+    text-align: center;
+    font-size: 1.4em;
+    font-weight: bold;
+    padding: 0.5em;
+}
+
+/* Button used to lower dropdown menu */
+.dropbtn {
+    background-color: var(--menu_bg);
+    color: var(--more_light);
+    font-weight: bold;
+    cursor: pointer;
+    padding: 1em;
+    border: solid 1px var(--dark);
+}
+
+.dropbtn:hover {
+    color: var(--full_light);
+    background-color: var(--menu_bg_lighter);
+    animation: dropbtn_hover 0.25s;
+}
+
+@keyframes dropbtn_hover {
+    from {background-color: var(--menu_bg); color: var(--more_light)}
+    to {background-color: var(--menu_bg_lighter); color: var(--full_light)}
+}
+
+/* Dropdown content holder (ul) */
+.selection_menu_list {
+    background-color: var(--menu_bg);
+    position: absolute;
+    display: none;
+    width: 100%;
+    padding: 0; 
+    margin: 0;
+    overflow: auto;
+    z-index: 1;
+}
+
+/* Dropdown content items (li) */
+.selection_menu_list li {
+    color: var(--light);
+    padding: 1em;
+    text-decoration: none;
+    text-align: center;
+    display: block;
+    cursor: pointer;
+}
+
+/* Brighten menu items on hover */
+.selection_menu_list li:hover {
+    background-color: var(--menu_bg_lighter);
+    color: var(--full_light);
+    animation: menu_li_hover 0.25s;
+}
+
+@keyframes menu_li_hover {
+    from {background-color: var(--menu_bg); color: var(--light)}
+    to {background-color: var(--menu_bg_lighter); color: var(--full_light)}
+}
+
+/* ----------------------------------------------------------------- */
+/* Configuration links styling */
+
+.home_config_btn {
+    display: grid;
+    grid-row: auto auto;
+    align-items: center;
+    grid-gap: 1em;
+}
+
+.home_config_btn_bg:hover {
+    box-shadow: 0 0 18px 6px rgba(0, 0, 0, 0.05);
+}
+
+.home_config_btn a {
+    text-align: center;
+    text-decoration: none;
+}
+
+.home_config_btn div {
+    color: var(--dark);
+    padding: 1em;
+    font-size: 1.2em;
+    font-weight: bold;
+    border-radius: 1em;
+}
+
+
+/* ----------------------------------------------------------------- */
+/* Icon credit styling */
+
+.icon_credit {
+    position: absolute;
+    bottom: 0;
+    right: 0.5em;
+    font-size: 0.9em;
+}
+
+.icon_credit a {
+    text-decoration: none;
+    color: black;
+    font-style: italic;
+}

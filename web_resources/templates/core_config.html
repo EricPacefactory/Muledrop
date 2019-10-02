@@ -1,0 +1,82 @@
+
+<!DOCTYPE <!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Safety-CV Configuration</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" href="data:;base64,iVBORw0KGgo=">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.2.0/socket.io.js"></script>
+    <style>
+        {% include "css/global.css" %}
+        {% include "css/core_nav.css" %}
+        {% include "css/config_ui/slider.css" %}
+        {% include "css/config_ui/toggle.css" %}
+        {% include "css/config_ui/numentry.css" %}
+        {% include "css/config_ui/menu.css" %}
+        {% include "css/config_ui/button.css" %}
+    </style>
+</head>
+
+<body>
+    
+    <!-- Wrapper for left/middle/right panels -->
+    <div class="panel_wrapper">
+
+        <div class="side_panel nav_panel">
+            {% with left_menu_list=left_menu_list %}
+                {% include "_coreconfig_side_nav.html" %}
+            {% endwith %}
+        </div>
+
+        <!-- Middle panel HTML -->
+        <div class="content_panel">
+                <div class="panel_title_block content_panel_title">{{page_title}}</div>
+
+                <div id="display_selection_wrapper">
+                    <ul id="display_selection_list">
+                        <li>Loading</li>
+                    </ul>
+                </div>
+
+                <div id="image_centering_container">
+                    <div id="image_bordered_wrapper">
+                        <div id="image_div">
+                            <img id="disp_image">
+                        </div>
+                    </div>
+                </div>
+                <div id="info_placeholder"></div>
+            </div>
+
+        <!-- Right side-panel HTML -->
+        <div class="side_panel control_panel">
+            <div id="core_right_spacer">
+                <div class="panel_title_block controls_panel_title">Controls</div>
+                <div id="controls_holder"> <!-- Javascript builds HTML for this section (after reading from socket) --> </div>
+                <div id="core_save_button" class="">SAVE</div>
+            </div> 
+        </div>
+
+    </div>
+    
+    <script>
+        const flask_socket_url = {{ socket_url | tojson }};
+        const left_menu_list = {{left_menu_list | tojson}};
+        console.log("DEBUG: Core Config - Global Variables");
+        console.log("  flask_socket_url");
+        console.log("  left_menu_list");
+        
+        {% include "scripts/side_nav.js" %}
+        {% include "scripts/ui_shared.js" %}
+        {% include "scripts/slider_ui.js" %}
+        {% include "scripts/toggle_ui.js" %}
+        {% include "scripts/menu_ui.js" %}
+        {% include "scripts/numentry_ui.js" %}
+        {% include "scripts/ui_builder.js" %}
+        {% include "scripts/ui_display_selection.js" %}
+        {% include "scripts/socket_handler.js" %}
+    </script>
+</body>
+</html>

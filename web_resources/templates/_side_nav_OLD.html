@@ -1,0 +1,29 @@
+
+<!-- Navigation -->
+<nav class="main_nav">
+
+  <ul>
+    {% for each_comp, each_btn in btn_list %}
+      <li class="core_component_btn" id="core_comp_{{each_comp}}">{{each_btn}}</li>
+      <ul class="core_sub_menu" id="core_comp_ul_{{each_comp}}">
+        {% for each_label, each_link in option_dict[each_btn] %}
+          <li><a class="core_sub_entry" href="/core/{{each_comp}}/{{each_link}}">{{each_label}}</a></li>
+        {% endfor %}
+      </ul>
+    {% endfor %}
+  </ul>
+
+  <!-- Placeholder for rule selection -->
+  <ul>
+    <li><a id="nav_rules_btn" class="rules_btn" href="/">Rules</a></li>
+  </ul>
+
+  <!-- Placeholder for external component selections -->
+  <ul>
+    <li><a id="nav_bgcap_btn" class="external_component_btn" href="/">Background Capture</a></li>
+    <li><a id="nav_drawer_btn" class="external_component_btn" href="/">Drawer</a></li>
+    <li><a id="nav_classifier_btn" class="external_component_btn" href="/">Classifier</a></li>
+    <li><a id="nav_database_btn" class="external_component_btn" href="/">Database</a></li>
+  </ul>
+
+</nav>

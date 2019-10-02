@@ -1,0 +1,27 @@
+
+# Project files
+cameras/
+specifications/
+.selection_history
+.pathing_info
+.txt
+
+# Cache files
+*.pyc
+__pycache__
+
+# Large files (ex. videos and images)
+**.avi
+**.mp4
+**.mov
+**.jpg
+**.jpeg
+**.png
+**.log
+**.kra
+**.csv
+**.odp
+
+# Misc. files
+specifications/
+

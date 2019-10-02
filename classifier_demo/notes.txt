@@ -1,0 +1,23 @@
+
+- when launching server.py, first ask for dataset (from cli)
+    - may want to have ability to copy existing report data into classifier folder (if any is found)
+
+
+- with data set selected, server should load (or create if missing) a local db file (sqlite?)
+    - db stores list of object ids, (for each task?), with default classes = bad detection
+    - db will be updated as user identifies each object
+    - Could also just use json file, probably easier for first version
+
+- then provide ui that acts like slideshow, with buttons for classes:
+    - bad detection/ignore/unclassified, unknown, pedestrian, vehicle
+    - (bad detection should be used to exclude data from training! Avoids mucking up the model. Can also be default for unviewed data!)
+
+- User goes through as many pictures as they like, choosing classifications
+    - save each classification result into db file, as we go
+    - should provide optional tiled view?
+
+- Should also have separate page for showing all groups in a tiled view, for quick inspection
+
+
+- That's everything (?!)
+    - have a separate set of UIs for handling/displaying training results

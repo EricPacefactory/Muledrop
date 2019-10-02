@@ -1,0 +1,61 @@
+
+{% extends "shared_layout.html" %}
+
+<!-- Add styling specific to this page -->
+{% block styling %}
+    {% include "css/label.css" %}
+{% endblock %}
+
+
+<!-- Add main page content -->
+{% block body %}
+
+
+    <!-- Block for displaying object images -->
+    <div class="island_wrapper">
+        <ul class="tab_wrapper" id="label_task_tabs_ul">
+            {% for each_task in task_id_lists %}
+                <li class="label_task_btn">{{each_task}}</li>
+            {% endfor %}
+        </ul>
+        <div class="island_title" id="label_img_title">Viewing 0 / 0</div>
+        <div class="island_content">
+            <div class="label_img_wrapper">
+                <div class="incdec_icon_holder" id="prev_label_btn">
+                    <svg viewBox="0 0 100 100"> 
+                        <polyline points="75,15 25,50 75,85" vector-effect="non-scaling-stroke"/>
+                    </svg> 
+                </div>
+                <div class="label_img_holder_div" id="label_img_holder_div">
+                    <img id="label_img_src" src="" alt="Loading image...">
+                </div>
+                <div class="incdec_icon_holder" id="next_label_btn">
+                    <svg viewBox="0 0 100 100">
+                        <polyline points="25,15 75,50 25,85" vector-effect="non-scaling-stroke"/>
+                    </svg> 
+                </div>
+            </div>
+        </div>
+    </div>
+
+    
+    <!-- Block for holding classification label buttons -->
+    <div class="island_wrapper">
+        <div class="island_content">
+            <ul class="label_classes_ul" id="label_class_buttons_ul">
+                {% for each_index, each_label in ordered_label_list %}
+                    <li class="label_class_btn" id="label_{{each_index}}"><div class="label_class_div">{{each_label}}</div></li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+
+{% endblock %}
+
+
+<!-- Add scripting specific to this page -->
+{% block scripting %}
+    var task_id_lists = {{task_id_lists|tojson}};
+    var ordered_label_list = {{ordered_label_list|tojson}};
+    {% include "scripts/label.js" %}
+{% endblock %}

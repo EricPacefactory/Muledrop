@@ -1,0 +1,22 @@
+
+/* ----------------------------------------------------------------- */
+/* Examine page styling */
+/* ----------------------------------------------------------------- */
+
+:root {
+    --page_accent: rgb(90, 10, 170);
+    --page_accent_hl: rgb(130, 15, 220);
+    --page_accent_text: var(--lightest);
+    --page_accent_text_hl: rgb(255, 255, 255);
+}
+
+#nav_examine_btn {
+    background: var(--page_accent);
+    font-weight: bold;
+    animation-name: none;
+    color: var(--page_accent_text);
+}
+
+#nav_examine_btn:hover {
+    color: var(--page_accent_text);
+}

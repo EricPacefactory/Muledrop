@@ -1,0 +1,194 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Sat May 11 11:28:07 2019
+
+@author: eo
+"""
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Add local path
+
+import os
+import sys
+
+def find_path_to_local(target_folder = "local"):
+    
+    # Skip path finding if we successfully import the dummy file
+    try:
+        from local.dummy import dummy_func; dummy_func(); return
+    except ImportError:
+        print("", "Couldn't find local directory!", "Searching for path...", sep="\n")
+    
+    # Figure out where this file is located so we can work backwards to find the target folder
+    file_directory = os.path.dirname(os.path.abspath(__file__))
+    path_check = []
+    
+    # Check parent directories to see if we hit the main project directory containing the target folder
+    prev_working_path = working_path = file_directory
+    while True:
+        
+        # If we find the target folder in the given directory, add it to the python path (if it's not already there)
+        if target_folder in os.listdir(working_path):
+            if working_path not in sys.path:
+                tilde_swarm = "~"*(4 + len(working_path))
+                print("\n{}\nPython path updated:\n  {}\n{}".format(tilde_swarm, working_path, tilde_swarm))
+                sys.path.append(working_path)
+            break
+        
+        # Stop if we hit the filesystem root directory (parent directory isn't changing)
+        prev_working_path, working_path = working_path, os.path.dirname(working_path)
+        path_check.append(prev_working_path)
+        if prev_working_path == working_path:
+            print("\nTried paths:", *path_check, "", sep="\n  ")
+            raise ImportError("Can't find '{}' directory!".format(target_folder))
+            
+find_path_to_local()
+
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Imports
+
+from local.lib.file_access_utils.shared import build_task_folder_path, copy_from_defaults, full_replace_save
+
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Pathing functions
+
+# .....................................................................................................................
+
+def build_core_folder_path(cameras_folder, camera_select, user_select, task_select):
+    ''' Function which builds the path the folder containing core configuration files '''
+    return build_task_folder_path(cameras_folder, camera_select, user_select, task_select, "core")
+
+# .....................................................................................................................
+
+def build_config_save_path(cameras_folder, camera_select, user_select, task_select, stage_name):
+    ''' Function which builds the pathing for loading/saving a specific core config file '''
+    core_folder_path = build_core_folder_path(cameras_folder, camera_select, user_select, task_select)
+    config_file_name = "".join([stage_name, ".json"])
+    
+    return os.path.join(core_folder_path, config_file_name)
+
+# .....................................................................................................................
+
+def get_ordered_core_sequence():
+    
+    ''' Function which provides the (hard-coded) core processing sequence '''
+    
+    ordered_core_processing_sequence = \
+    ["frame_capture",
+     "preprocessor",
+     "frame_processor",
+     "pixel_filter",
+     "detector",
+     "tracker"]
+    
+    return ordered_core_processing_sequence
+    
+
+# .....................................................................................................................
+
+def get_ordered_config_paths(core_folder_path):
+    
+    '''
+    Function for getting ordered lists of the core config files 
+    located at the provided core_folder_path input argument.
+    
+    Inputs:
+        core_folder_path -> String. Full path to folder containing core config files. 
+                            (Can be built using the build_core_folder_path function)
+    
+    Outputs:
+        ordered_config_path_list -> List of strings. Contains an ordered list of full paths 
+                                    to the core config files. Ordering is hard-coded
+        
+        ordered_stage_name_list -> List of strings. Contains a 'clean' copy of the stage names, in order        
+    '''
+    
+    # Get ordered sequence
+    ordered_stage_name_list = get_ordered_core_sequence()
+    
+    # Get a listing of all available core configs
+    core_config_file_list = os.listdir(core_folder_path)
+    
+    # Construct the pathing to each config file, in the proper order!
+    ordered_config_files = []
+    for each_stage in ordered_stage_name_list:
+        
+        # For each stage (in order), add the matching file name to the output ordered list
+        for each_file in core_config_file_list:
+            if each_stage in each_file.lower():
+                ordered_config_files.append(each_file)
+                break
+        else:
+            raise NameError("Missing core configuration file for stage: {}".format(each_stage))
+            
+    ordered_config_path_list = [os.path.join(core_folder_path, each_file) for each_file in ordered_config_files]
+    
+    return ordered_config_path_list, ordered_stage_name_list
+
+# .....................................................................................................................
+# .....................................................................................................................
+
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Config functions
+
+# .....................................................................................................................
+
+def create_default_core_configs(project_root_path, task_folder_path):
+    
+    # Build pathing to where the core configs are located
+    copy_target_folder = os.path.join(task_folder_path, "core")
+    
+    # Only copy defaults if no files are present
+    file_list = os.listdir(copy_target_folder)
+    no_core_configs = len(file_list) == 0
+    
+    # Pull default json config files out of the defaults folder, and copy in to the target task path
+    if no_core_configs:
+        copy_from_defaults(project_root_path, 
+                           target_defaults_folder = "core",
+                           copy_to_path = copy_target_folder)
+
+# .....................................................................................................................
+    
+def save_core_config(cameras_folder, camera_select, user_select, task_select,
+                     stage_name, script_name, class_name, config_data, confirm_save = True):
+    
+    # Build save pathing
+    core_config_folder_path = build_core_folder_path(cameras_folder, camera_select, user_select, task_select)
+    config_file_paths, stage_name_order = get_ordered_config_paths(core_config_folder_path)
+    
+    if stage_name not in stage_name_order:
+        raise NameError("Stage not recognized! ({}) Expecting: {}".format(stage_name, stage_name_order))
+    stage_index = stage_name_order.index(stage_name)
+    save_file_path = config_file_paths[stage_index]
+    #config_file_path = build_config_save_path(cameras_folder, camera_select, user_select, task_select, stage_name)
+    
+    # Build the data structure for core config data
+    save_data = {"access_info": {"script_name": script_name,
+                                 "class_name": class_name},
+                 "setup_data": config_data}
+    
+    # Fully overwrite the existing config
+    if confirm_save:
+        full_replace_save(save_file_path, save_data)
+    
+    return save_file_path, save_data
+
+# .....................................................................................................................
+# .....................................................................................................................
+
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Demo
+
+if __name__ == "__main__":
+    
+    pp = "/home/wrk/Desktop/PythonData/safety-cv-2/cameras/Timmys_West/users/live/tasks/main_task/core"
+    ordered_config_paths, ordered_stage_names = get_ordered_config_paths(pp)
+    
+    pass
+
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Scrap
+

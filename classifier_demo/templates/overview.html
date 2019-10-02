@@ -1,0 +1,59 @@
+
+{% extends "shared_layout.html" %}
+
+<!-- Add styling specific to this page -->
+{% block styling %}
+    {% include "css/overview.css" %}
+{% endblock %}
+
+
+<!-- Add main page content -->
+{% block body %}
+    <div class="island_wrapper">
+        <span class = "overview_section_name">General</span>
+
+        <div class="island_content">
+            <ul class = "overview_row_ul">
+                <li class = "overview_row_li"><span class = "overview_category_name">Camera</span><br> {{camera_name}}</li>
+                <li class = "overview_row_li"><span class = "overview_category_name">Dataset</span><br> {{dataset}}</li>
+                <li class = "overview_row_li"><span class = "overview_category_name">Number snapshots</span><br> {{snapshot_count}}</li>
+            </ul>
+
+        <div class = "island_overline">
+            <br>
+            <span class = "overview_category_name">Video:</span> {{video_source}}
+        </div>
+
+        </div>
+
+    </div>
+
+    <div class="island_wrapper">
+
+        <span class = "overview_section_name">Tasks</span>
+        <div class="island_content">
+            
+
+            <ul class = "overview_row_ul">
+                {% for each_task in task_name_list %}
+                    <li class = "overview_row_li">{{each_task}}</li>
+                {% endfor %}
+            </ul>
+
+            <div class = "island_overline">
+                <br>
+                <span class = "overview_category_name">Total objects:</span> {{total_object_count}}
+            </div>
+
+            
+
+        </div>
+            
+
+    </div>
+{% endblock %}
+
+
+<!-- Add scripting specific to this page -->
+{% block scripting %}
+{% endblock %}

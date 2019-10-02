@@ -1,0 +1,20 @@
+
+<!-- Navigation -->
+<nav class="main_nav">
+
+  <div class="panel_title_block nav_panel_title">Safety-CV</div>
+
+  <ul>
+    {% for each_component_entry in left_menu_list %}
+      <li class="core_component_btn" id="core_comp_{{each_component_entry.component_select}}">{{each_component_entry.display_name}}</li>
+      <ul class="core_sub_menu" id="core_comp_ul_{{each_component_entry.component_select}}">
+          {% for each_option_name in each_component_entry.option_names_list %}
+            <li><a class="core_sub_entry" href="/core/{{each_component_entry.component_select}}/{{each_option_name}}">{{each_option_name}}</a></li>
+          {% endfor %}
+      </ul>
+    {% endfor %}
+  </ul>
+
+  <a class="nav_back_btn" href="/"><div>HOME</div></a>
+
+</nav>

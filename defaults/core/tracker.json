@@ -1,0 +1,8 @@
+{
+  "access_info": {
+    "script_name": "passthrough_tracker.py",
+    "class_name": "Tracker_Stage",
+    "configuration_utility": "passthrough"
+  },
+  "setup_data": {}
+}

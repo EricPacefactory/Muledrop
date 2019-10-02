@@ -1,0 +1,110 @@
+
+<!DOCTYPE <!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Safety-CV Configuration</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" href="data:;base64,iVBORw0KGgo=">
+    <style>
+        {% include "css/global.css" %}
+        {% include "css/home.css" %}
+    </style>
+</head>
+
+<body>
+
+
+    <div class="home_wrapper">
+
+        <!-- Top panel containing home title text -->
+        <div class="home_title_block">Safety-CV</div>
+
+        <!-- Left-to-right panel containing selection options -->
+        <div class="home_selection_panels"> 
+
+            <div class=dropdown_wrapper>
+                <div class="select_title">Select Camera</div>
+                <div class="home_select_btn">
+                    <div class="dropbtn" id="camera_selection_btn">--- No Selection ---</div>
+                    <ul class="selection_menu_list" id="camera_selection_menu_list"></ul>
+                </div>
+            </div>
+
+            <div class="dropdown_wrapper">
+                <div class="select_title">Select Video</div>
+                <div class="home_select_btn">
+                    <div class="dropbtn" id="video_selection_btn">--- No Selection ---</div>
+                    <ul class="selection_menu_list" id="video_selection_menu_list"></ul>
+                </div>
+            </div>
+
+            <div class="dropdown_wrapper">
+                <div class="select_title">Select User</div>
+                <div class="home_select_btn">
+                    <div class="dropbtn" id="user_selection_btn">--- No Selection ---</div>
+                    <ul class="selection_menu_list" id="user_selection_menu_list"></ul>
+                </div>
+            </div>
+
+            <div class="dropdown_wrapper">
+                <div class="select_title">Select Task</div>
+                <div class="home_select_btn">
+                    <div class="dropbtn" id="task_selection_btn">--- No Selection ---</div>
+                    <ul class="selection_menu_list" id="task_selection_menu_list"></ul>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Left-to-right panel containing configuration links -->
+        <div class="home_config_panels">
+
+            <!-- Button for going to core configuration page -->
+            <div class="home_config_btn" id="home_core_btn">
+                <div class="home_config_btn_bg">
+                    <a href="/core/">
+                        <svg src={% include "icons/external/flaticon/surprised.svg" %}></svg>
+                        <div class="home_config_link_text">Core Configuration</div>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Button for going to rule configuration page -->
+            <div class="home_config_btn" id="home_rule_btn">
+                <div class="home_config_btn_bg">
+                    <a href="/rule/selection">
+                        <svg src={% include "icons/external/flaticon/angry.svg" %}></svg>
+                        <div class="home_config_link_text">Rule Configuration</div>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Button for going to 'externals' configuration (classifier/bg capture/posting etc.) -->
+            <div class="home_config_btn" id="home_external_btn">
+                <div class="home_config_btn_bg">
+                    <a href="/external/selection">
+                        <svg src={% include "icons/external/flaticon/shocked.svg" %}></svg>
+                        <div class="home_config_link_text">Externals Configuration</div>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Icon credits -->
+        <div class="icon_credit">Icons made by <a href="https://www.flaticon.com/authors/freepik" title="Freepik">Freepik</a> from <a href="https://www.flaticon.com/" title="Flaticon">www.flaticon.com</a> is licensed by <a href="http://creativecommons.org/licenses/by/3.0/" title="Creative Commons BY 3.0" target="_blank">CC 3.0 BY</a></div>
+
+    </div>
+
+    <script>
+
+        // Set up some global variables for home_ui.js
+        const redirected_global = {{redirected | tojson}};
+        const project_tree_global = {{project_tree | tojson}};
+        var selections_global = {{selections | tojson}};
+        
+        {% include "scripts/home_ui.js" %}
+    </script>
+</body>
+</html>

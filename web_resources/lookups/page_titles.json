@@ -1,0 +1,15 @@
+{
+  "frame_capture": {},
+  "preprocessor": {
+                   "fov": "Field-of-View Preprocessor",
+                   "circle2square": "Circle-to-Square Preprocessor"
+                  },
+  "frame_processor": {},
+  "pixel_filter": {
+                   "hsv": "Hue / Saturation / Value",
+                   "rgb": "Red / Green / Blue",
+                   "yCrCb": "Luma / Chroma Red / Chroma Blue"
+                  },
+  "detector": {},
+  "tracker": {}
+}
