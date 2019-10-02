@@ -28,7 +28,7 @@
     grid-auto-rows: min-content;
 }
 
-.core_component_btn, .rules_btn, .external_component_btn {
+.core_component_btn, .external_component_btn {
     color: var(--light);
     display: inline-block;\
     text-decoration: none;
@@ -43,11 +43,6 @@
     background-color: var(--dark);
     animation-name: nav_hover;
     animation-duration: 0.15s;
-}
-
-.rules_btn:hover {
-    color: var(--full_light);
-    background-color: green;
 }
 
 .external_component_btn:hover {

@@ -594,7 +594,7 @@ def example_message(script_arguments):
 
 # Get arguments for this script call
 script_args = parse_selection_args(custom_arguments, 
-                                   show_user = False, show_task = False, show_video = False, show_rule = False)
+                                   show_user = False, show_task = False, show_video = False)
 camera_select = script_args["camera"]
 
 # Get the entity selection from input arguments (if provided)

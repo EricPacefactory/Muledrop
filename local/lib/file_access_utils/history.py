@@ -64,7 +64,6 @@ def load_history(project_root_path, history_file_name = ".selection_history", en
     default_config = {"camera_select": None,
                       "user_select": None,
                       "task_select": None,
-                      "rule_select": None,
                       "video_select": None}
     
     # Return empty selections if disabled

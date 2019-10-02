@@ -73,13 +73,12 @@ class Edit_Selector:
     
     # .................................................................................................................
     
-    def entity(self, action_text, show_camera = True, show_user = True, show_task = True, show_video = True, show_rule = True):
+    def entity(self, action_text, show_camera = True, show_user = True, show_task = True, show_video = True):
         
         # Offer the following entity options to the user
         camera_option = "Camera"
         user_option = "User"
         task_option = "Task"
-        rule_option = "Rule"
         video_option = "Video"
         
         # Build prompt list
@@ -87,7 +86,6 @@ class Edit_Selector:
         entity_options_prompt += [camera_option] if show_camera else []
         entity_options_prompt += [user_option] if show_user else []
         entity_options_prompt += [task_option] if show_task else []
-        entity_options_prompt += [rule_option] if show_rule else []
         entity_options_prompt += [video_option] if show_video else []
         
         # Ask for user entity (or quit if no selection is made)
@@ -103,7 +101,6 @@ class Edit_Selector:
         lut_out = {"camera": (entry_select == camera_option),
                    "user": (entry_select == user_option),
                    "task": (entry_select == task_option),
-                   "rule": (entry_select == rule_option),
                    "video": (entry_select == video_option)}
         
         return lut_out
@@ -184,11 +181,6 @@ class Edit_Selector:
             self.no_selection_quit()
             
         return video_name, video_path
-    
-    # .................................................................................................................
-    
-    def rule(self, camera_select, user_select, task_select, rule_select = None):
-        raise NotImplementedError
 
     # .................................................................................................................
     
@@ -219,7 +211,6 @@ def parse_selection_args(custom_arg_parser_function = None, *,
                          show_camera = True,
                          show_user = True,
                          show_task = True,
-                         show_rule = True,
                          show_video = True):
     
     # Construct the argument parser
@@ -242,12 +233,6 @@ def parse_selection_args(custom_arg_parser_function = None, *,
                         default = None,
                         type = str,
                         help="Task selection")
-    
-    if show_rule:
-        ap.add_argument("-r", "--rule",
-                        default = None,
-                        type = str,
-                        help="Rule selection")
     
     if show_video:
         ap.add_argument("-v", "--video",

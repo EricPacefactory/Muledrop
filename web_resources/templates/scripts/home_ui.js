@@ -1,8 +1,8 @@
 
 // --------------------------------------------------------------------------------------------------------------------
 // Flask provides variables for selections
-// selections_global = {"camera_select": ..., "user_select": ..., "task_select": ..., "rule_select": ..., "video_select": ...}}
-// project_tree_global = dictionary storing all camera/user/task/rule/video info (console log it to check the structure)
+// selections_global = {"camera_select": ..., "user_select": ..., "task_select": ..., "video_select": ...}}
+// project_tree_global = dictionary storing all camera/user/task/video info (console log it to check the structure)
 // redirected_global = boolean indicating whether the user was redirected to this page (eg. due to missing selections)
 // --------------------------------------------------------------------------------------------------------------------
 
@@ -159,7 +159,7 @@ function post_selections_to_server(debug_feedback = false){
 function clear_selection_chain(select_type) {
 
     // Clear dependent selections when a selection is altered
-    //      For example, if the camera selection is changed, the video/user/task/rule selections ...
+    //      For example, if the camera selection is changed, the video/user/task selections ...
     //      ... generally don't carry over to a different camera, so they should be cleared!
     switch(select_type) {
 
@@ -167,21 +167,14 @@ function clear_selection_chain(select_type) {
         selections_global["user_select"] = null;
         selections_global["task_select"] = null;
         selections_global["video_select"] = null;
-        selections_global["rule_select"] = null;
         break;
 
         case "user_select":
         selections_global["task_select"] = null;
-        selections_global["rule_select"] = null;
         break;
 
         case "task_select":
-        selections_global["rule_select"] = null;
         break;
-
-        case "rule_select":
-        // Do nothing
-        break
 
         case "video_select":
         // Do nothing
@@ -239,9 +232,8 @@ function dropdown_menu_item_callback(select_type){
 
 function incomplete_selection_alert(){
 
-    // Figure out if any selections are null (not including 'rule_select', if present)
-    const relevant_selections = Object.entries(selections_global).filter(([key, val]) => key != "rule_select");
-    const has_null_selections = relevant_selections.flat().includes(null);
+    // Figure out if any selections are null
+    const has_null_selections = selections_global.flat().includes(null);
 
     // If we got redirected to this page, alert if not all selections have been made
     if(redirected_global && has_null_selections) {

@@ -487,7 +487,7 @@ def example_message(script_arguments):
 #%% Parse arguments
 
 # Get arguments for this script call
-script_args = parse_selection_args(custom_arguments, show_rule = False)
+script_args = parse_selection_args(custom_arguments)
 camera_select = script_args["camera"]
 user_select = script_args["user"]
 task_select = script_args["task"]
@@ -520,7 +520,7 @@ creator = Edit_Creator(edit_selector)
 # Have user select an entity to create
 entity_select = script_entity_select
 if script_entity_select is None:
-    entity_select = edit_selector.entity("create", show_rule = False)
+    entity_select = edit_selector.entity("create")
 
 if entity_select["camera"]:
     creator.camera(camera_select, dupe_from)

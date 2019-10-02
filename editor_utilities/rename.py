@@ -206,11 +206,6 @@ class Edit_Renamer:
         self._rename_video(camera_select, video_path, new_name)
     
     # .................................................................................................................
-        
-    def rule(self, camera_select = None, user_select = None, task_select = None, rule_select = None, new_name = None):
-        raise NotImplementedError
-    
-    # .................................................................................................................
     # .................................................................................................................
     
 # ---------------------------------------------------------------------------------------------------------------------
@@ -307,11 +302,6 @@ def custom_arguments(argparser):
                            type = str,
                            help = "Rename existing video entry")
     
-    argparser.add_argument("-rr", "--rename_rule",
-                           default = None,
-                           type = str,
-                           help = "Rename existing rule entry")
-    
     argparser.add_argument("-x", "--example",
                            default = False,
                            action = "store_true",
@@ -327,8 +317,7 @@ def parse_rename_selection(script_arguments):
     arg_entity_select = {"camera": script_arguments["rename_camera"],
                          "user": script_arguments["rename_user"],
                          "task": script_arguments["rename_task"],
-                         "video": script_arguments["rename_video"],
-                         "rule": script_arguments["rename_rule"]}
+                         "video": script_arguments["rename_video"]}
     
     # Return different things depending on whether 0, 1 or >1 new entity renaming flags were provided
     total_true = sum([int(each_name is not None) for each_name in arg_entity_select.values()])
@@ -369,7 +358,6 @@ def example_message(script_arguments):
           "Therefore, you'll need to provide the parent selections as follows:",
           "  rename user: requires camera selection (-c)",
           "  rename task: requires camera (-c) and user selection (-u)",
-          "  rename rule: requires camera (-c), user (-u) and task selection (-t)",
           "  rename video: requires camera selection (-c)",
           "",
           "***** EXAMPLE USAGE *****",
@@ -381,7 +369,7 @@ def example_message(script_arguments):
           "python3 rename.py -c 'SomeCam' -u 'OldWebUser' -ru 'NewUserName'",
           "",
           "Task renaming:",
-          "python3 rename.py -c 'ExistingCamera' -u 'ExistingUser' -t 'OldTask' -nt 'NewTaskName'",
+          "python3 rename.py -c 'ExistingCamera' -u 'ExistingUser' -t 'OldTask' -rt 'NewTaskName'",
           "",
           "Video renaming:",
           "python3 rename.py -c 'A_Cam' -v 'oldfile.avi' -rv 'newfile.avi'",
@@ -402,7 +390,6 @@ camera_select = script_args["camera"]
 user_select = script_args["user"]
 task_select = script_args["task"]
 video_select = script_args["video"]
-rule_select = script_args["rule"]
 
 # Get the entity selection from input arguments (if provided)
 script_entity_select, new_name = parse_rename_selection(script_args)
@@ -441,9 +428,6 @@ if entity_select["user"]:
 if entity_select["task"]:
     renamer.task(camera_select, user_select, task_select, new_name)
 
-if entity_select["rule"]:
-    renamer.rule(camera_select, user_select, task_select, rule_select, new_name)
-
 if entity_select["video"]:
     renamer.video(camera_select, video_select, new_name)
     
@@ -453,6 +437,5 @@ if entity_select["video"]:
 
 '''
 TODO:
-    - Add rule renaming
     - Add logging
 '''

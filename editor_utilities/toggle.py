@@ -204,11 +204,6 @@ class Edit_Toggler:
         self._toggle_video(camera_select, video_path, flip_state)
         
     # .................................................................................................................
-        
-    def rule(self, camera_select = None, user_select = None, task_select = None, rule_select = None, flip_state = True):
-        raise NotImplementedError
-    
-    # .................................................................................................................
     # .................................................................................................................
     
 # ---------------------------------------------------------------------------------------------------------------------
@@ -329,11 +324,6 @@ def custom_arguments(argparser):
                            action = "store_true",
                            help = "Toggle video entry")
     
-    argparser.add_argument("-er", "--toggle_rule",
-                           default = False,
-                           action = "store_true",
-                           help = "Toggle rule entry")
-    
     argparser.add_argument("-x", "--example",
                            default = False,
                            action = "store_true",
@@ -349,8 +339,7 @@ def parse_toggle_selection(script_arguments):
     arg_entity_select = {"camera": script_arguments["toggle_camera"],
                          "user": script_arguments["toggle_user"],
                          "task": script_arguments["toggle_task"],
-                         "video": script_arguments["toggle_video"],
-                         "rule": script_arguments["toggle_rule"]}
+                         "video": script_arguments["toggle_video"]}
     
     # Return different things depending on whether 0, 1 or >1 new entity toggling flags were provided
     total_true = sum([int(each_flag) for each_flag in arg_entity_select.values()])
@@ -387,7 +376,6 @@ def example_message(script_arguments):
           "Therefore, you'll need to provide the parent selections as follows:",
           "  toggle user: requires camera selection (-c)",
           "  toggle task: requires camera (-c) and user selection (-u)",
-          "  toggle rule: requires camera (-c), user (-u) and task selection (-t)",
           "  toggle video: requires camera selection (-c)",
           "",
           "***** EXAMPLE USAGE *****",
@@ -420,7 +408,6 @@ camera_select = script_args["camera"]
 user_select = script_args["user"]
 task_select = script_args["task"]
 video_select = script_args["video"]
-rule_select = script_args["rule"]
 
 # Get the entity selection from input arguments (if provided)
 script_entity_select = parse_toggle_selection(script_args)
@@ -460,9 +447,6 @@ if entity_select["user"]:
 if entity_select["task"]:
     toggler.task(camera_select, user_select, task_select)
 
-if entity_select["rule"]:
-    toggler.rule(camera_select, user_select, task_select, rule_select)
-    
 if entity_select["video"]:
     toggler.video(camera_select, video_select)
     
@@ -472,6 +456,5 @@ if entity_select["video"]:
 
 '''
 TODO:
-    - Add rule toggling
     - Add logging
 '''

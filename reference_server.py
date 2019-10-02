@@ -111,13 +111,11 @@ def parse_args():
     
 def get_list_of_utilities(web_resources_folder = "web_resources",
                           utilities_folder = "configuration_utilities", 
-                          core_folder = "core", 
-                          rule_folder = "rules"):
+                          core_folder = "core"):
         
-    # Build pathing to core/rules folders
+    # Build pathing to the core folder
     file_directory = os.path.dirname(os.path.abspath(__file__))
     core_path = os.path.join(file_directory, web_resources_folder, utilities_folder, core_folder)
-    rule_path = os.path.join(file_directory, web_resources_folder, utilities_folder, rule_folder)
     
     # Get pathing to all the component folders
     core_component_folders = get_folder_list(core_path, return_full_path = True)
@@ -142,17 +140,12 @@ def get_list_of_utilities(web_resources_folder = "web_resources",
             
             # Store data in handy format
             core_files_dict[component_name_only][name_only] = each_filepath
-            
-    # Get a list of all the rule web configurables
-    rule_files_list = get_file_list(rule_path, return_full_path = False)
-    rule_files_list = [each_file for each_file in rule_files_list if os.path.splitext[1] == ".py"]
     
-    return {"core": core_files_dict, 
-            "rule": rule_files_list}
+    return {"core": core_files_dict}
 
 # .....................................................................................................................
 
-def build_run_command_list(python_filepath, camera_select, video_select, task_select, user_select, rule_select,
+def build_run_command_list(python_filepath, camera_select, video_select, task_select, user_select,
                            python_call = "python3"):
     
     # Create base python call (i.e. "python3 filename.py")
@@ -318,7 +311,6 @@ def launch_config_utility(python_file_path,
                           video_select, 
                           task_select, 
                           user_select, 
-                          rule_select,
                           socket_host,
                           socket_port,
                           python_call = "python3"):
@@ -330,7 +322,6 @@ def launch_config_utility(python_file_path,
     camera_args = ["-c", camera_select]
     user_args = ["-u", user_select]
     task_args = ["-t", task_select]
-    #rule_args = ???
     video_args = ["-v", video_select]
     socket_args = ["-sip", str(socket_host), "-sport", str(socket_port)]
     run_command_list = base_args + camera_args + user_args + task_args + video_args + socket_args
@@ -371,7 +362,7 @@ STOPPED HERE
 '''
 
 # Set up selection variables (and use history in debug mode for convenience)
-selections = {"camera": None, "user": None, "task": None, "rule": None, "video": None}
+selections = {"camera": None, "user": None, "task": None, "video": None}
 selections = load_history(None, enable = True) #debug_mode)
 
 # Crash spyder IDE before launching the server, since it doesn't work!
@@ -418,12 +409,6 @@ def core_config_route(core_path = ""):
                            page_title = page_title, 
                            socket_url = socket_url,
                            left_menu_list = core_options_display_list)
-
-# .....................................................................................................................
-
-@server.route("/rule/<python_file>")
-def rule_config_route(python_file):
-    return "<h1>RULE: {}\n</h1><p>But rules don't work now, sorry...</p>".format(python_file)
 
 # .....................................................................................................................
 

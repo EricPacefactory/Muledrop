@@ -180,7 +180,7 @@ class Reference_Tracker(Core_Configurable_Base):
         '''
         Function for getting rid of objects that didn't match up with detection data
             - Don't clear ids here!
-            - Should return a list of dead ids, which can be used be following stages (e.g. rules)
+            - Should return a list of dead ids, which can be used by following stages (e.g. object capture)
                  so that they know if objects are about to be removed and react accordingly
             - Implementation should also keep an internal copy of the dead id list, 
                  for use in clearing ids on the next run() iteration

@@ -215,12 +215,6 @@ class Edit_Deleter:
             
         # If all goes well, ask the user to delete the selected entry
         self._delete_video(camera_select, video_path, confirm_delete)
-        
-    # .................................................................................................................
-        
-    def rule(self, camera_select = None, user_select = None, task_select = None, rule_select = None, 
-             confirm_delete = False):
-        raise NotImplementedError
     
     # .................................................................................................................
     # .................................................................................................................
@@ -329,11 +323,6 @@ def custom_arguments(argparser):
                            action = "store_true",
                            help = "Delete video entry")
     
-    argparser.add_argument("-dr", "--delete_rule",
-                           default = False,
-                           action = "store_true",
-                           help = "Delete rule entry")
-    
     argparser.add_argument("-x", "--example",
                            default = False,
                            action = "store_true",
@@ -349,8 +338,7 @@ def parse_delete_selection(script_arguments):
     arg_entity_select = {"camera": script_arguments["delete_camera"],
                          "user": script_arguments["delete_user"],
                          "task": script_arguments["delete_task"],
-                         "video": script_arguments["delete_video"],
-                         "rule": script_arguments["delete_rule"]}
+                         "video": script_arguments["delete_video"]}
     
     # Return different things depending on whether 0, 1 or >1 new entity deletion flags were provided
     total_true = sum([int(each_flag) for each_flag in arg_entity_select.values()])
@@ -386,7 +374,6 @@ def example_message(script_arguments):
           "Therefore, you'll need to provide the parent selections as follows:",
           "  delete user: requires camera selection (-c)",
           "  delete task: requires camera (-c) and user selection (-u)",
-          "  delete rule: requires camera (-c), user (-u) and task selection (-t)",
           "  delete video: requires camera selection (-c)",
           "",
           "***** EXAMPLE USAGE *****",
@@ -418,7 +405,6 @@ script_args = parse_selection_args(custom_arguments)
 camera_select = script_args["camera"]
 user_select = script_args["user"]
 task_select = script_args["task"]
-rule_select = script_args["rule"]
 video_select = script_args["video"]
 
 # Get the entity selection from input arguments (if provided)
@@ -460,9 +446,6 @@ if entity_select["user"]:
 if entity_select["task"]:
     deleter.task(camera_select, user_select, task_select, confirm_delete)
     
-if entity_select["rule"]:
-    deleter.rule(camera_select, user_select, task_select, rule_select, confirm_delete)
-    
 if entity_select["video"]:
     deleter.video(camera_select, video_select, confirm_delete)
     
@@ -472,6 +455,5 @@ if entity_select["video"]:
 
 '''
 TODO:
-    - Add rule deletion
     - Add logging
 '''

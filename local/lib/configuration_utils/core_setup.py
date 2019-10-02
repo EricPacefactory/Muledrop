@@ -84,7 +84,7 @@ class Core_Bundle:
         self.video_select = video_select
         self.video_wh = video_wh
         
-        # First make sure we have pathing to the rule configs folder
+        # First make sure we have pathing to the core configs folder
         self.core_folder_path = build_core_folder_path(cameras_folder_path, camera_select, user_select, task_select)
         
         # Allocate storage for configured data
@@ -308,7 +308,7 @@ class Core_Bundle:
         script_name = access_info_dict.get("script_name")
         class_name = access_info_dict.get("class_name")
         
-        # Load the given rule object
+        # Load the given core object
         import_dot_path = configurable_dot_path("core", stage_name, script_name)
         Imported_Core_Class = dynamic_import_from_module(import_dot_path, class_name)        
         core_ref = Imported_Core_Class(input_wh)
@@ -423,7 +423,7 @@ class OLD_Core_Bundle:
         self.task_select = task_select
         self.video_wh = video_wh
         
-        # First make sure we have pathing to the rule configs folder
+        # First make sure we have pathing to the core configs folder
         self.core_folder_path = build_core_folder_path(cameras_folder, camera_select, user_select, task_select)
         
         # Load all core config data
@@ -553,7 +553,7 @@ class OLD_Core_Bundle:
         script_name = access_info_dict.get("script_name")
         class_name = access_info_dict.get("class_name")
         
-        # Load the given rule object
+        # Load the given core object
         import_dot_path = configurable_dot_path("core", stage_name, script_name)
         imported_core_class = dynamic_import_from_module(import_dot_path, class_name)        
         core_ref = imported_core_class(input_wh)

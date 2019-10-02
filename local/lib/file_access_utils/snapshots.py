@@ -50,7 +50,6 @@ find_path_to_local()
 #%% Imports
 
 from local.lib.file_access_utils.shared import copy_from_defaults
-from local.lib.file_access_utils.shared import load_with_error_if_missing
 from local.lib.file_access_utils.shared import full_replace_save
 
 from local.lib.file_access_utils.externals import build_externals_folder_path
@@ -90,16 +89,6 @@ def create_default_snapshot_config(project_root_path, user_folder_path):
     copy_from_defaults(project_root_path, 
                        target_defaults_folder = "externals",
                        copy_to_path = user_folder_path)
-
-# .....................................................................................................................
-        
-def load_snapshot_config(cameras_folder, camera_select, user_select, rule_name):
-    
-    # Build load pathing & load the snapshot config data
-    config_file_path = build_snapshots_config_file_path(cameras_folder, camera_select, user_select)
-    snapshot_config_data = load_with_error_if_missing(config_file_path)
-    
-    return snapshot_config_data
 
 # .....................................................................................................................
     

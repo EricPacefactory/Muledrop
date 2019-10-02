@@ -387,8 +387,8 @@ class Tracker_Stage(Reference_Tracker):
         self.dead_tracked_id_list = dead_tobj_id_list
         self.dead_validation_id_list = dead_vobj_id_list
         
-        # Only return the tracked object dead list, since following stages (e.g. rules) don't know about 
-        # validation objects (they only exist for internal bookkeeping)
+        # Only return the tracked object dead list, since following stages (e.g. object metadata capture)
+        # don't know about validation objects (they only exist for internal bookkeeping)
         return dead_tobj_id_list
     
     # .................................................................................................................

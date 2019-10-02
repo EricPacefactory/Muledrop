@@ -56,7 +56,6 @@ from local.lib.file_access_utils.video import build_videos_folder_path, load_vid
 
 from local.lib.file_access_utils.externals import build_externals_folder_path, create_default_externals_config
 from local.lib.file_access_utils.core import create_default_core_configs
-#from local.lib.file_access_utils.rules import build_rule_folder_path, create_default_rule_configs
 from local.lib.file_access_utils.video import create_default_video_configs
 
 from eolib.utils.files import get_folder_list, get_file_list
@@ -154,9 +153,8 @@ def create_task_folder_structure(project_root_path, task_path):
     # Build out the rest of the task folder structure
     create_folder_structure_from_dictionary(task_path, task_folder_structure())
     
-    # Create default core/rule configs
+    # Create default core configs
     create_default_core_configs(project_root_path, task_path)
-    #create_default_rule_configs(project_root_path, task_path)
     
 # .....................................................................................................................
     
@@ -258,23 +256,6 @@ def build_external_list(cameras_folder, camera_select, user_select, show_hidden_
     externals_name_list = [os.path.basename(each_path) for each_path in externals_path_list]
     
     return externals_name_list, externals_path_list
-
-# .....................................................................................................................
-
-def build_rule_list(cameras_folder, camera_select, user_select, task_select, show_hidden_rules = False):
-    
-    # Build path to the selected camera, user folder and tasks folder    
-    rules_folder_path = build_rule_folder_path(cameras_folder, camera_select, user_select, task_select)
-    
-    # Find all rule files
-    rule_path_list = get_file_list(rules_folder_path, 
-                                   show_hidden_files = show_hidden_rules, 
-                                   create_missing_folder = False,
-                                   return_full_path = True,
-                                   allowable_exts_list = [".json"])
-    rule_name_list = [os.path.basename(each_path) for each_path in rule_path_list]
-    
-    return rule_name_list, rule_path_list
     
 # .....................................................................................................................
 
@@ -445,28 +426,9 @@ def _build_task_tree(cameras_folder, camera_select, user_select, show_hidden):
     task_names_list, _ = build_task_list(cameras_folder, camera_select, user_select,
                                          show_hidden_tasks = show_hidden)
     
-    task_tree = {}
-    for each_task in task_names_list:
-        task_tree[each_task] = _build_rule_tree(cameras_folder, camera_select, user_select, each_task, show_hidden)
+    task_tree = {{} for each_task in task_names_list}
     
     return task_tree
-
-# .....................................................................................................................
-
-def _build_rule_tree(cameras_folder, camera_select, user_select, task_select, show_hidden):
-    
-    # (DISABLED FOR NOW, SINCE IT ISN'T IMPLEMENTED!)
-    '''
-    rule_name_list, _ = build_rule_list(cameras_folder, each_camera, each_user, each_task,
-                                        show_hidden_rules = show_hidden)
-    '''
-    rule_name_list = []
-    
-    rule_tree = {}
-    for each_rule in rule_name_list:
-        rule_tree[each_rule] = ""
-    
-    return rule_tree
 
 # .....................................................................................................................
 

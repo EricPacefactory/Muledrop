@@ -41,7 +41,7 @@
     padding: 2em;
 }
 
-/* Wrapper for the configuration links (core/rule/externals) */
+/* Wrapper for the configuration links (core/externals) */
 .home_config_panels{
     /* background-color: #ddd; */
     display: flex;

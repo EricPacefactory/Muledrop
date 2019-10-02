@@ -248,7 +248,6 @@ class Resource_Selector:
         create_func_lut = {"camera": create_camera_folder_structure,
                            "user": create_user_folder_structure,
                            "task": create_task_folder_structure,
-                           "rule": no_create_func,
                            "video": no_create_func}
         
         # Grab one of the creation functions (based on entity type) and use it to create the folder structure
