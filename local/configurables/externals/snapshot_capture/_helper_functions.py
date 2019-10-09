@@ -62,16 +62,17 @@ class Snap_Display(Display_Window_Specification):
     
     # .................................................................................................................
     
-    def __init__(self, layout_index, num_rows, num_columns, initial_display = False):
+    def __init__(self, layout_index, num_rows, num_columns, initial_display = False, drawing_json = None):
         
         # Inherit from parent class
         super().__init__("Snapshots", layout_index, num_rows, num_columns, 
-                         initial_display = initial_display, 
+                         initial_display = initial_display, drawing_json= drawing_json,
                          max_wh = None)
         
     # .................................................................................................................
         
-    def display(self, stage_outputs, configurable_ref, current_frame_index, current_time_sec, current_datetime):
+    def display(self, stage_outputs, configurable_ref, mouse_xy,
+                current_frame_index, current_time_sec, current_datetime):
         
         # Display snapshot data, if available
         new_snap_available = stage_outputs.get("snapshot_capture").get("new_snapshot")
@@ -110,7 +111,8 @@ class Snap_Stats_Display(Display_Window_Specification):
         
     # .................................................................................................................
         
-    def display(self, stage_outputs, configurable_ref, current_frame_index, current_time_sec, current_datetime):
+    def display(self, stage_outputs, configurable_ref, mouse_xy,
+                current_frame_index, current_time_sec, current_datetime):
         
         # Display snapshot data, if available
         new_snap_available = stage_outputs.get("snapshot_capture").get("new_snapshot")

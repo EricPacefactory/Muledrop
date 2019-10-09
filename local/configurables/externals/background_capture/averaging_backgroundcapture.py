@@ -77,55 +77,58 @@ class Background_Capture(Reference_Background_Capture):
         
         # .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . Control Group 1 .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
         
-        cg = self.controls_manager.new_control_group("Capture Controls")
-        
+        self.ctrl_spec.new_control_group("Capture Controls")
         
         self.capture_period_hr = \
-        cg.attach_slider("capture_period_hr", 
-                         label = "Capture Period (H)", 
-                         default_value = 0,
-                         min_value = 0,
-                         max_value = 24,
-                         return_type = int,
-                         zero_referenced = True,
-                         units = "hours",
-                         tooltip = "Number of hours to wait between saving captures")
+        self.ctrl_spec.attach_slider(
+                "capture_period_hr", 
+                label = "Capture Period (H)", 
+                default_value = 0,
+                min_value = 0,
+                max_value = 24,
+                return_type = int,
+                zero_referenced = True,
+                units = "hours",
+                tooltip = "Number of hours to wait between saving captures")
         
         self.capture_period_min = \
-        cg.attach_slider("capture_period_min", 
-                         label = "Capture Period (M)", 
-                         default_value = 5,
-                         min_value = 0,
-                         max_value = 60,
-                         return_type = int,
-                         zero_referenced = True,
-                         units = "minutes",
-                         tooltip = "Number of minutes to wait between saving captures")
+        self.ctrl_spec.attach_slider(
+                "capture_period_min", 
+                label = "Capture Period (M)", 
+                default_value = 5,
+                min_value = 0,
+                max_value = 60,
+                return_type = int,
+                zero_referenced = True,
+                units = "minutes",
+                tooltip = "Number of minutes to wait between saving captures")
         
         self.capture_period_sec = \
-        cg.attach_slider("capture_period_sec", 
-                         label = "Capture Period (S)", 
-                         default_value = 0,
-                         min_value = 0,
-                         max_value = 60,
-                         return_type = int,
-                         zero_referenced = True,
-                         units = "seconds",
-                         tooltip = "Number of seconds to wait between saving captures")
+        self.ctrl_spec.attach_slider(
+                "capture_period_sec", 
+                label = "Capture Period (S)", 
+                default_value = 0,
+                min_value = 0,
+                max_value = 60,
+                return_type = int,
+                zero_referenced = True,
+                units = "seconds",
+                tooltip = "Number of seconds to wait between saving captures")
         
         # .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . Control Group 2 .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
         
-        ng = self.controls_manager.new_control_group("Generation Controls")
+        self.ctrl_spec.new_control_group("Generation Controls")
         
         self.update_weighting = \
-        ng.attach_slider("update_weighting",
-                         label = "Update weighting",
-                         default_value = 0.5,
-                         min_value = 0.01, max_value = 1.0, step_size = 1/100,
-                         zero_referenced = True,
-                         return_type = float,
-                         units = "weighting",
-                         tooltip = "Amount of weighting given to newest capture versus previous generated background")
+        self.ctrl_spec.attach_slider(
+                "update_weighting",
+                label = "Update weighting",
+                default_value = 0.5,
+                min_value = 0.01, max_value = 1.0, step_size = 1/100,
+                zero_referenced = True,
+                return_type = float,
+                units = "weighting",
+                tooltip = "Amount of weighting given to newest capture versus previous generated background")
         
         
         # Limit the number of captures used by this background generation style, since it doesn't need much storage

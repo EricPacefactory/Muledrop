@@ -58,7 +58,7 @@ from scipy.interpolate import UnivariateSpline
 
 from local.lib.selection_utils import Resource_Selector
 
-from local.lib.configuration_utils.local_ui.local_windows_base import Simple_Window
+from local.lib.configuration_utils.local_ui.windows_base import Simple_Window
 
 from eolib.utils.read_write import load_json
 

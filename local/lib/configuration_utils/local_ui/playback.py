@@ -53,8 +53,8 @@ find_path_to_local()
 import cv2
 import numpy as np
 
-from local.lib.configuration_utils.local_ui.local_windows_base import Simple_Window
-
+from local.lib.configuration_utils.local_ui.windows_base import Simple_Window
+from local.lib.configuration_utils.local_ui.drawing import waitKey_ex
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define Classes
@@ -128,10 +128,10 @@ class Local_Playback_Controls(Simple_Window):
     def update(self):
         
         frame_delay = self._read_loop_controls()
-        req_break, keypress = self._read_keypress(frame_delay)        
+        req_break, keycode, modifier_code = self._read_keypress(frame_delay)        
         video_reset = self._update_video_state()
         
-        return req_break, keypress, video_reset
+        return req_break, video_reset, keycode, modifier_code
      
     # .................................................................................................................
     
@@ -162,70 +162,70 @@ class Local_Playback_Controls(Simple_Window):
             return True, -1
         
         # Get keypress
-        keypress = cv2.waitKey(frame_delay_ms) & 0xFF
-        req_break = (keypress in self.quit_keys)
+        keycode, modifier = waitKey_ex(frame_delay_ms)
+        req_break = (keycode in self.quit_keys)
         
         # Start loop set index key
-        if keypress == self.start_loop_key:
+        if keycode == self.start_loop_key:
             self.start_loop_index = self.vreader.get_current_frame()
             self.set_trackbar("S", self.start_loop_index)
             
         # End loop set index key
-        elif keypress == self.end_loop_key:
+        elif keycode == self.end_loop_key:
             self.end_loop_index = self.vreader.get_current_frame()
             self.set_trackbar("E", self.end_loop_index)
             
         # Start loop decrement key
-        elif keypress == self.start_loop_down_key:
+        elif keycode == self.start_loop_down_key:
             self.start_loop_index = max(0, self.start_loop_index - 10)
             self.set_trackbar("S", self.start_loop_index)
         
         # End loop increment key
-        elif keypress == self.end_loop_up_key:
+        elif keycode == self.end_loop_up_key:
             self.end_loop_index = min(self._max_frame, self.end_loop_index + 10)
             self.set_trackbar("E", self.end_loop_index)
             
         # Skip backward key
-        elif keypress == self.skip_backward_key:
+        elif keycode == self.skip_backward_key:
             curr_frame = self.vreader.get_current_frame()
             new_frame_index = max(0, (curr_frame - self.frame_skip))
             self._update_frame_position_trackbar(new_frame_index)
             #self.vreader.set_current_frame(new_frame_index)
             
         # Skip forward key
-        elif keypress == self.skip_forward_key:
+        elif keycode == self.skip_forward_key:
             curr_frame = self.vreader.get_current_frame()
             new_frame_index = min(self._max_frame, (curr_frame + self.frame_skip))
             self._update_frame_position_trackbar(new_frame_index)
             #self.vreader.set_current_frame(new_frame_index)
         
         # Decrease frame delay key
-        elif keypress == self.dec_delay_key:
+        elif keycode == self.dec_delay_key:
             self.frame_delay_ms = max(0, self.frame_delay_ms - 10)
             self.set_trackbar("Frame Delay (ms)", self.frame_delay_ms)
         
         # Increase frame delay key
-        elif keypress == self.inc_delay_key:
+        elif keycode == self.inc_delay_key:
             self.frame_delay_ms = min(1000, self.frame_delay_ms + 10)
             self.set_trackbar("Frame Delay (ms)", self.frame_delay_ms)
             
         # Pause/unpause key
-        elif keypress == self.pause_key:
+        elif keycode == self.pause_key:
             self.paused = not self.paused
             
         # Save settings key
-        elif keypress == self.save_settings_key:
+        elif keycode == self.save_settings_key:
             self._save_settings()
             
         # Reset settings key
-        elif keypress == self.reset_settings_key:
+        elif keycode == self.reset_settings_key:
             self._reset_settings()
         
         
         # To figure out key press values....
-        #print(keypress)
+        #print(keycode)
         
-        return req_break, keypress
+        return req_break, keycode, modifier
         
     # .................................................................................................................
     

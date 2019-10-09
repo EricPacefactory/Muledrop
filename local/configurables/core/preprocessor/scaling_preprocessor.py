@@ -75,43 +75,47 @@ class Preprocessor_Stage(Reference_Preprocessor):
         
         # .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . Control Group 1 .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
         
-        sg = self.controls_manager.new_control_group("Scaling Controls")
+        self.ctrl_spec.new_control_group("Scaling Controls")
         
         self.enable_transform = \
-        sg.attach_toggle("enable_transform", 
-                         label = "Enable Transform", 
-                         default_value = True,
-                         visible = True)
+        self.ctrl_spec.attach_toggle(
+                "enable_transform", 
+                label = "Enable Transform", 
+                default_value = True,
+                visible = True)
         
         self.scale_factor = \
-        sg.attach_slider("scale_factor", 
-                         label = "Scaling Factor", 
-                         default_value = 1.0,
-                         min_value = 0.05, max_value = 1.0, step_size = 1/100,
-                         return_type = float,
-                         zero_referenced = True,
-                         units = "percentage",
-                         tooltip = "Scaling factor, relative to video size.")
+        self.ctrl_spec.attach_slider(
+                "scale_factor", 
+                label = "Scaling Factor", 
+                default_value = 1.0,
+                min_value = 0.05, max_value = 1.0, step_size = 1/100,
+                return_type = float,
+                zero_referenced = True,
+                units = "percentage",
+                tooltip = "Scaling factor, relative to video size.")
         
         self.relative_aspect_ratio = \
-        sg.attach_slider("relative_aspect_ratio", 
-                         label = "Relative Aspect Ratio", 
-                         default_value = 1.0,
-                         min_value = -5.0, max_value = 5.0, step_size = 1/10,
-                         return_type = float,
-                         zero_referenced = False,
-                         units = "normalized",
-                         tooltip = "Aspect ratio adjustment, relative to input video frame.")
+        self.ctrl_spec.attach_slider(
+                "relative_aspect_ratio", 
+                label = "Relative Aspect Ratio", 
+                default_value = 1.0,
+                min_value = -5.0, max_value = 5.0, step_size = 1/10,
+                return_type = float,
+                zero_referenced = False,
+                units = "normalized",
+                tooltip = "Aspect ratio adjustment, relative to input video frame.")
         
         self.interpolation_type = \
-        sg.attach_menu("interpolation_type", 
-                       label = "Interpolation", 
-                       default_value = "Nearest Neighbor", 
-                       option_label_value_list = [("Nearest Neighbor", cv2.INTER_NEAREST),
-                                                  ("Bilinear", cv2.INTER_LINEAR),
-                                                  ("Cubic", cv2.INTER_CUBIC)], 
-                               tooltip = "Set the interpolation style for pixels sampled at fractional indices", 
-                               visible = True)
+        self.ctrl_spec.attach_menu(
+                "interpolation_type", 
+                label = "Interpolation", 
+                default_value = "Nearest Neighbor", 
+                option_label_value_list = [("Nearest Neighbor", cv2.INTER_NEAREST),
+                                           ("Bilinear", cv2.INTER_LINEAR),
+                                           ("Cubic", cv2.INTER_CUBIC)], 
+                tooltip = "Set the interpolation style for pixels sampled at fractional indices", 
+                visible = True)
         
     # .................................................................................................................
     

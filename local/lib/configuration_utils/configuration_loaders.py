@@ -55,7 +55,7 @@ import json
 from local.lib.selection_utils import Resource_Selector
 from local.lib.configuration_utils.video_setup import Dummy_vreader
 
-from local.lib.configuration_utils.core_setup import Core_Bundle
+from local.lib.configuration_utils.core_bundle_loader import Core_Bundle
 from local.lib.file_access_utils.video import Playback_Access
 
 from local.lib.file_access_utils.shared import configurable_dot_path, full_replace_save
@@ -611,10 +611,6 @@ class Reconfigurable_Core_Stage_Loader(Reconfigurable_Loader):
         configurable_stage_name, configurable_ref = new_core_bundles_dict.get(self.task_select).last_item()
         config_path = new_core_bundle.final_stage_config_file_paths.get(configurable_stage_name)
         config_dict = new_core_bundle.final_stage_config_dict.get(configurable_stage_name)
-        
-        # Force configuration mode
-        configurable_ref.set_configure_mode()
-        configurable_ref.reconfigure()
         
         # Store configurable reference info
         self.configurable_ref = configurable_ref

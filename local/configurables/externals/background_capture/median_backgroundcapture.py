@@ -80,98 +80,100 @@ class Background_Capture(Reference_Background_Capture):
         
         # .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . Control Group 1 .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
         
-        cg = self.controls_manager.new_control_group("Capture Controls")
+        self.ctrl_spec.new_control_group("Capture Controls")
         
         self.capture_period_hr = \
-        cg.attach_slider("capture_period_hr", 
-                         label = "Capture Period (H)", 
-                         default_value = 0,
-                         min_value = 0,
-                         max_value = 24,
-                         return_type = int,
-                         zero_referenced = True,
-                         units = "hours",
-                         tooltip = "Number of hours to wait between saving captures")
+        self.ctrl_spec.attach_slider(
+                "capture_period_hr", 
+                label = "Capture Period (H)", 
+                default_value = 0,
+                min_value = 0, max_value = 24,
+                return_type = int,
+                zero_referenced = True,
+                units = "hours",
+                tooltip = "Number of hours to wait between saving captures")
         
         self.capture_period_min = \
-        cg.attach_slider("capture_period_min", 
-                         label = "Capture Period (M)", 
-                         default_value = 15,
-                         min_value = 0,
-                         max_value = 60,
-                         return_type = int,
-                         zero_referenced = True,
-                         units = "minutes",
-                         tooltip = "Number of minutes to wait between saving captures")
+        self.ctrl_spec.attach_slider(
+                "capture_period_min", 
+                label = "Capture Period (M)", 
+                default_value = 15,
+                min_value = 0, max_value = 60,
+                return_type = int,
+                zero_referenced = True,
+                units = "minutes",
+                tooltip = "Number of minutes to wait between saving captures")
         
         self.capture_period_sec = \
-        cg.attach_slider("capture_period_sec", 
-                         label = "Capture Period (S)", 
-                         default_value = 0,
-                         min_value = 0,
-                         max_value = 60,
-                         return_type = int,
-                         zero_referenced = True,
-                         units = "seconds",
-                         tooltip = "Number of seconds to wait between saving captures")
+        self.ctrl_spec.attach_slider(
+                "capture_period_sec", 
+                label = "Capture Period (S)", 
+                default_value = 0,
+                min_value = 0, max_value = 60,
+                return_type = int,
+                zero_referenced = True,
+                units = "seconds",
+                tooltip = "Number of seconds to wait between saving captures")
         
         
         # .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . Control Group 2 .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
         
-        ng = self.controls_manager.new_control_group("Generation Controls")
+        self.ctrl_spec.new_control_group("Generation Controls")
         
         self.generation_period_hr = \
-        ng.attach_slider("generation_period_hr",
-                         label = "Generation Period (H)",
-                         default_value = 1,
-                         min_value = 0,
-                         max_value = 24,
-                         return_type = int,
-                         zero_referenced = True,
-                         units = "hours",
-                         tooltip = "Number of hours to wait between generating new background")
+        self.ctrl_spec.attach_slider(
+                "generation_period_hr",
+                label = "Generation Period (H)",
+                default_value = 1,
+                min_value = 0, max_value = 24,
+                return_type = int,
+                zero_referenced = True,
+                units = "hours",
+                tooltip = "Number of hours to wait between generating new background")
         
         self.generation_period_min = \
-        ng.attach_slider("generation_period_min",
-                         label = "Generation Period (M)",
-                         default_value = 0,
-                         min_value = 0,
-                         max_value = 60,
-                         return_type = int,
-                         zero_referenced = True,
-                         units = "minutes",
-                         tooltip = "Number of minutes to wait between generating new background")
+        self.ctrl_spec.attach_slider(
+                "generation_period_min",
+                label = "Generation Period (M)",
+                default_value = 0,
+                min_value = 0, max_value = 60,
+                return_type = int,
+                zero_referenced = True,
+                units = "minutes",
+                tooltip = "Number of minutes to wait between generating new background")
         
         self.generation_period_sec = \
-        ng.attach_slider("generation_period_sec",
-                         label = "Generation Period (S)",
-                         default_value = 0,
-                         min_value = 0,
-                         max_value = 60,
-                         return_type = int,
-                         zero_referenced = True,
-                         units = "seconds",
-                         tooltip = "Number of seconds to wait between generating new background")
+        self.ctrl_spec.attach_slider(
+                "generation_period_sec",
+                label = "Generation Period (S)",
+                default_value = 0,
+                min_value = 0, max_value = 60,
+                return_type = int,
+                zero_referenced = True,
+                units = "seconds",
+                tooltip = "Number of seconds to wait between generating new background")
         
         self.min_captures_to_use = \
-        ng.attach_slider("min_captures_to_use",
-                         label = "Minimum Captures Per Update",
-                         default_value = 7,
-                         min_value = 3, max_value = 50,
-                         zero_referenced = True,
-                         return_type = int,
-                         units = "samples",
-                         tooltip = "Minimum number of captures to use when generating new background images")
+        self.ctrl_spec.attach_slider(
+                "min_captures_to_use",
+                label = "Minimum Captures Per Update",
+                default_value = 7,
+                min_value = 3, max_value = 50,
+                zero_referenced = True,
+                return_type = int,
+                units = "samples",
+                tooltip = "Minimum number of captures to use when generating new background images")
         
         self.max_captures_to_use = \
-        ng.attach_slider("max_captures_to_use",
-                         label = "Maximum Captures Per Update",
-                         default_value = 25,
-                         min_value = 3, max_value = 50,
-                         zero_referenced = True,
-                         return_type = int,
-                         units = "samples",
-                         tooltip = "Maximum number of captures to use when generating new background images")
+        self.ctrl_spec.attach_slider(
+                "max_captures_to_use",
+                label = "Maximum Captures Per Update",
+                default_value = 25,
+                min_value = 3, max_value = 50,
+                zero_referenced = True,
+                return_type = int,
+                units = "samples",
+                tooltip = "Maximum number of captures to use when generating new background images")
         
         # Limit the number of saved backgrounds, just enough to see what's going on
         self.set_max_generated_count(15)

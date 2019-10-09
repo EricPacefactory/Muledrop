@@ -82,7 +82,7 @@ class Snap_Stats(Snap_Stats_Display):
 # Make all required selections and setup/configure everything
 loader = Reconfigurable_Snapshot_Capture_Loader("fixed_period_snapcapture")
 loader.selections()
-configurable_ref = loader.setup_all()
+configurable_ref = loader.setup_all(__file__)
 
 # Set up object to handle all video processing
 main_process = \
@@ -110,15 +110,4 @@ last_frame_index, last_time_sec, last_datetime = main_process.debug_fsd_time_arg
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Scrap
 
-
-STOPPED HERE
-- NEXT STEPS:
-    - REDO CORE STAGE LOADING
-    - THEN TEST RECONFIGURE CORE SCRIPT
-    - BEGIN REDOING CORE STATE CONFIG UTILS
-        - NEED TO KEEP WEB UI IN MIND
-        - ALSO NEED TO KEEP DRAWING STUFF IN MIND
-            --> Will likely need to revisit 'controls manager' and change to a more general 'controls_spec' with
-                ability to 'attach_drawing_control'
-- NEED TO CLEAN UP CORE BUNDLE LOADING, IDEALLY PLACE FILE ACCESS INTO CONFIGURATION LOADER
 

@@ -73,82 +73,101 @@ class Detector_Stage(Reference_Detector):
         self._detection_ref_list = []
         self._rejection_ref_list = []
         
+        # Allocate storage for configuration visualization variables
+        self._x_follower_size_px = 0
+        self._y_follower_size_px = 0
+        
         # .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . Control Group 1 .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
         
-        dg = self.controls_manager.new_control_group("Display Controls")
+        self.ctrl_spec.new_control_group("Display Controls")
         
         self._show_outlines = \
-        dg.attach_toggle("_show_outlines",
-                         label = "Show Outlines",
-                         default_value = True,
-                         tooltip = "Toggle the display of detection outlines.",
-                         save_with_config = False)
+        self.ctrl_spec.attach_toggle(
+                "_show_outlines",
+                label = "Show Outlines",
+                default_value = True,
+                tooltip = "Toggle the display of detection outlines.",
+                save_with_config = False)
         
         self._show_bounding_boxes = \
-        dg.attach_toggle("_show_bounding_boxes",
-                         label = "Show Bounding Boxes",
-                         default_value = False,
-                         tooltip = "Toggle the display of detection bounding boxes.",
-                         save_with_config = False)
+        self.ctrl_spec.attach_toggle(
+                "_show_bounding_boxes",
+                label = "Show Bounding Boxes",
+                default_value = False,
+                tooltip = "Toggle the display of detection bounding boxes.",
+                save_with_config = False)
         
         self._show_rejections = \
-        dg.attach_toggle("_show_rejections",
-                         label = "Show Rejections",
-                         default_value = True,
-                         tooltip = "Toggle the display of rejected detections (too small or too big).",
-                         save_with_config = False)
+        self.ctrl_spec.attach_toggle(
+                "_show_rejections",
+                label = "Show Rejections",
+                default_value = True,
+                tooltip = "Toggle the display of rejected detections (too small or too big).",
+                save_with_config = False)
+        
+        self._show_minimum_follower = \
+        self.ctrl_spec.attach_toggle(
+                "_show_minimum_follower",
+                label = "Show Minimum Detection Size",
+                default_value = True,
+                tooltip = "Toggle the display of minimum detection size indicator.",
+                save_with_config = False)
+        
+        self._show_maximum_follower = \
+        self.ctrl_spec.attach_toggle(
+                "_show_maximum_follower",
+                label = "Show Maximum Detection Size",
+                default_value = True,
+                tooltip = "Toggle the display of maximum detection size indicator.",
+                save_with_config = False)
         
         # .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . Control Group 2 .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
         
-        wg = self.controls_manager.new_control_group("Width Controls")
+        self.ctrl_spec.new_control_group("Minimum Size Controls")
         
         self.min_width_norm = \
-        wg.attach_slider("min_width_norm", 
-                         label = "Minimum Width", 
-                         default_value = 0.10,
-                         min_value = 0.0,
-                         max_value = 1.0,
-                         step_size = 1/100,
-                         return_type = float,
-                         units = "normalized",
-                         tooltip = "Minimum width required for a detection to be considered valid.")
+        self.ctrl_spec.attach_slider(
+                "min_width_norm", 
+                label = "Minimum Width", 
+                default_value = 0.10,
+                min_value = 0.0, max_value = 1.0, step_size = 1/100,
+                return_type = float,
+                units = "normalized",
+                tooltip = "Minimum width required for a detection to be considered valid.")
         
-        self.max_width_norm = \
-        wg.attach_slider("max_width_norm", 
-                         label = "Maximum Width", 
-                         default_value = 0.95,
-                         min_value = 0.0,
-                         max_value = 1.5,
-                         step_size = 1/100,
-                         return_type = float,
-                         units = "normalized",
-                         tooltip = "Maximum width allowed for a detection to be considered valid.")
+        self.min_height_norm = \
+        self.ctrl_spec.attach_slider(
+                "min_height_norm", 
+                label = "Minimum Height", 
+                default_value = 0.10,
+                min_value = 0.0, max_value = 1.0, step_size = 1/100,
+                return_type = float,
+                units = "normalized",
+                tooltip = "Minimum height required for a detection to be considered valid.")
         
         # .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . Control Group 3 .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
         
-        hg = self.controls_manager.new_control_group("Height Controls")
+        self.ctrl_spec.new_control_group("Maximum Size Controls")
         
-        self.min_height_norm = \
-        hg.attach_slider("min_height_norm", 
-                         label = "Minimum Height", 
-                         default_value = 0.10,
-                         min_value = 0.0,
-                         max_value = 1.0,
-                         step_size = 1/100,
-                         return_type = float,
-                         units = "normalized",
-                         tooltip = "Minimum height required for a detection to be considered valid.")
+        self.max_width_norm = \
+        self.ctrl_spec.attach_slider(
+                "max_width_norm", 
+                label = "Maximum Width", 
+                default_value = 0.95,
+                min_value = 0.0, max_value = 1.5, step_size = 1/100,
+                return_type = float,
+                units = "normalized",
+                tooltip = "Maximum width allowed for a detection to be considered valid.")
         
         self.max_height_norm = \
-        hg.attach_slider("max_height_norm", 
-                         label = "Maximum Height", 
-                         default_value = 0.95,
-                         min_value = 0.0,
-                         max_value = 1.5,
-                         step_size = 1/100,
-                         return_type = float,
-                         units = "normalized",
-                         tooltip = "Maximum height allowed for a detection to be considered valid.")
+        self.ctrl_spec.attach_slider(
+                "max_height_norm", 
+                label = "Maximum Height", 
+                default_value = 0.95,
+                min_value = 0.0, max_value = 1.5, step_size = 1/100,
+                return_type = float,
+                units = "normalized",
+                tooltip = "Maximum height allowed for a detection to be considered valid.")
     
     # .................................................................................................................
     

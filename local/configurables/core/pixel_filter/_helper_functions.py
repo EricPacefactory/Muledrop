@@ -61,16 +61,17 @@ class Color_Filtered(Display_Window_Specification):
     
     # .................................................................................................................
     
-    def __init__(self, layout_index, num_rows, num_columns, initial_display = False):
+    def __init__(self, layout_index, num_rows, num_columns, initial_display = False, drawing_json = None):
         
         # Inherit from parent class
         super().__init__("Color Filtered", layout_index, num_rows, num_columns, 
-                         initial_display = initial_display, 
+                         initial_display = initial_display, drawing_json = drawing_json,
                          max_wh = None)
         
     # .................................................................................................................
         
-    def display(self, stage_outputs, configurable_ref, current_frame_index, current_time_sec, current_datetime):
+    def display(self, stage_outputs, configurable_ref, mouse_xy,
+                current_frame_index, current_time_sec, current_datetime):
         
         return color_masked(stage_outputs, configurable_ref)
         

@@ -77,7 +77,8 @@ class Dying_Display(Display_Window_Specification):
         
     # .................................................................................................................
         
-    def display(self, stage_outputs, configurable_ref, current_frame_index, current_time_sec, current_datetime):
+    def display(self, stage_outputs, configurable_ref, mouse_xy,
+                current_frame_index, current_time_sec, current_datetime):
         
         # Get configuration-only data out of the object
         dead_id_list = configurable_ref._config_dead_ids
@@ -116,7 +117,8 @@ class Elder_Display(Display_Window_Specification):
         
     # .................................................................................................................
         
-    def display(self, stage_outputs, configurable_ref, current_frame_index, current_time_sec, current_datetime):
+    def display(self, stage_outputs, configurable_ref, mouse_xy,
+                current_frame_index, current_time_sec, current_datetime):
         
         # Get configuration-only data out of the object
         elder_id_list = configurable_ref._config_elder_ids

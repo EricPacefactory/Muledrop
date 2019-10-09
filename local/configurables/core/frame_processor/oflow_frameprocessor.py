@@ -87,117 +87,123 @@ class Frame_Processor_Stage(Reference_Frame_Processor):
         
         # .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . Control Group 1 .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
         
-        mg = self.controls_manager.new_control_group("Pre-Flow Controls")
+        self.ctrl_spec.new_control_group("Pre-Flow Controls")
         
         self.downscale_factor = \
-        mg.attach_slider("downscale_factor", 
-                         label = "Downscaling", 
-                         default_value = 0.15,
-                         min_value = 0.1,
-                         max_value = 1.0,
-                         step_size = 1/100,
-                         return_type = float,
-                         zero_referenced = True)
+        self.ctrl_spec.attach_slider(
+                "downscale_factor", 
+                label = "Downscaling", 
+                default_value = 0.15,
+                min_value = 0.1, max_value = 1.0, step_size = 1/100,
+                return_type = float,
+                zero_referenced = True)
         
         self.threshold = \
-        mg.attach_slider("threshold", 
-                         label = "Threshold", 
-                         default_value = 0,
-                         min_value = 0,
-                         max_value = 255,
-                         return_type = int)
+        self.ctrl_spec.attach_slider(
+                "threshold", 
+                label = "Threshold", 
+                default_value = 0,
+                min_value = 0,
+                max_value = 255,
+                return_type = int)
         
         self.blur_size = \
-        mg.attach_slider("blur_size", 
-                         label = "Blurriness", 
-                         default_value = 1,
-                         min_value = 0,
-                         max_value = self._max_kernel_size,
-                         return_type = int)
+        self.ctrl_spec.attach_slider(
+                "blur_size", 
+                label = "Blurriness", 
+                default_value = 1,
+                min_value = 0,
+                max_value = self._max_kernel_size,
+                return_type = int)
         
         self.flow_depth = \
-        mg.attach_slider("flow_depth", 
-                         label = "Flow Depth", 
-                         default_value = 1,
-                         min_value = 0,
-                         max_value = self._max_deck_length,
-                         return_type = int)
+        self.ctrl_spec.attach_slider(
+                "flow_depth", 
+                label = "Flow Depth", 
+                default_value = 1,
+                min_value = 0,
+                max_value = self._max_deck_length,
+                return_type = int)
     
         # .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . Control Group 3 .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
         
-        og = self.controls_manager.new_control_group("Optical Flow Controls")
+        self.ctrl_spec.new_control_group("Optical Flow Controls")
         
         self.of_pyr_scale = \
-        og.attach_slider("of_pyr_scale", 
-                         label = "Pyramid Scaling", 
-                         default_value = 0.5,
-                         min_value = 0.01,
-                         max_value = 0.95,
-                         step_size = 1/100,
-                         zero_referenced = True,
-                         return_type = float)
+        self.ctrl_spec.attach_slider(
+                "of_pyr_scale", 
+                label = "Pyramid Scaling", 
+                default_value = 0.5,
+                min_value = 0.01, max_value = 0.95, step_size = 1/100,
+                zero_referenced = True,
+                return_type = float)
         
         self.of_levels = \
-        og.attach_slider("of_levels", 
-                         label = "Pyramid Layers", 
-                         default_value = 3,
-                         min_value = 1,
-                         max_value = 10,
-                         zero_referenced = True,
-                         return_type = int)
+        self.ctrl_spec.attach_slider(
+                "of_levels", 
+                label = "Pyramid Layers", 
+                default_value = 3,
+                min_value = 1,
+                max_value = 10,
+                zero_referenced = True,
+                return_type = int)
         
         self.of_winsize = \
-        og.attach_slider("of_winsize", 
-                         label = "Window Size", 
-                         default_value = 5,
-                         min_value = 1,
-                         max_value = 50,
-                         zero_referenced = True,
-                         return_type = int)
+        self.ctrl_spec.attach_slider(
+                "of_winsize", 
+                label = "Window Size", 
+                default_value = 5,
+                min_value = 1,
+                max_value = 50,
+                zero_referenced = True,
+                return_type = int)
         
         self.of_iterations = \
-        og.attach_slider("of_iterations", 
-                         label = "Iterations", 
-                         default_value = 8,
-                         min_value = 1,
-                         max_value = 25,
-                         zero_referenced = True,
-                         return_type = int)
+        self.ctrl_spec.attach_slider(
+                "of_iterations", 
+                label = "Iterations", 
+                default_value = 8,
+                min_value = 1,
+                max_value = 25,
+                zero_referenced = True,
+                return_type = int)
         
         self.of_poly_n = \
-        og.attach_slider("of_poly_n", 
-                         label = "Pixel Neighborhood", 
-                         default_value = 5,
-                         min_value = 1,
-                         max_value = 25,
-                         zero_referenced = True,
-                         return_type = int)
+        self.ctrl_spec.attach_slider(
+                "of_poly_n", 
+                label = "Pixel Neighborhood", 
+                default_value = 5,
+                min_value = 1,
+                max_value = 25,
+                zero_referenced = True,
+                return_type = int)
 
         self.of_poly_sigma = \
-        og.attach_slider("of_poly_sigma", 
-                         label = "Gaussian StDev", 
-                         default_value = 1.2,
-                         min_value = 0.5,
-                         max_value = 1.5,
-                         step_size = 1/100,
-                         zero_referenced = True,
-                         return_type = float)
+        self.ctrl_spec.attach_slider(
+                "of_poly_sigma", 
+                label = "Gaussian StDev", 
+                default_value = 1.2,
+                min_value = 0.5, max_value = 1.5, step_size = 1/100,
+                zero_referenced = True,
+                return_type = float)
     
         self.of_flags = \
-        og.attach_menu("of_flags",
-                       label = "Flags",
-                       default_value = "None", 
-                       option_label_value_list = [("None", 0),
-                                                  ("Gaussian Window", cv2.OPTFLOW_FARNEBACK_GAUSSIAN)],
-                       tooltip = "")
+        self.ctrl_spec.attach_menu(
+                "of_flags",
+                label = "Flags",
+                default_value = "None", 
+                option_label_value_list = [("None", 0),
+                                           ("Gaussian Window", cv2.OPTFLOW_FARNEBACK_GAUSSIAN)],
+                tooltip = "")
         
         self.of_output_scale = \
-        og.attach_slider("of_output_scale",
-                         label = "Output Scale", 
-                         default_value = 500,
-                         min_value = 0, max_value = 50000, step_size = 1,
-                         zero_referenced = True,
-                         return_type = int)
+        self.ctrl_spec.attach_slider(
+                "of_output_scale",
+                label = "Output Scale", 
+                default_value = 500,
+                min_value = 0, max_value = 50000, step_size = 1,
+                zero_referenced = True,
+                return_type = int)
         
     # .................................................................................................................
     

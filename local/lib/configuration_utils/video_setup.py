@@ -87,12 +87,17 @@ class Dummy_vreader:
     def __repr__(self):
         return "Video source: {} ({}x{} @ {:.1f}Hz)".format(self.video_source, *self.video_wh, self.video_fps)
 
-    def _get_time_file(self):
-
+    def _get_time_file(self, req_break):
+        
+        # If the video ends, don't bother reading times
+        if req_break:
+            return None, None, None
+        
         # Get the current time into the video file, since we'll use this as time elapsed/time of day
         video_time_sec = self.get_current_video_time_sec()
         video_frame_index = self.get_current_frame_file()
         
+        # Figure out shared timing parameters
         current_frame_index, current_time_sec, current_datetime = \
         self.timekeeper.get_video_timing(video_time_sec, video_frame_index)
 
@@ -110,8 +115,8 @@ class Dummy_vreader:
 
         (rec_frame, frame) = self.vcap.read()
         req_break = not rec_frame
-
-        curent_frame_index, current_time_sec, current_datetime = self._get_time_file()
+        
+        curent_frame_index, current_time_sec, current_datetime = self._get_time_file(req_break)
 
         return req_break, frame, curent_frame_index, current_time_sec, current_datetime
 

@@ -69,19 +69,18 @@ class Object_Capture(Reference_Object_Capture):
         
         # .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . Control Group 1 .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
         
-        sg = self.controls_manager.new_control_group("Object Capture Controls")
+        self.ctrl_spec.new_control_group("Object Capture Controls")
         
         self.minimum_object_lifetime_sec = \
-        sg.attach_slider("minimum_object_lifetime_sec", 
-                         label = "Minimum Object Lifetime", 
-                         default_value = 3.5,
-                         min_value = 0.0,
-                         max_value = 15.0,
-                         step_size = 1/1000,
-                         return_type = float,
-                         zero_referenced = True,
-                         units = "seconds",
-                         tooltip = "Amount of time an object must live for before it's data is saved.")
+        self.ctrl_spec.attach_slider(
+                "minimum_object_lifetime_sec", 
+                label = "Minimum Object Lifetime", 
+                default_value = 3.5,
+                min_value = 0.0, max_value = 15.0, step_size = 1/1000,
+                return_type = float,
+                zero_referenced = True,
+                units = "seconds",
+                tooltip = "Amount of time an object must live for before it's data is saved.")
 
     
     # .................................................................................................................

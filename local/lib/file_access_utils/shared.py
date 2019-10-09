@@ -49,6 +49,7 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
+import platform
 import cv2
 import json
 import gzip
@@ -159,7 +160,7 @@ def load_pathing_info(project_root_path, target_file=".pathing_info"):
     
     # Get path to the pathing info file and computer name (since pathing is saved on a per-computer name basis)
     pathing_info_file = os.path.join(project_root_path, target_file)
-    computer_name = os.uname().nodename
+    computer_name = platform.uname().node
     pathing_info_dict = {computer_name: default_camera_path}
     
     # Check if pathing info file exists so we can load the camera path

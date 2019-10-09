@@ -67,10 +67,13 @@ loader = Reconfigurable_Core_Stage_Loader("frame_processor", "bgs_frameprocessor
 loader.selections()
 configurable_ref = loader.setup_all(__file__)
 
+# Get drawing specification for the given zone variable
+zone_drawing_spec = configurable_ref.get_drawing_spec("mask_zone_list")
+
 # Set up object to handle all video processing
 main_process = \
 Reconfigurable_Video_Loop(loader,
-                          ordered_display_list = [Outlined_Input(0, 2, 2),
+                          ordered_display_list = [Outlined_Input(0, 2, 2, drawing_json = zone_drawing_spec),
                                                   Binary_Display(1, 2, 2),
                                                   Masked_Differences(2, 2, 2),
                                                   Preprocessed_BG_Display(3, 2, 2)])

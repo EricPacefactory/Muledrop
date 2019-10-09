@@ -63,7 +63,7 @@ from local.lib.configuration_utils.display_specification import Input_Display, B
 # Make all required selections and setup/configure everything
 loader = Reconfigurable_Background_Capture_Loader("passthrough_backgroundcapture")
 loader.selections()
-configurable_ref = loader.setup_all()
+configurable_ref = loader.setup_all(__file__)
 
 # Set up object to handle all video processing
 main_process = \

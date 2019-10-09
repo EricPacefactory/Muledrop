@@ -50,7 +50,7 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
-from local.lib.configuration_utils.local_ui.local_windows_base import Control_Window
+from local.lib.configuration_utils.local_ui.windows_base import Control_Window
 
 from eolib.utils.cli_tools import Color
 
@@ -148,7 +148,7 @@ class Local_Window_Controls:
             print("", 
                   "",
                   "",
-                  Color(window_heading_str).bold.invert,
+                  Color(window_heading_str.upper()).bold.invert,
                   window_info_str, 
                   "",
                   sep="\n")

@@ -65,7 +65,7 @@ from local.configurables.externals.object_capture._helper_functions import Dying
 # Make all required selections and setup/configure everything
 loader = Reconfigurable_Object_Capture_Loader("minimum_lifetime_objectcapture")
 loader.selections()
-configurable_ref = loader.setup_all()
+configurable_ref = loader.setup_all(__file__)
 
 # Set up object to handle all video processing
 main_process = \

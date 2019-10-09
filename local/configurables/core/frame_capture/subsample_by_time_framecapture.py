@@ -70,37 +70,40 @@ class Frame_Capture_Stage(Reference_Frame_Capture):
         
         # .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . Control Group 1 .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
         
-        sg = self.controls_manager.new_control_group("Sampling Controls")
+        self.ctrl_spec.new_control_group("Sampling Controls")
         
         self.sample_period_hrs = \
-        sg.attach_slider("sample_period_hrs", 
-                         label = "Sample period (hours)", 
-                         default_value = 0,
-                         min_value = 0,
-                         max_value = 24,
-                         zero_referenced = True,
-                         return_type = int,
-                         tooltip = "Number of hours to wait before grabbing a new frame.")
+        self.ctrl_spec.attach_slider(
+                "sample_period_hrs", 
+                label = "Sample period (hours)", 
+                default_value = 0,
+                min_value = 0,
+                max_value = 24,
+                zero_referenced = True,
+                return_type = int,
+                tooltip = "Number of hours to wait before grabbing a new frame.")
         
         self.sample_period_mins = \
-        sg.attach_slider("sample_period_mins", 
-                         label = "Sample period (minutes)", 
-                         default_value = 0,
-                         min_value = 0,
-                         max_value = 60,
-                         zero_referenced = True,
-                         return_type = int,
-                         tooltip = "Number of minutes to wait before grabbing a new frame.")
+        self.ctrl_spec.attach_slider(
+                "sample_period_mins", 
+                label = "Sample period (minutes)", 
+                default_value = 0,
+                min_value = 0,
+                max_value = 60,
+                zero_referenced = True,
+                return_type = int,
+                tooltip = "Number of minutes to wait before grabbing a new frame.")
         
         self.sample_period_sec = \
-        sg.attach_slider("sample_period_sec", 
-                         label = "Sample period (seconds)", 
-                         default_value = 5,
-                         min_value = 0,
-                         max_value = 60,
-                         zero_referenced = True,
-                         return_type = int,
-                         tooltip = "Number of seconds to wait before grabbing a new frame.")
+        self.ctrl_spec.attach_slider(
+                "sample_period_sec", 
+                label = "Sample period (seconds)", 
+                default_value = 5,
+                min_value = 0,
+                max_value = 60,
+                zero_referenced = True,
+                return_type = int,
+                tooltip = "Number of seconds to wait before grabbing a new frame.")
         
     # .................................................................................................................
     

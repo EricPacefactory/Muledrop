@@ -53,14 +53,14 @@ import cv2
 import numpy as np
 
 from time import perf_counter
-
 from itertools import product
+from collections import OrderedDict
 
-from local.lib.configuration_utils.local_ui.local_windows_base import Simple_Window
+from local.lib.configuration_utils.local_ui.windows_base import Simple_Window, Max_WH_Window, Drawing_Window
 
-from local.lib.configuration_utils.local_ui.local_controls import Local_Window_Controls
-from local.lib.configuration_utils.local_ui.local_timing_window import Local_Timing_Window
-from local.lib.configuration_utils.local_ui.local_playback_window import Local_Playback_Controls
+from local.lib.configuration_utils.local_ui.controls import Local_Window_Controls
+from local.lib.configuration_utils.local_ui.timing import Local_Timing_Window
+from local.lib.configuration_utils.local_ui.playback import Local_Playback_Controls
 
 from local.lib.configuration_utils.display_specification import Tracked_Display
 
@@ -85,7 +85,7 @@ class Video_Processing_Loop:
     def loop(self, display_task_results):
         
         # Set up task display if needed
-        display_window_obj_tuples_list = self.setup_task_result_display(display_task_results)
+        task_display_resources_dict = self.setup_task_result_display(display_task_results)
         
         # Start timer for measuring full run-time
         t_start = perf_counter()
@@ -117,7 +117,7 @@ class Video_Processing_Loop:
                 
                 # Display results from task processing
                 if display_task_results:
-                    self.display_task_results(display_window_obj_tuples_list,
+                    self.display_task_results(task_display_resources_dict,
                                               all_skip_frame, all_stage_outputs, *fsd_time_args)
                     
                 # Save snapshots if needed, along with info about object ids in the frame
@@ -142,7 +142,7 @@ class Video_Processing_Loop:
         # Store display state
         self.enable_display = enable_local_display
         
-        display_window_obj_tuples_list = []
+        task_display_resources_dict = {}
         if enable_local_display:
             
             # Figure out display positioning
@@ -156,13 +156,13 @@ class Video_Processing_Loop:
                 new_display = Tracked_Display(each_idx, num_rows, num_cols, window_name = each_task_name)
                 ordered_displays.append(new_display)
             
-            display_window_obj_tuples_list = self.setup_display_windows(ordered_displays)
+            task_display_resources_dict = self.setup_display_windows(ordered_displays)
             
-        return display_window_obj_tuples_list
+        return task_display_resources_dict
     
     # .................................................................................................................
     
-    def display_task_results(self, display_window_obj_tuples_list, 
+    def display_task_results(self, task_display_resources_dict, 
                              all_skip_frame, all_stage_outputs, 
                              current_frame_index, current_time_sec, current_datetime):
         
@@ -170,25 +170,31 @@ class Video_Processing_Loop:
         if not self.enable_display:
             return
         
-        # Bundle time args for cleanliness
+        # Set up some variables for cleanliness
         all_windows_closed = True
+        configurable_ref = None
         fsd_time_args = (current_frame_index, current_time_sec, current_datetime)
-        for disp_obj_tuple, each_task_name in zip(display_window_obj_tuples_list, self.loader.task_name_list):
+        
+        # Loop through each task and (if needed) display a single window showing tracking results
+        for each_task_name, each_task_disp_res in task_display_resources_dict.items():
             
             # Skip frames for the given task, if needed
             if all_skip_frame.get(each_task_name):
                 all_windows_closed = False
                 continue
             
+            # Grab window & display obj references for convenience
+            window_ref = each_task_disp_res.get("window_ref")
+            display_obj = each_task_disp_res.get("display_obj")
+            
             # Generate the task result frames
-            display_window, display_obj = disp_obj_tuple
-            display_image = display_obj.display(all_stage_outputs.get(each_task_name), None, *fsd_time_args)
+            display_image = display_obj.display(all_stage_outputs.get(each_task_name), configurable_ref, *fsd_time_args)
             
             # Keep track of whether the displays exist
-            window_exists = display_window.imshow(display_image)
+            window_exists = window_ref.imshow(display_image)
             if window_exists:
                 all_windows_closed = False
-                
+        
         # Disable the display if all windows get closed
         if all_windows_closed:
             self.enable_display = False
@@ -276,6 +282,25 @@ class Video_Processing_Loop:
     
     def setup_display_windows(self, ordered_display_obj_list):
         
+        '''
+        Function which sets up local display windows
+        
+        Inputs:
+            ordered_display_obj_list --> List of display specification objects.
+            
+        Outputs:
+            display_resources_dict --> Dictionary containing all display resources. 
+            Indexed by keys representing the window names. 
+            
+            For each key, there is an associated dictionary containing keys: "window_ref" & "display_obj"
+            The "window_ref" key contains a reference to the OpenCV window object (for the given window name)
+            The "display_obj" key contains the display specification for the corresponding display
+            The display specification also contains a .display() function which generates the image for the given window
+        '''
+        
+        # Assume windows will have the video frame dimensions
+        frame_wh = self.loader.video_wh
+        
         # Get windowing area info for window placement
         min_x, max_x = 40, 1500
         min_y, max_y = 250, 1100
@@ -285,14 +310,15 @@ class Video_Processing_Loop:
         get_x_corner = lambda col_index, num_cols: int(round(min_x + (max_x - min_x) * col_index / num_cols))
         get_y_corner = lambda row_index, num_rows: int(round(min_y + (max_y - min_y) * row_index / num_rows))
         
-        window_obj_tuples = []
+        display_resources_dict = OrderedDict()
         for each_display_obj in ordered_display_obj_list:
             
             # Get display spec and separate into more readable components
             disp_json = each_display_obj.to_json()
             new_window_name = disp_json.get("name", "Unknown")
             is_initial = disp_json.get("initial_display", False)
-            drawing_control = disp_json.get("drawing_control", None)
+            drawing_json = disp_json.get("drawing_json", None)
+            provide_mouse_xy = disp_json.get("provide_mouse_xy", None)
             max_wh = disp_json.get("max_wh", None)
             num_rows = disp_json.get("num_rows", 1)
             num_cols = disp_json.get("num_cols", 1)
@@ -304,10 +330,21 @@ class Video_Processing_Loop:
                 err_msg = "Bad layout index ({}), must be less than {} x {}".format(layout_index, num_rows, num_cols)
                 raise ValueError(err_msg)
             
+            # Determine the window type needed for display
+            needs_drawing_window = (drawing_json is not None)
+            needs_max_wh_window = (max_wh is not None)
+            if needs_drawing_window:
+                new_window_ref = Drawing_Window(new_window_name, frame_wh, drawing_json)
+            elif needs_max_wh_window:
+                new_window_ref = Max_WH_Window(new_window_name, frame_wh, max_wh, provide_mouse_xy = provide_mouse_xy)
+            else:
+                new_window_ref = Simple_Window(new_window_name, provide_mouse_xy = provide_mouse_xy)
+            
             # Bundle re-usable access info
-            new_window_ref = Simple_Window(new_window_name)
-            new_window_obj_tuple = (new_window_ref, each_display_obj)
-            window_obj_tuples.append(new_window_obj_tuple)
+            new_display_entry = {new_window_name: {"window_ref": new_window_ref, 
+                                                   "display_obj": each_display_obj,
+                                                   "has_drawing": needs_drawing_window}}
+            display_resources_dict.update(new_display_entry)
             
             # Place window
             row_idx, col_idx = get_row_col_idx(layout_index, num_rows, num_cols)
@@ -315,7 +352,7 @@ class Video_Processing_Loop:
             y_corner_px = get_y_corner(row_idx, num_rows)
             new_window_ref.move_corner_pixels(x_corner_px, y_corner_px)
         
-        return window_obj_tuples
+        return display_resources_dict
     
     # .................................................................................................................
     
@@ -376,14 +413,17 @@ class Reconfigurable_Video_Loop(Video_Processing_Loop):
         self.controls_json, self.initial_settings, self.local_controls = self.setup_control_windows()
         self.timing_window = self.setup_timing_windows()
         self.playback_controls = self.setup_playback_window()
-        self.display_window_obj_tuples = self.setup_display_windows(ordered_display_list)
+        self.display_resource_dict = self.setup_display_windows(ordered_display_list)
+        
+        # Extract drawing windows
+        self.drawing_window_ref_list = self.get_drawing_windows(self.initial_settings)
         
     # .................................................................................................................
     
     def setup_control_windows(self):
         
         # Get UI setup info
-        controls_json = self.configurable_ref.controls_manager.to_json()
+        controls_json = self.configurable_ref.ctrl_spec.to_json()
         initial_settings = self.configurable_ref.current_settings()
         local_controls = Local_Window_Controls(controls_json, initial_settings)
         
@@ -406,50 +446,27 @@ class Reconfigurable_Video_Loop(Video_Processing_Loop):
         return playback_controls
     
     # .................................................................................................................
-    '''
-    def setup_display_windows(self, ordered_display_obj_list):
+    
+    def get_drawing_windows(self, initial_settings):
         
-        # Get windowing area info for window placement
-        min_x, max_x = 40, 1500
-        min_y, max_y = 250, 1100
+        # Pull out anything drawing windows (depends on configurable controls)
+        drawing_window_ref_list = []
+        for each_window, each_display_res in self.display_resource_dict.items():
+            
+            # Record all windows that containing drawing interactions
+            has_drawing = each_display_res.get("has_drawing")
+            if has_drawing:
+                new_drawing_window_ref = each_display_res.get("window_ref")
+                new_drawing_window_ref.initialize_drawing(initial_settings)
+                drawing_window_ref_list.append(new_drawing_window_ref)
         
-        # Build some helper functions to simplfy things
-        get_row_col_idx = lambda layout_idx, nrows, ncols: list(product(range(nrows), range(ncols)))[layout_idx]
-        get_x_corner = lambda col_index, num_cols: int(round(min_x + (max_x - min_x) * col_index / num_cols))
-        get_y_corner = lambda row_index, num_rows: int(round(min_y + (max_y - min_y) * row_index / num_rows))
+        # If there are drawing controls, print out drawing control info
+        drawing_exists = (len(drawing_window_ref_list) > 0)
+        if drawing_exists:
+            new_drawing_window_ref.print_info()
         
-        window_obj_tuples = []
-        for each_display_obj in ordered_display_obj_list:
-            
-            # Get display spec and separate into more readable components
-            disp_json = each_display_obj.to_json()
-            new_window_name = disp_json.get("name", "Unknown")
-            is_initial = disp_json.get("initial_display", False)
-            drawing_control = disp_json.get("drawing_control", None)
-            max_wh = disp_json.get("max_wh", None)
-            num_rows = disp_json.get("num_rows", 1)
-            num_cols = disp_json.get("num_cols", 1)
-            layout_index = disp_json.get("layout_index", 0)
-            
-            # Warning for bad layout indices
-            invalid_layout = (layout_index >= (num_rows * num_cols))
-            if invalid_layout:
-                err_msg = "Bad layout index ({}), must be less than {} x {}".format(layout_index, num_rows, num_cols)
-                raise ValueError(err_msg)
-            
-            # Bundle re-usable access info
-            new_window_ref = Simple_Window(new_window_name)
-            new_window_obj_tuple = (new_window_ref, each_display_obj)
-            window_obj_tuples.append(new_window_obj_tuple)
-            
-            # Place window
-            row_idx, col_idx = get_row_col_idx(layout_index, num_rows, num_cols)
-            x_corner_px = get_x_corner(col_idx, num_cols)
-            y_corner_px = get_y_corner(row_idx, num_rows)
-            new_window_ref.move_corner_pixels(x_corner_px, y_corner_px)
-        
-        return window_obj_tuples
-    '''
+        return drawing_window_ref_list
+    
     # .................................................................................................................
     
     def reset_all(self):
@@ -505,7 +522,7 @@ class Reconfigurable_Video_Loop(Video_Processing_Loop):
                                      object_ids_in_frame_dict, current_snapshot_metadata, fsd_time_args)
                 
                 # Check for keypresses
-                req_break, keypress, video_reset = self.read_keypress()
+                req_break, video_reset, key_code, modifier_code = self.read_keypress()
                 if req_break:
                     break
                 
@@ -527,30 +544,69 @@ class Reconfigurable_Video_Loop(Video_Processing_Loop):
     
     def read_controls(self):
         
+        # Read any drawing windows
+        drawing_values_changed_dict = self.read_all_drawings()
+        if drawing_values_changed_dict:
+            self.configurable_ref.reconfigure(drawing_values_changed_dict)
+        
         # Read local controls & update the configurable if anything changes
-        values_changed_dict = self.local_controls.read_all_controls()
-        if values_changed_dict:
-            self.configurable_ref.reconfigure(values_changed_dict)
+        control_values_changed_dict = self.local_controls.read_all_controls()
+        if control_values_changed_dict:
+            self.configurable_ref.reconfigure(control_values_changed_dict)
     
     # .................................................................................................................
     
     def read_keypress(self):
         
         # Have playback controls manager keypresses (+ video control!)
-        req_break, keypress, video_reset = self.playback_controls.update()
+        req_break, video_reset, key_code, modifier_code = self.playback_controls.update()
         
-        return req_break, keypress, video_reset
+        # Pass keypress event to any drawing windows
+        for each_drawing_window in self.drawing_window_ref_list:
+            each_drawing_window.keypress(key_code, modifier_code)
+        
+        return req_break, video_reset, key_code, modifier_code
+    
+    # .................................................................................................................
+    
+    def read_all_drawings(self):
+        
+        # Initialize empty (no-change) output
+        variables_changed_dict = {}
+        
+        # Check for drawing control changes on every known drawing window
+        for each_drawing_window in self.drawing_window_ref_list:
+            new_changes = each_drawing_window.update_control()
+            variables_changed_dict.update(new_changes)
+            
+        return variables_changed_dict
     
     # .................................................................................................................
     
     def display_image_data(self, stage_outputs, current_frame_index, current_time_sec, current_datetime):
         
-        for each_window_ref, each_display_obj in self.display_window_obj_tuples:
+        # Loop over all active windows and generate the displayed image
+        for each_display_res in self.display_resource_dict.values():
             
-            if each_window_ref.exists():
-                display_image = each_display_obj.display(stage_outputs, self.configurable_ref,
-                                                         current_frame_index, current_time_sec, current_datetime)
-                each_window_ref.imshow(display_image)
+            # Pull out display resources for clarity
+            window_ref = each_display_res.get("window_ref")
+            display_obj = each_display_res.get("display_obj")
+            
+            # Skip any windows that have been closed
+            if not window_ref.exists():
+                continue
+            
+            # Get mouse co-ordinates, if the window supports it (may be None)
+            mouse_xy = window_ref.mouse_xy
+            
+            # Have each display window apply it's display function to the input data before updating the display
+            display_image = display_obj.display(stage_outputs, 
+                                                self.configurable_ref,
+                                                mouse_xy,
+                                                current_frame_index, 
+                                                current_time_sec, 
+                                                current_datetime)
+            window_ref.imshow(display_image)
     
     # .................................................................................................................
     
@@ -640,7 +696,7 @@ class Snapshot_Capture_Video_Loop(Reconfigurable_Video_Loop):
                                      object_ids_in_frame_dict, current_snapshot_metadata, fsd_time_args)
                 
                 # Check for keypresses
-                req_break, keypress, video_reset = self.read_keypress()
+                req_break, video_reset, key_code, modifier_code = self.read_keypress()
                 if req_break:
                     break
                 
@@ -747,7 +803,7 @@ class Background_Capture_Video_Loop(Reconfigurable_Video_Loop):
                                      object_ids_in_frame_dict, current_snapshot_metadata, fsd_time_args)
                 
                 # Check for keypresses
-                req_break, keypress, video_reset = self.read_keypress()
+                req_break, video_reset, key_code, modifier_code = self.read_keypress()
                 if req_break:
                     break
                 

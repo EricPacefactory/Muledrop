@@ -96,7 +96,10 @@ class Reference_Frame_Processor(Core_Configurable_Base):
         # Make sure binary frame data is returned (i.e. only has a single channel)
         binary_frame_1ch = self.apply_frame_processing(preprocessed_frame)
         
-        return {"binary_frame_1ch": binary_frame_1ch, "preprocessed_frame": preprocessed_frame}
+        return {"binary_frame_1ch": binary_frame_1ch, 
+                "preprocessed_frame": preprocessed_frame,
+                "preprocessed_bg_frame": preprocessed_bg_frame,
+                "bg_update": bg_update}
             
     # .................................................................................................................
     
@@ -126,6 +129,7 @@ class Reference_Frame_Processor(Core_Configurable_Base):
         # Place background frame processing here (also need to handle storage)
         print("Background updated! Calling update_background() @ {}".format(self.script_name))
     
+    # .................................................................................................................
     # .................................................................................................................
 
 # ---------------------------------------------------------------------------------------------------------------------

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Tue Oct  1 15:11:15 2019
+Created on Tue Oct  8 10:24:43 2019
 
-@author: eo
+@author: wrk
 """
 
 
@@ -49,30 +49,68 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
-from local.lib.configuration_utils.display_specification import Display_Window_Specification
+import cv2
+import numpy as np
 
 # ---------------------------------------------------------------------------------------------------------------------
-#%% Define shared displays
+#%% Define classes
 
-class Capture_Display(Display_Window_Specification):
+class Mouse_Follower:
     
     # .................................................................................................................
     
-    def __init__(self, layout_index, num_rows, num_columns, initial_display = False, drawing_json = None):
+    def __init__(self):
         
-        # Inherit from parent class
-        super().__init__("Captures", layout_index, num_rows, num_columns, 
-                         initial_display = initial_display, drawing_json = drawing_json,
-                         max_wh = None)
+        # Allocate storage for mouse position and whether following is enabled or not
+        self.mouse_xy = np.array((0, 0), dtype=np.int32)
+        self.follow_state = True
         
     # .................................................................................................................
         
-    def display(self, stage_outputs, configurable_ref, mouse_xy,
-                current_frame_index, current_time_sec, current_datetime):
+    def __call__(self, *args, **kwargs):
+        ''' Convenience wrapper. Allows object to be used as a callback function directly '''
+        return self.callback(*args, **kwargs)
         
-        # Grab data out of capturer object
-        return configurable_ref.frame_capturer._latest_capture_frame
+    # .................................................................................................................
+                
+    def callback(self, event, mx, my, flags, param):
         
+        # Record mouse xy position
+        if self.follow_state:
+            self.mouse_xy = np.int32((mx, my))
+        
+        # Toggle following state on left click
+        if event == cv2.EVENT_LBUTTONDOWN:
+            self.follow_state = (not self.follow_state)
+            
+    # .................................................................................................................
+    
+    def draw_mouse_xy(self, display_frame, point_radius = 5, point_color = (255, 0, 255)):
+        
+        ''' Function to help with debugging. Displays a point at the mouse location, along with x/y co-ordinates '''
+        
+        xy_tuple = tuple(self.xy)
+        text_xy = (xy_tuple[0] + point_radius + 2, xy_tuple[1] + 5)
+        
+        drawn_frame = display_frame.copy()
+        cv2.circle(drawn_frame, xy_tuple, point_radius, point_color, -1, cv2.LINE_AA)
+        cv2.putText(drawn_frame, 
+                    "({:.0f}, {:.0f})".format(*xy_tuple), 
+                    text_xy,
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.5,
+                    (255, 255, 255),
+                    1,
+                    cv2.LINE_AA)
+        
+        return drawn_frame
+    
+    # .................................................................................................................
+    
+    @property
+    def xy(self):
+        return self.mouse_xy
+    
     # .................................................................................................................
     # .................................................................................................................
 
@@ -87,12 +125,41 @@ class Capture_Display(Display_Window_Specification):
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Demo
-    
+
 if __name__ == "__main__":
-    pass
     
+    # Set display parameters
+    frame_width, frame_height = 600, 300
+    blank_frame = np.full((frame_height, frame_width, 3), (33, 166, 83), dtype=np.uint8)
+    frame_wh = (frame_width, frame_height)
+    
+    # Set up example mouse follower
+    follower = Mouse_Follower()
+    
+    # Window creation & callback assignment
+    window_name = "FOLLOWER EXAMPLE"
+    cv2.namedWindow(window_name)    
+    cv2.setMouseCallback(window_name, follower)
+    
+    while True:
+        
+        # Get a clean copy of the video
+        display_frame = blank_frame.copy()
+        
+        # Draw mouse location as an example
+        drawn_frame = follower.draw_mouse_xy(display_frame)
+        cv2.imshow(window_name, drawn_frame)
+        
+        # Get keypress
+        keypress = cv2.waitKey(40)
+        esc_key_press = (keypress == 27)
+        q_key_pressed = (keypress == 113)
+        if esc_key_press or q_key_pressed:
+            break
+        
+    # Clean up windows
+    cv2.destroyAllWindows()
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Scrap
-
 

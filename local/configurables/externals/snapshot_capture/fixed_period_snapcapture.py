@@ -75,66 +75,62 @@ class Snapshot_Capture(Reference_Snapshot_Capture):
         
         # .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . Control Group 1 .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
         
-        sg = self.controls_manager.new_control_group("Snapshot Controls")
+        self.ctrl_spec.new_control_group("Snapshot Controls")
         
         self.snapshot_period_hr = \
-        sg.attach_slider("snapshot_period_hr", 
-                         label = "Snapshot Period (H)", 
-                         default_value = 0,
-                         min_value = 0,
-                         max_value = 24,
-                         step_size = 1,
-                         return_type = int,
-                         zero_referenced = True,
-                         units = "hours",
-                         tooltip = "Number of hours to wait between saving snapshots (intended for idle objects)")
+        self.ctrl_spec.attach_slider(
+                "snapshot_period_hr", 
+                label = "Snapshot Period (H)", 
+                default_value = 0,
+                min_value = 0, max_value = 24, step_size = 1,
+                return_type = int,
+                zero_referenced = True,
+                units = "hours",
+                tooltip = "Number of hours to wait between saving snapshots (intended for idle objects)")
         
         self.snapshot_period_min = \
-        sg.attach_slider("snapshot_period_min", 
-                         label = "Snapshot Period (M)", 
-                         default_value = 0,
-                         min_value = 0,
-                         max_value = 60,
-                         step_size = 1,
-                         return_type = int,
-                         zero_referenced = True,
-                         units = "minutes",
-                         tooltip = "Number of minutes to wait between saving snapshots (intended for idle objects)")
+        self.ctrl_spec.attach_slider(
+                "snapshot_period_min", 
+                label = "Snapshot Period (M)", 
+                default_value = 0,
+                min_value = 0, max_value = 60, step_size = 1,
+                return_type = int,
+                zero_referenced = True,
+                units = "minutes",
+                tooltip = "Number of minutes to wait between saving snapshots (intended for idle objects)")
         
         self.snapshot_period_sec = \
-        sg.attach_slider("snapshot_period_sec", 
-                         label = "Snapshot Period (S)", 
-                         default_value = 1.0,
-                         min_value = 0.0,
-                         max_value = 60.0,
-                         step_size = 1/1000,
-                         return_type = float,
-                         zero_referenced = True,
-                         units = "seconds",
-                         tooltip = "Number of seconds to wait between saving snapshots")
+        self.ctrl_spec.attach_slider(
+                "snapshot_period_sec", 
+                label = "Snapshot Period (S)", 
+                default_value = 1.0,
+                min_value = 0.0, max_value = 60.0, step_size = 1/1000,
+                return_type = float,
+                zero_referenced = True,
+                units = "seconds",
+                tooltip = "Number of seconds to wait between saving snapshots")
         
         self.downscale_factor = \
-        sg.attach_slider("downscale_factor", 
-                         label = "Downscaling", 
-                         default_value = 1.0,
-                         min_value = 0.1,
-                         max_value = 1.0,
-                         step_size = 1/100,
-                         return_type = float,
-                         zero_referenced = True,
-                         tooltip = "Save snapshots at a lowered resolution relative to the input video size")
+        self.ctrl_spec.attach_slider(
+                "downscale_factor", 
+                label = "Downscaling", 
+                default_value = 1.0,
+                min_value = 0.1, max_value = 1.0, step_size = 1/100,
+                return_type = float,
+                zero_referenced = True,
+                tooltip = "Save snapshots at a lowered resolution relative to the input video size")
     
         self.jpg_quality = \
-        sg.attach_slider("jpg_quality",
-                         label = "Image Quality",
-                         default_value = 25,
-                         min_value = 0,
-                         max_value = 100,
-                         return_type = int,
-                         zero_referenced = True,
-                         tooltip = ["Quality of jpg compresion when saving snapshots.",
-                                    "Lower values create smaller file sizes and save a bit faster,",
-                                    "at the cost of poorer image quality."])
+        self.ctrl_spec.attach_slider(
+                "jpg_quality",
+                label = "Image Quality",
+                default_value = 25,
+                min_value = 0, max_value = 100,
+                return_type = int,
+                zero_referenced = True,
+                tooltip = ["Quality of jpg compresion when saving snapshots.",
+                           "Lower values create smaller file sizes and save a bit faster,",
+                           "at the cost of poorer image quality."])
     
     # .................................................................................................................
     

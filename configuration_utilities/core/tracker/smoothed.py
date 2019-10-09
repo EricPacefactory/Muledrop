@@ -49,19 +49,142 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
+import numpy as np
+
 from local.lib.configuration_utils.configuration_loaders import Reconfigurable_Core_Stage_Loader
 from local.lib.configuration_utils.video_processing_loops import Reconfigurable_Video_Loop
-from local.lib.configuration_utils.display_specification import Validation_Display, Tracked_Display
+from local.lib.configuration_utils.display_specification import Display_Window_Specification
 from local.lib.configuration_utils.display_specification import Detection_Display, Filtered_Binary_Display
-
+from local.lib.configuration_utils.display_specification import draw_mouse_centered_ellipse, draw_objects_on_frame
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define displays
+
+class Custom_Validation_Display(Display_Window_Specification):
+    
+    # .................................................................................................................
+    
+    def __init__(self, layout_index, num_rows, num_columns, 
+                 initial_display = False, max_wh = None,
+                 window_name = "Validation",
+                 line_color = (255, 0, 255)):
+        
+        # Inherit from parent class
+        super().__init__(window_name, layout_index, num_rows, num_columns, 
+                         initial_display = initial_display,
+                         provide_mouse_xy = True,
+                         drawing_json = None, 
+                         max_wh = max_wh)
+        
+        # Store variables controlling drawing behaviour
+        self._line_color = line_color
+    
+    # .................................................................................................................
+    
+    def display(self, stage_outputs, configurable_ref, mouse_xy, 
+                current_frame_index, current_time_sec, current_datetime):
+        
+        # Grab a of the preprocessed image that we can draw on it
+        display_frame = stage_outputs.get("preprocessor").get("preprocessed_frame")
+        validations_frame = display_frame.copy()
+        
+        # Grab dictionary of validation objects so we can draw them
+        validation_object_dict = stage_outputs.get("tracker").get("validation_object_dict")
+        
+        # Draw validation tracking visuals onto the frame
+        validation_frame = draw_objects_on_frame(validations_frame, validation_object_dict, 
+                                                 configurable_ref._show_obj_ids, 
+                                                 configurable_ref._show_outlines, 
+                                                 configurable_ref._show_bounding_boxes,
+                                                 configurable_ref._show_trails,
+                                                 configurable_ref._show_decay,
+                                                 current_time_sec,
+                                                 outline_color = self._line_color, 
+                                                 box_color = self._line_color)
+        
+        # Draw mouse following indicator over top of everything else
+        draw_mouse_indicator(validation_frame, configurable_ref, mouse_xy)
+        
+        return validation_frame
+    
+    # .................................................................................................................
+    # ................................................................................................................. 
+
+
+# /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+# /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+class Custom_Tracked_Display(Display_Window_Specification):
+    
+    # .................................................................................................................
+    
+    def __init__(self, layout_index, num_rows, num_columns, 
+                 initial_display = False, max_wh = None,
+                 window_name = "Tracked",
+                 line_color = (0, 255, 0)):
+        
+        # Inherit from parent class
+        super().__init__(window_name, layout_index, num_rows, num_columns, 
+                         initial_display = initial_display, 
+                         provide_mouse_xy = True,
+                         drawing_json = None, 
+                         max_wh = max_wh)
+        
+        # Store variables controlling drawing behaviour
+        self._line_color = line_color
+        
+    # .................................................................................................................
+        
+    def display(self, stage_outputs, configurable_ref, mouse_xy, 
+                current_frame_index, current_time_sec, current_datetime):
+        
+        # Grab a of the preprocessed image that we can draw on it
+        display_frame = stage_outputs.get("preprocessor").get("preprocessed_frame")
+        tracked_frame = display_frame.copy()
+        
+        # Grab dictionary of tracked objects so we can draw them
+        tracked_object_dict = stage_outputs.get("tracker").get("tracked_object_dict", {})
+        
+        # Draw tracking visuals onto the frame
+        tracked_frame = draw_objects_on_frame(tracked_frame, tracked_object_dict, 
+                                              configurable_ref._show_obj_ids, 
+                                              configurable_ref._show_outlines, 
+                                              configurable_ref._show_bounding_boxes,
+                                              configurable_ref._show_trails,
+                                              configurable_ref._show_decay,
+                                              current_time_sec,
+                                              outline_color = self._line_color, 
+                                              box_color = self._line_color)
+        
+        # Draw mouse following indicator over top of everything else
+        draw_mouse_indicator(tracked_frame, configurable_ref, mouse_xy)
+        
+        return tracked_frame
+        
+    # .................................................................................................................
+    # .................................................................................................................
 
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define functions
 
+def draw_mouse_indicator(display_frame, configurable_ref, mouse_xy):
+    
+    # If range indicator is turned off, don't do anything
+    if not configurable_ref._show_max_range_indicator:
+        return display_frame
+    
+    # Get frame sizing
+    frame_height, frame_width = display_frame.shape[0:2]
+    frame_scaling = np.float32((frame_width, frame_height))
+    
+    # Draw max range indicator, following the mouse
+    min_wh_norm = np.float32((configurable_ref.max_match_range_x, configurable_ref.max_match_range_y))
+    min_wh_px = (min_wh_norm * frame_scaling)
+    draw_mouse_centered_ellipse(display_frame, mouse_xy, min_wh_px, (255, 255, 60))
+    
+    return display_frame
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Main
@@ -74,8 +197,8 @@ configurable_ref = loader.setup_all(__file__)
 # Set up object to handle all video processing
 main_process = \
 Reconfigurable_Video_Loop(loader,
-                          ordered_display_list = [Validation_Display(0, 2, 2),
-                                                  Tracked_Display(1, 2, 2, show_decay = True),
+                          ordered_display_list = [Custom_Validation_Display(0, 2, 2),
+                                                  Custom_Tracked_Display(1, 2, 2),
                                                   Detection_Display(2, 2, 2),
                                                   Filtered_Binary_Display(3, 2, 2)])
 
@@ -103,7 +226,6 @@ last_frame_index, last_time_sec, last_datetime = main_process.debug_fsd_time_arg
 TODO:
     - Add orphan/edge decay behaviour back into the tracker (see original safety-cv)
         - For edge decay, better to use arbitrary (drawn) polygons, instead of being fixed to edge boundaries!
-    - Add max range visual indicator (ideally follows the mouse)
     - Gonna have problems trying to support both mouse-follow & area drawing though...
 '''
 

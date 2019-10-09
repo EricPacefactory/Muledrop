@@ -84,170 +84,196 @@ class Tracker_Stage(Reference_Tracker):
         
         # .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . Control Group 1 .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
         
-        tg = self.controls_manager.new_control_group("Tracking Controls")
+        self.ctrl_spec.new_control_group("Tracking Controls")
         
         self.match_with_speed = \
-        tg.attach_toggle("match_with_speed", 
-                         label = "Use Speed when Matching", 
-                         default_value = False,
-                         tooltip = "Future object positions will be predicted using previous velocity before trying to match")
+        self.ctrl_spec.attach_toggle(
+                "match_with_speed", 
+                label = "Use Speed when Matching", 
+                default_value = False,
+                tooltip = "Future object positions will be predicted using previous velocity before trying to match")
         
         self.fallback_matching_algorithm = \
-        tg.attach_menu("fallback_matching_algorithm",
-                       label = "Fallback Algorithm",
-                       default_value = "Greedy", 
-                       option_label_value_list = [("Greedy", "greedy"),
-                                                  ("Pathmin", "pathmin")],
-                       tooltip = ["Choose between algorithms for matching when a unique object-to-detection pairing doesn't exist",
-                                  "Greedy  - Chooses pairings on a shortest-distance-first basis. Fast, worse results",
-                                  "Pathmin - Chooses pairings which minimize the total squared-distance. Slow, better results",
-                                  "  (Rule-of-thumb: Only use Pathmin if there are never more than 5 objects/detections)"])
+        self.ctrl_spec.attach_menu(
+                "fallback_matching_algorithm",
+                label = "Fallback Algorithm",
+                default_value = "Greedy", 
+                option_label_value_list = [("Greedy", "greedy"),
+                                           ("Pathmin", "pathmin")],
+                tooltip = ["Choose between algorithms for matching when a unique object-to-detection pairing doesn't exist",
+                           "Greedy  - Chooses pairings on a shortest-distance-first basis. Fast, worse results",
+                           "Pathmin - Chooses pairings which minimize the total squared-distance. Slow, better results",
+                           "  (Rule-of-thumb: Only use Pathmin if there are never more than 5 objects/detections)"])
         
         self.max_match_range_x = \
-        tg.attach_slider("max_match_range_x", 
-                         label = "Maximum Match Range X", 
-                         default_value = 0.10,
-                         min_value = 0.0, max_value = 1.0, step_size = 1/100,
-                         return_type = float,
-                         units = "normalized",
-                         tooltip = "Maximum range at which an object can be matched to a detection")
+        self.ctrl_spec.attach_slider(
+                "max_match_range_x", 
+                label = "Maximum Match Range X", 
+                default_value = 0.10,
+                min_value = 0.0, max_value = 1.0, step_size = 1/100,
+                return_type = float,
+                units = "normalized",
+                tooltip = "Maximum range at which an object can be matched to a detection")
         
         self.max_match_range_y = \
-        tg.attach_slider("max_match_range_y", 
-                         label = "Maximum Match Range Y", 
-                         default_value = 0.10,
-                         min_value = 0.0, max_value = 1.0, step_size = 1/100,
-                         return_type = float,
-                         units = "normalized",
-                         tooltip = "Maximum range at which an object can be matched to a detection in the y-direction")
+        self.ctrl_spec.attach_slider(
+                "max_match_range_y", 
+                label = "Maximum Match Range Y", 
+                default_value = 0.10,
+                min_value = 0.0, max_value = 1.0, step_size = 1/100,
+                return_type = float,
+                units = "normalized",
+                tooltip = "Maximum range at which an object can be matched to a detection in the y-direction")
         
         self.track_point_str = \
-        tg.attach_menu("track_point_str",
-                       label = "Tracking Point",
-                       default_value = "Center", 
-                       option_label_value_list = [("Center", "center"),
-                                                  ("Base", "base")],
-                       tooltip = "Set tracking point. Also affects how objects are matched to detections")
+        self.ctrl_spec.attach_menu(
+                "track_point_str",
+                label = "Tracking Point",
+                default_value = "Center", 
+                option_label_value_list = [("Center", "center"),
+                                           ("Base", "base")],
+                tooltip = "Set tracking point. Also affects how objects are matched to detections")
         
         self.track_history_samples = \
-        tg.attach_slider("track_history_samples", 
-                         label = "Track History", 
-                         default_value = 9000,
-                         min_value = 3, max_value = 10000,
-                         zero_referenced = True,
-                         return_type = int,
-                         units = "samples",
-                         tooltip = "Maximum number of tracking data samples to store",
-                         visible = False)
+        self.ctrl_spec.attach_slider(
+                "track_history_samples", 
+                label = "Track History", 
+                default_value = 9000,
+                min_value = 3, max_value = 10000,
+                zero_referenced = True,
+                return_type = int,
+                units = "samples",
+                tooltip = "Maximum number of tracking data samples to store",
+                visible = False)
         
         self.validation_time_sec = \
-        tg.attach_slider("validation_time_sec", 
-                         label = "Validation Time", 
-                         default_value = 0.75,
-                         min_value = 0.1, max_value = 15.0, step_size = 1/1000,
-                         zero_referenced = True,
-                         return_type = float,
-                         units = "seconds",
-                         tooltip = "Amount of time to wait before validation objects are considered tracked objects")
+        self.ctrl_spec.attach_slider(
+                "validation_time_sec", 
+                label = "Validation Time", 
+                default_value = 0.75,
+                min_value = 0.1, max_value = 15.0, step_size = 1/1000,
+                zero_referenced = True,
+                return_type = float,
+                units = "seconds",
+                tooltip = "Amount of time to wait before validation objects are considered tracked objects")
         
         self.validation_decay_timeout_sec = \
-        tg.attach_slider("validation_decay_timeout_sec", 
-                         label = "Validation Decay Timeout", 
-                         default_value = 0.5,
-                         min_value = 0.05, max_value = 15.0, step_size = 1/1000,
-                         zero_referenced = True,
-                         return_type = float,
-                         units = "seconds",
-                         tooltip = "Amount of time to wait before deleting a validation object that isn't matched with detection data")
+        self.ctrl_spec.attach_slider(
+                "validation_decay_timeout_sec", 
+                label = "Validation Decay Timeout", 
+                default_value = 0.5,
+                min_value = 0.05, max_value = 15.0, step_size = 1/1000,
+                zero_referenced = True,
+                return_type = float,
+                units = "seconds",
+                tooltip = "Time to wait before deleting a validation object that isn't matched with a detection")
         
         self.track_decay_timeout_sec = \
-        tg.attach_slider("track_decay_timeout_sec", 
-                         label = "Tracked Decay Timeout", 
-                         default_value = 2.5,
-                         min_value = 0.1, max_value = 15.0, step_size = 1/1000,
-                         zero_referenced = True,
-                         return_type = float,
-                         units = "seconds",
-                         tooltip = "Amount of time to wait before deleting a tracked object that isn't matched with detection data")
+        self.ctrl_spec.attach_slider(
+                "track_decay_timeout_sec", 
+                label = "Tracked Decay Timeout", 
+                default_value = 2.5,
+                min_value = 0.1, max_value = 15.0, step_size = 1/1000,
+                zero_referenced = True,
+                return_type = float,
+                units = "seconds",
+                tooltip = "Time to wait before deleting a tracked object that isn't matched with a detection")
         
         # .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . Control Group 2 .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
         
-        sg = self.controls_manager.new_control_group("Smoothing Controls")
+        self.ctrl_spec.new_control_group("Smoothing Controls")
         
         self.smooth_x = \
-        sg.attach_slider("smooth_x", 
-                         label = "X Position Smoothing", 
-                         default_value = 3/5,
-                         min_value = 0.0, max_value = 1.0, step_size = 1/5,
-                         zero_referenced = True,
-                         return_type = float,
-                         units = "weighting",
-                         tooltip = ["Amount of reliance on previous values of x when updating x position",
-                                    "X position values (and bounding box widths) are updated using:",
-                                    "    new_x = prev_x * (smooth_x) + detection_x * (1 - smooth_x)"])
+        self.ctrl_spec.attach_slider(
+                "smooth_x", 
+                label = "X Position Smoothing", 
+                default_value = 3/5,
+                min_value = 0.0, max_value = 1.0, step_size = 1/5,
+                zero_referenced = True,
+                return_type = float,
+                units = "weighting",
+                tooltip = ["Amount of reliance on previous values of x when updating x position",
+                           "X position values (and bounding box widths) are updated using:",
+                           "    new_x = prev_x * (smooth_x) + detection_x * (1 - smooth_x)"])
         
         self.smooth_y = \
-        sg.attach_slider("smooth_y", 
-                         label = "Y Position Smoothing", 
-                         default_value = 3/5,
-                         min_value = 0.0, max_value = 1.0, step_size = 1/5,
-                         zero_referenced = True,
-                         return_type = float,
-                         units = "weighting",
-                         tooltip = ["Amount of reliance on previous values of y when updating y position.",
-                                    "Y position values (and bounding box heights) are updated using:",
-                                    "    new_y = prev_y * (smooth_y) + detection_y * (1 - smooth_y)"])
+        self.ctrl_spec.attach_slider(
+                "smooth_y", 
+                label = "Y Position Smoothing", 
+                default_value = 3/5,
+                min_value = 0.0, max_value = 1.0, step_size = 1/5,
+                zero_referenced = True,
+                return_type = float,
+                units = "weighting",
+                tooltip = ["Amount of reliance on previous values of y when updating y position.",
+                           "Y position values (and bounding box heights) are updated using:",
+                           "    new_y = prev_y * (smooth_y) + detection_y * (1 - smooth_y)"])
+        
         self.smooth_speed = \
-        sg.attach_slider("smooth_speed", 
-                         label = "Predictive Smoothing", 
-                         default_value = 1/10,
-                         min_value = 0.0, max_value = 1.0, step_size = 1/10,
-                         zero_referenced = True,
-                         return_type = float,
-                         units = "weighting",
-                         tooltip = ["Amount of weighting given to predictive positioning updating.",
-                                    "When this value is non-zero, 'previous values' are adjusted using the",
-                                    "previous step (defined as the difference between previous 2 positions):",
-                                    "    prev_pos = raw_prev_pos + (prev_step * predictive_smoothing)"])
+        self.ctrl_spec.attach_slider(
+                "smooth_speed", 
+                label = "Predictive Smoothing", 
+                default_value = 1/10,
+                min_value = 0.0, max_value = 1.0, step_size = 1/10,
+                zero_referenced = True,
+                return_type = float,
+                units = "weighting",
+                tooltip = ["Amount of weighting given to predictive positioning updating.",
+                           "When this value is non-zero, 'previous values' are adjusted using the",
+                           "previous step (defined as the difference between previous 2 positions):",
+                           "    prev_pos = raw_prev_pos + (prev_step * predictive_smoothing)"])
         
         # .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . Control Group 3 .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
         
-        dg = self.controls_manager.new_control_group("Drawing Controls")
+        self.ctrl_spec.new_control_group("Display Controls")
         
         self._show_obj_ids = \
-        dg.attach_toggle("_show_obj_ids",
-                         label = "Show IDs",
-                         default_value = False,
-                         tooltip = "Hide/display object ID values",
-                         save_with_config = False)
+        self.ctrl_spec.attach_toggle(
+                "_show_obj_ids",
+                label = "Show IDs",
+                default_value = False,
+                tooltip = "Hide/display object ID values",
+                save_with_config = False)
         
         self._show_decay = \
-        dg.attach_toggle("_show_decay",
-                         label = "Show Decaying Objects",
-                         default_value = True,
-                         tooltip = "Annotate objects that are not matched to detection data",
-                         save_with_config = False)
+        self.ctrl_spec.attach_toggle(
+                "_show_decay",
+                label = "Show Decaying Objects",
+                default_value = True,
+                tooltip = "Annotate objects that are not matched to detection data",
+                save_with_config = False)
         
         self._show_outlines = \
-        dg.attach_toggle("_show_outlines",
-                         label = "Show Outlines",
-                         default_value = True,
-                         tooltip = "Hide/display object outlines (blobs)",
-                         save_with_config = False)
+        self.ctrl_spec.attach_toggle(
+                "_show_outlines",
+                label = "Show Outlines",
+                default_value = True,
+                tooltip = "Hide/display object outlines (blobs)",
+                save_with_config = False)
         
         self._show_bounding_boxes = \
-        dg.attach_toggle("_show_bounding_boxes",
-                         label = "Show Bounding Boxes",
-                         default_value = False,
-                         tooltip = "Hide/display object bounding boxes",
-                         save_with_config = False)
+        self.ctrl_spec.attach_toggle(
+                "_show_bounding_boxes",
+                label = "Show Bounding Boxes",
+                default_value = False,
+                tooltip = "Hide/display object bounding boxes",
+                save_with_config = False)
         
         self._show_trails = \
-        dg.attach_toggle("_show_trails",
-                         label = "Show Tracked Trails",
-                         default_value = True,
-                         tooltip = "Hide/display object trails",
-                         save_with_config = False)
+        self.ctrl_spec.attach_toggle(
+                "_show_trails",
+                label = "Show Tracked Trails",
+                default_value = True,
+                tooltip = "Hide/display object trails",
+                save_with_config = False)
+        
+        self._show_max_range_indicator = \
+        self.ctrl_spec.attach_toggle(
+                "_show_max_range_indicator",
+                label = "Show Tracking Range Indicator",
+                default_value = True,
+                tooltip = "Hide/display the maximum tracking range indicator (ellipse following the mouse)",
+                save_with_config = False)
         
     # .................................................................................................................
     

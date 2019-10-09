@@ -77,154 +77,169 @@ class Preprocessor_Stage(Reference_Preprocessor):
         # .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . Control Group 1 .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
         
         
-        lg = self.controls_manager.new_control_group("General Controls")
+        self.ctrl_spec.new_control_group("General Controls")
         
         self.enable_resizing = \
-        lg.attach_toggle("enable_resizing", 
-                         label = "Enable Resizing", 
-                         default_value = True)
+        self.ctrl_spec.attach_toggle(
+                "enable_resizing", 
+                label = "Enable Resizing", 
+                default_value = True)
         
         self.output_w = \
-        lg.attach_slider("output_w", 
-                         label = "Output Width", 
-                         default_value = input_wh[0],
-                         min_value = 50, max_value = 1280,
-                         return_type = int,
-                         zero_referenced = True,
-                         units = "pixels",
-                         tooltip = "Width of the output image.")
+        self.ctrl_spec.attach_slider(
+                "output_w", 
+                label = "Output Width", 
+                default_value = input_wh[0],
+                min_value = 50, max_value = 1280,
+                return_type = int,
+                zero_referenced = True,
+                units = "pixels",
+                tooltip = "Width of the output image.")
         
         self.output_h = \
-        lg.attach_slider("output_h", 
-                         label = "Output Height", 
-                         default_value = input_wh[1],
-                         min_value = 50, max_value = 1280,
-                         return_type = int,
-                         zero_referenced = True,
-                         units = "pixels",
-                         tooltip = "Height of the output image.")
+        self.ctrl_spec.attach_slider(
+                "output_h", 
+                label = "Output Height", 
+                default_value = input_wh[1],
+                min_value = 50, max_value = 1280,
+                return_type = int,
+                zero_referenced = True,
+                units = "pixels",
+                tooltip = "Height of the output image.")
         
         self.interpolation_type = \
-        lg.attach_menu("interpolation_type", 
-                       label = "Interpolation", 
-                       default_value = "Nearest Neighbor", 
-                       option_label_value_list = [("Nearest Neighbor", cv2.INTER_NEAREST),
-                                                  ("Bilinear", cv2.INTER_LINEAR),
-                                                  ("Cubic", cv2.INTER_CUBIC)], 
-                               tooltip = "Set the interpolation style for pixels sampled at fractional indices", 
-                               visible = True)
+        self.ctrl_spec.attach_menu(
+                "interpolation_type", 
+                label = "Interpolation", 
+                default_value = "Nearest Neighbor", 
+                option_label_value_list = [("Nearest Neighbor", cv2.INTER_NEAREST),
+                                           ("Bilinear", cv2.INTER_LINEAR),
+                                           ("Cubic", cv2.INTER_CUBIC)], 
+                tooltip = "Set the interpolation style for pixels sampled at fractional indices", 
+                visible = True)
         
         # .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . Control Group 2 .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
         
         
-        sg = self.controls_manager.new_control_group("Scaling Controls")
+        self.ctrl_spec.new_control_group("Scaling Controls")
         
         self.enable_scaling = \
-        sg.attach_toggle("enable_scaling", 
-                         label = "Enable Scaling", 
-                         default_value = True)
+        self.ctrl_spec.attach_toggle(
+                "enable_scaling", 
+                label = "Enable Scaling", 
+                default_value = True)
         
         self.scale_factor_x = \
-        sg.attach_slider("scale_factor_x", 
-                         label = "Horizontal Scaling Factor", 
-                         default_value = 0.0,
-                         min_value = -4.0, max_value = 4.0, step_size = 1/10,
-                         return_type = float,
-                         zero_referenced = False,
-                         units = "percentage",
-                         tooltip = "Scaling factor, relative to video size in the x-direction")
+        self.ctrl_spec.attach_slider(
+                "scale_factor_x", 
+                label = "Horizontal Scaling Factor", 
+                default_value = 0.0,
+                min_value = -4.0, max_value = 4.0, step_size = 1/10,
+                return_type = float,
+                zero_referenced = False,
+                units = "percentage",
+                tooltip = "Scaling factor, relative to video size in the x-direction")
         
         self.scale_factor_y = \
-        sg.attach_slider("scale_factor_y", 
-                         label = "Vertical Scaling Factor", 
-                         default_value = 0.0,
-                         min_value = -4.0, max_value = 4.0, step_size = 1/10,
-                         return_type = float,
-                         zero_referenced = False,
-                         units = "percentage",
-                         tooltip = "Scaling factor, relative to video size in the y-direction")
+        self.ctrl_spec.attach_slider(
+                "scale_factor_y", 
+                label = "Vertical Scaling Factor", 
+                default_value = 0.0,
+                min_value = -4.0, max_value = 4.0, step_size = 1/10,
+                return_type = float,
+                zero_referenced = False,
+                units = "percentage",
+                tooltip = "Scaling factor, relative to video size in the y-direction")
         
         # .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . Control Group 3 .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
         
         
-        rg = self.controls_manager.new_control_group("Rotation Controls")
+        self.ctrl_spec.new_control_group("Rotation Controls")
         
         self.enable_rotation = \
-        rg.attach_toggle("enable_rotation", 
-                         label = "Enable Rotation", 
-                         default_value = True)
+        self.ctrl_spec.attach_toggle(
+                "enable_rotation", 
+                label = "Enable Rotation", 
+                default_value = True)
         
         self.rotation_angle_deg = \
-        rg.attach_slider("rotation_angle_deg", 
-                         label = "Rotation Angle", 
-                         default_value = 0.0,
-                         min_value = -360.0, max_value = 360.0,
-                         return_type = float,
-                         zero_referenced = False,
-                         units = "degrees",
-                         tooltip = "Amount of rotation applied to the image.")
+        self.ctrl_spec.attach_slider(
+                "rotation_angle_deg", 
+                label = "Rotation Angle", 
+                default_value = 0.0,
+                min_value = -360.0, max_value = 360.0,
+                return_type = float,
+                zero_referenced = False,
+                units = "degrees",
+                tooltip = "Amount of rotation applied to the image.")
         
         
         # .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . Control Group 4 .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
         
         
-        hg = self.controls_manager.new_control_group("Shearing Controls")
+        self.ctrl_spec.new_control_group("Shearing Controls")
         
         self.enable_shearing = \
-        hg.attach_toggle("enable_shearing", 
-                         label = "Enable Shearing", 
-                         default_value = True)
+        self.ctrl_spec.attach_toggle(
+                "enable_shearing", 
+                label = "Enable Shearing", 
+                default_value = True)
         
         self.shear_factor_x = \
-        hg.attach_slider("shear_factor_x", 
-                         label = "Horizontal Shear Factor", 
-                         default_value = 0.0,
-                         min_value =-1.0, max_value = 1.0, step_size = 1/100,
-                         return_type = float,
-                         zero_referenced = False,
-                         units = "normalized",
-                         tooltip = "Amount of shearing applied to the image along the horizontal axis.")
+        self.ctrl_spec.attach_slider(
+                "shear_factor_x", 
+                label = "Horizontal Shear Factor", 
+                default_value = 0.0,
+                min_value = -1.0, max_value = 1.0, step_size = 1/100,
+                return_type = float,
+                zero_referenced = False,
+                units = "normalized",
+                tooltip = "Amount of shearing applied to the image along the horizontal axis.")
         
         self.shear_factor_y = \
-        hg.attach_slider("shear_factor_y", 
-                         label = "Vertical Shear Factor", 
-                         default_value = 0.0,
-                         min_value =-1.0, max_value = 1.0, step_size = 1/100,
-                         return_type = float,
-                         zero_referenced = False,
-                         units = "normalized",
-                         tooltip = "Amount of shearing applied to the image along the vertical axis.")
+        self.ctrl_spec.attach_slider(
+                "shear_factor_y", 
+                label = "Vertical Shear Factor", 
+                default_value = 0.0,
+                min_value = -1.0, max_value = 1.0, step_size = 1/100,
+                return_type = float,
+                zero_referenced = False,
+                units = "normalized",
+                tooltip = "Amount of shearing applied to the image along the vertical axis.")
         
         
         # .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . Control Group 5 .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
         
         
-        tg = self.controls_manager.new_control_group("Translation Controls")
+        self.ctrl_spec.new_control_group("Translation Controls")
         
         self.enable_translation = \
-        tg.attach_toggle("enable_translation", 
-                         label = "Enable Translation", 
-                         default_value = True)
+        self.ctrl_spec.attach_toggle(
+                "enable_translation", 
+                label = "Enable Translation", 
+                default_value = True)
         
         self.translation_factor_x = \
-        tg.attach_slider("translation_factor_x", 
-                         label = "Horizontal Translation", 
-                         default_value = 0.0,
-                         min_value =-1.0, max_value = 1.0, step_size = 1/100,
-                         return_type = float,
-                         zero_referenced = False,
-                         units = "normalized",
-                         tooltip = "Amount of translation applied to the image along the horizontal axis.")
+        self.ctrl_spec.attach_slider(
+                "translation_factor_x", 
+                label = "Horizontal Translation", 
+                default_value = 0.0,
+                min_value = -1.0, max_value = 1.0, step_size = 1/100,
+                return_type = float,
+                zero_referenced = False,
+                units = "normalized",
+                tooltip = "Amount of translation applied to the image along the horizontal axis.")
         
         self.translation_factor_y = \
-        tg.attach_slider("translation_factor_y", 
-                         label = "Vertical Translation", 
-                         default_value = 0.0,
-                         min_value =-1.0, max_value = 1.0, step_size = 1/100,
-                         return_type = float,
-                         zero_referenced = False,
-                         units = "normalized",
-                         tooltip = "Amount of translation applied to the image along the vertical axis.")
+        self.ctrl_spec.attach_slider(
+                "translation_factor_y", 
+                label = "Vertical Translation", 
+                default_value = 0.0,
+                min_value = -1.0, max_value = 1.0, step_size = 1/100,
+                return_type = float,
+                zero_referenced = False,
+                units = "normalized",
+                tooltip = "Amount of translation applied to the image along the vertical axis.")
         
     # .................................................................................................................
     

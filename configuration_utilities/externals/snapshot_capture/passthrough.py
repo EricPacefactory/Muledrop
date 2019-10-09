@@ -65,7 +65,7 @@ from local.configurables.externals.snapshot_capture._helper_functions import Sna
 # Make all required selections and setup/configure everything
 loader = Reconfigurable_Snapshot_Capture_Loader("passthrough_snapcapture")
 loader.selections()
-configurable_ref = loader.setup_all()
+configurable_ref = loader.setup_all(__file__)
 
 # Set up object to handle all video processing
 main_process = \

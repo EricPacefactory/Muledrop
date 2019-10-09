@@ -75,118 +75,129 @@ class Preprocessor_Stage(Reference_Preprocessor):
         
         # .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . Control Group 1 .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
         
-        tg = self.controls_manager.new_control_group("Transformation Controls")
+        self.ctrl_spec.new_control_group("Transformation Controls")
         
         self.enable_transform = \
-        tg.attach_toggle("enable_transform", 
-                         label = "Enable Transform", 
-                         default_value = True,
-                         tooltip = "Enable or disable all of the transformation properties")
+        self.ctrl_spec.attach_toggle(
+                "enable_transform", 
+                label = "Enable Transform", 
+                default_value = True,
+                tooltip = "Enable or disable all of the transformation properties")
         
         
         self.rotation_deg = \
-        tg.attach_slider("rotation_deg", 
-                         label = "Rotation", 
-                         default_value = 0.0,
-                         min_value = -180.0, max_value = 180.0, step_size = 1/10,
-                         return_type = float,
-                         units = "degrees",
-                         tooltip = "Rotate the display of the image")
+        self.ctrl_spec.attach_slider(
+                "rotation_deg", 
+                label = "Rotation", 
+                default_value = 0.0,
+                min_value = -180.0, max_value = 180.0, step_size = 1/10,
+                return_type = float,
+                units = "degrees",
+                tooltip = "Rotate the display of the image")
         
         self.fov_deg = \
-        tg.attach_slider("fov_deg", 
-                         label = "FOV", 
-                         default_value = 0.0,
-                         min_value = 0.0, max_value = 180.0, step_size = 1/10,
-                         return_type = float,
-                         units = "degrees",
-                         tooltip = "Set the field of view of the camera")
+        self.ctrl_spec.attach_slider(
+                "fov_deg", 
+                label = "FOV", 
+                default_value = 0.0,
+                min_value = 0.0, max_value = 180.0, step_size = 1/10,
+                return_type = float,
+                units = "degrees",
+                tooltip = "Set the field of view of the camera")
         
         self.out_apert = \
-        tg.attach_slider("out_apert", 
-                         label = "Output Aperture", 
-                         default_value = 1.0,
-                         min_value = 0.0, max_value = 1.0, step_size = 1/100,
-                         return_type = float,
-                         units = "normalized",
-                         tooltip = "Set the amount of the input image to display in the output")
+        self.ctrl_spec.attach_slider(
+                "out_apert", 
+                label = "Output Aperture", 
+                default_value = 1.0,
+                min_value = 0.0, max_value = 1.0, step_size = 1/100,
+                return_type = float,
+                units = "normalized",
+                tooltip = "Set the amount of the input image to display in the output")
         
         self.interpolation_type = \
-        tg.attach_menu("interpolation_type",
-                       label = "Interpolation",
-                       default_value = "Nearest Neighbor", 
-                       option_label_value_list = [("Nearest Neighbor", cv2.INTER_NEAREST),
-                                                  ("Bilinear", cv2.INTER_LINEAR),
-                                                  ("Cubic", cv2.INTER_CUBIC)],
-                       tooltip = "Set the interpolation style for pixels sampled at fractional indices")
+        self.ctrl_spec.attach_menu(
+                "interpolation_type",
+                label = "Interpolation",
+                default_value = "Nearest Neighbor", 
+                option_label_value_list = [("Nearest Neighbor", cv2.INTER_NEAREST),
+                                           ("Bilinear", cv2.INTER_LINEAR),
+                                           ("Cubic", cv2.INTER_CUBIC)],
+                tooltip = "Set the interpolation style for pixels sampled at fractional indices")
         
         
         # .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . Control Group 2 .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
         
-        ag = self.controls_manager.new_control_group("Camera Adjustments")
+        self.ctrl_spec.new_control_group("Camera Adjustments")
         
         self.in_apert = \
-        ag.attach_slider("in_apert", 
-                         label = "Input Aperture", 
-                         default_value = 1.0,
-                         min_value = 0.5, max_value = 1.5, step_size = 1/1000,
-                         return_type = float,
-                         units = "normalized",
-                         tooltip = "")
+        self.ctrl_spec.attach_slider(
+                "in_apert", 
+                label = "Input Aperture", 
+                default_value = 1.0,
+                min_value = 0.5, max_value = 1.5, step_size = 1/1000,
+                return_type = float,
+                units = "normalized",
+                tooltip = "")
         
         self.in_ar_balance = \
-        ag.attach_slider("in_ar_balance", 
-                         label = "Input AR Balance", 
-                         default_value = 1.0,
-                         min_value = 0.5, max_value = 1.5, step_size = 1/1000,
-                         return_type = float,
-                         units = "normalized",
-                         tooltip = "")
+        self.ctrl_spec.attach_slider(
+                "in_ar_balance", 
+                label = "Input AR Balance", 
+                default_value = 1.0,
+                min_value = 0.5, max_value = 1.5, step_size = 1/1000,
+                return_type = float,
+                units = "normalized",
+                tooltip = "")
         
         self.x_recenter = \
-        ag.attach_slider("x_recenter", 
-                         label = "Lens x-offset", 
-                         default_value = 0.0,
-                         min_value = -0.25, max_value = 0.25, step_size = 1/1000,
-                         return_type = float,
-                         units = "normalized",
-                         tooltip = "Set the x-offset of the camera lens relative to the image sensor")
+        self.ctrl_spec.attach_slider(
+                "x_recenter", 
+                label = "Lens x-offset", 
+                default_value = 0.0,
+                min_value = -0.25, max_value = 0.25, step_size = 1/1000,
+                return_type = float,
+                units = "normalized",
+                tooltip = "Set the x-offset of the camera lens relative to the image sensor")
         
         self.y_recenter = \
-        ag.attach_slider("y_recenter", 
-                         label = "Lens y-offset", 
-                         default_value = 0.0,
-                         min_value = -0.25, max_value = 0.25, step_size = 1/1000,
-                         return_type = float,
-                         units = "normalized",
-                         tooltip = "Set the y-offset of the camera lens relative to the image sensor")        
+        self.ctrl_spec.attach_slider(
+                "y_recenter", 
+                label = "Lens y-offset", 
+                default_value = 0.0,
+                min_value = -0.25, max_value = 0.25, step_size = 1/1000,
+                return_type = float,
+                units = "normalized",
+                tooltip = "Set the y-offset of the camera lens relative to the image sensor")        
         
         
         # .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . Control Group 3 .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
         
-        sg = self.controls_manager.new_control_group("Scaling Controls")
+        self.ctrl_spec.new_control_group("Scaling Controls")
         
         self.output_w = \
-        sg.attach_slider("output_w", 
-                         label = "Output Width", 
-                         default_value = input_wh[0],
-                         min_value = 50,
-                         max_value = 1280,
-                         return_type = int,
-                         zero_referenced = True,
-                         units = "pixels",
-                         tooltip = "Set the output image width, in pixels")
+        self.ctrl_spec.attach_slider(
+                "output_w", 
+                label = "Output Width", 
+                default_value = input_wh[0],
+                min_value = 50,
+                max_value = 1280,
+                return_type = int,
+                zero_referenced = True,
+                units = "pixels",
+                tooltip = "Set the output image width, in pixels")
         
         self.output_h = \
-        sg.attach_slider("output_h", 
-                         label = "Output Height", 
-                         default_value = input_wh[1],
-                         min_value = 50,
-                         max_value = 1280,
-                         return_type = int,
-                         zero_referenced = True,
-                         units = "pixels",
-                         tooltip = "Set the output image height, in pixels")
+        self.ctrl_spec.attach_slider(
+                "output_h", 
+                label = "Output Height", 
+                default_value = input_wh[1],
+                min_value = 50,
+                max_value = 1280,
+                return_type = int,
+                zero_referenced = True,
+                units = "pixels",
+                tooltip = "Set the output image height, in pixels")
     
     # .................................................................................................................
     

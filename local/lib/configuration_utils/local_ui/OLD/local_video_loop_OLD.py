@@ -53,10 +53,10 @@ find_path_to_local()
 import cv2
 import numpy as np
 
-from local.lib.configuration_utils.local_ui.local_windows_base import Simple_Window, display_wh
-from local.lib.configuration_utils.local_ui.local_timing_window import Local_Timing_Window
-from local.lib.configuration_utils.local_ui.local_controls import Local_Window_Controls
-from local.lib.configuration_utils.local_ui.local_playback_window import Local_Playback_Controls
+from local.lib.configuration_utils.local_ui.windows_base import Simple_Window, display_wh
+from local.lib.configuration_utils.local_ui.timing import Local_Timing_Window
+from local.lib.configuration_utils.local_ui.controls import Local_Window_Controls
+from local.lib.configuration_utils.local_ui.playback import Local_Playback_Controls
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define functions

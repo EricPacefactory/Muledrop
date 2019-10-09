@@ -49,6 +49,7 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
+
 from eolib.utils.function_helpers import get_function_arg_dict
 
 
@@ -161,9 +162,11 @@ class Control_Manager:
     
     # .................................................................................................................
     # .................................................................................................................
-    
+
+
 # /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 # /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 class Control_Group:
     
@@ -299,10 +302,102 @@ class Control_Group:
 # /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 # /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Define functions
+
+# .....................................................................................................................
+
+def convert_return_types(control_list):
+    
+    ''' Function which replaces python-only return types (int, float, bool, etc.) to json-friendly values '''
+        
+    # Create a handy lookup for converting python types
+    return_type_lut = {bool: "boolean",
+                       int: "integer",
+                       float: "float",
+                       str: "string",
+                       list: "list",
+                       tuple: "tuple",
+                       None: None}
+    
+    # For convenience
+    return_type_key = "return_type"
+    
+    # Loop through every control specification and convert the return type to a json-friendly value (if present)
+    converted_control_list = []
+    for each_control_spec_dict in control_list:
+        
+        # Skip entries that have no return type
+        has_no_return_type = (return_type_key not in each_control_spec_dict)
+        if has_no_return_type:
+            new_control_group_dict = each_control_spec_dict.copy()
+            converted_control_list.append(new_control_group_dict)
+            continue
+        
+        # Get the current return type, which is only valid within python
+        return_type = each_control_spec_dict.get(return_type_key)
+        
+        # Sanity check
+        unrecognized_return_type = (return_type not in return_type_lut)
+        if unrecognized_return_type:
+            variable_name = each_control_spec_dict.get("variable_name", "unknown variable name")
+            raise AttributeError("Unrecognized return type: {} ({})".format(return_type, variable_name))
+        
+        # Convert the python-only return type to a valid json entry
+        converted_return_type = return_type_lut.get(return_type)
+        new_control_group_dict = each_control_spec_dict.copy()
+        new_control_group_dict.update({return_type_key: converted_return_type})
+        converted_control_list.append(new_control_group_dict)
+    
+    return converted_control_list
+
+# .....................................................................................................................
+
+def safeify_drawing_default_values(default_entity_value):
+    
+    ''' 
+    Function which converts bad/error-prone drawing default values to safe values
+    Safe values should have the form of a 'list-of-lists-of-tuples'
+    
+    For example:
+    The simplest default (no entity) is [[]]
+    For a single entity, the default should be [[(x1, y1), (x2, y2), ...]]
+    In general: [[(xa1, ya1), (xa2, ya2), (xa3, ya3)], [(xb1, yb1), (xb2, yb2)], [...]]
+    '''
+    
+    # If the default is one of the empty entires, return the 'safe' empty format
+    default_is_none = (default_entity_value is None)
+    default_is_empty_wrong = (default_entity_value == [])
+    default_is_empty_right = (default_entity_value == [[]])
+    if default_is_none or default_is_empty_wrong or default_is_empty_right:
+        return [[]]
+    
+    # If we get here, the default probably contains meaningful data. So loop over the entries to check validity
+    needs_list_wrap = False
+    first_entity = default_entity_value[0]
+    try:
+            
+        # Check that the entity type is valid
+        first_entity_point_type = type(first_entity[0])
+        needs_list_wrap = (first_entity_point_type not in (list, tuple))
+        
+    except Exception:
+        err_msgs = ["Error interpretting default entity value: {}".format(default_entity_value)]
+        err_msgs += ["Must be in the format [[(xa1, ya1), (xa2, ya2), ...], [(xb1, yb1), (xb2, yb2), ...]]"]
+        raise TypeError("\n".join(err_msgs))
+    
+    # Wrap default value in another list if needed
+    if needs_list_wrap:
+        return [default_entity_value]
+    
+    return default_entity_value
+
+# .....................................................................................................................
+# .....................................................................................................................
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Demo
-    
+
 if __name__ == "__main__":
     
     
@@ -345,17 +440,17 @@ if __name__ == "__main__":
     interp = thresh_group.attach_menu("interp", 
                                       label = "Interpolation", 
                                       default_value = "Bilinear",
-                                      option_label_value_dict = {"Nearest Neighbour": 0,
-                                                                 "Bilinear": 5,
-                                                                 "Cubic": 10,
-                                                                 "Other": None})
+                                      option_label_value_list = [("Nearest Neighbour", 0),
+                                                                 ("Bilinear", 5),
+                                                                 ("Cubic", 10),
+                                                                 ("Other", None)])
     
     # Expected to pass the ctrl_manager into the reconfigure() function for a configurable!
     
     # Example of json output:
     example_json = ctrls_manager.to_json()
     print(example_json)
-
+    
     
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Scrap

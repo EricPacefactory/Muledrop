@@ -85,7 +85,8 @@ class Color_Map(Display_Window_Specification):
         
     # .................................................................................................................
      
-    def display(self, stage_outputs, configurable_ref, current_frame_index, current_time_sec, current_datetime):        
+    def display(self, stage_outputs, configurable_ref, mouse_xy,
+                current_frame_index, current_time_sec, current_datetime):        
         
         # Get brightness display boundaries
         low_bound = configurable_ref._lower_tuple[self.v_channel]
@@ -209,5 +210,6 @@ last_frame_index, last_time_sec, last_datetime = main_process.debug_fsd_time_arg
 TODO
 - Add phase option to hue, so that 'inverted' regions can be created, without needing to invert everything
     - Or add inversion to all channels?
+- Add brightness bar to color mapping visualization
 '''
 

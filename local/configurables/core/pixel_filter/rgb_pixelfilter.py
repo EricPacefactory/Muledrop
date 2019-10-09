@@ -52,7 +52,6 @@ find_path_to_local()
 import cv2
 
 from local.configurables.core.pixel_filter.reference_pixelfilter import Reference_Pixel_Filter
-from local.configurables.core.pixel_filter._helper_functions import inRange_with_colorspace
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
@@ -75,77 +74,85 @@ class Pixel_Filter_Stage(Reference_Pixel_Filter):
         
         # .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . Control Group 1 .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
         
-        sh = self.controls_manager.new_control_group("Main Controls")
+        self.ctrl_spec.new_control_group("Main Controls")
         
         self.enable_filter = \
-        sh.attach_toggle("enable_filter",
-                         label = "Enable filtering",
-                         default_value = True)
+        self.ctrl_spec.attach_toggle(
+                "enable_filter",
+                label = "Enable filtering",
+                default_value = True)
         
         self.invert_filter = \
-        sh.attach_toggle("invert_filter",
-                         label = "Invert",
-                         default_value = False)
+        self.ctrl_spec.attach_toggle(
+                "invert_filter",
+                label = "Invert",
+                default_value = False)
         
         # .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . Control Group 2 .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
         
-        rc = self.controls_manager.new_control_group("Red Controls")
+        self.ctrl_spec.new_control_group("Red Controls")
         
         self.red_lower = \
-        rc.attach_slider("red_lower", 
-                         label = "Lower Red", 
-                         default_value = 0,
-                         min_value = 0,
-                         max_value = 255,
-                         return_type = int)
+        self.ctrl_spec.attach_slider(
+                "red_lower", 
+                label = "Lower Red", 
+                default_value = 0,
+                min_value = 0,
+                max_value = 255,
+                return_type = int)
         
         self.red_upper = \
-        rc.attach_slider("red_upper", 
-                         label = "Upper Red", 
-                         default_value = 255,
-                         min_value = 0,
-                         max_value = 255,
-                         return_type = int)
+        self.ctrl_spec.attach_slider(
+                "red_upper", 
+                label = "Upper Red", 
+                default_value = 255,
+                min_value = 0,
+                max_value = 255,
+                return_type = int)
         
         # .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . Control Group 3 .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
         
-        gc = self.controls_manager.new_control_group("Green Controls")
+        self.ctrl_spec.new_control_group("Green Controls")
         
         self.green_lower = \
-        gc.attach_slider("green_lower", 
-                         label = "Lower Green", 
-                         default_value = 0,
-                         min_value = 0,
-                         max_value = 255,
-                         return_type = int)
+        self.ctrl_spec.attach_slider(
+                "green_lower", 
+                label = "Lower Green", 
+                default_value = 0,
+                min_value = 0,
+                max_value = 255,
+                return_type = int)
         
         self.green_upper = \
-        gc.attach_slider("green_upper", 
-                         label = "Upper Green", 
-                         default_value = 255,
-                         min_value = 0,
-                         max_value = 255,
-                         return_type = int)
+        self.ctrl_spec.attach_slider(
+                "green_upper", 
+                label = "Upper Green", 
+                default_value = 255,
+                min_value = 0,
+                max_value = 255,
+                return_type = int)
         
         # .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . Control Group 4 .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
         
-        bc = self.controls_manager.new_control_group("Blue Controls")
+        self.ctrl_spec.new_control_group("Blue Controls")
         
         self.blue_lower = \
-        bc.attach_slider("blue_lower", 
-                         label = "Lower Blue", 
-                         default_value = 0,
-                         min_value = 0,
-                         max_value = 255,
-                         return_type = int)
+        self.ctrl_spec.attach_slider(
+                "blue_lower", 
+                label = "Lower Blue", 
+                default_value = 0,
+                min_value = 0,
+                max_value = 255,
+                return_type = int)
         
         self.blue_upper = \
-        bc.attach_slider("blue_upper", 
-                         label = "Upper Blue", 
-                         default_value = 255,
-                         min_value = 0,
-                         max_value = 255,
-                         return_type = int)
+        self.ctrl_spec.attach_slider(
+                "blue_upper", 
+                label = "Upper Blue", 
+                default_value = 255,
+                min_value = 0,
+                max_value = 255,
+                return_type = int)
         
     # .................................................................................................................
     

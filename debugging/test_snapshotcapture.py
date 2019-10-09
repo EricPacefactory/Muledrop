@@ -52,7 +52,7 @@ find_path_to_local()
 import cv2
 
 from local.lib.selection_utils import Resource_Selector
-from local.lib.configuration_utils.local_ui.local_windows_base import Simple_Window
+from local.lib.configuration_utils.local_ui.windows_base import Simple_Window
 from local.lib.configuration_utils.video_setup import Dummy_vreader
 
 #from local.configurables.externals.snapshot_capture.passthrough_snapcapture import Snapshot_Capture

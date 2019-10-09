@@ -10,6 +10,17 @@
 <!-- Add main page content -->
 {% block body %}
     <h1>Curate Training Data</h1>
+    <p>- Run classifier on all snapshots (as this window is opened or have a button to launch?</p>
+    <p>- Gather into Correct/incorrect classification tables</p>
+    <p>- Display grid of 'correct' classification images and a grid of incorrect images</p>
+    <p>- Some images will just be bad detections and should be removed from training set</p>
+    <p>- Some images will be good images, but with bad classifications, so they should definitely be used for re-training</p>
+    <p>- So for each image, provide an option to exclude from training or tag as incorrect</p>
+    <p>- Then provide button to launch re-training? May be too slow to use with browser...</p>
+    <p></p>
+    <p>- May want to present test data as well, since it will contain the same 'should have ignored' errors</p>
+    <p>- Test data should not be labelled obviously (don't want to bias results) and should ignore 're-training' commands</p>
+        
 {% endblock %}
 
 

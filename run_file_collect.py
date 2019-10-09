@@ -89,7 +89,8 @@ def save_data_prompt(configuration_loader, save_by_default = False):
 
 # .....................................................................................................................
 
-def enable_display_prompt(default_response = False):
+def enable_display_prompt(saving_enabled = True):    
+    default_response = False if saving_enabled else True    
     return cli_confirm("Display processing results (slower)?", default_response = default_response)
 
 # .....................................................................................................................
@@ -108,7 +109,7 @@ loader.toggle_saving(save_data)
 loader.toggle_threading(False)  # Disable threading to ensure deterministic timing when running files
 
 # Ask the user about displaying results
-enable_display = enable_display_prompt()
+enable_display = enable_display_prompt(saving_enabled = save_data)
 
 # Configure everything!
 loader.setup_all()

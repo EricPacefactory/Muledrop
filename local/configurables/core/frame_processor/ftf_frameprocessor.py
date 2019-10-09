@@ -89,7 +89,6 @@ class Frame_Processor_Stage(Reference_Frame_Processor):
         # Allocate space for dervied variables
         self._proc_func_list = None
         self._scaled_mask_image = None
-        self.mask_zone_list = []
         
         # llocate storage for variables used to remove processing functions (to improve performance)
         self._enable_downscale = False
@@ -99,179 +98,208 @@ class Frame_Processor_Stage(Reference_Frame_Processor):
         self._enable_summation = False
         self._enable_threshold = False
         self._enable_post_morph = False
+        self._enable_masking_optimized = False
+        
+        # .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . Drawing Controls  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
+        
+        self.mask_zone_list = \
+        self.ctrl_spec.attach_drawing(
+                "mask_zone_list",
+                default_value = [[]],
+                min_max_entities = None,
+                min_max_points = (3, None),
+                entity_type = "polygon",
+                drawing_style = "zone")
         
         # .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . Control Group 1 .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
         
-        mg = self.controls_manager.new_control_group("General Controls")
+        self.ctrl_spec.new_control_group("General Controls")
         
         self._show_outlines = \
-        mg.attach_toggle("_show_outlines",
-                         label = "Show Outlines",
-                         default_value = True,
-                         tooltip = "Overlay outlines of binary shapes on the input color image. Requires thresholding!")
+        self.ctrl_spec.attach_toggle(
+                "_show_outlines",
+                label = "Show Outlines",
+                default_value = True,
+                tooltip = "Overlay outlines of binary shapes on the input color image. Requires thresholding!",
+                save_with_config = False)
         
         self.downscale_factor = \
-        mg.attach_slider("downscale_factor", 
-                         label = "Downscaling", 
-                         default_value = 0.50,
-                         min_value = 0.1,
-                         max_value = 1.0,
-                         step_size = 1/100,
-                         return_type = float,
-                         zero_referenced = True,
-                         tooltip = "Perform frame processing on a reduced frame size")
-        
+        self.ctrl_spec.attach_slider(
+                "downscale_factor", 
+                label = "Downscaling", 
+                default_value = 0.50,
+                min_value = 0.1,
+                max_value = 1.0,
+                step_size = 1/100,
+                return_type = float,
+                zero_referenced = True,
+                tooltip = "Perform all frame processing on a reduced frame size")
+            
         self.downscale_interpolation = \
-        mg.attach_menu("downscale_interpolation", 
-                       label = "Downscaling Interpolation", 
-                       default_value = "Nearest",
-                       option_label_value_list = [("Nearest", cv2.INTER_NEAREST),
-                                                  ("Bilinear", cv2.INTER_LINEAR),
-                                                  ("Cubic", cv2.INTER_CUBIC)],
-                       tooltip = "Set the interpolation style for pixels sampled at fractional indices")
+        self.ctrl_spec.attach_menu(
+                "downscale_interpolation", 
+                label = "Downscaling Interpolation", 
+                default_value = "Nearest",
+                option_label_value_list = [("Nearest", cv2.INTER_NEAREST),
+                                           ("Bilinear", cv2.INTER_LINEAR),
+                                           ("Cubic", cv2.INTER_CUBIC)],
+                tooltip = "Set the interpolation style for pixels sampled at fractional indices")
         
         self.threshold = \
-        mg.attach_slider("threshold", 
-                         label = "Threshold", 
-                         default_value = 0,
-                         min_value = 0,
-                         max_value = 255,
-                         return_type = int,
-                         tooltip = ["Thresholding converts (grayscale) frame differences to black and white images.",
-                                    "Differences that are above the threshold are converted to white pixels,",
-                                    "differences below the threshold will be shown as black pixels.",
-                                    "Thresholding is applied after:",
-                                    "downscaling, blurring, frame-differencing, (gray) gap fill and summation."])
+        self.ctrl_spec.attach_slider(
+                "threshold", 
+                label = "Threshold", 
+                default_value = 0,
+                min_value = 0,
+                max_value = 255,
+                return_type = int,
+                tooltip = ["Thresholding converts (grayscale) frame differences to black and white images.",
+                           "Differences that are above the threshold are converted to white pixels,",
+                           "differences below the threshold will be shown as black pixels.",
+                           "Thresholding is applied after:",
+                           "downscaling, blurring, frame-differencing, (gray) shapeshifting and summation."])
         
         self.use_norm_diff = \
-        mg.attach_toggle("use_norm_diff", 
-                         label = "Use Maximum Difference", 
-                         default_value = False,
-                         tooltip = ["Enabling this setting means that the output of the frame difference ",
-                                    "calculation will be the maximum difference among the RGB channels. When",
-                                    "disabled, the output will be a grayscale average of the RGB channels.",
-                                    "Using the maximum will result in a more sensitive output, but",
-                                    "it runs significantly slower!"])
+        self.ctrl_spec.attach_toggle(
+                "use_norm_diff", 
+                label = "Use Maximum Difference", 
+                default_value = False,
+                tooltip = ["Enabling this setting means that the output of the frame difference ",
+                           "calculation will be the maximum difference among the RGB channels. When",
+                           "disabled, the output will be a grayscale average of the RGB channels.",
+                           "Using the maximum will result in a more sensitive output, but",
+                           "it runs significantly slower, especially for larger frame resolutions!"])
         
         self.enable_masking = \
-        mg.attach_toggle("enable_masking", 
-                         label = "Enable Masking", 
-                         default_value = True,
-                         tooltip = "Enable or disable masking")
+        self.ctrl_spec.attach_toggle(
+                "enable_masking", 
+                label = "Enable Masking", 
+                default_value = True,
+                tooltip = "Enable or disable masking")
+        
         
         # .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . Control Group 2 .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
         
-        ag = self.controls_manager.new_control_group("Pre-Threshold Controls")
+        self.ctrl_spec.new_control_group("Pre-Threshold Controls")
         
         self.blur_size = \
-        ag.attach_slider("blur_size", 
-                         label = "Blurriness", 
-                         default_value = 0,
-                         min_value = 0,
-                         max_value = self._max_kernel_size,
-                         return_type = int,
-                         tooltip = ["Amount of blurring to apply to a frame before calculating frame differences.",
-                                    "Helps to reduce errors due to video noise/artifacting.",
-                                    "For more information, try searching for 'box blur'."])
+        self.ctrl_spec.attach_slider(
+                "blur_size", 
+                label = "Blurriness", 
+                default_value = 0,
+                min_value = 0,
+                max_value = self._max_kernel_size,
+                return_type = int,
+                tooltip = ["Amount of blurring to apply to a frame before calculating frame differences.",
+                           "Helps to reduce errors due to video noise/artifacting.",
+                           "For more technical information, try searching for 'box blur'."])
         
         self.difference_depth = \
-        ag.attach_slider("difference_depth", 
-                         label = "Difference Depth", 
-                         default_value = 0,
-                         min_value = 0,
-                         max_value = self._max_deck_length,
-                         return_type = int,
-                         tooltip = ["When performing frame differences, this number determines how far back",
-                                    "to go when selecting a frame for differencing. For example,",
-                                    "a depth of 1 means to take the difference between the current frame",
-                                    "and 1 frame ago (i.e. the previous frame). A depth of 5 means",
-                                    "to take the difference of the current frame and 5 frames ago."])
+        self.ctrl_spec.attach_slider(
+                "difference_depth", 
+                label = "Difference Depth", 
+                default_value = 0,
+                min_value = 0,
+                max_value = self._max_deck_length,
+                return_type = int,
+                tooltip = ["When performing frame differences, this number determines how far back",
+                           "to go when selecting a frame for differencing. For example,",
+                           "a depth of 1 means to take the difference between the current frame",
+                           "and 1 frame ago (i.e. the previous frame). A depth of 5 means",
+                           "to take the difference of the current frame and 5 frames ago."])
         
         self.pre_morph_size = \
-        ag.attach_slider("pre_morph_size", 
-                         label = "(Gray) Shapeshift Region Size", 
-                         default_value = 0,
-                         min_value = 0,
-                         max_value = self._max_kernel_size,
-                         return_type = int,
-                         tooltip = ["Determines how large a region to look in when applying shapeshifting operations",
-                                    "For more detailed information about how shapeshifting works,",
-                                    "try searching for 'grayscale morphology'."])
+        self.ctrl_spec.attach_slider(
+                "pre_morph_size", 
+                label = "(Gray) Shapeshift Region Size", 
+                default_value = 0,
+                min_value = 0,
+                max_value = self._max_kernel_size,
+                return_type = int,
+                tooltip = ["Determines how large a region to look in when applying shapeshifting operations",
+                           "For more detailed information about how shapeshifting works,",
+                           "try searching for 'grayscale morphology'."])
         
         self.pre_morph_op = \
-        ag.attach_menu("pre_morph_op", 
-                       label = "(Gray) Shapeshift Operation",
-                       default_value = "Fill Dark",
-                       option_label_value_list = [("Fill Dark", cv2.MORPH_CLOSE),
-                                                  ("Expand Bright", cv2.MORPH_DILATE),
-                                                  ("Fill Bright", cv2.MORPH_OPEN),
-                                                  ("Expand Dark", cv2.MORPH_ERODE)],
-                       tooltip = ["Controls the behavior of (gray) shapeshifting.",
-                                  "     Fill Dark -> Fills in dark regions with the brightest surrounding values.",
-                                  " Expand Bright -> Expand the brightest regions.",
-                                  "   Fill Bright -> Fill in bright regions with the darkest surrounding values.",
-                                  "   Exapnd Dark -> Expand the darkest regions."])
+        self.ctrl_spec.attach_menu(
+                "pre_morph_op", 
+                label = "(Gray) Shapeshift Operation",
+                default_value = "Fill Dark",
+                option_label_value_list = [("Fill Dark", cv2.MORPH_CLOSE),
+                                           ("Expand Bright", cv2.MORPH_DILATE),
+                                           ("Fill Bright", cv2.MORPH_OPEN),
+                                           ("Expand Dark", cv2.MORPH_ERODE)],
+                tooltip = ["Controls the behavior of (gray) shapeshifting.",
+                           "     Fill Dark -> Fills in dark regions with the brightest surrounding values.",
+                           " Expand Bright -> Expand the brightest regions.",
+                           "   Fill Bright -> Fills in bright regions with the darkest surrounding values.",
+                           "   Expand Dark -> Expand the darkest regions."])
         
         self.pre_morph_shape = \
-        ag.attach_menu("pre_morph_shape", 
-                       label = "(Gray) Shapeshift Region Shape",
-                       default_value = "Square",
-                       option_label_value_list = [("Square", cv2.MORPH_RECT),
-                                                  ("Circle", cv2.MORPH_ELLIPSE),
-                                                  ("Cross", cv2.MORPH_CROSS)],
-                       visible = True,
-                       tooltip = "Determines the shape of the region used in shapeshifting")
+        self.ctrl_spec.attach_menu(
+                "pre_morph_shape", 
+                label = "(Gray) Shapeshift Region Shape",
+                default_value = "Square",
+                option_label_value_list = [("Square", cv2.MORPH_RECT),
+                                           ("Circle", cv2.MORPH_ELLIPSE),
+                                           ("Cross", cv2.MORPH_CROSS)],
+                visible = True,
+                tooltip = "Determines the shape of the regions used in shapeshifting")
         
         self.summation_depth = \
-        ag.attach_slider("summation_depth", 
-                         label = "Summation Depth", 
-                         default_value = 0,
-                         min_value = 0,
-                         max_value = self._max_deck_length,
-                         return_type = int,
-                         tooltip = ["Number of additional previous frames to add up before applying thresholding.",
-                                    "Can be used to help 'drown out' noise, since noise doesn't tend to add up",
-                                    "as consistently (as real frame differences) over time. Can also be used to",
-                                    "fill out shapes that tend to break apart or have holes in them. Note, when",
-                                    "summing up many frames, thresholding will need to be increased accordingly."])
+        self.ctrl_spec.attach_slider(
+                "summation_depth", 
+                label = "Summation Depth", 
+                default_value = 0,
+                min_value = 0,
+                max_value = self._max_deck_length,
+                return_type = int,
+                tooltip = ["Number of additional previous frames to add up before applying thresholding.",
+                           "Can be used to help 'drown out' noise, since noise doesn't tend to add up",
+                           "as consistently (as real frame differences) over time. Can also be used to",
+                           "fill out shapes that tend to break apart or have holes in them. Note, when",
+                           "summing up many frames, thresholding will need to be increased accordingly."])
         
         # .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . Control Group 3 .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
         
-        pg = self.controls_manager.new_control_group("Post-Threshold Controls")
+        self.ctrl_spec.new_control_group("Post-Threshold Controls")
         
         self.post_morph_size = \
-        pg.attach_slider("post_morph_size", 
-                         label = "(Binary) Shapeshift Region Size", 
-                         default_value = 0,
-                         min_value = 0,
-                         max_value = self._max_kernel_size,
-                         return_type = int,
-                         tooltip = "See (Gray) Shapeshift Region Size. Operates on purely black or white pixels.")
+        self.ctrl_spec.attach_slider(
+                "post_morph_size", 
+                label = "(Binary) Shapeshift Region Size", 
+                default_value = 0,
+                min_value = 0,
+                max_value = self._max_kernel_size,
+                return_type = int,
+                tooltip = "See (Gray) Shapeshift Region Size. Operates on purely black or white pixels.")
         
         self.post_morph_op = \
-        pg.attach_menu("post_morph_op", 
-                       label = "(Binary) Shapeshift Operation", 
-                       default_value = "Expand Bright",
-                       option_label_value_list = [("Fill Dark", cv2.MORPH_CLOSE),
-                                                  ("Expand Bright", cv2.MORPH_DILATE),
-                                                  ("Fill Bright", cv2.MORPH_OPEN),
-                                                  ("Expand Dark", cv2.MORPH_ERODE)],
-                       tooltip = ["See (Gray) Shapeshift Operation. Operates on purely black or white pixels.",
-                                  "In binary mode, shapeshifting has a more intuitive interpretation:",
-                                  "     Fill Dark -> Useful for filling in holes/broken parts of shapes.",
-                                  " Expand Bright -> Gives nicer shapes, which can improve detection consistency.",
-                                  "   Fill Bright -> Useful for separating shapes that blend together too much.",
-                                  "   Expand Dark -> Shrinks shapes. Can be used to offset the effects of summation."])
+        self.ctrl_spec.attach_menu(
+                "post_morph_op", 
+                label = "(Binary) Shapeshift Operation", 
+                default_value = "Expand Bright",
+                option_label_value_list = [("Fill Dark", cv2.MORPH_CLOSE),
+                                           ("Expand Bright", cv2.MORPH_DILATE),
+                                           ("Fill Bright", cv2.MORPH_OPEN),
+                                           ("Expand Dark", cv2.MORPH_ERODE)],
+                tooltip = ["See (Gray) Shapeshift Operation. Operates on purely black or white pixels.",
+                           "In binary mode, shapeshifting has a more intuitive interpretation:",
+                           "     Fill Dark -> Useful for filling in holes/broken parts of shapes.",
+                           " Expand Bright -> Gives nicer shapes, which can improve detection consistency.",
+                           "   Fill Bright -> Useful for separating shapes that blend together too much.",
+                           "   Expand Dark -> Shrinks shapes. Can be used to offset the effects of summation."])
         
         self.post_morph_shape = \
-        pg.attach_menu("post_morph_shape", 
-                       label = "(Binary) Shapeshift Region Shape", 
-                       default_value = "Square",
-                       option_label_value_list = [("Square", cv2.MORPH_RECT),
-                                                  ("Circle", cv2.MORPH_ELLIPSE),
-                                                  ("Cross", cv2.MORPH_CROSS)],
-                       visible = True,
-                       tooltip = "See (Gray) Shapeshift Region Shape. Operates on purely black or white pixels.")
+        self.ctrl_spec.attach_menu(
+                "post_morph_shape", 
+                label = "(Binary) Shapeshift Region Shape", 
+                default_value = "Square",
+                option_label_value_list = [("Square", cv2.MORPH_RECT),
+                                           ("Circle", cv2.MORPH_ELLIPSE),
+                                           ("Cross", cv2.MORPH_CROSS)],
+                visible = True,
+                tooltip = "See (Gray) Shapeshift Region Shape. Operates on purely black or white pixels.")
         
     # .................................................................................................................
     
@@ -301,6 +329,8 @@ class Frame_Processor_Stage(Reference_Frame_Processor):
         
         # Re-draw the masking image
         self._scaled_mask_image = self._create_mask_image()
+        mask_is_meaningful = (np.min(self._scaled_mask_image) == 0)
+        self._enable_masking_optimized = (self.enable_masking and mask_is_meaningful)
         
         # Set up frame decks if needed
         self._diff_deck, self._sum_deck = self._setup_decks()
@@ -339,18 +369,20 @@ class Frame_Processor_Stage(Reference_Frame_Processor):
         _, (scaled_width, scaled_height) = calculate_scaled_wh(self.input_wh, self.downscale_factor)
         input_shape = (scaled_height, scaled_width, 3)
         gray_shape = input_shape[0:2]
-        deck_length = 1 + self._max_deck_length 
+        max_deck_length = (1 + self._max_deck_length)
         
         # Set up the difference deck if needed
         difference_deck = self._diff_deck
         if self._diff_deck is None or reset_all:
-            difference_deck = Frame_Deck_LIFO(deck_length)
+            diff_deck_length = max_deck_length if self.configure_mode else (1 + self.difference_depth)
+            difference_deck = Frame_Deck_LIFO(diff_deck_length)
             difference_deck.initialize_missing_from_shape(input_shape)
         
         # Initialize the summation deck if needed
         summation_deck = self._sum_deck
         if self._sum_deck is None or reset_all:
-            summation_deck = Frame_Deck_LIFO(deck_length)
+            sum_deck_length = max_deck_length if self.configure_mode else (1 + self.summation_depth)
+            summation_deck = Frame_Deck_LIFO(sum_deck_length)
             summation_deck.initialize_missing_from_shape(gray_shape)
         
         # Resize the deck contents if the scaling factor changes
@@ -409,7 +441,7 @@ class Frame_Processor_Stage(Reference_Frame_Processor):
                      sum_func if self._enable_summation else passthru,
                      thresh_func if self._enable_threshold else passthru,
                      post_morph_func if self._enable_post_morph else passthru,
-                     mask_func if self.enable_masking else passthru]
+                     mask_func if self._enable_masking_optimized else passthru]
         
         return func_list, downscale_wh
         
@@ -424,7 +456,7 @@ class Frame_Processor_Stage(Reference_Frame_Processor):
         # Calculate the scaling factor needed to pixelize mask point locations
         frame_scaling = np.float32(((scaled_width - 1), (scaled_height - 1)))
         
-        # Create an empty mask image (i.e. fully passes everything through)
+        # Create an empty (bright) mask image (i.e. fully passes everything through)
         mask_image = np.full(frame_shape, 255, dtype=np.uint8)
         mask_fill = 0
         mask_line_type = cv2.LINE_8
@@ -432,9 +464,15 @@ class Frame_Processor_Stage(Reference_Frame_Processor):
         # Draw masked zones to black-out regions
         for each_zone in self.mask_zone_list:
             
+            # Don't try to draw anything when given empty entities!
+            if each_zone == []:
+                continue
+            
+            # Draw a filled (dark) polygon for each masking zone
             each_zone_array = np.float32(each_zone)
             mask_list_px = np.int32(np.round(each_zone_array * frame_scaling))
             cv2.fillPoly(mask_image, [mask_list_px], mask_fill, mask_line_type)
+            cv2.polylines(mask_image, [mask_list_px], True, mask_fill, 1, mask_line_type)
         
         return mask_image
     

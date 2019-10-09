@@ -84,10 +84,13 @@ class Reference_Pixel_Filter(Core_Configurable_Base):
     # .................................................................................................................
     
     # MAY OVERRIDE (BUT NOT NECESSARY, BETTER TO INSTEAD OVERRIDE: apply_frame_processing())
-    def run(self, binary_frame_1ch, preprocessed_frame):
+    def run(self, binary_frame_1ch, preprocessed_frame, preprocessed_bg_frame, bg_update):
         # This function must maintain this input/output structure!
         #   - Need to pass the preprocessed frame through (for the following pixel filter stage)
         #   - Need to return a new binary frame (i.e. only a single 'color' channel)
+        
+        # Update stored background before trying to process frame data
+        self.update_background(preprocessed_bg_frame, bg_update)
         
         # Make sure binary frame data is returned (i.e. only has a single channel)
         filtered_binary_frame_1ch = self.apply_pixel_filtering(binary_frame_1ch, preprocessed_frame)
@@ -104,6 +107,18 @@ class Reference_Pixel_Filter(Core_Configurable_Base):
             print("PIXEL PROCESSOR: FRAME ERROR".format(self.script_name))
             print(err)
             return binary_frame_1ch
+    
+    # .................................................................................................................
+    
+    # SHOULD OVERRIDE IF USING THE BACKGROUND IMAGE (can be used to store it, for example)
+    def update_background(self, preprocessed_background_frame, bg_update):
+        
+        # Don't do anything if there is no background frame
+        if not bg_update:
+            return
+            
+        # Place background frame processing here (also need to handle storage)
+        print("Background updated! Calling update_background() @ {}".format(self.script_name))
     
     # .................................................................................................................
     # .................................................................................................................

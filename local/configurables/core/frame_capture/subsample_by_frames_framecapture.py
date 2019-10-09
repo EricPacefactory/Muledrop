@@ -69,18 +69,19 @@ class Frame_Capture_Stage(Reference_Frame_Capture):
         
         # .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . Control Group 1 .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
         
-        sg = self.controls_manager.new_control_group("Sampling Controls")
+        self.ctrl_spec.new_control_group("Sampling Controls")
         
         self.skip_frame_count = \
-        sg.attach_slider("skip_frame_count", 
-                         label = "Skip Frames", 
-                         default_value = 5,
-                         min_value = 1,
-                         max_value = 100,
-                         zero_referenced = True,
-                         return_type = int,
-                         units = "Frames",
-                         tooltip = "Number of frames to skip between each processing iteration.")
+        self.ctrl_spec.attach_slider(
+                "skip_frame_count", 
+                label = "Skip Frames", 
+                default_value = 5,
+                min_value = 1,
+                max_value = 100,
+                zero_referenced = True,
+                return_type = int,
+                units = "Frames",
+                tooltip = "Number of frames to skip between each processing iteration.")
         
     # .................................................................................................................
     

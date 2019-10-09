@@ -51,7 +51,7 @@ find_path_to_local()
 
 import numpy as np
 
-from local.lib.configuration_utils.controls_creation import Control_Manager
+from local.lib.configuration_utils.controls_specification import Controls_Specification
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
@@ -93,7 +93,7 @@ class Configurable_Base:
         
         # Variables for controls/configuration functionality
         self.configure_mode = False
-        self.controls_manager = Control_Manager()
+        self.ctrl_spec = Controls_Specification()
     
     # .................................................................................................................
 
@@ -144,6 +144,7 @@ class Configurable_Base:
     
     # SHOULDN'T OVERRIDE
     def reconfigure(self, setup_data_dict = {}):
+        
         '''
         Function called when adjusting controls for a given configurable
         This function calls the setup() function after updating the controllable parameters.
@@ -151,13 +152,28 @@ class Configurable_Base:
         after updating the controls
         '''
         
-        self.controls_manager.update_object(self, setup_data_dict)
+        # Loop through all variable names in the setup dictionary
+        # and update those values for this object, though only if we have matching variables!
+        for each_variable_name, each_value in setup_data_dict.items():
+            
+            # Make sure we're not setting non-existent variables
+            missing_attribute = (not hasattr(self, each_variable_name))
+            if missing_attribute:
+                print("", 
+                      "{} ({})".format(self.component_name.capitalize(), self.script_name),
+                      "  Skipping unrecognized variable name: {}".format(each_variable_name), sep="\n")
+                continue
+            
+            # If we get here, we have the attribute, so update it
+            setattr(self, each_variable_name, each_value)
+        
+        # Call the setup function to handle any post-update setup required
         self.setup(setup_data_dict)
        
     # .................................................................................................................
     
     # SHOULD OVERRIDE. Don't override the i/o
-    def setup(self, variable_update_dictionary):
+    def setup(self, variables_changed_dictionary):
         
         ''' 
         This function is called after reconfigure() function.
@@ -168,8 +184,8 @@ class Configurable_Base:
         # Create a simple (debug-friendly) setup function for all core configs to start with
         setup_msg = ["Setup for {} @ {} ".format(self.class_name, self.script_name)]
         setup_msg += ["(Override setup function to get rid of this printout)"]
-        if len(variable_update_dictionary) > 0:
-            setup_msg += ["  {}: {}".format(*each_item) for each_item in variable_update_dictionary.items()]
+        if len(variables_changed_dictionary) > 0:
+            setup_msg += ["  {}: {}".format(*each_item) for each_item in variables_changed_dictionary.items()]
         else:
             setup_msg += ["  No variables changed!"]
         print("\n".join(setup_msg))
@@ -200,32 +216,42 @@ class Configurable_Base:
         configuration settings (i.e. settings that can be controlled) of this object
         '''
         
-        # Get a list of all variable names from the controls manager
-        variable_name_list = self.controls_manager.get_full_variable_name_list()
-        
-        # Pull out the internal value of each variable from this object
-        try:
-            variable_value_dict = {each_var_name: getattr(self, each_var_name) for each_var_name in variable_name_list}
-        except AttributeError as err:
+        current_variable_values_dict = {}
+        variable_name_list = self.ctrl_spec.get_full_variable_name_list(show_only_saveable)
+        for each_variable_name in variable_name_list:
             
-            print("", 
+            # Make sure this object has the given variable name before trying to access it
+            missing_attribute = (not hasattr(self, each_variable_name))
+            if missing_attribute:
+                print("", 
                   "!" * 42,
-                  "Error reading configurable settings! ({})".format(self.script_name),
-                  "Most likely, control variable name doesn't match class property name!",
+                  "Error reading configurable settings! ({} - {})".format(self.class_name, self.script_name),
+                  "Couldn't find variable name: {}".format(each_variable_name),
                   "!" * 42,
                   "", sep="\n")
+                continue
             
-            raise err
-        
-        # Remove non-savables if needed
-        if show_only_saveable:
-            saveable_list = self.controls_manager.get_saveable_list()
-            variable_value_dict = {each_key: variable_value_dict.get(each_key) for each_key in saveable_list}
-        
+            # If we get here, get the current value of the variable and place it in the output dictionary
+            current_variable_values_dict.update({each_variable_name: getattr(self, each_variable_name)})
+            
         # Convert data types to json-friendly format (mainly dealing with numpy arrays)
-        json_property_dict = jsonify_numpy_data(variable_value_dict)
+        json_property_dict = jsonify_numpy_data(current_variable_values_dict)
         
         return json_property_dict
+        
+    # .................................................................................................................
+    
+    # SHOULDN'T OVERRIDE
+    def get_drawing_spec(self, variable_name):
+        
+        ''' 
+        Function which return a (json-friendly) drawing specification for the given variable name
+        For this to work properly, the variable name must have been 
+        defined as a variable that is altered through a drawing control
+        (using ctrl_spec.attach_drawing(...) function)
+        '''
+        
+        return self.ctrl_spec.get_drawing_specification(variable_name)
     
     # .................................................................................................................
     

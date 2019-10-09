@@ -125,19 +125,44 @@ class Reference_Detection_Object:
         # Store the 'type' of detection, in case new versions are made in the future which are not compatible
         self.detection_type = detection_type
         
-        # First get simplified outline
-        hull_px = cv2.convexHull(contour).squeeze()
-        self.hull = np.float32(hull_px) * self._xy_loc_scaling
+        # Get a simplified representation of the contour
+        full_hull = cv2.convexHull(contour)
+        num_points, _, _ = full_hull.shape
+        hull_px = np.reshape(full_hull, (num_points, 2)) #full_hull.squeeze() # <-- causes errors on single pixels
         
+        # Record area data. Note: cv2.contourArea is calculated without 'zero-inclusive' width/height values
+        # e.g. a contour of (0,0), (100,0), (100,100), (0,100) has an area of 100*100 = 10000
+        hull_area_px = cv2.contourArea(hull_px)
+        
+        # Handle cases where there is no hull area (single pixels, row/column contours and tight-triangles)
+        no_hull_area = (hull_area_px < 1.0)
+        if no_hull_area:
+            
+            # Make up a fake full area rather than re-calculating
+            hull_area_px = 1.0
+            
+            # Get hull bounding box
+            min_xy = np.min(hull_px, axis = 0)
+            max_xy = np.max(hull_px, axis = 0)
+            
+            # Figure out which axes have zero separation between min/max values
+            xy_diff = (max_xy - min_xy)
+            null_axes = (xy_diff == 0)
+            
+            # Create a new hull out of the bounding box values, and add 1 to max values along zeroed axes
+            hull_px = np.int32([min_xy, max_xy])
+            hull_px[1, null_axes] = hull_px[1, null_axes] + 1
+            
+        # Scale outline into normalized co-ords
+        self.hull = np.float32(hull_px) * self._xy_loc_scaling
+                
         # Get bounding box data. Note: cv2.boundingRect width/height are calculated as 'zero-inclusive'
         # e.g. The width between points [5, 15] would be 11 (= 15 - 5 + 1)
         top_left_x_px, top_left_y_px, box_width_px, box_height_px = cv2.boundingRect(hull_px)
         bot_right_x_px = top_left_x_px + box_width_px - 1
         bot_right_y_px = top_left_y_px + box_height_px - 1
         
-        # Record area data. Note: cv2.contourArea is calculated without 'zero-inclusive' width/height values
-        # e.g. a contour of (0,0), (100,0), (100,100), (0,100) has an area of 100*100 = 10000
-        hull_area_px = cv2.contourArea(hull_px)
+        # Calculate the relative amount of area taken by the outline vs the bounding box
         box_area_px = (box_width_px - 1) * (box_height_px - 1)
         self.fill = hull_area_px / box_area_px
         

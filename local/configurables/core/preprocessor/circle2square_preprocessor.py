@@ -71,112 +71,122 @@ class Preprocessor_Stage(Reference_Preprocessor):
         
         # .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . Control Group 1 .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
         
-        tg = self.controls_manager.new_control_group("Transformation Controls")
+        self.ctrl_spec.new_control_group("Transformation Controls")
         
         self.enable_transform = \
-        tg.attach_toggle("enable_transform", 
-                         label = "Enable Transform", 
-                         default_value = True,
-                         tooltip = "Enable or disable all of the transformation properties")
+        self.ctrl_spec.attach_toggle(
+                "enable_transform", 
+                label = "Enable Transform", 
+                default_value = True,
+                tooltip = "Enable or disable all of the transformation properties")
         
         self.x_recenter = \
-        tg.attach_slider("x_recenter", 
-                         label = "X Center", 
-                         default_value = 0.5,
-                         min_value = 0.0, max_value = 1.0, step_size = 1/1000,
-                         return_type = float,
-                         units = "normalized",
-                         tooltip = "")
+        self.ctrl_spec.attach_slider(
+                "x_recenter", 
+                label = "X Center", 
+                default_value = 0.5,
+                min_value = 0.0, max_value = 1.0, step_size = 1/1000,
+                return_type = float,
+                units = "normalized",
+                tooltip = "")
         
         self.y_recenter = \
-        tg.attach_slider("y_recenter", 
-                         label = "Y Center", 
-                         default_value = 0.5,
-                         min_value = 0.0, max_value = 1.0, step_size = 1/1000,
-                         return_type = float,
-                         units = "normalized",
-                         tooltip = "")
+        self.ctrl_spec.attach_slider(
+                "y_recenter", 
+                label = "Y Center", 
+                default_value = 0.5,
+                min_value = 0.0, max_value = 1.0, step_size = 1/1000,
+                return_type = float,
+                units = "normalized",
+                tooltip = "")
         
         self.rotation_deg = \
-        tg.attach_slider("rotation_deg", 
-                         label = "Rotation", 
-                         default_value = 0.0,
-                         min_value = -180.0, max_value = 180.0, step_size = 1/10,
-                         return_type = float,
-                         units = "degrees",
-                         tooltip = "Rotate the output image")
+        self.ctrl_spec.attach_slider(
+                "rotation_deg", 
+                label = "Rotation", 
+                default_value = 0.0,
+                min_value = -180.0, max_value = 180.0, step_size = 1/10,
+                return_type = float,
+                units = "degrees",
+                tooltip = "Rotate the output image")
         
         self.x_circle_scale = \
-        tg.attach_numentry("x_circle_scale", 
-                           label = "X Circle", 
-                           default_value = 1.0,
-                           min_value = 0.0, max_value = 1.0, step_size = 1/100,
-                           return_type = float,
-                           units = "normalized",
-                           tooltip = "Selects the outer point of the circular mapping, relative to the input image (in x)")
+        self.ctrl_spec.attach_numentry(
+                "x_circle_scale", 
+                label = "X Circle", 
+                default_value = 1.0,
+                min_value = 0.0, max_value = 1.0, step_size = 1/100,
+                return_type = float,
+                units = "normalized",
+                tooltip = "Selects the outer point of the circular mapping, relative to the input image (in x)")
         
         self.y_circle_scale = \
-        tg.attach_numentry("y_circle_scale", 
-                           label = "Y Circle", 
-                           default_value = 1.0,
-                           min_value = 0.0, max_value = 1.0, step_size = 1/100,
-                           return_type = float,
-                           units = "normalized",
-                           tooltip = "Selects the outer point of the circular mapping, relative to the input image (in y)")
+        self.ctrl_spec.attach_numentry(
+                "y_circle_scale", 
+                label = "Y Circle", 
+                default_value = 1.0,
+                min_value = 0.0, max_value = 1.0, step_size = 1/100,
+                return_type = float,
+                units = "normalized",
+                tooltip = "Selects the outer point of the circular mapping, relative to the input image (in y)")
         
         self.x_length_scale = \
-        tg.attach_slider("x_length_scale", 
-                         label = "X Scale", 
-                         default_value = 1.0,
-                         min_value = 0.0, max_value = 1.41, step_size = 1/100,
-                         return_type = float,
-                         units = "normalized",
-                         tooltip = "")
+        self.ctrl_spec.attach_slider(
+                "x_length_scale", 
+                label = "X Scale", 
+                default_value = 1.0,
+                min_value = 0.0, max_value = 1.41, step_size = 1/100,
+                return_type = float,
+                units = "normalized",
+                tooltip = "")
         
         self.y_length_scale = \
-        tg.attach_slider("y_length_scale", 
-                         label = "Y Scale", 
-                         default_value = 1.0,
-                         min_value = 0.0, max_value = 1.41, step_size = 1/100,
-                         return_type = float,
-                         units = "normalized",
-                         tooltip = "")
+        self.ctrl_spec.attach_slider(
+                "y_length_scale", 
+                label = "Y Scale", 
+                default_value = 1.0,
+                min_value = 0.0, max_value = 1.41, step_size = 1/100,
+                return_type = float,
+                units = "normalized",
+                tooltip = "")
         
         self.interpolation_type = \
-        tg.attach_menu("interpolation_type",
-                       label = "Interpolation",
-                       default_value = "Nearest Neighbor", 
-                       option_label_value_list = [("Nearest Neighbor", cv2.INTER_NEAREST),
-                                                  ("Bilinear", cv2.INTER_LINEAR),
-                                                  ("Cubic", cv2.INTER_CUBIC)],
-                       tooltip = "Set the interpolation style for pixels sampled at fractional indices", 
-                       visible = False)
+        self.ctrl_spec.attach_menu(
+                "interpolation_type",
+                label = "Interpolation",
+                default_value = "Nearest Neighbor", 
+                option_label_value_list = [("Nearest Neighbor", cv2.INTER_NEAREST),
+                                           ("Bilinear", cv2.INTER_LINEAR),
+                                           ("Cubic", cv2.INTER_CUBIC)],
+                tooltip = "Set the interpolation style for pixels sampled at fractional indices", 
+                visible = False)
         
         
         # .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . Control Group 2 .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
         
-        sg = self.controls_manager.new_control_group("Scaling Controls")
+        self.ctrl_spec.new_control_group("Scaling Controls")
         
-        self.output_w = sg.attach_slider("output_w", 
-                                         label = "Output Width", 
-                                         default_value = input_wh[0],
-                                         min_value = 50,
-                                         max_value = 1280,
-                                         return_type = int,
-                                         zero_referenced = True,
-                                         units = "pixels",
-                                         tooltip = "Set the output image width, in pixels")
+        self.output_w = \
+        self.ctrl_spec.attach_slider(
+                "output_w", 
+                label = "Output Width", 
+                default_value = input_wh[0],
+                min_value = 50, max_value = 1280,
+                return_type = int,
+                zero_referenced = True,
+                units = "pixels",
+                tooltip = "Set the output image width, in pixels")
         
         self.output_h = \
-        sg.attach_slider("output_h", 
-                         label = "Output Height", 
-                         default_value = input_wh[1],
-                         min_value = 50,
-                         max_value = 1280,
-                         return_type = int,
-                         zero_referenced = True,
-                         units = "pixels",
-                         tooltip = "Set the output image height, in pixels")
+        self.ctrl_spec.attach_slider(
+                "output_h", 
+                label = "Output Height", 
+                default_value = input_wh[1],
+                min_value = 50, max_value = 1280,
+                return_type = int,
+                zero_referenced = True,
+                units = "pixels",
+                tooltip = "Set the output image height, in pixels")
         
     # .................................................................................................................
     

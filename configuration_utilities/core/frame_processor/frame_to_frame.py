@@ -59,9 +59,6 @@ from local.configurables.core.frame_processor._helper_functions import Outlined_
 #%% Define displays
 
 
-# ---------------------------------------------------------------------------------------------------------------------
-#%% Define functions
-
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Main
@@ -71,10 +68,13 @@ loader = Reconfigurable_Core_Stage_Loader("frame_processor", "ftf_frameprocessor
 loader.selections()
 configurable_ref = loader.setup_all(__file__)
 
+# Get drawing specification for the given zone variable
+zone_drawing_spec = configurable_ref.get_drawing_spec("mask_zone_list")
+
 # Set up object to handle all video processing
 main_process = \
 Reconfigurable_Video_Loop(loader,
-                          ordered_display_list = [Outlined_Input(0, 2, 2),
+                          ordered_display_list = [Outlined_Input(0, 2, 2, drawing_json = zone_drawing_spec),
                                                   Binary_Display(1, 2, 2),
                                                   Masked_Differences(2, 2, 2)])
 
@@ -98,10 +98,6 @@ last_frame_index, last_time_sec, last_datetime = main_process.debug_fsd_time_arg
 
 '''
 TODO:
-    - Get drawing + masking working & save!
-    - Get rid of maxed deck sizing. Instead it should fit to deck size based on settings, unless configuring...
-        - Will likely need to make use of 'configure mode'
     - Get internal image storage + retrievable outputs/collage working (also, colored threshold image?!)
     - BUG: Why does difference image flicker when changing parameters after playback reset?
-
 '''

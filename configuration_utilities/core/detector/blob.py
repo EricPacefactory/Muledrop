@@ -49,10 +49,13 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
+import numpy as np
+
 from local.lib.configuration_utils.configuration_loaders import Reconfigurable_Core_Stage_Loader
 from local.lib.configuration_utils.video_processing_loops import Reconfigurable_Video_Loop
 from local.lib.configuration_utils.display_specification import Display_Window_Specification
 from local.lib.configuration_utils.display_specification import Filtered_Binary_Display
+from local.lib.configuration_utils.display_specification import draw_mouse_centered_rectangle
 
 from local.configurables.core.detector.blob_detector import draw_detections
 
@@ -68,13 +71,41 @@ class Custom_Detections_Display(Display_Window_Specification):
         # Inherit from parent class
         super().__init__("Detections", layout_index, num_rows, num_columns, 
                          initial_display = initial_display, 
+                         provide_mouse_xy = True,
+                         drawing_json = None,
                          max_wh = None)
         
     # .................................................................................................................
         
-    def display(self, stage_outputs, configurable_ref, current_frame_index, current_time_sec, current_datetime):        
-        return draw_detections(stage_outputs, configurable_ref)
+    def display(self, stage_outputs, configurable_ref, mouse_xy,
+                current_frame_index, current_time_sec, current_datetime):
         
+        # Draw all detections into the appropriate output frame
+        detection_frame = draw_detections(stage_outputs, configurable_ref)
+        detection_frame = self._draw_mouse_indicator(detection_frame, configurable_ref, mouse_xy)
+        
+        return detection_frame
+    
+    # .................................................................................................................
+    
+    def _draw_mouse_indicator(self, display_frame, configurable_ref, mouse_xy):
+        
+        # Get frame sizing
+        frame_height, frame_width = display_frame.shape[0:2]
+        frame_scaling = np.float32((frame_width, frame_height))
+        
+        # Draw min/max detection sizes, following the mouse
+        if configurable_ref._show_minimum_follower:
+            min_wh_norm = np.float32((configurable_ref.min_width_norm, configurable_ref.min_height_norm))
+            min_wh_px = (min_wh_norm * frame_scaling)
+            draw_mouse_centered_rectangle(display_frame, mouse_xy, min_wh_px, (0, 110, 255))
+        if configurable_ref._show_maximum_follower:
+            max_wh_norm = np.float32((configurable_ref.max_width_norm, configurable_ref.max_height_norm))
+            max_wh_px = (max_wh_norm * frame_scaling)
+            draw_mouse_centered_rectangle(display_frame, mouse_xy, max_wh_px, (0, 255, 110))
+            
+        return display_frame
+    
     # .................................................................................................................
     # .................................................................................................................
 
@@ -116,6 +147,4 @@ TODO:
         - maybe keep a copy of the previous frame/set of detections
         - first pick up all valid detections
         - for rejected detections, try combining with previous frame and check if valid
-    - Implement mouse following visualization to show box sizing
 '''
-

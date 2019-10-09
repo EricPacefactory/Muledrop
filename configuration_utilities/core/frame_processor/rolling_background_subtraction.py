@@ -74,7 +74,8 @@ class Rolling_BG_Display(Display_Window_Specification):
         
     # .................................................................................................................
         
-    def display(self, stage_outputs, configurable_ref, current_frame_index, current_time_sec, current_datetime):
+    def display(self, stage_outputs, configurable_ref, mouse_xy,
+                current_frame_index, current_time_sec, current_datetime):
         
         # Pull the rolling background out of the configurable
         rolling_background_frame = configurable_ref._rolling_bg_frame_uint8
@@ -100,10 +101,13 @@ loader = Reconfigurable_Core_Stage_Loader("frame_processor", "rolling_bgs_framep
 loader.selections()
 configurable_ref = loader.setup_all(__file__)
 
+# Get drawing specification for the given zone variable
+zone_drawing_spec = configurable_ref.get_drawing_spec("mask_zone_list")
+
 # Set up object to handle all video processing
 main_process = \
 Reconfigurable_Video_Loop(loader,
-                          ordered_display_list = [Outlined_Input(0, 2, 2),
+                          ordered_display_list = [Outlined_Input(0, 2, 2, drawing_json = zone_drawing_spec),
                                                   Binary_Display(1, 2, 2),
                                                   Masked_Differences(2, 2, 2),
                                                   Rolling_BG_Display(3, 2, 2)])

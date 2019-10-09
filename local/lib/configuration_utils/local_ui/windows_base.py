@@ -46,16 +46,16 @@ def find_path_to_local(target_folder = "local"):
             
 find_path_to_local()
 
-
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
 import cv2
 import numpy as np
-
 import screeninfo
 
 from collections import deque
+
+from local.lib.configuration_utils.local_ui.drawing import Entity_Drawer
 
 from eolib.utils.cli_tools import Color
 
@@ -67,9 +67,9 @@ class Simple_Window:
     
     # ................................................................................................................. 
     
-    def __init__(self, window_name,
+    def __init__(self, window_name, 
                  frame_wh = None,
-                 max_wh = None,
+                 provide_mouse_xy = False,
                  create_on_startup = True):
         
         # Get window name so we can continue to refer to this window!
@@ -78,24 +78,19 @@ class Simple_Window:
         # Get user display sizing
         self.screen_width, self.screen_height = display_wh()
         
+        # Allocate variables for (potential) mouse-xy feedback
+        self.enable_mouse_feedback = provide_mouse_xy
+        self._mouse_feedback = None
+        
         # Variables for recording the window position
         self.x_px = None
         self.y_px = None
-        
         
         # Variables used to record the size of the displayed image
         self.width = None
         self.height = None
         if frame_wh is not None:
             self.width, self.height = frame_wh
-    
-        # Variables for limiting frame size
-        self.max_width = None
-        self.max_height = None
-        self._check_resize = False
-        if max_wh is not None:
-            self.max_width, self.max_height = max_wh
-            self._check_resize = True
         
         # Create the display, if needed
         if display_is_available() and create_on_startup:
@@ -104,7 +99,19 @@ class Simple_Window:
     # ................................................................................................................. 
     
     def __repr__(self):
-        return "Simple_Window ({})".format(self.window_name)
+        return "{} ({})".format(self.class_name, self.window_name)
+    
+    # ................................................................................................................. 
+    
+    @property
+    def class_name(self):
+        return self.__class__.__name__
+    
+    # ................................................................................................................. 
+    
+    @property
+    def mouse_xy(self):
+        return self._mouse_feedback.xy if self.enable_mouse_feedback else None
     
     # ................................................................................................................. 
     
@@ -128,7 +135,7 @@ class Simple_Window:
             return self.exists()
         
         # Only update showing if the window exists
-        if window_exists:
+        if window_exists:            
             cv2.imshow(self.window_name, display_frame)
         
         return window_exists
@@ -278,6 +285,11 @@ class Simple_Window:
         self.imshow_blank()
         self.move_corner_pixels(x_pixels = 50, y_pixels = 50)
         
+        # Enable mouse xy reporting, if needed
+        if self.enable_mouse_feedback:
+            self._mouse_feedback = Mouse_Follower()
+            cv2.setMouseCallback(self.window_name, self._mouse_feedback)
+        
         return self
         
     # .................................................................................................................
@@ -290,10 +302,12 @@ class Control_Window(Simple_Window):
     
     # .................................................................................................................
     
-    def __init__(self, window_name, control_list_json, frame_wh = (500, 30)):
+    def __init__(self, window_name, control_list_json, frame_wh = (500, 30),
+                 create_on_startup = True):
         
         # Inherit from simple window
-        super().__init__(window_name, frame_wh)
+        provide_mouse_xy = False
+        super().__init__(window_name, frame_wh, provide_mouse_xy, create_on_startup)
         
         # Set width/height of control window (which is normally just a small blackout area)
         self.width, self.height = frame_wh
@@ -679,12 +693,12 @@ class Slideshow_Window(Simple_Window):
     
     def __init__(self, window_name, 
                  frame_wh = None,
-                 max_wh = None,
                  missing_image_test = "No image...",
                  max_storage = 10):
         
         # Inherit from parent class
-        super().__init__(window_name, frame_wh, max_wh)
+        provide_mouse_xy = False
+        super().__init__(window_name, frame_wh, provide_mouse_xy)
         
         # Initialize storage variables
         self.frame_deck = self._initialize_empty_frame_deck(missing_image_test, max_storage)
@@ -767,7 +781,294 @@ class Slideshow_Window(Simple_Window):
             
     # .................................................................................................................
     # .................................................................................................................
+
+
+# /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+# /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+class Max_WH_Window(Simple_Window):
     
+    # .................................................................................................................
+    
+    def __init__(self, window_name, 
+                 frame_wh = None,
+                 max_wh = None,
+                 interpolation_type = cv2.INTER_NEAREST,
+                 provide_mouse_xy = False,
+                 create_on_startup = True):
+        
+        # Inherit from parent class
+        super().__init__(window_name, frame_wh, provide_mouse_xy, create_on_startup)
+        
+        # Variables for limiting frame size
+        self.interpolation_type = interpolation_type
+        self.max_width = None
+        self.max_height = None
+        self._check_resize = False
+        if max_wh is not None:
+            self._check_resize = True
+            self.max_width, self.max_height = max_wh
+
+    # ................................................................................................................. 
+        
+    def imshow(self, display_frame):
+        
+        # Check if the window exists (by looking for window properties)
+        window_exists = self.exists()
+        
+        # Don't do anything if a valid frame isn't supplied
+        if display_frame is None:
+            return self.exists()
+        
+        # Only update showing if the window exists
+        if window_exists:
+            cv2.imshow(self.window_name, self._scale_to_max_wh(display_frame))
+        
+        return window_exists
+    
+    # ................................................................................................................. 
+    
+    def _scale_to_max_wh(self, display_frame):
+        
+        # Don't do anything if we're not checking for resizing
+        if not self._check_resize:
+            return display_frame
+        
+        # Check if we need to resize the displayed frame
+        display_width, display_height = display_frame.shape[0:2]
+        needs_resize = (display_width > self.max_width) or (display_height > self.max_height)
+        if not needs_resize:
+            return display_frame
+        
+        width_scale = display_width / self.max_width
+        height_scale = display_height / self.max_height
+        max_scale = max(width_scale, height_scale)
+        
+        # Figure out scaled width/height values and apply resizing!
+        scaled_width = int(display_width / max_scale)
+        scaled_height = int(display_height / max_scale)
+        return cv2.resize(display_frame, dsize = (scaled_width, scaled_height), 
+                          interpolation = self.interpolation_type)
+        
+    # .................................................................................................................
+    # .................................................................................................................
+
+
+# /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+# /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+class Drawing_Window(Simple_Window):
+    
+    # .................................................................................................................
+    
+    def __init__(self, window_name, frame_wh, drawing_json,
+                 border_size_px = 60, create_on_startup = True):
+        
+        # Inherit from parent class
+        drawing_name = "{} (Drawing)".format(window_name)
+        provide_mouse_xy = False
+        super().__init__(drawing_name, frame_wh, provide_mouse_xy, create_on_startup = False)
+        
+        # Convert drawing json data to entity drawing inputs
+        self.drawing_variable_name = drawing_json["variable_name"]
+        min_max_entities = drawing_json["min_max_entities"]
+        min_max_points = drawing_json["min_max_points"]
+        real_border_size = (border_size_px if drawing_json["out_of_bounds"] else 0)
+        default_entities = drawing_json.get("default_value", [[]])
+        
+        # Handle None entries
+        min_entities = None if (min_max_entities is None) else min_max_entities[0]
+        max_entities = None if (min_max_entities is None) else min_max_entities[1]
+        min_points = 3 if (min_max_points is None) else min_max_points[0]
+        max_points = None if (min_max_points is None) else min_max_points[1]
+        
+        # Bundle config needed by entity drawing object
+        drawer_config = {"minimum_entities": min_entities,
+                         "maximum_entities": max_entities,
+                         "minimum_points": min_points,
+                         "maximum_points": max_points,
+                         "border_size_px": real_border_size}
+        
+        # Set up object to keep tracking of drawing
+        self.drawer = Entity_Drawer(frame_wh, **drawer_config)
+        self.drawer.initialize_entities(default_entities)
+        
+        # Create the display, if needed
+        if display_is_available() and create_on_startup:
+            self.create_window()
+    
+    # ................................................................................................................. 
+    
+    def print_info(self):
+        
+        # Print out info for each window
+        header_str = "Drawing Controls"
+        max_len = 60
+        full_spacer_len = max(0, max_len - len(header_str))
+        half_spacer_len = int(full_spacer_len / 2)
+        end_spacer_len = max(0, max_len - len(header_str) - 2*half_spacer_len)
+        
+        # Build components for printing control title blocks, then print control info!
+        title_spacer = (" " * half_spacer_len)
+        end_spacer = (" " * end_spacer_len)
+        full_heading_str = "".join([title_spacer, header_str, title_spacer, end_spacer])
+        
+        # Create key highlight function
+        keycolor = Color().bold.italic
+        key_text = lambda key_code, info: "  [{}] {}".format(keycolor(key_code), info)
+        
+        # Big printout to explain how to do drawing stuff
+        print("", 
+              "",
+              "",
+              Color(full_heading_str.upper()).bold.invert,
+              "",
+              Color("Hover Mode:").bold.underline,
+              "",
+              key_text("left-click", "to move points"),
+              key_text("shift + left-click", "to enter drawing mode"),
+              key_text("ctrl + left-click", "to insert points into an existing shape"),
+              key_text("right-click", "to delete a single point"),
+              key_text("ctrl + right-click", "to delete an entire shape"),
+              key_text("ctrl + z", "to undo recent actions"),
+              key_text("arrow keys", "to nudge points (hold shift for a larger effect)"),
+              key_text("b key", "to snap points to nearby borders"),
+              "",
+              Color("Drawing Mode:").bold.underline,
+              "",
+              key_text("shift + left-click", "to add more points to a shape-in-progress"),
+              key_text("double left-click", "to complete a shape"),
+              key_text("right-click", "to cancel a shape"),
+              key_text("ctrl + z", "to undo last point"),
+              "",
+              sep="\n")
+    
+    # ................................................................................................................. 
+    
+    def initialize_drawing(self, initial_settings_dict):
+        
+        # Load existing initial data, if present
+        variable_in_initial_settings = (self.drawing_variable_name in initial_settings_dict)
+        if variable_in_initial_settings:
+            initial_entities = initial_settings_dict.get(self.drawing_variable_name)
+            self.drawer.initialize_entities(initial_entities)
+    
+    # ................................................................................................................. 
+    
+    def update_control(self):
+        
+        # Get changes in zone data
+        variables_changed_dict = {}
+        if self.drawer.on_change():
+            variables_changed_dict.update({self.drawing_variable_name: self.drawer.entity_list})
+            
+        return variables_changed_dict
+    
+    # ................................................................................................................. 
+    
+    def keypress(self, key_code, modifier_code):
+        self.drawer.keypress_callback(key_code, modifier_code)
+    
+    # ................................................................................................................. 
+        
+    def imshow(self, display_frame):
+        
+        # Check if the window exists (by looking for window properties)
+        window_exists = self.exists()
+        
+        # Don't do anything if a valid frame isn't supplied
+        if display_frame is None:
+            return self.exists()
+        
+        # Only update showing if the window exists
+        if window_exists:
+            drawn_frame = self.drawer.annotate(display_frame)
+            cv2.imshow(self.window_name, drawn_frame)
+            
+        return window_exists
+    
+    # ................................................................................................................. 
+    
+    def create_window(self):
+        
+        # Create window
+        cv2.namedWindow(self.window_name)
+        self.imshow_blank()
+        self.move_corner_pixels(x_pixels = 50, y_pixels = 50)
+        
+        # Add drawing callback
+        cv2.setMouseCallback(self.window_name, self.drawer)
+        
+        return self
+    
+    # ................................................................................................................. 
+    # ................................................................................................................. 
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Define ccallback handlers
+
+class Mouse_Follower:
+    
+    # .................................................................................................................
+    
+    def __init__(self):
+        
+        # Allocate storage for mouse position and whether following is enabled or not
+        self.mouse_xy = np.array((0, 0), dtype=np.int32)
+        self.follow_state = True
+        
+    # .................................................................................................................
+        
+    def __call__(self, *args, **kwargs):
+        ''' Convenience wrapper. Allows object to be used as a callback function directly '''
+        return self.callback(*args, **kwargs)
+        
+    # .................................................................................................................
+                
+    def callback(self, event, mx, my, flags, param):
+        
+        # Record mouse xy position
+        if self.follow_state:
+            self.mouse_xy = np.int32((mx, my))
+        
+        # Toggle following state on left click
+        if event == cv2.EVENT_LBUTTONDOWN:
+            self.follow_state = (not self.follow_state)
+            
+    # .................................................................................................................
+    
+    def draw_mouse_xy(self, display_frame, point_radius = 5, point_color = (255, 0, 255)):
+        
+        ''' Function to help with debugging. Displays a point at the mouse location, along with x/y co-ordinates '''
+        
+        xy_tuple = tuple(self.xy)
+        text_xy = (xy_tuple[0] + point_radius + 2, xy_tuple[1] + 5)
+        
+        drawn_frame = display_frame.copy()
+        cv2.circle(drawn_frame, xy_tuple, point_radius, point_color, -1, cv2.LINE_AA)
+        cv2.putText(drawn_frame, 
+                    "({:.0f}, {:.0f})".format(*xy_tuple), 
+                    text_xy,
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.5,
+                    (255, 255, 255),
+                    1,
+                    cv2.LINE_AA)
+        
+        return drawn_frame
+    
+    # .................................................................................................................
+    
+    @property
+    def xy(self):
+        return self.mouse_xy
+    
+    # .................................................................................................................
+    # .................................................................................................................
+
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define functions
 
@@ -900,6 +1201,43 @@ def return_type_strings_to_functions(return_type_str):
 # .....................................................................................................................
 # .....................................................................................................................
 
+
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Demo
+
+if __name__ == "__main__":
+    
+    # Set display parameters
+    frame_width, frame_height = 600, 300
+    blank_frame = np.full((frame_height, frame_width, 3), (33, 166, 83), dtype=np.uint8)
+    frame_wh = (frame_width, frame_height)
+    
+    # Set up example mouse follower
+    follower = Mouse_Follower()
+    
+    # Window creation & callback assignment
+    window_name = "FOLLOWER EXAMPLE"
+    cv2.namedWindow(window_name)    
+    cv2.setMouseCallback(window_name, follower)
+    
+    while True:
+        
+        # Get a clean copy of the video
+        display_frame = blank_frame.copy()
+        
+        # Draw mouse location as an example
+        drawn_frame = follower.draw_mouse_xy(display_frame)
+        cv2.imshow(window_name, drawn_frame)
+        
+        # Get keypress
+        keypress = cv2.waitKey(40)
+        esc_key_press = (keypress == 27)
+        q_key_pressed = (keypress == 113)
+        if esc_key_press or q_key_pressed:
+            break
+        
+    # Clean up windows
+    cv2.destroyAllWindows()
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Scrap

@@ -75,77 +75,85 @@ class Pixel_Filter_Stage(Reference_Pixel_Filter):
         
         # .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . Control Group 1 .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
         
-        sh = self.controls_manager.new_control_group("Main Controls")
+        self.ctrl_spec.new_control_group("Main Controls")
         
         self.enable_filter = \
-        sh.attach_toggle("enable_filter",
-                         label = "Enable filtering",
-                         default_value = True)
+        self.ctrl_spec.attach_toggle(
+                "enable_filter",
+                label = "Enable filtering",
+                default_value = True)
         
         self.invert_filter = \
-        sh.attach_toggle("invert_filter",
-                         label = "Invert",
-                         default_value = False)
+        self.ctrl_spec.attach_toggle(
+                "invert_filter",
+                label = "Invert",
+                default_value = False)
         
         # .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . Control Group 2 .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
         
-        hc = self.controls_manager.new_control_group("Hue Controls")
+        self.ctrl_spec.new_control_group("Hue Controls")
         
         self.hue_lower = \
-        hc.attach_slider("hue_lower", 
-                         label = "Lower Hue", 
-                         default_value = 0,
-                         min_value = 0,
-                         max_value = 255,
-                         return_type = int)
+        self.ctrl_spec.attach_slider(
+                "hue_lower", 
+                label = "Lower Hue", 
+                default_value = 0,
+                min_value = 0,
+                max_value = 255,
+                return_type = int)
         
         self.hue_upper = \
-        hc.attach_slider("hue_upper", 
-                         label = "Upper Hue", 
-                         default_value = 255,
-                         min_value = 0,
-                         max_value = 255,
-                         return_type = int)
+        self.ctrl_spec.attach_slider(
+                "hue_upper", 
+                label = "Upper Hue", 
+                default_value = 255,
+                min_value = 0,
+                max_value = 255,
+                return_type = int)
         
         # .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . Control Group 3 .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
         
-        sc = self.controls_manager.new_control_group("Saturation Controls")
+        self.ctrl_spec.new_control_group("Saturation Controls")
         
         self.sat_lower = \
-        sc.attach_slider("sat_lower", 
-                         label = "Lower Saturation", 
-                         default_value = 0,
-                         min_value = 0,
-                         max_value = 255,
-                         return_type = int)
+        self.ctrl_spec.attach_slider(
+                "sat_lower", 
+                label = "Lower Saturation", 
+                default_value = 0,
+                min_value = 0,
+                max_value = 255,
+                return_type = int)
         
         self.sat_upper = \
-        sc.attach_slider("sat_upper", 
-                         label = "Upper Saturation", 
-                         default_value = 255,
-                         min_value = 0,
-                         max_value = 255,
-                         return_type = int)
+        self.ctrl_spec.attach_slider(
+                "sat_upper", 
+                label = "Upper Saturation", 
+                default_value = 255,
+                min_value = 0,
+                max_value = 255,
+                return_type = int)
         
         # .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . Control Group 4 .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
         
-        vc = self.controls_manager.new_control_group("Brightness Controls")
+        self.ctrl_spec.new_control_group("Brightness Controls")
         
         self.val_lower = \
-        vc.attach_slider("val_lower", 
-                         label = "Lower Brightness", 
-                         default_value = 0,
-                         min_value = 0,
-                         max_value = 255,
-                         return_type = int)
+        self.ctrl_spec.attach_slider(
+                "val_lower", 
+                label = "Lower Brightness", 
+                default_value = 0,
+                min_value = 0,
+                max_value = 255,
+                return_type = int)
         
         self.val_upper = \
-        vc.attach_slider("val_upper", 
-                         label = "Upper Brightness", 
-                         default_value = 255,
-                         min_value = 0,
-                         max_value = 255,
-                         return_type = int)
+        self.ctrl_spec.attach_slider(
+                "val_upper", 
+                label = "Upper Brightness", 
+                default_value = 255,
+                min_value = 0,
+                max_value = 255,
+                return_type = int)
         
     # .................................................................................................................
     
