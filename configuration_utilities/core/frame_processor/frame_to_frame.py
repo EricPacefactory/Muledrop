@@ -65,7 +65,6 @@ from local.configurables.core.frame_processor._helper_functions import Outlined_
 
 # Make all required selections and setup/configure everything
 loader = Reconfigurable_Core_Stage_Loader("frame_processor", "ftf_frameprocessor", "Frame_Processor_Stage")
-loader.selections()
 configurable_ref = loader.setup_all(__file__)
 
 # Get drawing specification for the given zone variable

@@ -66,14 +66,14 @@ class Custom_Detections_Display(Display_Window_Specification):
     
     # .................................................................................................................
     
-    def __init__(self, layout_index, num_rows, num_columns, initial_display = False):
+    def __init__(self, layout_index, num_rows, num_columns, initial_display = False, limit_wh = True):
         
         # Inherit from parent class
         super().__init__("Detections", layout_index, num_rows, num_columns, 
                          initial_display = initial_display, 
                          provide_mouse_xy = True,
                          drawing_json = None,
-                         max_wh = None)
+                         limit_wh = limit_wh)
         
     # .................................................................................................................
         
@@ -114,7 +114,6 @@ class Custom_Detections_Display(Display_Window_Specification):
 
 # Make all required selections and setup/configure everything
 loader = Reconfigurable_Core_Stage_Loader("detector", "blob_detector", "Detector_Stage")
-loader.selections()
 configurable_ref = loader.setup_all(__file__)
 
 # Set up object to handle all video processing

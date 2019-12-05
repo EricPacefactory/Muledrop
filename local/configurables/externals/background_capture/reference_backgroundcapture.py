@@ -46,7 +46,6 @@ def find_path_to_local(target_folder = "local"):
 
 find_path_to_local()
 
-
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
@@ -56,7 +55,7 @@ from time import perf_counter
 
 from local.configurables.configurable_template import Externals_Configurable_Base
 
-from local.lib.timekeeper_utils import utc_time_to_isoformat_string
+from local.lib.timekeeper_utils import utc_time_to_isoformat_string, utc_datetime_to_epoch_ms
 
 from local.lib.file_access_utils.runtime_read_write import Parallel_Function, create_new_thread_lock
 from local.lib.file_access_utils.reporting import Image_Report_Saver, Image_Metadata_Report_Saver
@@ -533,7 +532,7 @@ class Reference_Frame_Capture:
         
         ''' Function for naming files saved as captures for background generation '''
         
-        return "bgcapture-{}".format(self._capture_count)
+        return "bgcap-{}".format(self._capture_count)
     
     # .................................................................................................................
     
@@ -999,16 +998,16 @@ class Reference_Background_Creator:
         
         ''' Function for naming generated background images (within internal resources folder) '''
         
-        return "bggenerated-{}".format(self._generated_count)
+        return "bggen-{}".format(self._generated_count)
     
     # .................................................................................................................
     
     # MAY OVERRIDE, but shouldn't be necessary unless using some special naming lookup
-    def _create_reporting_save_name(self, bgcap_time_str):
+    def _create_reporting_save_name(self, ms_since_epoch):
         
         ''' Function for naming generated background images for reporting '''
         
-        return "bggenerated_{}".format(bgcap_time_str)
+        return "bggen-{}".format(ms_since_epoch)
     
     # .................................................................................................................
     
@@ -1034,13 +1033,17 @@ class Reference_Background_Creator:
         
         # Get time as a string for reporting
         bgcap_time_isoformat = utc_time_to_isoformat_string(current_datetime)
+        ms_since_epoch = utc_datetime_to_epoch_ms(current_datetime)
         
         # Build reporting file name & metadata
-        bgcap_name = self._create_reporting_save_name(bgcap_time_isoformat)
-        bgcap_metadata = {"background_name": bgcap_name,
-                          "background_datetime_isoformat": bgcap_time_isoformat,
-                          "background_frame_index": current_frame_index,
-                          "time_elapsed_sec": current_time_sec}
+        bgcap_name = self._create_reporting_save_name(ms_since_epoch)
+        bgcap_metadata = {"name": bgcap_name,
+                          "datetime_isoformat": bgcap_time_isoformat,
+                          "frame_index": current_frame_index,
+                          "time_elapsed_sec": current_time_sec,
+                          "epoch_ms_utc": ms_since_epoch,
+                          "video_select": self.video_select,
+                          "video_wh": self.video_wh}
         
         # Have reporting object handle image saving
         self.report_image_saver.save_jpg(file_save_name_no_ext = bgcap_name,

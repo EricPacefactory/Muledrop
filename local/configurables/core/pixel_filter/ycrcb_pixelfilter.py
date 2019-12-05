@@ -197,6 +197,12 @@ class Pixel_Filter_Stage(Reference_Pixel_Filter):
             print("PIXEL PROCESSOR: FRAME ERROR".format(self.script_name))
             print(err)
             return binary_frame_1ch
+    
+    # .................................................................................................................
+    
+    def update_background(self, preprocessed_background_frame, bg_update):
+        # No background processing        
+        return None
         
     # .................................................................................................................
     

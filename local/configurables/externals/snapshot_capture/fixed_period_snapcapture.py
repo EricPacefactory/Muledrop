@@ -46,13 +46,13 @@ def find_path_to_local(target_folder = "local"):
 
 find_path_to_local()
 
-
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
 import cv2
 
 from local.configurables.externals.snapshot_capture.reference_snapcapture import Reference_Snapshot_Capture
+from local.configurables.externals.snapshot_capture._helper_functions import max_dimension_downscale
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -68,10 +68,11 @@ class Snapshot_Capture(Reference_Snapshot_Capture):
         super().__init__(cameras_folder_path, camera_select, user_select, video_select, video_wh, 
                          file_dunder = __file__)
         
-        
-        # Allocate storage for fixed-frequency (over time) snapshots
+        # Allocate storage for fixed-frequency (over time) snapshots settings
         self._enable_downscale = None
-        self.next_snapshot_time_sec = None
+        self._downscale_wh = None
+        self._next_snapshot_time_sec = None
+        self._total_snapshot_period_sec = None
         
         # .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . Control Group 1 .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
         
@@ -110,15 +111,16 @@ class Snapshot_Capture(Reference_Snapshot_Capture):
                 units = "seconds",
                 tooltip = "Number of seconds to wait between saving snapshots")
         
-        self.downscale_factor = \
+        self.max_dimension_px = \
         self.ctrl_spec.attach_slider(
-                "downscale_factor", 
-                label = "Downscaling", 
-                default_value = 1.0,
-                min_value = 0.1, max_value = 1.0, step_size = 1/100,
-                return_type = float,
+                "max_dimension_px", 
+                label = "Max Dimension", 
+                default_value = 800,
+                min_value = 100, max_value = 1280,
+                units = "pixels",
+                return_type = int,
                 zero_referenced = True,
-                tooltip = "Save snapshots at a lowered resolution relative to the input video size")
+                tooltip = "Save snapshots at a resolution where the maximum side length is no larger than this value")
     
         self.jpg_quality = \
         self.ctrl_spec.attach_slider(
@@ -132,12 +134,23 @@ class Snapshot_Capture(Reference_Snapshot_Capture):
                            "Lower values create smaller file sizes and save a bit faster,",
                            "at the cost of poorer image quality."])
     
+        self.downscale_interpolation = \
+        self.ctrl_spec.attach_menu(
+                "downscale_interpolation", 
+                label = "Downscaling Interpolation", 
+                default_value = "Nearest",
+                option_label_value_list = [("Nearest", cv2.INTER_NEAREST),
+                                           ("Bilinear", cv2.INTER_LINEAR),
+                                           ("Cubic", cv2.INTER_CUBIC)],
+                visible = False,
+                tooltip = "Set the interpolation style for pixels sampled at fractional indices")
+    
     # .................................................................................................................
     
     def reset(self):
         
         # Reset timing, so snapshots can continue to run
-        self.next_snapshot_time_sec = None
+        self._next_snapshot_time_sec = None
         
     # .................................................................................................................
     
@@ -148,8 +161,8 @@ class Snapshot_Capture(Reference_Snapshot_Capture):
         snap_sec_from_mins = (self.snapshot_period_min + snap_min_from_hours) * 60
         self._total_snapshot_period_sec = max(0.001, self.snapshot_period_sec + snap_sec_from_mins)
         
-        # Pre-calculate whether we need to downscale or not, just to save repeated evaluations while running
-        self._enable_downscale = (self.downscale_factor <= 0.995)   
+        # Pre-calculate the downscaled frame size (if we need it)
+        self._enable_downscale, self._downscale_wh = max_dimension_downscale(self.video_wh, self.max_dimension_px)
         
         # Update jpg quality settings
         self.set_snapshot_quality(self.jpg_quality)
@@ -163,7 +176,7 @@ class Snapshot_Capture(Reference_Snapshot_Capture):
         
         # Wrap in try/except, since first evaluation will fail
         try:
-            need_new_snapshot = (current_time_sec > self.next_snapshot_time_sec)
+            need_new_snapshot = (current_time_sec > self._next_snapshot_time_sec)
             
         except TypeError:
             # Exception thrown on first eval, since we don't have a next_snapshot_time_sec to evaluate
@@ -181,7 +194,7 @@ class Snapshot_Capture(Reference_Snapshot_Capture):
         
         # Only apply resizing if needed
         if self._enable_downscale:
-            return cv2.resize(snapshot_frame, dsize=None, fx = self.downscale_factor, fy = self.downscale_factor)
+            return cv2.resize(snapshot_frame, dsize=self._downscale_wh, interpolation = self.downscale_interpolation)
         
         return snapshot_frame
     
@@ -191,14 +204,14 @@ class Snapshot_Capture(Reference_Snapshot_Capture):
         
         try:
             # Update next snapshot time based on snapshot period
-            prev_snapshot_time = self.next_snapshot_time_sec
-            self.next_snapshot_time_sec = prev_snapshot_time + self._total_snapshot_period_sec
+            prev_snapshot_time = self._next_snapshot_time_sec
+            self._next_snapshot_time_sec = prev_snapshot_time + self._total_snapshot_period_sec
             
         except TypeError:
             
             # Will get an error on first run, since previous snapshot time doesn't exist yet!
             prev_snapshot_time = float(1 + int(current_time_sec))
-            self.next_snapshot_time_sec = prev_snapshot_time + self._total_snapshot_period_sec
+            self._next_snapshot_time_sec = prev_snapshot_time + self._total_snapshot_period_sec
     
     # .................................................................................................................
     # .................................................................................................................

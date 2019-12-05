@@ -67,7 +67,6 @@ from local.lib.configuration_utils.display_specification import Preprocessed_Dis
 
 # Make all required selections and setup/configure everything
 loader = Reconfigurable_Core_Stage_Loader("pixel_filter", "passthrough_pixelfilter", "Pixel_Filter_Stage")
-loader.selections()
 configurable_ref = loader.setup_all(__file__)
 
 # Set up object to handle all video processing

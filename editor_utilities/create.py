@@ -46,7 +46,6 @@ def find_path_to_local(target_folder = "local"):
             
 find_path_to_local()
 
-
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
@@ -117,6 +116,12 @@ class Edit_Creator:
         safe_new_name = new_entity_name.replace(" ", "_")
         
         return safe_new_name
+    
+    # .................................................................................................................
+    
+    def _prompt_for_adding_video(self, new_camera_name):
+        user_confirm = cli_confirm("Add video to the new camera ({})?".format(new_camera_name))
+        return user_confirm
 
     # .................................................................................................................
     
@@ -138,6 +143,15 @@ class Edit_Creator:
             
         # Some feedback before quitting
         self._creation_feedback(new_camera_name, new_camera_path)
+        
+        # Prompt to add videos, if camera creation was not triggered from script arguments
+        if camera_select is None:
+            
+            # Ask user if they would like to associate a video with the new camera
+            user_confirm = self._prompt_for_adding_video(new_camera_name)
+            if user_confirm:
+                self.video(new_camera_name, None)
+        
         safe_quit()
     
     # .................................................................................................................
@@ -540,6 +554,8 @@ if entity_select["video"]:
 
 '''
 TODO:
-    - nothing specific, just test everything out...
+    - When duplicating entire cameras, need to be careful with resources folder! 
+        - Don't always want to duplicate backgrounds or video references
+        - Also don't want to duplicate classification data (probably)
     - Add logging
 '''

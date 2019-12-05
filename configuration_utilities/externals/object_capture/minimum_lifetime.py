@@ -64,13 +64,12 @@ from local.configurables.externals.object_capture._helper_functions import Dying
 
 # Make all required selections and setup/configure everything
 loader = Reconfigurable_Object_Capture_Loader("minimum_lifetime_objectcapture")
-loader.selections()
 configurable_ref = loader.setup_all(__file__)
 
 # Set up object to handle all video processing
 main_process = \
 Object_Capture_Video_Loop(loader,
-                          ordered_display_list = [Input_Display(0, 2, 2),
+                          ordered_display_list = [Input_Display(0, 2, 2, limit_wh = True),
                                                   Tracked_Display(1, 2, 2, show_ids = True),
                                                   Dying_Display(2, 2, 2),
                                                   Elder_Display(3, 2, 2)])

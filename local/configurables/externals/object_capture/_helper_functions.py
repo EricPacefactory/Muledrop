@@ -69,7 +69,7 @@ class Dying_Display(Display_Window_Specification):
         # Inherit from parent class
         super().__init__(window_name, layout_index, num_rows, num_columns, 
                          initial_display = initial_display, 
-                         max_wh = None)
+                         limit_wh = False)
         
         
         # Create blank frame for display
@@ -110,7 +110,7 @@ class Elder_Display(Display_Window_Specification):
         # Inherit from parent class
         super().__init__(window_name, layout_index, num_rows, num_columns, 
                          initial_display = initial_display, 
-                         max_wh = None)
+                         limit_wh = False)
         
         # Create blank frame for display
         self._display_frame = np.full((350, 400, 3), (40, 40, 40), dtype=np.uint8)

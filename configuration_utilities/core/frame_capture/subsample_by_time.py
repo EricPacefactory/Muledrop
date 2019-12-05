@@ -67,7 +67,6 @@ from local.lib.configuration_utils.display_specification import Input_Display
 
 # Make all required selections and setup/configure everything
 loader = Reconfigurable_Core_Stage_Loader("frame_capture", "subsample_by_time_framecapture", "Frame_Capture_Stage")
-loader.selections()
 configurable_ref = loader.setup_all(__file__)
 
 # Set up object to handle all video processing

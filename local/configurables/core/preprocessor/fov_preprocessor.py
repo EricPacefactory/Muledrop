@@ -71,7 +71,8 @@ class Preprocessor_Stage(Reference_Preprocessor):
         # Allocate storage for calculated mapping
         self.x_mapping = None
         self.y_mapping = None
-        
+        self.output_w = None
+        self.output_h = None        
         
         # .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . Control Group 1 .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
         

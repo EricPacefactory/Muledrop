@@ -201,6 +201,12 @@ class Pixel_Filter_Stage(Reference_Pixel_Filter):
         
     # .................................................................................................................
     
+    def update_background(self, preprocessed_background_frame, bg_update):
+        # No background processing        
+        return None
+    
+    # .................................................................................................................
+    
     def _color_filter(self, bgr_color_frame):
         
         # Convert incoming (bgr) color frame to hsv color space before applying filtering

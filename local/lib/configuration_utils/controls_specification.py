@@ -118,10 +118,10 @@ class Controls_Specification:
                     variable_name_list.append(variable_name)
         
         # Loop over all drawing controls and get the corresponding variable names
-        for each_drawing_variable in self.drawing_control_dict.keys():
+        for each_drawing_variable, each_drawing_spec in self.drawing_control_dict.items():
             
             # Only record the variable name if we're allowed to!
-            is_saveable = each_control_spec.get("save_with_config", True)
+            is_saveable = each_drawing_spec.get("save_with_config", True)
             allowed_to_save = save_everything or (saveables_only and is_saveable)
             if allowed_to_save:
                 variable_name_list.append(each_drawing_variable)

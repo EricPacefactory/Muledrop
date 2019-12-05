@@ -49,12 +49,13 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
+import cv2
 import numpy as np
 
 from collections import deque
 
 from local.configurables.configurable_template import Core_Configurable_Base
-from local.lib.timekeeper_utils import format_datetime_string
+from local.lib.timekeeper_utils import isoformat_datetime_string
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
@@ -103,7 +104,7 @@ class Reference_Tracker(Core_Configurable_Base):
         self.clear_dead_ids()
         
         # Update object tracking data based on the new detection data
-        unmatched_object_id_list, unmatched_detections_list = \
+        unmatched_object_id_list, unmatched_detection_index_list = \
         self.update_object_tracking(detection_ref_list, 
                                     current_frame_index, current_time_sec, current_datetime,
                                     current_snapshot_metadata)
@@ -116,18 +117,12 @@ class Reference_Tracker(Core_Configurable_Base):
         
         # Finally, generate any new objects for tracking & return the final tracked object dictionary
         tracked_object_dict, validation_object_dict = \
-        self.generate_new_objects(unmatched_detections_list, 
+        self.generate_new_objects(unmatched_detection_index_list, detection_ref_list, 
                                   current_frame_index, current_time_sec, current_datetime,
                                   current_snapshot_metadata)
         
         # Finally, trigger the clean-up of long-lasting objects, which should be saved across multiple files
         elder_id_list = self.partition_elder_objects(tracked_object_dict, dead_id_list)
-        
-        '''
-        STOPPED HERE
-        - ALSO UPDATE OBJ METADATA TO SAVE PROPER START/END INDICES, SEPARATE FROM SNAPSHOT METADATA
-        - THEN CLEAN UP ALL THE BG/OBJMD/SNAP SAVING LOAD/SAVE CONFIGS!
-        '''
         
         return {"tracked_object_dict": tracked_object_dict, 
                 "validation_object_dict": validation_object_dict,
@@ -166,7 +161,7 @@ class Reference_Tracker(Core_Configurable_Base):
         
         # Reference performs no updates, passes all detections through
         unmatched_object_ids = []
-        unmatched_detections = detection_ref_list[:]
+        unmatched_detections = detection_ref_list
         
         return unmatched_object_ids, unmatched_detections
     
@@ -194,7 +189,7 @@ class Reference_Tracker(Core_Configurable_Base):
     # .................................................................................................................
     
     # SHOULD OVERRIDE. Maintain i/o structure
-    def generate_new_objects(self, unmatched_detections_list, 
+    def generate_new_objects(self, unmatched_detection_index_list, detection_ref_list, 
                              current_frame_index, current_time_sec, current_datetime,
                              current_snapshot_metadata):
         
@@ -260,10 +255,10 @@ class Reference_Trackable_Object:
         self.full_id = None
         
         # Store start timing info
-        self.start_snapshot_metadata = current_snapshot_metadata.copy()
-        self.start_frame_index = current_frame_index
-        self.start_time_sec = current_time_sec
-        self.start_datetime = current_datetime
+        self.first_snapshot_metadata = current_snapshot_metadata.copy()
+        self.first_frame_index = current_frame_index
+        self.first_time_sec = current_time_sec
+        self.first_datetime = current_datetime
         
         # Allotcate storage for timing info as of the last detection match
         self.last_match_snapshot_metadata = {}
@@ -322,7 +317,7 @@ class Reference_Trackable_Object:
     #%% Updating functions
     
     def lifetime_sec(self, current_time_sec):
-        return current_time_sec - self.start_time_sec
+        return current_time_sec - self.first_time_sec
     
     # .................................................................................................................
     
@@ -366,8 +361,12 @@ class Reference_Trackable_Object:
         
     # .................................................................................................................
         
-    def update_from_self(self):
-        self.empty_update()
+    def update_from_self(self, propagation_weight = -1.0):
+        
+        ''' Function which specifies how to update an object from it's own data (i.e. no detection available) '''
+        
+        use_propagation = (propagation_weight > 0.0)
+        self.propagate_from_self(propagation_weight) if use_propagation else self.duplicate_from_self()
         
     # .................................................................................................................
     
@@ -458,7 +457,7 @@ class Reference_Trackable_Object:
         
     # .................................................................................................................
     
-    def empty_update(self):
+    def duplicate_from_self(self):
         
         # Generate 'new' update values, which are just copies of existing data, since we have no other data source
         new_hull = self.hull
@@ -471,24 +470,45 @@ class Reference_Trackable_Object:
         
         # Use existing update function to avoid duplicating tracking logic...
         self.verbatim_update(new_hull, new_x_cen, new_y_cen, new_w, new_h, new_fill, new_track_status)
+        
+    # .................................................................................................................
+        
+    def propagate_from_self(self, weighting = 0.9, new_track_status = 0):
+        
+        ''' Function which propagates an objects trajectory, using it's own history '''
+        
+        # Get simple 'velocity' using previous two positions (better to look over a longer period...)
+        vx = self.x_delta(weighting)
+        vy = self.y_delta(weighting)
+        
+        # Generate 'new' update values, which are just copies of existing data, since we have no other data source
+        new_hull = self.hull + np.float32((vx, vy))
+        new_x_cen = self.x_center + vx
+        new_y_cen = self.y_center + vy
+        new_w = self.width
+        new_h = self.height
+        new_fill = self.fill
+        
+        # Use existing update function to avoid duplicating tracking logic...
+        self.verbatim_update(new_hull, new_x_cen, new_y_cen, new_w, new_h, new_fill, new_track_status)
     
     # .................................................................................................................
     
     def get_save_data(self, is_final = True):
         
         # Bundle tracking data together for clarity
-        tracking_data_dict = self._get_tracking_data(is_final)
+        tracking_data_dict, final_num_samples = self._get_tracking_data(is_final)
         timing_data_dict = self._get_timing_data(is_final)
         snapshot_data_dict = self._get_snapshot_data(is_final)
         
         # Calculate helpful additional metadata
-        lifetime_sec = self.last_match_time_sec - self.start_time_sec
+        lifetime_sec = self.last_match_time_sec - self.first_time_sec
         
         # Generate json-friendly data to save
         save_data_dict = {"full_id": self.full_id,
                           "nice_id": self.nice_id,
                           "lifetime_sec": lifetime_sec,
-                          "num_validation_samples": self.num_validation_samples,
+                          "num_samples": final_num_samples,
                           "max_samples": self.max_samples,
                           "partition_index": self.partition_index,
                           "detection_class": self.detection_classification,
@@ -517,10 +537,13 @@ class Reference_Trackable_Object:
                 # In this case, just accept all bad data...
                 first_good_idx = 0
         
+        # Calculate the actual number of samples (ignoring bad data)
+        final_num_samples = self.num_samples - first_good_idx
+        
         # Bundle tracking data together for clarity
         tracking_data_dict = {"tracking_point": self.track_point_str,
                               "sample_order": "newest_first",
-                              "num_samples": self.num_samples - first_good_idx,
+                              "num_validation_samples": self.num_validation_samples,
                               "num_decay_samples_removed": first_good_idx,
                               "warped": True,
                               "track_status": list(self.track_status_history)[first_good_idx:],
@@ -531,19 +554,19 @@ class Reference_Trackable_Object:
                               "fill": list(self.fill_history)[first_good_idx:],
                               "hull": [each_hull.tolist() for each_hull in self.hull_history][first_good_idx:]}
         
-        return tracking_data_dict
+        return tracking_data_dict, final_num_samples
     
     # .................................................................................................................
     
     def _get_timing_data(self, is_final = True):
         
         # Bundle timing data together, for clarity
-        timing_data_dict = {"start_frame_index": self.start_frame_index,
-                            "start_time_sec": self.start_time_sec,
-                            "start_datetime_isoformat": format_datetime_string(self.start_datetime),
+        timing_data_dict = {"first_frame_index": self.first_frame_index,
+                            "first_time_sec": self.first_time_sec,
+                            "first_datetime_isoformat": isoformat_datetime_string(self.first_datetime),
                             "last_frame_index": self.last_match_frame_index,
                             "last_time_sec": self.last_match_time_sec,
-                            "last_datetime_isoformat": format_datetime_string(self.last_match_datetime)}
+                            "last_datetime_isoformat": isoformat_datetime_string(self.last_match_datetime)}
         
         return timing_data_dict
     
@@ -551,7 +574,7 @@ class Reference_Trackable_Object:
     
     def _get_snapshot_data(self, is_final = True):
         
-        snapshot_data_dict = {"start": self.start_snapshot_metadata,
+        snapshot_data_dict = {"first": self.first_snapshot_metadata,
                               "last": self.last_match_snapshot_metadata}
         
         return snapshot_data_dict
@@ -679,6 +702,26 @@ class Reference_Trackable_Object:
         return np.float32((self.x_match(), self.y_match()))
     
     # .................................................................................................................
+    
+    def in_zones_list(self, zones_list):
+        
+        ''' Function which checks if this object is within a list of zones '''
+        
+        for each_zone in zones_list:
+            
+            # If no zone data is present, then we aren't in the zone!
+            if each_zone == []:
+                return False
+            
+            # Otherwise, check if the x/y tracking location is inside any of the zones
+            zone_array = np.float32(each_zone)
+            in_zone = (cv2.pointPolygonTest(zone_array, (self.x_track, self.y_track), measureDist = False) > 0)
+            if in_zone:
+                return True
+            
+        return False
+    
+    # .................................................................................................................
     #%% Properties
     
     # .................................................................................................................
@@ -785,6 +828,123 @@ class Reference_Trackable_Object:
         br = (self.x_center + half_width, self.y_center + half_height)
         
         return np.float32((tl, br))
+    
+    # .................................................................................................................
+    # .................................................................................................................
+
+
+# /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+# /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+class Smoothed_Trackable_Object(Reference_Trackable_Object):
+    
+    # Create shared smoothing variables
+    _oldsmooth_x = 0.0
+    _oldsmooth_y = 0.0
+    _newsmooth_x = 1.0
+    _newsmooth_y = 1.0
+    _speed_weight = 0.0
+    
+    # .................................................................................................................
+    
+    def __init__(self, nice_id, full_id, detection_object, current_snapshot_metadata,
+                 current_frame_index, current_time_sec, current_datetime):
+        
+        # Inherit from reference object
+        super().__init__(nice_id, full_id, detection_object, current_snapshot_metadata,
+                         current_frame_index, current_time_sec, current_datetime)
+        
+    # .................................................................................................................
+    
+    @classmethod
+    def set_smoothing_parameters(cls, x_weight, y_weight, speed_weight):
+        
+        # Map the maximum smoothing in x/y to 0.80, since higher values are not really practical
+        max_smooth_x, max_smooth_y = 0.80, 0.80
+        
+        # Take the sqrt of the paremeters, which gives a slightly more intuitive feel to the scaling
+        cls._oldsmooth_x = (x_weight * max_smooth_x) ** (1/2)
+        cls._oldsmooth_y = (y_weight * max_smooth_y) ** (1/2)
+        
+        # Pre-calculate inverse smoothing values to avoid repeated calculations later
+        cls._newsmooth_x = 1 - cls._oldsmooth_x
+        cls._newsmooth_y = 1 - cls._oldsmooth_y
+        
+        # Update speed weighting
+        cls._speed_weight = speed_weight
+        
+    # .................................................................................................................
+        
+    def update_from_detection(self, detection_object, current_snapshot_metadata,
+                              current_frame_index, current_time_sec, current_datetime):
+        
+        '''
+        Overrides reference implementation!
+        Update using detection data directly, but then apply a smoothing pass after each update
+        '''
+        
+        # Record match timing data, in case this is the last time we match up with something
+        self._update_last_match_data(current_snapshot_metadata, 
+                                     current_frame_index, current_time_sec, current_datetime)
+        
+        # Get detection data
+        new_hull, new_x_cen, new_y_cen, new_w, new_h, new_fill = self.get_detection_parameters(detection_object)
+        
+        # Apply smooth updates
+        self.smooth_update(new_hull, new_x_cen, new_y_cen, new_w, new_h, new_fill)
+        
+    # .................................................................................................................
+    
+    def smooth_update(self, new_hull, new_x_cen, new_y_cen, new_w, new_h, new_fill):
+        
+        try:
+            
+            # Collect previous values
+            old_x_cen = self.x_center
+            old_y_cen = self.y_center
+            old_w = self.width
+            old_h = self.height
+            
+            # Calculate new (smoothed) values using new detection data and previous values
+            smooth_x_cen = self.smooth_x(new_x_cen, old_x_cen)
+            smooth_y_cen = self.smooth_y(new_y_cen, old_y_cen)
+            smooth_w = self.smooth_w(new_w, old_w)
+            smooth_h = self.smooth_h(new_h, old_h)
+        
+        except IndexError:   
+            # Will get an error on initial detection, since we don't have previous values needed for smoothing
+            # When this happens, just perform verbatim update
+            smooth_x_cen = new_x_cen
+            smooth_y_cen = new_y_cen
+            smooth_w = new_w
+            smooth_h = new_h
+        
+        # Update object state using smoothed values
+        new_track_status = 1
+        self.verbatim_update(new_hull, smooth_x_cen, smooth_y_cen, smooth_w, smooth_h, new_fill, new_track_status)
+        
+    # .................................................................................................................
+    
+    def smooth_x(self, new_x, old_x):
+        predictive_x = self.x_delta() * self._speed_weight
+        return self._newsmooth_x * new_x + self._oldsmooth_x * (old_x + predictive_x)
+    
+    # .................................................................................................................
+    
+    def smooth_y(self, new_y, old_y):
+        predictive_y = self.y_delta() * self._speed_weight
+        return self._newsmooth_y * new_y + self._oldsmooth_y * (old_y + predictive_y)
+    
+    # .................................................................................................................
+    
+    def smooth_w(self, new_w, old_w):
+        return self._newsmooth_x * new_w + self._oldsmooth_x * old_w
+    
+    # .................................................................................................................
+    
+    def smooth_h(self, new_h, old_h):
+        return self._newsmooth_y * new_h + self._oldsmooth_y * old_h
     
     # .................................................................................................................
     # .................................................................................................................

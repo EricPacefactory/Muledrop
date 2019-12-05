@@ -57,9 +57,9 @@ from local.lib.file_access_utils.video import build_videos_folder_path, load_vid
 from local.lib.file_access_utils.externals import build_externals_folder_path, create_default_externals_config
 from local.lib.file_access_utils.core import create_default_core_configs
 from local.lib.file_access_utils.video import create_default_video_configs
+from local.lib.file_access_utils.classifier import create_default_classifier_configs
 
 from eolib.utils.files import get_folder_list, get_file_list
-
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Folder structures
@@ -72,8 +72,7 @@ def camera_folder_structure():
                  "resources": {"videos": {},
                                "backgrounds": {"captures", "generated"},
                                "classifier": {"datasets", "models"}},
-                 "logs": {"system",
-                          "configurables"}
+                 "logs": {"system", "configurables"}
                  }
     
     return structure
@@ -90,7 +89,7 @@ def user_folder_structure():
     
 def task_folder_structure():
     
-    structure = {"core"}
+    structure = {"core", "rules", "classifier", "summary_statistics"}
     
     return structure
 
@@ -114,9 +113,15 @@ def create_camera_folder_structure(project_root_path, camera_path):
     live_user_path = os.path.join(camera_path, "users", "live")
     create_user_folder_structure(project_root_path, live_user_path)
     
+    # Make sure the resources folder is initialized
+    resources_path = os.path.join(camera_path, "resources")
+    video_resource_path = os.path.join(resources_path, "videos")
+    classifier_resource_path = os.path.join(resources_path, "classifier")
+    
     # Make sure video resource data is initialized
-    video_resource_path = os.path.join(camera_path, "resources", "videos")
+    video_resource_path = os.path.join(resources_path, "videos")
     create_default_video_configs(project_root_path, video_resource_path)
+    create_default_classifier_configs(project_root_path, classifier_resource_path)
     
 # .....................................................................................................................
     

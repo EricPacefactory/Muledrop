@@ -1,0 +1,68 @@
+
+{% extends "shared_layout.html" %}
+
+<!-- Add styling specific to this page -->
+{% block styling %}
+    {% include "css/overview.css" %}
+{% endblock %}
+
+
+<!-- Add main page content -->
+{% block body %}
+    <div class="island_wrapper">
+        <span class = "overview_section_name">General</span>
+
+        <div class="island_content">
+            <ul class = "overview_row_ul">
+                <li class = "overview_row_li"><span class = "overview_category_name">Camera</span><br> {{camera_name}}</li>
+                <li class = "overview_row_li"><span class = "overview_category_name">Dataset</span><br> {{dataset}}</li>
+                <li class = "overview_row_li"><span class = "overview_category_name">Number snapshots</span><br> {{snapshot_count}}</li>
+            </ul>
+
+        <div class = "island_overline">
+            <br>
+            <span class = "overview_category_name">Video:</span> {{video_source}}
+        </div>
+
+        </div>
+
+    </div>
+
+    <div class="island_wrapper">
+
+        <span class = "overview_section_name">Tasks</span>
+        <div class="island_content">
+            
+
+            <ul class = "overview_row_ul">
+                {% for each_task, each_class_count_dict in class_count_breakdown.items() %}
+                    <li class = "overview_row_li">
+                        <div class = "overview_category_name">{{each_task}}</div>
+                        <div>
+                            <ul class = "class_count_ul">
+                                {% for each_label, each_count in each_class_count_dict.items() %}
+                                    <li class = "class_count_li">{{each_label}}: {% if each_count == 0 %} - {% else %} {{each_count}} {% endif %}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </li>
+                {% endfor %}
+            </ul>
+
+            <div class = "island_overline">
+                <br>
+                <span class = "overview_category_name">Total objects:</span> {{total_object_count}}
+            </div>
+
+            
+
+        </div>
+            
+
+    </div>
+{% endblock %}
+
+
+<!-- Add scripting specific to this page -->
+{% block scripting %}
+{% endblock %}

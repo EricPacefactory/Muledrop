@@ -54,13 +54,16 @@ import numpy as np
 
 from collections import namedtuple, deque
 
-from eolib.utils.cli_tools import Color
-
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
 
 
 class Entity_Drawer:
+    
+    '''
+    Class used to handle drawing UI for creating & editing drawn polygons
+    Internally represents all point data in pixel units, but all input/output must be in normalized units!
+    '''
     
     # .................................................................................................................
     
@@ -72,11 +75,6 @@ class Entity_Drawer:
                  maximum_points = None,
                  border_size_px = 60,
                  debug_mode = False):
-        
-        '''
-        Class used to handle drawing UI for creating & editing drawn polygons
-        Internally represents all point data in pixel units, but all input/output must be in normalized units!
-        '''
         
         # Safe-ify the input values
         safe_border_size_px = int(round(border_size_px))
@@ -116,6 +114,10 @@ class Entity_Drawer:
         
         # Set up variables used to detect and manage changes
         self._entity_change = False
+        
+        # Storage for drawing style
+        self._aesthetics_dict = None
+        self.aesthetics()
     
     # .................................................................................................................
     
@@ -196,15 +198,41 @@ class Entity_Drawer:
     
     # .................................................................................................................
     
-    def on_change(self):
+    def aesthetics(self, finished_color = (0, 255, 255), in_progress_color = (255, 255, 0),
+                   finished_thickness = 1, in_progress_thickness = 1,
+                   anchor_radius = 3, line_type = cv2.LINE_AA, 
+                   show_anchors = True):
+        
+        ''' Function for changing default color/styling '''
+        
+        # Update internal record of aesthetics
+        self._aesthetics_dict = {"finished_color": finished_color,
+                                 "in_progress_color": in_progress_color,
+                                 "finished_thickness": finished_thickness,
+                                 "in_progress_thickness": in_progress_thickness,
+                                 "anchor_radius": anchor_radius,
+                                 "line_type": line_type,
+                                 "show_anchors": show_anchors}
+        
+        # Propagate changes to the entity collection
+        self.entity_collection.aesthetics(**self._aesthetics_dict)
+        
+        return self._aesthetics_dict
+    
+    # .................................................................................................................
+    
+    def on_change(self, only_on_hover = False):
         
         ''' 
         Function for monitoring changes to the entities being drawn 
         To access modified entity data, use .entity_list property which returns a (normalized) list-of-lists-of-tuples
         '''
         
+        # Get state flags
+        hover_flag = (self.state == "hover") if only_on_hover else True
+        
         # Check for entity change flag, and if present, consume it!
-        if self._entity_change:
+        if self._entity_change and hover_flag:
             self._entity_change = False
             return True
         
@@ -212,7 +240,7 @@ class Entity_Drawer:
     
     # .................................................................................................................
     
-    def update_frame_size(self, new_frame_width, new_frame_height):
+    def update_frame_wh(self, new_frame_width, new_frame_height):
         
         '''
         Function for updating the known frame size.
@@ -779,6 +807,10 @@ class Entity_Collection:
         self.min_xy = np.array((-np.inf, -np.inf))
         self.max_xy = np.array((np.inf, np.inf))
         
+        # Storage for drawing style
+        self._finished_aesthetics_dict = {}
+        self._inprog_aesthetics_dict = {}
+        
         # Storage for possible custom drawing functions
         self._entity_draw_func = None
         self._inprog_draw_func = None
@@ -794,6 +826,9 @@ class Entity_Collection:
         # Initialize storage for entities
         self.entity_list = self._initialize_entities(initial_entity_list)
         self.entity_in_progress = None
+        
+        # Set initial drawing style
+        self.aesthetics()
     
     # .................................................................................................................
     
@@ -822,6 +857,7 @@ class Entity_Collection:
         # Create the new entity and add a custom drawing function, if available
         new_entity = Interactive_Entity(minimum_points, maximum_points, self.debug_mode)
         new_entity.set_boundaries(self.min_xy, self.max_xy)
+        new_entity.aesthetics(**self._finished_aesthetics_dict)
         
         # Add initial points if provided
         if len(initial_points) > 0:
@@ -851,6 +887,37 @@ class Entity_Collection:
             entity_list.append(new_entity)
             
         return entity_list
+    
+    # .................................................................................................................
+    
+    def aesthetics(self, finished_color = (0, 255, 255), in_progress_color = (255, 255, 0), 
+                   finished_thickness = 1, in_progress_thickness = 1, 
+                   anchor_radius = 3, line_type = cv2.LINE_AA, 
+                   show_anchors = True):
+        
+        # Update internal records
+        self._finished_aesthetics_dict = {"color": finished_color,
+                                          "thickness": finished_thickness,
+                                          "anchor_radius": anchor_radius,
+                                          "line_type": line_type,
+                                          "show_anchors": show_anchors}
+        
+        # Update internal records
+        self._inprog_aesthetics_dict = {"color": in_progress_color,
+                                        "thickness": in_progress_thickness,
+                                        "anchor_radius": anchor_radius,
+                                        "line_type": line_type,
+                                        "show_anchors": show_anchors}
+        
+        # Propagate changes to finished entities
+        for each_entity in self.entity_list:
+            each_entity.aesthetics(**self._finished_aesthetics_dict)
+            
+        # Propagate changes to in-progress entity, if available
+        if self.entity_in_progress is not None:
+            self.entity_in_progress.aesthetics(**self._inprog_aesthetics_dict)
+        
+        return self._finished_aesthetics_dict, self._inprog_aesthetics_dict
     
     # .................................................................................................................
     
@@ -919,8 +986,8 @@ class Entity_Collection:
         # Create a new entity in progress, with the ability to have no points so it can be drawn up
         new_points = np.int32(new_point_xy)
         new_in_progress = self._create_new_entity(minimum_points = 0, replace_drawing_function = False)
+        new_in_progress.aesthetics(**self._inprog_aesthetics_dict)
         new_in_progress.initialize_points(new_points)
-        new_in_progress.aesthetics(color = (255, 255, 0))
         
         # Add a custom drawing function if needed
         if self._inprog_draw_func:

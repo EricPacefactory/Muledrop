@@ -72,7 +72,7 @@ class Outlined_Input(Display_Window_Specification):
         # Inherit from parent class
         super().__init__("Preprocessed", layout_index, num_rows, num_columns, 
                          initial_display = initial_display, drawing_json = drawing_json,
-                         max_wh = None)
+                         limit_wh = True)
         
     # .................................................................................................................
         
@@ -97,7 +97,7 @@ class Masked_Differences(Display_Window_Specification):
         # Inherit from parent class
         super().__init__("Masked Display", layout_index, num_rows, num_columns, 
                          initial_display = initial_display, drawing_json = drawing_json,
-                         max_wh = None)
+                         limit_wh = True)
         
     # .................................................................................................................
         

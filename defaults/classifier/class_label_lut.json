@@ -1,0 +1,37 @@
+{
+  "unclassified": {
+    "class_index": -2,
+    "trail_color": [255, 255, 0],
+    "outline_color": [0, 255, 0]
+  },
+  "ignore": {
+    "class_index": -1,
+    "trail_color": [255, 255, 0],
+    "outline_color": [0, 0, 0]
+  },
+  "background": {
+    "class_index": 0,
+    "trail_color": [255, 255, 0],
+    "outline_color": [180, 180, 180]
+  },
+  "pedestrian": {
+    "class_index": 1,
+    "trail_color": [255, 255, 0],
+    "outline_color": [255, 105, 10]
+  },
+  "vehicle": {
+    "class_index": 2,
+    "trail_color": [255, 255, 0],
+    "outline_color": [10, 235, 245]
+  },
+  "other": {
+    "class_index": 3,
+    "trail_color": [255, 255, 0],
+    "outline_color": [175, 50, 200]
+  },
+  "mixed": {
+    "class_index": 4,
+    "trail_color": [255, 255, 0],
+    "outline_color": [210, 90, 15]
+  }
+}

@@ -3,7 +3,6 @@
 """
 Created on Mon Sep 16 12:29:49 2019
 
-
 @author: eo
 """
 
@@ -46,7 +45,6 @@ def find_path_to_local(target_folder = "local"):
             raise ImportError("Can't find '{}' directory!".format(target_folder))
 
 find_path_to_local()
-
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports

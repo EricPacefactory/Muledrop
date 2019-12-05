@@ -61,12 +61,13 @@ class Color_Filtered(Display_Window_Specification):
     
     # .................................................................................................................
     
-    def __init__(self, layout_index, num_rows, num_columns, initial_display = False, drawing_json = None):
+    def __init__(self, layout_index, num_rows, num_columns, initial_display = False, drawing_json = None,
+                 limit_wh = True):
         
         # Inherit from parent class
         super().__init__("Color Filtered", layout_index, num_rows, num_columns, 
                          initial_display = initial_display, drawing_json = drawing_json,
-                         max_wh = None)
+                         limit_wh = limit_wh)
         
     # .................................................................................................................
         

@@ -52,6 +52,8 @@ find_path_to_local()
 import cv2
 import numpy as np
 
+from tqdm import tqdm
+
 from time import perf_counter
 from itertools import product
 from collections import OrderedDict
@@ -86,6 +88,10 @@ class Video_Processing_Loop:
         
         # Set up task display if needed
         task_display_resources_dict = self.setup_task_result_display(display_task_results)
+        
+        # Set up progress bar
+        total_frames = self.loader.vreader.total_frames
+        cli_prog_bar = tqdm(total = total_frames, mininterval = 1.5)
         
         # Start timer for measuring full run-time
         t_start = perf_counter()
@@ -123,10 +129,15 @@ class Video_Processing_Loop:
                 # Save snapshots if needed, along with info about object ids in the frame
                 self.save_snapshots(frame, object_ids_in_frame_dict, need_new_snapshot)
                 
+                # Update progress bar
+                cli_prog_bar.update()
+                
         except KeyboardInterrupt:
             print("Keyboard interrupt! Closing...")
         
         # Clean up any open resources
+        cli_prog_bar.close()
+        print("")
         self.clean_up(*prev_fsd_time_args)
         
         # End runtime timer
@@ -188,7 +199,8 @@ class Video_Processing_Loop:
             display_obj = each_task_disp_res.get("display_obj")
             
             # Generate the task result frames
-            display_image = display_obj.display(all_stage_outputs.get(each_task_name), configurable_ref, *fsd_time_args)
+            display_image = display_obj.display(all_stage_outputs.get(each_task_name), None,
+                                                configurable_ref, *fsd_time_args)
             
             # Keep track of whether the displays exist
             window_exists = window_ref.imshow(display_image)
@@ -228,7 +240,7 @@ class Video_Processing_Loop:
         
         # Get snapshot if needed and return most recent snapshot data for object metadata capture
         need_new_snapshot, current_snapshot_metadata = \
-        self.loader.snapcap.metadata(input_frame, current_frame_index, current_time_sec, current_datetime)
+        self.loader.snapcap.update_metadata(input_frame, current_frame_index, current_time_sec, current_datetime)
         
         return need_new_snapshot, current_snapshot_metadata
     
@@ -301,9 +313,18 @@ class Video_Processing_Loop:
         # Assume windows will have the video frame dimensions
         frame_wh = self.loader.video_wh
         
+        # Get screen & display sizing
+        feedback_width, feedback_x_padding = self.loader.screen_info.feedback("width", "x_padding")
+        screen_width, screen_height = self.loader.screen_info.screen("width", "height")
+        screen_x_offset, screen_y_offset = self.loader.screen_info.screen("x_offset", "y_offset")
+        max_disp_width, max_disp_height = self.loader.screen_info.displays("max_width", "max_height")
+        valid_max_wh = (max_disp_width is not None and max_disp_height is not None)
+        max_wh = (max_disp_width, max_disp_height)
+        
         # Get windowing area info for window placement
-        min_x, max_x = 40, 1500
-        min_y, max_y = 250, 1100
+        min_x, min_y, reserved_vert = self.loader.screen_info.displays("top_left_x", "top_left_y", "reserved_vertical")
+        max_x = screen_width - feedback_width - (2 * feedback_x_padding)
+        max_y = screen_height - reserved_vert
         
         # Build some helper functions to simplfy things
         get_row_col_idx = lambda layout_idx, nrows, ncols: list(product(range(nrows), range(ncols)))[layout_idx]
@@ -319,7 +340,7 @@ class Video_Processing_Loop:
             is_initial = disp_json.get("initial_display", False)
             drawing_json = disp_json.get("drawing_json", None)
             provide_mouse_xy = disp_json.get("provide_mouse_xy", None)
-            max_wh = disp_json.get("max_wh", None)
+            limit_wh = disp_json.get("limit_wh", None)
             num_rows = disp_json.get("num_rows", 1)
             num_cols = disp_json.get("num_cols", 1)
             layout_index = disp_json.get("layout_index", 0)
@@ -332,7 +353,7 @@ class Video_Processing_Loop:
             
             # Determine the window type needed for display
             needs_drawing_window = (drawing_json is not None)
-            needs_max_wh_window = (max_wh is not None)
+            needs_max_wh_window = (limit_wh and valid_max_wh)
             if needs_drawing_window:
                 new_window_ref = Drawing_Window(new_window_name, frame_wh, drawing_json)
             elif needs_max_wh_window:
@@ -348,8 +369,8 @@ class Video_Processing_Loop:
             
             # Place window
             row_idx, col_idx = get_row_col_idx(layout_index, num_rows, num_cols)
-            x_corner_px = get_x_corner(col_idx, num_cols)
-            y_corner_px = get_y_corner(row_idx, num_rows)
+            x_corner_px = get_x_corner(col_idx, num_cols) + screen_x_offset
+            y_corner_px = get_y_corner(row_idx, num_rows) + screen_y_offset
             new_window_ref.move_corner_pixels(x_corner_px, y_corner_px)
         
         return display_resources_dict
@@ -425,7 +446,7 @@ class Reconfigurable_Video_Loop(Video_Processing_Loop):
         # Get UI setup info
         controls_json = self.configurable_ref.ctrl_spec.to_json()
         initial_settings = self.configurable_ref.current_settings()
-        local_controls = Local_Window_Controls(controls_json, initial_settings)
+        local_controls = Local_Window_Controls(self.loader.screen_info, controls_json, initial_settings)
         
         return controls_json, initial_settings, local_controls
     
@@ -433,7 +454,7 @@ class Reconfigurable_Video_Loop(Video_Processing_Loop):
     
     def setup_timing_windows(self):
         
-        timing_window = Local_Timing_Window()
+        timing_window = Local_Timing_Window(self.loader.screen_info)
         
         return timing_window
     
@@ -441,7 +462,8 @@ class Reconfigurable_Video_Loop(Video_Processing_Loop):
     
     def setup_playback_window(self):
         
-        playback_controls = Local_Playback_Controls(self.loader.vreader, self.loader.playback_access)
+        playback_controls = Local_Playback_Controls(self.loader.vreader, self.loader.playback_access,
+                                                    self.loader.screen_info)
         
         return playback_controls
     

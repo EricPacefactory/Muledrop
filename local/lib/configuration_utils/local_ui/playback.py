@@ -46,7 +46,6 @@ def find_path_to_local(target_folder = "local"):
             
 find_path_to_local()
 
-
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
@@ -56,6 +55,8 @@ import numpy as np
 from local.lib.configuration_utils.local_ui.windows_base import Simple_Window
 from local.lib.configuration_utils.local_ui.drawing import waitKey_ex
 
+from eolib.video.text_rendering import cv2_font_config, getTextSize_wrapper
+
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define Classes
 
@@ -63,7 +64,7 @@ class Local_Playback_Controls(Simple_Window):
     
     # .................................................................................................................
     
-    def __init__(self, video_reader_ref, playback_access_ref):
+    def __init__(self, video_reader_ref, playback_access_ref, screen_info):
         
         # Inherit from parent class
         super().__init__("Playback Controls")
@@ -81,6 +82,9 @@ class Local_Playback_Controls(Simple_Window):
         self.pause_key = 32             # 32 -> spacebar
         self.save_settings_key = 112    # 112 -> p
         self.reset_settings_key = 111   # 111 -> o
+        
+        # Store screen info object, used for positioning the window
+        self.screen_info = screen_info
         
         # Store the playback settings access object so we can load/save playback settings
         self.pback_access = playback_access_ref
@@ -101,15 +105,15 @@ class Local_Playback_Controls(Simple_Window):
         self.frame_skip = max(100, int(5 * self.video_fps))
         
         # Set up basic sizing
-        frame_width = 300
-        x_padding, y_padding = 20, 20
+        frame_width, x_padding, y_padding = self.screen_info.feedback("width", "x_padding", "y_padding")
+        screen_width, x_offset, y_offset = self.screen_info.screen("width", "x_offset", "y_offset")
         
         # Create the initial frame and record positioning needed for drawing new text updates
         self.bg_frame = self._draw_initial_frame(frame_width)
         
         # Draw and position initial frame
         self.imshow(self.bg_frame)
-        self.move_corner_pixels(self.screen_width - frame_width - x_padding, y_padding)
+        self.move_corner_pixels(screen_width - frame_width - x_padding + x_offset, y_padding + y_offset)
         
         # Attach a trackbars for controlling frame position, loop start/end and frame delay time
         self.add_trackbar("F", 0, self._max_frame)
@@ -159,7 +163,7 @@ class Local_Playback_Controls(Simple_Window):
         
         # Break if the window goes down
         if not self.exists():
-            return True, -1
+            return True, -1, None
         
         # Get keypress
         keycode, modifier = waitKey_ex(frame_delay_ms)
@@ -273,26 +277,39 @@ class Local_Playback_Controls(Simple_Window):
                             text_color = (200, 200, 200)):
         
         # Build messages
-        msg_strs = [("+ / -", "Skip forward/backward"),
-                    ("1 / 2", "Set looping start/end frames"),
-                    ("< / >", "Adjust start/end loop points"),
-                    ("[ / ]", "Decrease/increase frame delay"),
-                    ("spacebar", "Pause/unpause"),
-                    ("p / o", "Save/reset playback settings")]
+        msg_strs = [("+ / -", 
+                         "Skip forward/backward"),
+                    ("1 / 2", 
+                         "Set looping start/end frames"),
+                    ("< / >", 
+                         "Adjust start/end loop points"),
+                    ("[ / ]", 
+                         "Decrease/increase frame delay"),
+                    ("spacebar", 
+                         "Pause/unpause"),
+                    ("p / o", 
+                         "Save/reset playback settings")]
         
         # Set up text styling
         sub_spacing, row_spacing = 10, 20
         x_pad, y_pad = 5, 4
         sub_x_offset = 10
-        text_config = {"fontFace": cv2.FONT_HERSHEY_SIMPLEX,
-                       "fontScale": 0.4,
-                       "color": text_color,
-                       "thickness": 1,
-                       "lineType": cv2.LINE_AA}
+        font_scale = 0.4
+        min_font_scale = 0.15
         
-        # Get text sizing
-        (x_size, y_size), y_baseline = \
-        cv2.getTextSize("Test Text", text_config["fontFace"], text_config["fontScale"], text_config["thickness"])
+        # Get text scale needed to fit text in the given frame width
+        longest_msg_len = max([len(each_msg) for _, each_msg in msg_strs])
+        max_x_size = (frame_width - sub_x_offset - (2 * x_pad))
+        for k in range(10):
+            sample_text_config = cv2_font_config(scale = font_scale)
+            (x_size, y_size), y_baseline = getTextSize_wrapper(" " * longest_msg_len, **sample_text_config)
+            if x_size < max_x_size:
+                break
+            font_scale = max(min_font_scale, font_scale - 0.05)
+        
+        # Set up final text configuration
+        msg_text_config = cv2_font_config(scale = font_scale, color = text_color)
+        cmd_text_config = cv2_font_config(font = cv2.FONT_HERSHEY_DUPLEX, scale = font_scale, color = text_color)
         
         # Set up sizing variables
         size_per_msg = (y_size + sub_spacing + y_size + row_spacing)
@@ -310,8 +327,8 @@ class Local_Playback_Controls(Simple_Window):
         frame_stack = []
         for each_idx, (each_cmd, each_msg) in enumerate(msg_strs):
             new_control_block = blank_even_frame.copy() if (each_idx % 2 == 0) else blank_odd_frame.copy()
-            cv2.putText(new_control_block, "{}".format(each_cmd), (x_pos_cmd, y_pos_cmd), **text_config)
-            cv2.putText(new_control_block, each_msg, (x_pos_msg, y_pos_msg), **text_config)
+            cv2.putText(new_control_block, "{}".format(each_cmd), (x_pos_cmd, y_pos_cmd), **cmd_text_config)
+            cv2.putText(new_control_block, each_msg, (x_pos_msg, y_pos_msg), **msg_text_config)
             frame_stack.append(new_control_block)
         
         # Vertically stack each drawn control text frame for the output

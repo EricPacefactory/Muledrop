@@ -62,14 +62,13 @@ from local.lib.configuration_utils.display_specification import Input_Display, B
 
 # Make all required selections and setup/configure everything
 loader = Reconfigurable_Background_Capture_Loader("passthrough_backgroundcapture")
-loader.selections()
 configurable_ref = loader.setup_all(__file__)
 
 # Set up object to handle all video processing
 main_process = \
 Background_Capture_Video_Loop(loader,
                               ordered_display_list = [Input_Display(1, 2, 2),
-                                                      Background_Display(0, 2, 2)])
+                                                      Background_Display(0, 2, 2, limit_wh = False)])
 
 # Most of the work is done here!
 main_process.loop()

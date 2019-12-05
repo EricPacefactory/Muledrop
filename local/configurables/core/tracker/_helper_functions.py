@@ -212,12 +212,12 @@ def naive_object_detection_match(obj_by_det_sqdist_matrix, max_match_square_dist
     check_len = best_match_rows if more_objs else best_match_cols
     is_unique = _fast_unique(check_len)
     
-    # Bundle the object/detection pairings together
-    obj_det_match_tuple = list(zip(best_match_rows, best_match_cols))
+    # Bundle the object/detection index pairings together
+    obj_det_idx_match_tuple = list(zip(best_match_rows, best_match_cols))
     
     # Finally, get all the all the indices (obj/det) that are not part of the best-matches (i.e. unmatched)
-    unmatched_obj_list = [each_idx for each_idx in range(num_objs) if each_idx not in best_match_rows]
-    unmatched_det_list = [each_idx for each_idx in range(num_dets) if each_idx not in best_match_cols]
+    unmatched_objidx_list = [each_idx for each_idx in range(num_objs) if each_idx not in best_match_rows]
+    unmatched_detidx_list = [each_idx for each_idx in range(num_dets) if each_idx not in best_match_cols]
     
     '''
     # For debugging
@@ -228,15 +228,15 @@ def naive_object_detection_match(obj_by_det_sqdist_matrix, max_match_square_dist
     print(obj_by_det_sqdist_matrix)
     print("")
     print("Matches: ({})".format("Unique" if unique_mapping else "Not unique"))
-    print(obj_det_match_tuple)
-    print("Unmatched Obj. Index:", unmatched_obj_list)
-    print("Unmatched Det. Index:", unmatched_det_list)
+    print(obj_det_idx_match_tuple)
+    print("Unmatched Obj. Index:", unmatched_objidx_list)
+    print("Unmatched Det. Index:", unmatched_detidx_list)
     print("")
     print("Press key to unpause!")
     #cv2.waitKey(0)
     '''    
     
-    return is_unique, obj_det_match_tuple, unmatched_obj_list, unmatched_det_list
+    return is_unique, obj_det_idx_match_tuple, unmatched_objidx_list, unmatched_detidx_list
 
 # .....................................................................................................................
 
@@ -297,12 +297,12 @@ def greedy_object_detection_match(obj_by_det_sqdist_matrix, max_match_square_dis
             if num_iter > max_iter:
                 break
             
-    # Bundle the object/detection pairings together
-    obj_det_match_tuple = list(zip(matched_objs, matched_dets))
+    # Bundle the object/detection index pairings together
+    obj_det_idx_match_tuple = list(zip(matched_objs, matched_dets))
     
     # Finally, get all the indices (obj/det) that are not part of the best-matches (i.e. unmatched)
-    unmatched_obj_list = [each_idx for each_idx in range(num_objs) if each_idx not in matched_objs]
-    unmatched_det_list = [each_idx for each_idx in range(num_dets) if each_idx not in matched_dets]
+    unmatched_objidx_list = [each_idx for each_idx in range(num_objs) if each_idx not in matched_objs]
+    unmatched_detidx_list = [each_idx for each_idx in range(num_dets) if each_idx not in matched_dets]
     
     '''
     # For debugging
@@ -313,16 +313,15 @@ def greedy_object_detection_match(obj_by_det_sqdist_matrix, max_match_square_dis
     print(obj_by_det_sqdist_matrix)
     print("")
     print("Matches:")
-    print(obj_det_match_tuple)
-    print("Unmatched Obj. Index:", unmatched_obj_list)
-    print("Unmatched Det. Index:", unmatched_det_list)
+    print(obj_det_idx_match_tuple)
+    print("Unmatched Obj. Index:", unmatched_objidx_list)
+    print("Unmatched Det. Index:", unmatched_detidx_list)
     print("")
     print("Press key to unpause!")
     cv2.waitKey(0)
     '''
         
-    return obj_det_match_tuple, unmatched_obj_list, unmatched_det_list
-        
+    return obj_det_idx_match_tuple, unmatched_objidx_list, unmatched_detidx_list
 
 # .....................................................................................................................
 
@@ -393,13 +392,13 @@ def pathmin_object_detection_match(obj_by_det_sqdist_matrix, max_match_square_di
     
     # Assign matching, based on the shape of the indexing that was used
     matched_obj_list, matched_det_list = (good_cols, good_rows) if more_rows else (good_rows, good_cols)
-    obj_det_match_tuple = list(zip(matched_obj_list, matched_det_list))
+    obj_det_idx_match_tuple = list(zip(matched_obj_list, matched_det_list))
     
     # Now figure out which objects/detections weren't matched
-    unmatched_obj_list = [each_idx for each_idx in range(num_objs) if each_idx not in matched_obj_list]
-    unmatched_det_list = [each_idx for each_idx in range(num_dets) if each_idx not in matched_det_list]
+    unmatched_objidx_list = [each_idx for each_idx in range(num_objs) if each_idx not in matched_obj_list]
+    unmatched_detidx_list = [each_idx for each_idx in range(num_dets) if each_idx not in matched_det_list]
     
-    return obj_det_match_tuple, unmatched_obj_list, unmatched_det_list
+    return obj_det_idx_match_tuple, unmatched_objidx_list, unmatched_detidx_list
 
 # .....................................................................................................................
 
@@ -438,13 +437,13 @@ def alt_pathmin_unfinished(obj_by_det_sqdist_matrix, max_match_square_distance =
     
     # Assign matching
     matched_obj_list, matched_det_list = best_row_idxs, valid_col_idxs
-    obj_det_match_tuple = list(zip(best_row_idxs, valid_col_idxs))
+    obj_det_idx_match_tuple = list(zip(best_row_idxs, valid_col_idxs))
     
     # Now figure out which objects/detections weren't matched
-    unmatched_obj_list = [each_idx for each_idx in range(num_objs) if each_idx not in matched_obj_list]
-    unmatched_det_list = [each_idx for each_idx in range(num_dets) if each_idx not in matched_det_list]
+    unmatched_objidx_list = [each_idx for each_idx in range(num_objs) if each_idx not in matched_obj_list]
+    unmatched_detidx_list = [each_idx for each_idx in range(num_dets) if each_idx not in matched_det_list]
     
-    return obj_det_match_tuple, unmatched_obj_list, unmatched_det_list
+    return obj_det_idx_match_tuple, unmatched_objidx_list, unmatched_detidx_list
 
 # .....................................................................................................................
 # .....................................................................................................................
@@ -455,49 +454,21 @@ def alt_pathmin_unfinished(obj_by_det_sqdist_matrix, max_match_square_distance =
 
 # .....................................................................................................................
 
-def update_objects_with_detections(object_dict, detection_ref_list,
-                                   fallback_function, max_match_x_dist, max_match_y_dist,
-                                   current_snapshot_metadata,
-                                   current_frame_index, current_time_sec, current_datetime):
-        
-    # Get a list of object ids, so we can force consistent dictionary lookups
-    obj_ref_list = [each_obj for each_obj in object_dict.values()]
+def pair_objects_to_detections(object_ref_dict, pairable_id_list,
+                               detection_ref_list, pairable_index_list, 
+                               max_match_x_dist, max_match_y_dist,
+                               fallback_matching_function):
     
-    # Find object-to-detection matches (and unmatched entries, by index into their respective lists)
-    obj_det_match_tuple_list, unmatched_obj_idx_list, unmatched_det_idx_list = \
-    pair_objects_to_detections(obj_ref_list, detection_ref_list, 
-                               fallback_function, max_match_x_dist, max_match_y_dist)
+    # Create lists of pairable objects & detections, so that we can rely on a fixed ordering!
+    pobj_ref_list = [object_ref_dict[each_id] for each_id in pairable_id_list]
+    pdet_ref_list = [detection_ref_list[each_idx] for each_idx in pairable_index_list]
+    objid_detidx_match_list = []
     
-    # Update objects using detection data
-    for each_obj_idx, each_det_idx in obj_det_match_tuple_list:
-        
-        # Grab object references for convenience
-        object_ref = obj_ref_list[each_obj_idx]
-        detection_ref = detection_ref_list[each_det_idx]
-        
-        # Update each object using the detection object data
-        object_ref.update_from_detection(detection_ref, current_snapshot_metadata,
-                                         current_frame_index, current_time_sec, current_datetime)
-        
-    # Convert unmatched index lists to a list of object ids and a list of detection objects
-    unmatched_object_id_list = [obj_ref_list[each_idx].full_id for each_idx in unmatched_obj_idx_list]
-    unmatched_detection_ref_list = [detection_ref_list[each_idx] for each_idx in unmatched_det_idx_list]        
-    
-    return unmatched_object_id_list, unmatched_detection_ref_list
-
-# .....................................................................................................................
-
-def pair_objects_to_detections(object_ref_list, detection_ref_list, 
-                               fallback_matching_function, max_match_x_dist, max_match_y_dist):
-        
     # Bail if we have zero of either set since we won't be able to match anything
-    num_objs = len(object_ref_list)
-    num_dets = len(detection_ref_list)
-    if num_objs == 0 or num_dets == 0:               
-        obj_det_match_tuple_list = []
-        unmatched_objects_list = list(range(num_objs))
-        unmatched_detections_list = list(range(num_dets))
-        return obj_det_match_tuple_list, unmatched_objects_list, unmatched_detections_list
+    num_objs = len(pobj_ref_list)
+    num_dets = len(pdet_ref_list)
+    if num_objs == 0 or num_dets == 0:
+        return objid_detidx_match_list, pairable_id_list, pairable_index_list
     
     # Calculate x/y scaling so that the distance matrix encodes max distances
     # (By scaling this way, we can say that objects that are within 0 < x (or y) < 1.0 are in matching range)
@@ -505,11 +476,11 @@ def pair_objects_to_detections(object_ref_list, detection_ref_list,
     y_scale = 1 / max_match_y_dist if max_match_y_dist > 0 else 1E10
     
     # Get object/detection positioning for matching
-    obj_xys, det_xys = build_obj_det_match_xys(object_ref_list, detection_ref_list)
+    obj_xys, det_xys = build_obj_det_match_xys(pobj_ref_list, pdet_ref_list)
     obj_det_sqdist_matrix = calculate_squared_distance_pairing_matrix(obj_xys, det_xys, x_scale, y_scale)
     
     # Try to find a unique mapping from (previous) objects to (current) detections
-    unique_mapping, obj_det_match_tuple_list, unmatched_objects_list, unmatched_detections_list = \
+    unique_mapping, obj_det_refidx_match_list, unmatched_objref_idx_list, unmatched_detref_idx_list = \
     naive_object_detection_match(obj_det_sqdist_matrix)
     
     # If the unique mapping failed, then try using a (slower) method that guarantees a unique pairing
@@ -518,10 +489,18 @@ def pair_objects_to_detections(object_ref_list, detection_ref_list,
         #print("*" * 32, "NON UNIQUE MAPPING!", "*" * 32, sep="\n")
         
         # Retry the object-to-detection match using a slower approach that will generate unique pairings
-        obj_det_match_tuple_list, unmatched_objects_list, unmatched_detections_list = \
+        obj_det_refidx_match_list, unmatched_objref_idx_list, unmatched_detref_idx_list = \
         fallback_matching_function(obj_det_sqdist_matrix)
-        
-    return obj_det_match_tuple_list, unmatched_objects_list, unmatched_detections_list
+    
+    # Finally, convert matched/unmatched reference index values (which are relative to the pobj/pdet ref lists) 
+    # back into their respective pairable ids/indexs values
+    unmatched_obj_id_list = [pairable_id_list[each_ref_idx] for each_ref_idx in unmatched_objref_idx_list]
+    unmatched_det_index_list = [pairable_index_list[each_ref_idx] for each_ref_idx in unmatched_detref_idx_list]
+    for each_obj_ref_idx, each_det_ref_idx in obj_det_refidx_match_list:
+        converted_pair = (pairable_id_list[each_obj_ref_idx], pairable_index_list[each_det_ref_idx])
+        objid_detidx_match_list.append(converted_pair)
+    
+    return objid_detidx_match_list, unmatched_obj_id_list, unmatched_det_index_list
 
 # .....................................................................................................................
 # .....................................................................................................................

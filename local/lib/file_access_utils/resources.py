@@ -51,6 +51,8 @@ find_path_to_local()
 
 from local.lib.file_access_utils.runtime_read_write import Image_Saver, Metadata_Saver, Image_Loader
 
+from local.lib.file_access_utils.video import create_default_video_configs
+from local.lib.file_access_utils.classifier import create_default_classifier_configs
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Classes
@@ -144,6 +146,23 @@ class Metadata_Resources_Saver(Metadata_Saver):
     # .................................................................................................................
     # .................................................................................................................
 
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Load & Save functions
+    
+# .....................................................................................................................
+
+def create_default_resources(project_root_path, resources_folder_path):
+    
+    # Create default video configs
+    video_resources_folder_path = os.path.join(resources_folder_path, "videos")
+    create_default_video_configs(project_root_path, video_resources_folder_path)
+    
+    # Create default classifier configs
+    classifier_resources_folder_path = os.path.join(resources_folder_path, "classifier")
+    create_default_classifier_configs(project_root_path, classifier_resources_folder_path)
+
+# .....................................................................................................................
+# .....................................................................................................................
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Pathing functions

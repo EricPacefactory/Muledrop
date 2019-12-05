@@ -63,7 +63,7 @@ class Capture_Display(Display_Window_Specification):
         # Inherit from parent class
         super().__init__("Captures", layout_index, num_rows, num_columns, 
                          initial_display = initial_display, drawing_json = drawing_json,
-                         max_wh = None)
+                         limit_wh = False)
         
     # .................................................................................................................
         

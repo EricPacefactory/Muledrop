@@ -46,7 +46,6 @@ def find_path_to_local(target_folder = "local"):
             
 find_path_to_local()
 
-
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
@@ -61,7 +60,10 @@ class Local_Window_Controls:
     
     # .................................................................................................................
     
-    def __init__(self, controls_json, initial_settings, print_control_info = True):
+    def __init__(self, screen_info, controls_json, initial_settings, print_control_info = True):
+        
+        # Store the screen info object, which we'll use for sizing/positioning control windows
+        self.screen_info = screen_info
         
         # Store the control spec in case we want to access it later (mostly for debugging?)
         self.controls_json = controls_json
@@ -157,13 +159,28 @@ class Local_Window_Controls:
     
     def _create_control_windows(self, controls_json):
         
+        # Figure out window sizing, based on screen info
+        screen_width = self.screen_info.screen("width")
+        feedback_width, feedback_x_pad = self.screen_info.feedback("width", "x_padding")
+        max_ctrl_columns, max_ctrl_width, ctrl_x_spacing, ctrl_x_padding, ctrl_height = \
+        self.screen_info.controls("max_columns", "max_width", "column_spacing", "x_padding", "empty_height")
+        
+        # Calculate how much area we have for the control windows
+        right_edge_reserved = feedback_width + (2 * feedback_x_pad)
+        column_spacing_reserved = (ctrl_x_spacing * (max_ctrl_columns - 1))
+        control_area_width = screen_width - ctrl_x_padding - right_edge_reserved - column_spacing_reserved
+        
+        # Finally, figure out the size of hte control windows
+        control_window_width = min(max_ctrl_width, int(round(control_area_width / max_ctrl_columns)))
+        control_window_wh = (control_window_width, ctrl_height)
+        
         window_name_list = []
         window_ref_list = []
         for each_entry in controls_json: 
             window_name = each_entry["group_name"]
             control_list = each_entry["control_list"]
             
-            new_control_window = Control_Window(window_name, control_list)
+            new_control_window = Control_Window(window_name, control_list, frame_wh = control_window_wh)
             window_ref_list.append(new_control_window)
             window_name_list.append(window_name)
             
@@ -185,22 +202,28 @@ class Local_Window_Controls:
         
     # .................................................................................................................
     
-    def position_controls(self, x_offset = 20, y_offset = 20, x_spacing = 20, y_spacing = 250, max_columns = 3):
+    def position_controls(self,):
         
-        # Allocate space for accumulator variables for locating each window
-        x_acc = x_offset
-        y_acc = y_offset        
+        # Separate out the screen info
+        max_ctrl_columns, ctrl_x_spacing, ctrl_y_spacing, ctrl_x_pad, ctrl_y_pad = \
+        self.screen_info.controls("max_columns", "column_spacing", "row_spacing", "x_padding", "y_padding")
+        screen_x_offset, screen_y_offset = self.screen_info.screen("x_offset", "y_offset")
+        
+        # Allocate space for variables used for locating each window
+        x_offset = ctrl_x_pad + screen_x_offset
+        y_offset = ctrl_y_pad + screen_y_offset
+        x_pos = x_offset
         
         # Move the windows around to nice locations
         for each_idx, each_window in enumerate(self.window_ref_list):
             
-            row_idx = int(each_idx / max_columns)
-            if (each_idx % max_columns) == 0:
-                x_acc = x_offset
-                y_acc = y_offset + row_idx * y_spacing
+            row_idx = int(each_idx / max_ctrl_columns)
+            if (each_idx % max_ctrl_columns) == 0:
+                x_pos = x_offset
+                y_pos = y_offset + row_idx * ctrl_y_spacing
             
-            each_window.move_corner_pixels(x_pixels = x_acc, y_pixels = y_acc)
-            x_acc += each_window.width + x_spacing
+            each_window.move_corner_pixels(x_pixels = x_pos, y_pixels = y_pos)
+            x_pos += each_window.width + ctrl_x_spacing
     
     # .................................................................................................................
     # .................................................................................................................

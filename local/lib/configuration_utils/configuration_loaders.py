@@ -57,7 +57,7 @@ from local.lib.configuration_utils.video_setup import Dummy_vreader
 
 from local.lib.configuration_utils.core_bundle_loader import Core_Bundle
 from local.lib.file_access_utils.video import Playback_Access
-
+from local.lib.file_access_utils.screen_info import Screen_Info
 from local.lib.file_access_utils.shared import configurable_dot_path, full_replace_save
 
 from eolib.utils.cli_tools import cli_confirm
@@ -71,7 +71,7 @@ class Configuration_Loader:
     
     # .................................................................................................................
     
-    def __init__(self):
+    def __init__(self, selections_on_launch = True):
         
         # Allocate storage for selections
         self.project_root_path = None
@@ -98,6 +98,13 @@ class Configuration_Loader:
         # Set saving behaviors
         self.saving_enabled = False
         self.threading_enabled = False
+        
+        # Allocate storage for display/screen information
+        self.screen_info = None
+        
+        # Launch into selections, if needed
+        if selections_on_launch:
+            self.selections()
     
     # .................................................................................................................
         
@@ -151,6 +158,11 @@ class Configuration_Loader:
         # Warning if toggling after having run setup (toggle won't apply)
         if (self.vreader is not None):
             print("", "WARNING:", "  Threading should be enabled/disabled before running .setup_all()!", sep = "\n")
+      
+    # .................................................................................................................
+    
+    def get_screen_info(self):        
+        self.screen_info = Screen_Info(self.project_root_path)
         
     # .................................................................................................................
     
@@ -275,6 +287,7 @@ class Configuration_Loader:
         self.setup_video_reader()
         self.setup_externals()
         self.setup_core_bundles()
+        self.get_screen_info()
         
     # .................................................................................................................
     
@@ -363,10 +376,11 @@ class Reconfigurable_Loader(Configuration_Loader):
     
     # .................................................................................................................
     
-    def __init__(self, override_stage, override_script_name, override_class_name = None):
+    def __init__(self, override_stage, override_script_name, override_class_name = None,
+                 selections_on_launch = True):
         
         # Inherit from parent class
-        super().__init__()
+        super().__init__(selections_on_launch = False)
         
         # Allocate storage for accessing re-configurable object
         self.configurable_ref = None
@@ -386,6 +400,10 @@ class Reconfigurable_Loader(Configuration_Loader):
         # Assume we want to turn off saving when working in a re-configuration mode
         self.saving_enabled = False
         self.threading_enabled = False
+        
+        # Launch into selections, if needed
+        if selections_on_launch:
+            self.selections()
         
     # .................................................................................................................
         
@@ -436,6 +454,7 @@ class Reconfigurable_Loader(Configuration_Loader):
         self.setup_playback_access()
         self.setup_externals()
         self.setup_core_bundles()
+        self.get_screen_info()
         
         return self.configurable_ref
     
@@ -518,7 +537,6 @@ class Reconfigurable_Loader(Configuration_Loader):
             return relative_save_path
         
         # If we get here, we're saving!
-        #save_path = "/home/wrk/Desktop/dump.json"
         full_replace_save(save_path, save_data, indent_data=True)
         if print_feedback:
             print("", "Saved configuration:", "@ {}".format(relative_save_path), "", sep = "\n")
@@ -580,10 +598,10 @@ class Reconfigurable_Core_Stage_Loader(Reconfigurable_Loader):
     
     # .................................................................................................................
     
-    def __init__(self, core_stage, script_name, class_name = None):
+    def __init__(self, core_stage, script_name, class_name = None, selections_on_launch = True):
         
         # Inherit from parent class
-        super().__init__(core_stage, script_name, class_name)
+        super().__init__(core_stage, script_name, class_name, selections_on_launch)
     
     # .................................................................................................................
     
@@ -640,10 +658,10 @@ class Reconfigurable_Snapshot_Capture_Loader(Reconfigurable_Loader):
     
     # .................................................................................................................
     
-    def __init__(self, script_name, class_name = "Snapshot_Capture"):
+    def __init__(self, script_name, class_name = "Snapshot_Capture", selections_on_launch = True):
         
         # Inherit from parent class
-        super().__init__("snapshot_capture", script_name, class_name)
+        super().__init__("snapshot_capture", script_name, class_name, selections_on_launch)
     
     # .................................................................................................................
     
@@ -683,10 +701,10 @@ class Reconfigurable_Background_Capture_Loader(Reconfigurable_Loader):
     
     # .................................................................................................................
     
-    def __init__(self, script_name, class_name = "Background_Capture"):
+    def __init__(self, script_name, class_name = "Background_Capture", selections_on_launch = True):
         
         # Inherit from parent class
-        super().__init__("background_capture", script_name, class_name)
+        super().__init__("background_capture", script_name, class_name, selections_on_launch)
         
         # Will need to turn on saving in order to properly use background capture during config!
         self.toggle_saving(True)
@@ -747,10 +765,10 @@ class Reconfigurable_Object_Capture_Loader(Reconfigurable_Loader):
     
     # .................................................................................................................
     
-    def __init__(self, script_name, class_name = "Object_Capture"):
+    def __init__(self, script_name, class_name = "Object_Capture", selections_on_launch = True):
         
         # Inherit from parent class
-        super().__init__("object_capture", script_name, class_name)
+        super().__init__("object_capture", script_name, class_name, selections_on_launch)
     
     # .................................................................................................................
     

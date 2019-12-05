@@ -81,7 +81,6 @@ class Snap_Stats(Snap_Stats_Display):
 
 # Make all required selections and setup/configure everything
 loader = Reconfigurable_Snapshot_Capture_Loader("fixed_sample_snapcapture")
-loader.selections()
 configurable_ref = loader.setup_all(__file__)
 
 # Set up object to handle all video processing

@@ -139,7 +139,7 @@ class Timekeeper:
             self._current_day_utc = current_day
             self._frame_index = 0
             
-        # Increment the frame coutner every time we call this
+        # Increment the frame counter every time we call this
         current_frame_index = self._frame_index
         self._frame_index += 1
         
@@ -163,7 +163,7 @@ def get_local_datetime():
 
 # .....................................................................................................................
 
-def format_datetime_string(input_datetime):
+def isoformat_datetime_string(input_datetime):
     
     '''
     Converts a datetime object into an isoformat string, without milli/micro seconds
@@ -174,7 +174,29 @@ def format_datetime_string(input_datetime):
     If not, use add_local_tzinfo() or add_utc_tzinfo() functions to add tzinfo before calling this function.
     '''
     
-    return input_datetime.isoformat("T", "seconds")
+    return input_datetime.isoformat("T", "milliseconds")
+
+# .....................................................................................................................
+
+def fileformat_datetime_string(input_datetime, tz_indicator = "U"):
+    
+    '''
+    Converts a datetime object into a file-friendly string, without milli/micro seconds
+    Example:
+        "2019-01-30T11:22:33+00:00" -> "20190130_223300U"
+        
+    If the input datetime object use UTC timing, a 'U' will be appended to the time (as above).
+    Otherwise, an 'L' (for local) will be appended.
+    
+    Note - This function assumes the datetime object has timezone information (tzinfo)
+    If not, use add_local_tzinfo() or add_utc_tzinfo() functions to add tzinfo before calling this function.
+    '''
+    
+    # Add a U to the end of the string to indicate time is UTC or otherwise add an L for local
+    # (note the UTC offset is not provided for local times! This leaves the time string somewhat ambiguous)
+    tz_indicator = "U" if (input_datetime.tzname() == "UTC") else "L"
+    
+    return input_datetime.strftime("%Y%m%d_%H%M%S{}".format(tz_indicator))
 
 # .....................................................................................................................
 
@@ -233,7 +255,7 @@ def local_time_to_isoformat_string(local_datetime = None):
     if local_datetime.tzinfo is None:
         local_datetime = add_local_tzinfo(local_datetime)
         
-    return format_datetime_string(local_datetime)
+    return isoformat_datetime_string(local_datetime)
 
 # .....................................................................................................................
     
@@ -247,7 +269,35 @@ def utc_time_to_isoformat_string(utc_datetime = None):
     if utc_datetime.tzinfo is None:
         utc_datetime = add_utc_tzinfo(utc_datetime)
     
-    return format_datetime_string(utc_datetime)
+    return isoformat_datetime_string(utc_datetime)
+
+# .....................................................................................................................
+
+def local_time_to_fileformat_string(local_datetime = None):
+        
+    # Get current local time, if needed
+    if local_datetime is None:
+        local_datetime = get_local_datetime()
+    
+    # Add in local timezone info before formatting as a string, so we get the +/- offset
+    if local_datetime.tzinfo is None:
+        local_datetime = add_local_tzinfo(local_datetime)
+        
+    return fileformat_datetime_string(local_datetime)
+
+# .....................................................................................................................
+    
+def utc_time_to_fileformat_string(utc_datetime = None):
+        
+    # Get the current utc time, if needed
+    if utc_datetime is None:
+        utc_datetime = get_utc_datetime()
+        
+    # Add in utc timezone info before formatting as a string, so we get the +/- offset
+    if utc_datetime.tzinfo is None:
+        utc_datetime = add_utc_tzinfo(utc_datetime)
+    
+    return fileformat_datetime_string(utc_datetime)
 
 # .....................................................................................................................
 
@@ -256,7 +306,7 @@ def parse_isoformat_string(isoformat_datetime_str):
     '''
     Function for parsing isoformat strings
     Example string:
-        "2019-05-11T17:22:33+00:00"
+        "2019-05-11T17:22:33+00:00.999"
     '''
     
     # Check if the end of the string contains timezone offset info
@@ -284,6 +334,37 @@ def parse_isoformat_string(isoformat_datetime_str):
     parsed_dt = dt.datetime.strptime(isoformat_datetime_str[:], string_format).replace(tzinfo = parsed_tzinfo)
     
     return parsed_dt
+
+# .....................................................................................................................
+
+def utc_datetime_to_epoch_ms(utc_datetime):
+    
+    ''' Function which converts a utc datetime to the number of milliseconds since the 'epoch' (~ Jan 1970) '''
+    
+    return int(round(1000 * utc_datetime.timestamp()))
+
+# .....................................................................................................................
+
+def epoch_ms_to_utc_datetime(epoch_ms):
+    
+    ''' 
+    Function which converts an millisecond epoch value back into a utc datetime.
+    Assumes epoch_ms value was generated from a utc datetime originally!
+    '''
+    
+    epoch_sec = epoch_ms / 1000.0    
+    return dt.datetime.utcfromtimestamp(epoch_sec).replace(tzinfo = dt.timezone.utc)
+
+# .....................................................................................................................
+    
+def isoformat_to_epoch_ms(datetime_isoformat_string):
+    
+    ''' 
+    Helper function which first converts an isoformat datetime string into a python datetime object
+    then converts the datetime object into an epoch_ms value
+    '''
+    
+    return utc_datetime_to_epoch_ms(parse_isoformat_string(datetime_isoformat_string))
 
 # .....................................................................................................................
 # .....................................................................................................................

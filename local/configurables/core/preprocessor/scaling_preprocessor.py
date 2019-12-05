@@ -53,6 +53,8 @@ import cv2
 import numpy as np
 
 from local.configurables.core.preprocessor.reference_preprocessor import Reference_Preprocessor
+from local.configurables.core.preprocessor._helper_functions import max_dimension_downscale, adjust_aspect_ratio
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
@@ -68,10 +70,10 @@ class Preprocessor_Stage(Reference_Preprocessor):
         super().__init__(input_wh, file_dunder = __file__)
         
         # Allocate storage for calculated values
-        self._fx = None
-        self._fy = None
         self._output_w = None
         self._output_h = None
+        self._enable_scaling = True
+        self._scaled_wh = None
         
         # .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . Control Group 1 .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
         
@@ -84,20 +86,20 @@ class Preprocessor_Stage(Reference_Preprocessor):
                 default_value = True,
                 visible = True)
         
-        self.scale_factor = \
+        self.max_dimension_px = \
         self.ctrl_spec.attach_slider(
-                "scale_factor", 
-                label = "Scaling Factor", 
-                default_value = 1.0,
-                min_value = 0.05, max_value = 1.0, step_size = 1/100,
-                return_type = float,
+                "max_dimension_px", 
+                label = "Max Dimension", 
+                default_value = 640,
+                min_value = 100, max_value = 1280,
+                units = "pixels",
+                return_type = int,
                 zero_referenced = True,
-                units = "percentage",
-                tooltip = "Scaling factor, relative to video size.")
+                tooltip = "Resize frame data so that the maximum side length does not exceed this amount.")
         
-        self.relative_aspect_ratio = \
+        self.ar_adjustment_factor = \
         self.ctrl_spec.attach_slider(
-                "relative_aspect_ratio", 
+                "ar_adjustment_factor", 
                 label = "Relative Aspect Ratio", 
                 default_value = 1.0,
                 min_value = -5.0, max_value = 5.0, step_size = 1/10,
@@ -133,30 +135,16 @@ class Preprocessor_Stage(Reference_Preprocessor):
     
     def setup(self, variable_update_dictionary):
         
-        # Get input sizing
-        input_w, input_h = self.input_wh
-        input_area = input_w * input_h
-        input_ratio = input_w / input_h
+        # Check aspect-ratio and sizing adjustments
+        needs_ar_adjustment, ar_adjusted_wh = adjust_aspect_ratio(self.input_wh, self.ar_adjustment_factor)
+        needs_downscale, downscale_wh = max_dimension_downscale(ar_adjusted_wh, self.max_dimension_px)
         
-        # Figure out altered sizing
-        adjusted_area = self.scale_factor * self.scale_factor * input_area
-        adjustment_is_positive = (self.relative_aspect_ratio >= 0.0)
-        adjust_intercept = 1.0
-        adjust_slope = (input_ratio - adjust_intercept) / 1.0
-        new_ratio = abs(self.relative_aspect_ratio * adjust_slope) + adjust_intercept
-        adjusted_ratio = new_ratio if adjustment_is_positive else (1 / new_ratio)
+        # Set final scaling!
+        self._enable_scaling = (needs_ar_adjustment or needs_downscale)
+        self._scaled_wh = downscale_wh if needs_downscale else ar_adjusted_wh
         
-        # Calculate output pixel values
-        output_w = np.sqrt(adjusted_area * adjusted_ratio)
-        output_h = adjusted_area / output_w
-        
-        # Calculate scaling factors
-        self._fx = output_w / input_w
-        self._fy = output_h / input_h
-        
-        # Store effective output pixel values
-        self._output_w = int(round(self._fx * input_w))
-        self._output_h = int(round(self._fy * input_h))
+        # Set required output sizing info
+        self._output_w, self._output_h = self._scaled_wh if self.enable_transform else self.input_wh
     
     # .................................................................................................................
     
@@ -167,8 +155,9 @@ class Preprocessor_Stage(Reference_Preprocessor):
             return frame
         
         try:
-            return cv2.resize(frame, dsize = None, fx = self._fx, fy = self._fy, 
-                              interpolation = self.interpolation_type)
+            if self._enable_scaling:
+                return cv2.resize(frame, dsize = self._scaled_wh, interpolation = self.interpolation_type)
+            return frame
         except Exception as err:
             print("ERROR TRANSFORMING ({})".format(self.script_name))
             print(err)

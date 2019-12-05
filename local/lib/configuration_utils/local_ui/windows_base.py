@@ -51,7 +51,6 @@ find_path_to_local()
 
 import cv2
 import numpy as np
-import screeninfo
 
 from collections import deque
 
@@ -75,9 +74,6 @@ class Simple_Window:
         # Get window name so we can continue to refer to this window!
         self.window_name = window_name
         
-        # Get user display sizing
-        self.screen_width, self.screen_height = display_wh()
-        
         # Allocate variables for (potential) mouse-xy feedback
         self.enable_mouse_feedback = provide_mouse_xy
         self._mouse_feedback = None
@@ -87,10 +83,11 @@ class Simple_Window:
         self.y_px = None
         
         # Variables used to record the size of the displayed image
+        self.window_wh_is_set = False
         self.width = None
         self.height = None
         if frame_wh is not None:
-            self.width, self.height = frame_wh
+            self.set_window_wh(*frame_wh)
         
         # Create the display, if needed
         if display_is_available() and create_on_startup:
@@ -112,6 +109,13 @@ class Simple_Window:
     @property
     def mouse_xy(self):
         return self._mouse_feedback.xy if self.enable_mouse_feedback else None
+    
+    # ................................................................................................................. 
+    
+    def set_window_wh(self, window_width, window_height):        
+        self.width = window_width
+        self.height = window_height
+        self.window_wh_is_set = True
     
     # ................................................................................................................. 
     
@@ -157,52 +161,6 @@ class Simple_Window:
             cv2.imshow(self.window_name, blank_image)
         
         return window_exists
-    
-    # ................................................................................................................. 
-    
-    def move_corner_norm(self, x_norm, y_norm):
-        
-        '''
-        Move the window corner to a screen position, specified using normalized co-ords. 
-        Normalized mapping: 0.0 -> Left/top-most 1.0 -> Right/bottom-most
-        '''
-        
-        # Find pixel location based on normalized input
-        screen_x_px = (self.screen_width - 1) * x_norm
-        screen_y_px = (self.screen_height - 1) * y_norm
-        
-        return self.move_corner_pixels(screen_x_px, screen_y_px)
-       
-    # ................................................................................................................. 
-    
-    def move_center_norm(self, x_norm, y_norm, 
-                         frame_width = None, frame_height = None):
-        
-        '''
-        Move the window center to a screen position, specified using normalized co-ords.
-        Normalized mapping: 0.0 -> Left/top-most 1.0 -> Right/bottom-most
-        '''
-        
-        # Update frame width/height if needed
-        self.width = frame_width if frame_width is not None else self.width
-        self.height = frame_height if frame_height is not None else self.height
-        
-        # Get the frame half sizing for centering
-        try:
-            half_frame_width = self.width / 2
-            half_frame_height = self.height / 2
-        except TypeError:
-            raise AttributeError("Can't move the window without knowing it's frame width/height!")
-        
-        # Find the screen location in pixels from normalized units
-        screen_x_px = (self.screen_width - 1) * x_norm
-        screen_y_px = (self.screen_height - 1) * y_norm
-        
-        # Find window corner location, so that the frame center lands at the target screen position
-        window_corner_x_px = screen_x_px - half_frame_width
-        window_corner_y_px = screen_y_px - half_frame_height
-        
-        return self.move_corner_pixels(window_corner_x_px, window_corner_y_px)
     
     # ................................................................................................................. 
     
@@ -836,7 +794,7 @@ class Max_WH_Window(Simple_Window):
             return display_frame
         
         # Check if we need to resize the displayed frame
-        display_width, display_height = display_frame.shape[0:2]
+        display_height, display_width = display_frame.shape[0:2]
         needs_resize = (display_width > self.max_width) or (display_height > self.max_height)
         if not needs_resize:
             return display_frame
@@ -866,10 +824,15 @@ class Drawing_Window(Simple_Window):
     def __init__(self, window_name, frame_wh, drawing_json,
                  border_size_px = 60, create_on_startup = True):
         
+        # Don't pass a real frame size on initialization, we want to make sure the drawing
+        # uses the actual displayed frame size, so everything scales properly...
+        # but we don't know this sizing until we get our first .imshow() call! So figure out sizing there
+        initial_frame_wh = None
+        
         # Inherit from parent class
         drawing_name = "{} (Drawing)".format(window_name)
         provide_mouse_xy = False
-        super().__init__(drawing_name, frame_wh, provide_mouse_xy, create_on_startup = False)
+        super().__init__(drawing_name, initial_frame_wh, provide_mouse_xy, create_on_startup = False)
         
         # Convert drawing json data to entity drawing inputs
         self.drawing_variable_name = drawing_json["variable_name"]
@@ -982,6 +945,12 @@ class Drawing_Window(Simple_Window):
         if display_frame is None:
             return self.exists()
         
+        # Make sure we're using the right frame size, since the drawing depends on it!
+        if not self.window_wh_is_set:
+            display_height, display_width = display_frame.shape[0:2]
+            self.set_window_wh(display_width, display_height)
+            self.drawer.update_frame_wh(display_width, display_height)
+        
         # Only update showing if the window exists
         if window_exists:
             drawn_frame = self.drawer.annotate(display_frame)
@@ -1008,7 +977,7 @@ class Drawing_Window(Simple_Window):
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-#%% Define ccallback handlers
+#%% Define callback handlers
 
 class Mouse_Follower:
     
@@ -1177,12 +1146,6 @@ def display_is_available():
     
     # Linux/Mac check
     return ("DISPLAY" in os.environ)
-
-# .....................................................................................................................
-    
-def display_wh():
-    main_screen = screeninfo.get_monitors()[0]
-    return main_screen.width, main_screen.height
 
 # .....................................................................................................................
     

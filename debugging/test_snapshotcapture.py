@@ -125,8 +125,8 @@ snap_objids_dict = {each_task_name: [] for each_task_name in task_name_list}
 try: cv2.destroyAllWindows()
 except: pass
 
-snap_window = Simple_Window("Latest Snapshot", *video_wh).move_corner_pixels(20, 20)
-input_window = Simple_Window("Input", *video_wh).move_corner_pixels(600, 80)
+snap_window = Simple_Window("Latest Snapshot", video_wh).move_corner_pixels(20, 20)
+input_window = Simple_Window("Input", video_wh).move_corner_pixels(600, 80)
 
 
 # ---------------------------------------------------------------------------------------------------------------------

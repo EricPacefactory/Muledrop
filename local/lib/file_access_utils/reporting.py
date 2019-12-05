@@ -135,20 +135,16 @@ class Object_Metadata_Report_Saver(Metadata_Saver):
     # .................................................................................................................
     
     def _build_data_folder_path(self):
-        
-        # Store all object metadata in folders named "objects-(<task_name>)"
-        object_metadata_folder_name = "objects-({})".format(self.task_select)
-        
-        return build_metadata_report_path(self.cameras_folder_path, 
-                                          self.camera_select, 
-                                          self.user_select, 
-                                          object_metadata_folder_name)
+        return build_object_metadata_report_path(self.cameras_folder_path,
+                                                 self.camera_select,
+                                                 self.user_select,
+                                                 self.task_select)
         
     # .................................................................................................................
     # .................................................................................................................
 
 # ---------------------------------------------------------------------------------------------------------------------
-#%% Pathing functions
+#%% General pathing functions
 
 # .....................................................................................................................
 
@@ -184,6 +180,57 @@ def build_video_report_path(cameras_folder, camera_select, user_select, *path_jo
 # .....................................................................................................................
 # .....................................................................................................................
 
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Specific pathing functions
+
+# .....................................................................................................................
+    
+def build_snapshot_image_report_path(cameras_folder, camera_select, user_select):
+    return build_image_report_path(cameras_folder, camera_select, user_select, "snapshots")
+
+# .....................................................................................................................
+    
+def build_snapshot_metadata_report_path(cameras_folder, camera_select, user_select):
+    return build_metadata_report_path(cameras_folder, camera_select, user_select, "snapshots")
+
+# .....................................................................................................................
+    
+def build_background_image_report_path(cameras_folder, camera_select, user_select):
+    return build_image_report_path(cameras_folder, camera_select, user_select, "backgrounds")
+
+# .....................................................................................................................
+    
+def build_background_metadata_report_path(cameras_folder, camera_select, user_select):
+    return build_metadata_report_path(cameras_folder, camera_select, user_select, "backgrounds")
+
+# .....................................................................................................................
+    
+def build_object_metadata_report_path(cameras_folder, camera_select, user_select, task_select):
+    object_folder_name = "objects-({})".format(task_select)
+    return build_metadata_report_path(cameras_folder, camera_select, user_select, object_folder_name)
+
+# .....................................................................................................................
+
+def build_after_database_report_path(cameras_folder, camera_select, user_select, *path_joins):
+    return build_user_report_path(cameras_folder, camera_select, user_select, "after_database", *path_joins)
+
+# .....................................................................................................................
+
+def build_classification_file_path(cameras_folder, camera_select, user_select, task_select):
+    
+    ''' Function for creating pathing to an offline classification file, used to replicate database access'''
+    
+    # Pathing to folder containing classifications (when running locally)
+    classification_file_name = "{}.json.gz".format(task_select)
+    classification_file_path = build_after_database_report_path(cameras_folder, camera_select, user_select, 
+                                                                "local_classifications", 
+                                                                classification_file_name)
+    
+    return classification_file_path
+
+# .....................................................................................................................
+# .....................................................................................................................
+
 
     
 # ---------------------------------------------------------------------------------------------------------------------
@@ -196,35 +243,13 @@ if __name__ == "__main__":
     example_user_select = "Nobody"
     example_task_select = "Potato_Farming"
     
-    md_saver = Metadata_Saver(example_cameras_folder, example_camera_select, example_user_select, example_task_select)
-    omd_saver = Object_Metadata_Saver(example_cameras_folder, example_camera_select, example_user_select, example_task_select)
-    imd_saver = Image_Metadata_Saver(example_cameras_folder, example_camera_select, example_user_select, "snapshots")
-    img_saver = Image_Saver(example_cameras_folder, example_camera_select, example_user_select, "snapshots")
+    omd_saver = Object_Metadata_Report_Saver(example_cameras_folder, example_camera_select, example_user_select, example_task_select)
+    imd_saver = Image_Metadata_Report_Saver(example_cameras_folder, example_camera_select, example_user_select, "snapshots")
 
     print("Example saving paths:",
-          md_saver._save_folder_path,
-          omd_saver._save_folder_path,
-          imd_saver._save_folder_path,
-          img_saver._save_folder_path,
+          omd_saver._data_folder_path,
+          imd_saver._data_folder_path,
           sep="\n")
-    
-    import cv2
-    from time import perf_counter
-    
-    img_data = cv2.imread("/home/wrk/Desktop/example_test/exsave.png")
-    
-    
-    num_saves = 100
-    names_list = ["example-{}".format(k) for k in range(num_saves)]
-    #img_saver.toggle_threading(False)
-    
-    tstart = perf_counter()
-    for name in names_list:
-        img_saver.save_png(name, img_data, compression_level_0_to_9 = 9)
-    tend = perf_counter()
-    
-    img_saver.join_all()
-    print("Avgerage time (ms):", 1000 * (tend - tstart) / num_saves)
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Scrap

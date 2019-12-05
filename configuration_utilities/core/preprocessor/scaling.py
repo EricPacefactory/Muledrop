@@ -70,7 +70,7 @@ class Scaling_Info(Display_Window_Specification):
         # Inherit from parent class
         super().__init__("Scaling Info", layout_index, num_rows, num_columns, 
                          initial_display = initial_display, 
-                         max_wh = None)
+                         limit_wh = False)
         
         # Allocate storage for blank image used to draw info on
         self._info_frame = np.full((150, 400, 3), (40,40,40), dtype=np.uint8)
@@ -116,15 +116,14 @@ class Scaling_Info(Display_Window_Specification):
 
 # Make all required selections and setup/configure everything
 loader = Reconfigurable_Core_Stage_Loader("preprocessor", "scaling_preprocessor", "Preprocessor_Stage")
-loader.selections()
 configurable_ref = loader.setup_all(__file__)
 
 # Set up object to handle all video processing
 main_process = \
 Reconfigurable_Video_Loop(loader,
                           ordered_display_list = [Input_Display(0, 2, 2),
-                                                  Preprocessed_Display(1, 2, 2),
-                                                  Preprocessed_BG_Display(2, 2, 2),
+                                                  Preprocessed_Display(1, 2, 2, limit_wh = False),
+                                                  Preprocessed_BG_Display(2, 2, 2, limit_wh = False),
                                                   Scaling_Info(3, 2, 2),])
 
 # Most of the work is done here!

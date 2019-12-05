@@ -80,6 +80,12 @@ class Pixel_Filter_Stage(Reference_Pixel_Filter):
     def apply_pixel_filtering(self, binary_frame_1ch, color_frame):
         # Don't do anything, just pass the frame processor result through
         return binary_frame_1ch
+    
+    # .................................................................................................................
+    
+    def update_background(self, preprocessed_background_frame, bg_update):
+        # No background processing        
+        return None
 
     # .................................................................................................................
     # .................................................................................................................

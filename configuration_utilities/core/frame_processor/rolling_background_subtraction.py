@@ -64,13 +64,13 @@ class Rolling_BG_Display(Display_Window_Specification):
     
     # .................................................................................................................
     
-    def __init__(self, layout_index, num_rows, num_columns, initial_display = False, max_wh = None,
+    def __init__(self, layout_index, num_rows, num_columns, initial_display = False, limit_wh = True,
                  window_name = "Rolling Background"):
         
         # Inherit from parent class
         super().__init__(window_name, layout_index, num_rows, num_columns, 
                          initial_display = initial_display, 
-                         max_wh = max_wh)
+                         limit_wh = limit_wh)
         
     # .................................................................................................................
         
@@ -98,7 +98,6 @@ class Rolling_BG_Display(Display_Window_Specification):
 
 # Make all required selections and setup/configure everything
 loader = Reconfigurable_Core_Stage_Loader("frame_processor", "rolling_bgs_frameprocessor", "Frame_Processor_Stage")
-loader.selections()
 configurable_ref = loader.setup_all(__file__)
 
 # Get drawing specification for the given zone variable

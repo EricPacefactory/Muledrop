@@ -69,14 +69,14 @@ class Display_Window_Specification:
     # .................................................................................................................
     
     def __init__(self, name, layout_index, num_rows = 2, num_columns = 2, 
-                 *, initial_display = False, provide_mouse_xy = False, drawing_json = None, max_wh = (800, 450)):
+                 *, initial_display = False, provide_mouse_xy = False, drawing_json = None, limit_wh = True):
         
         # Store display specification, so we can use it to build displays as needed
         self.name = name
         self.initial_display = initial_display
         self.provide_mouse_xy = provide_mouse_xy
         self.drawing_json = drawing_json
-        self.max_wh = max_wh
+        self.limit_wh = limit_wh
         
         # Store layout information
         self.num_rows = num_rows
@@ -121,7 +121,7 @@ class Display_Window_Specification:
                 "initial_display": self.initial_display,
                 "provide_mouse_xy": self.provide_mouse_xy,
                 "drawing_json": self.drawing_json,
-                "max_wh": self.max_wh,
+                "limit_wh": self.limit_wh,
                 "num_rows": self.num_rows,
                 "num_cols": self.num_cols,
                 "layout_index": self.layout_index}
@@ -148,12 +148,13 @@ class Matched_Size_Display(Display_Window_Specification):
                  initial_display = False, 
                  provide_mouse_xy = False,
                  drawing_json = None,
+                 limit_wh = False,
                  interpolation_type = cv2.INTER_NEAREST):
         
         # Inherit from parent class
         super().__init__(window_name, layout_index, num_rows, num_columns, 
                          initial_display = initial_display, provide_mouse_xy = provide_mouse_xy,
-                         drawing_json = drawing_json, max_wh = None)
+                         drawing_json = drawing_json, limit_wh = limit_wh)
         
         # Store reference & display lookups
         self.display_stage = display_stage
@@ -191,7 +192,7 @@ class Input_Display(Display_Window_Specification):
     # .................................................................................................................
     
     def __init__(self, layout_index, num_rows, num_columns, 
-                 initial_display = False, provide_mouse_xy = False, drawing_json = None, max_wh = None,
+                 initial_display = False, provide_mouse_xy = False, drawing_json = None, limit_wh = False,
                  window_name = "Input"):
         
         # Inherit from parent class
@@ -199,7 +200,7 @@ class Input_Display(Display_Window_Specification):
                          initial_display = initial_display, 
                          provide_mouse_xy = provide_mouse_xy,
                          drawing_json = drawing_json,
-                         max_wh = max_wh)
+                         limit_wh = limit_wh)
         
     # .................................................................................................................
         
@@ -218,7 +219,7 @@ class Background_Display(Display_Window_Specification):
     # .................................................................................................................
     
     def __init__(self, layout_index, num_rows, num_columns, 
-                 initial_display = False, provide_mouse_xy = False, drawing_json = None, max_wh = None,
+                 initial_display = False, provide_mouse_xy = False, drawing_json = None, limit_wh = True,
                  window_name = "Background"):
         
         # Inherit from parent class
@@ -226,7 +227,7 @@ class Background_Display(Display_Window_Specification):
                          initial_display = initial_display, 
                          provide_mouse_xy = provide_mouse_xy,
                          drawing_json = drawing_json,
-                         max_wh = max_wh)
+                         limit_wh = limit_wh)
         
     # .................................................................................................................
         
@@ -248,7 +249,7 @@ class Preprocessed_Display(Display_Window_Specification):
     # .................................................................................................................
     
     def __init__(self, layout_index, num_rows, num_columns, 
-                 initial_display = False, provide_mouse_xy = False, drawing_json = None, max_wh = None,
+                 initial_display = False, provide_mouse_xy = False, drawing_json = None, limit_wh = True,
                  window_name = "Preprocessed"):
         
         # Inherit from parent class
@@ -256,7 +257,7 @@ class Preprocessed_Display(Display_Window_Specification):
                          initial_display = initial_display, 
                          provide_mouse_xy = provide_mouse_xy,
                          drawing_json = drawing_json,
-                         max_wh = max_wh)
+                         limit_wh = limit_wh)
         
     # .................................................................................................................
         
@@ -275,7 +276,7 @@ class Preprocessed_BG_Display(Display_Window_Specification):
     # .................................................................................................................
     
     def __init__(self, layout_index, num_rows, num_columns, 
-                 initial_display = False, provide_mouse_xy = False, drawing_json = None, max_wh = None,
+                 initial_display = False, provide_mouse_xy = False, drawing_json = None, limit_wh = True,
                  window_name = "Preprocessed Background"):
         
         # Inherit from parent class
@@ -283,7 +284,7 @@ class Preprocessed_BG_Display(Display_Window_Specification):
                          initial_display = initial_display, 
                          provide_mouse_xy = provide_mouse_xy,
                          drawing_json = drawing_json,
-                         max_wh = max_wh)
+                         limit_wh = limit_wh)
         
     # .................................................................................................................
         
@@ -305,7 +306,7 @@ class Binary_Display(Matched_Size_Display):
     # .................................................................................................................
     
     def __init__(self, layout_index, num_rows, num_columns, 
-                 initial_display = False, provide_mouse_xy = False, drawing_json = None):
+                 initial_display = False, provide_mouse_xy = False, drawing_json = None, limit_wh = True):
         
         # Inherit from parent class
         super().__init__("Binary Output", 
@@ -314,7 +315,8 @@ class Binary_Display(Matched_Size_Display):
                          layout_index, num_rows, num_columns, 
                          initial_display = initial_display,
                          provide_mouse_xy = provide_mouse_xy,
-                         drawing_json = drawing_json)
+                         drawing_json = drawing_json,
+                         limit_wh = limit_wh)
         
     # .................................................................................................................
     # .................................................................................................................
@@ -327,7 +329,7 @@ class Filtered_Binary_Display(Matched_Size_Display):
     # .................................................................................................................
     
     def __init__(self, layout_index, num_rows, num_columns, 
-                 initial_display = False, provide_mouse_xy = False, drawing_json = None):
+                 initial_display = False, provide_mouse_xy = False, drawing_json = None, limit_wh = True):
         
         # Inherit from parent class
         super().__init__("Filtered Binary Output", 
@@ -336,7 +338,8 @@ class Filtered_Binary_Display(Matched_Size_Display):
                          layout_index, num_rows, num_columns, 
                          initial_display = initial_display,
                          provide_mouse_xy = provide_mouse_xy,
-                         drawing_json = drawing_json)
+                         drawing_json = drawing_json,
+                         limit_wh = limit_wh)
         
     # .................................................................................................................
     # .................................................................................................................
@@ -352,7 +355,7 @@ class Detection_Display(Display_Window_Specification):
     # .................................................................................................................
     
     def __init__(self, layout_index, num_rows, num_columns, 
-                 initial_display = False, provide_mouse_xy = False, drawing_json = None, max_wh = None,
+                 initial_display = False, provide_mouse_xy = False, drawing_json = None, limit_wh = True,
                  window_name = "Detection",
                  show_outlines = True,
                  show_bounding_boxes = False,
@@ -363,7 +366,7 @@ class Detection_Display(Display_Window_Specification):
                          initial_display = initial_display, 
                          provide_mouse_xy = provide_mouse_xy,
                          drawing_json = drawing_json,
-                         max_wh = max_wh)
+                         limit_wh = limit_wh)
         
         # Store display configuration details
         self._show_outlines = show_outlines
@@ -415,7 +418,7 @@ class Tracked_Display(Display_Window_Specification):
     # .................................................................................................................
     
     def __init__(self, layout_index, num_rows, num_columns, 
-                 initial_display = False, provide_mouse_xy = False, drawing_json = None, max_wh = None,
+                 initial_display = False, provide_mouse_xy = False, drawing_json = None, limit_wh = True,
                  window_name = "Tracked",
                  show_ids = False,
                  show_outlines = True,
@@ -429,7 +432,7 @@ class Tracked_Display(Display_Window_Specification):
                          initial_display = initial_display, 
                          provide_mouse_xy = provide_mouse_xy,
                          drawing_json = drawing_json, 
-                         max_wh = max_wh)
+                         limit_wh = limit_wh)
         
         # Store display configuration details
         self._show_ids = show_ids
@@ -476,7 +479,7 @@ class Validation_Display(Display_Window_Specification):
     # .................................................................................................................
     
     def __init__(self, layout_index, num_rows, num_columns, 
-                 initial_display = False, provide_mouse_xy = False, drawing_json = None, max_wh = None,
+                 initial_display = False, provide_mouse_xy = False, drawing_json = None, limit_wh = True,
                  window_name = "Validation",
                  show_ids = False,
                  show_outlines = True,
@@ -490,7 +493,7 @@ class Validation_Display(Display_Window_Specification):
                          initial_display = initial_display,
                          provide_mouse_xy = provide_mouse_xy,
                          drawing_json = drawing_json, 
-                         max_wh = max_wh)
+                         limit_wh = limit_wh)
         
         # Store display configuration details
         self._show_ids = show_ids

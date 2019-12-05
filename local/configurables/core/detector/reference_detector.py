@@ -176,6 +176,7 @@ class Reference_Detection_Object:
         
         # Store a property for assigning classifications during detection. Reference does not actually do this though!
         self.detection_classification = None
+        self.classification_score = 0
         
     # .................................................................................................................
     

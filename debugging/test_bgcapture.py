@@ -126,8 +126,8 @@ bgcap.generate_on_startup(vreader)
 try: cv2.destroyAllWindows()
 except: pass
 
-bg_window = Simple_Window("Background", *video_wh).move_corner_pixels(20, 20)
-input_window = Simple_Window("Input", *video_wh).move_corner_pixels(600, 80)
+bg_window = Simple_Window("Background", video_wh).move_corner_pixels(20, 20)
+input_window = Simple_Window("Input", video_wh).move_corner_pixels(600, 80)
 
 
 # ---------------------------------------------------------------------------------------------------------------------

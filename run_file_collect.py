@@ -101,7 +101,6 @@ def enable_display_prompt(saving_enabled = True):
 
 # Make all required selections and setup/configure everything
 loader = Configuration_Loader()
-loader.selections()
 
 # Ask user about saved data
 save_data = save_data_prompt(loader)
@@ -132,7 +131,6 @@ print("", "Finished! Took {:.1f} seconds".format(total_processing_time_sec), sep
 TODO:
     - Clean up display implementation, very awkward
         - will need to add script argument for display enabling
-        - Maybe add progress bar (tqdm?) when display isn't available (also a script arg? Only needed on files)
         - Would be nice to have opencv progress bar when display is available as well, to indicate time-to-finish
 '''
 

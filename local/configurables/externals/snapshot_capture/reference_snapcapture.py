@@ -46,15 +46,12 @@ def find_path_to_local(target_folder = "local"):
 
 find_path_to_local()
 
-
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
-import cv2
-
 from local.configurables.configurable_template import Externals_Configurable_Base
 
-from local.lib.timekeeper_utils import utc_time_to_isoformat_string
+from local.lib.timekeeper_utils import utc_time_to_isoformat_string, utc_datetime_to_epoch_ms
 
 from local.lib.file_access_utils.reporting import Image_Report_Saver, Image_Metadata_Report_Saver
 
@@ -174,7 +171,7 @@ class Reference_Snapshot_Capture(Externals_Configurable_Base):
     # .................................................................................................................
     
     # SHOULDN'T OVERRIDE. Instead override helper functions: create_snapshot_image(), trigger_snapshot()
-    def metadata(self, input_frame, current_frame_index, current_time_sec, current_datetime):
+    def update_metadata(self, input_frame, current_frame_index, current_time_sec, current_datetime):
         
         '''
         One of the main functions called during run-time (the other being 'save_snapshots')
@@ -284,14 +281,14 @@ class Reference_Snapshot_Capture(Externals_Configurable_Base):
     # .................................................................................................................
     
     # SHOULDN'T OVERRIDE!
-    def _create_snapshot_name(self, snapshot_time_str, snapshot_count):
+    def _create_snapshot_name(self, ms_since_epoch):
         
         '''
         Function for generating snapshot file names. Needs to follow a standard format so other scripts
         can properly interpret the name. Do not change unless absolutely sure!!!
         '''
                 
-        return "snap_{}_{:0>7}".format(snapshot_time_str, snapshot_count)
+        return "snap-{}".format(ms_since_epoch)
     
     # .................................................................................................................
     
@@ -311,22 +308,25 @@ class Reference_Snapshot_Capture(Externals_Configurable_Base):
         # Get info saved into snapshot metadata
         snapshot_time_isoformat = utc_time_to_isoformat_string(current_datetime)
         snapshot_count = self.snapshot_counter
+        ms_since_epoch = utc_datetime_to_epoch_ms(current_datetime)
         
         # Build reporting file name
-        snapshot_name = self._create_snapshot_name(snapshot_time_isoformat, snapshot_count)
+        snapshot_name = self._create_snapshot_name(ms_since_epoch)
         
         # Record the first snapshot name, if needed
         if self.first_snapshot_name is None:
             self.first_snapshot_name = snapshot_name
             
         # Build metadata
-        snapshot_metadata = {"first_snapshot": self.first_snapshot_name,
-                             "snapshot_name": snapshot_name,
-                             "snapshot_datetime_isoformat": snapshot_time_isoformat,
-                             "snapshot_count": snapshot_count,
-                             "snapshot_frame_index": current_frame_index,
+        snapshot_metadata = {"first_snapshot_name": self.first_snapshot_name,
+                             "name": snapshot_name,
+                             "datetime_isoformat": snapshot_time_isoformat,
+                             "count": snapshot_count,
+                             "frame_index": current_frame_index,
                              "time_elapsed_sec": current_time_sec,
-                             "video_select": self.video_select}
+                             "epoch_ms_utc": ms_since_epoch,
+                             "video_select": self.video_select,
+                             "video_wh": self.video_wh}
         
         # Update snapshot counter
         self.snapshot_counter += 1
@@ -342,6 +342,7 @@ class Reference_Snapshot_Capture(Externals_Configurable_Base):
         
         # Snapshot counter starts at 1 not 0!
         self.snapshot_counter = 1
+        self.first_snapshot_name = None
     
     # .................................................................................................................
     
@@ -351,11 +352,16 @@ class Reference_Snapshot_Capture(Externals_Configurable_Base):
         ''' Function which handles saving of image & metadata '''
         
         # Get snapshot name from metadata
-        snapshot_name = snapshot_metadata.get("snapshot_name")
+        snapshot_name = snapshot_metadata.get("name")
+        
+        # Get snapshot sizing, so we can save it with the metadata
+        snap_height, snap_width = snapshot_image_data.shape[0:2]
+        snap_wh = (snap_width, snap_height)
         
         # Bundle active object id data into metadata before saving
         full_metadata = snapshot_metadata.copy()
-        full_metadata.update({"object_ids_in_frame": objids_in_frame_dict})
+        full_metadata.update({"snap_wh": snap_wh,
+                              "object_ids_in_frame": objids_in_frame_dict})
         
         # Have reporting object handle image saving
         self.image_saver.save_jpg(file_save_name_no_ext = snapshot_name,

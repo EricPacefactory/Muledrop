@@ -64,15 +64,14 @@ from local.lib.configuration_utils.display_specification import Preprocessed_Dis
 
 # Make all required selections and setup/configure everything
 loader = Reconfigurable_Core_Stage_Loader("preprocessor", "affine_preprocessor", "Preprocessor_Stage")
-loader.selections()
 configurable_ref = loader.setup_all(__file__)
 
 # Set up object to handle all video processing
 main_process = \
 Reconfigurable_Video_Loop(loader,
                           ordered_display_list = [Input_Display(0, 2, 2),
-                                                  Preprocessed_Display(1, 2, 2),
-                                                  Preprocessed_BG_Display(2, 2, 2)])
+                                                  Preprocessed_Display(1, 2, 2, limit_wh = False),
+                                                  Preprocessed_BG_Display(2, 2, 2, limit_wh = False)])
 
 # Most of the work is done here!
 main_process.loop()

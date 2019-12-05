@@ -67,7 +67,7 @@ class Color_Map(Display_Window_Specification):
         # Inherit from parent class
         super().__init__("Color Map", layout_index, num_rows, num_columns, 
                          initial_display = initial_display, 
-                         max_wh = None)
+                         limit_wh = False)
         
         raise NotImplementedError("Need to make rgb bar color space display!")
 
@@ -80,7 +80,6 @@ class Color_Map(Display_Window_Specification):
 
 # Make all required selections and setup/configure everything
 loader = Reconfigurable_Core_Stage_Loader("pixel_filter", "shadow_pixelfilter", "Pixel_Filter_Stage")
-loader.selections()
 configurable_ref = loader.setup_all(__file__)
 
 # Set up object to handle all video processing

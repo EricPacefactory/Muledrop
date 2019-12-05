@@ -274,33 +274,6 @@ class Configurable_Base:
         return file_access_dict, setup_data_dict
     
     # .................................................................................................................
-    
-    # SHOULDN'T OVERRIDE
-    def get_data_to_save_OLD(self):
-        
-        '''
-        Function used to get the data/info needed to save this configurable.
-        Not responsible for providing file pathing or actually performing the save however!
-        
-        No inputs
-        Returns: component_name, script_name, class_name, config_data
-        
-        Examples:
-        component_name -> "preprocessor" or "detector" or "tracker" etc.
-        script_name -> "some_configurable_script.py"
-        class_name -> "Preprocessor_Stage"
-        config_data -> Dictionary containing configuration settings. Same as calling .current_settings()
-        '''
-        
-        # Grab relevant data for saving
-        component_name = self.component_name
-        script_name = self.script_name
-        class_name = self.class_name
-        config_data = self.current_settings(show_only_saveable = True)
-        
-        return component_name, script_name, class_name, config_data
-    
-    # .................................................................................................................
     # .................................................................................................................
 
 
@@ -436,6 +409,39 @@ class Externals_Configurable_Base(Configurable_Base):
     # .................................................................................................................
     # .................................................................................................................
 
+
+# /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+# /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+class Classifier_Configurable_Base(Configurable_Base):
+    
+    # .................................................................................................................
+    
+    def __init__(self, cameras_folder_path, camera_select, user_select, task_select, *, file_dunder):
+        
+        # Inherit from base class
+        super().__init__(file_dunder = file_dunder,
+                         target_parent_folder = "classifier",
+                         target_grandparent_folder = None)
+        
+        # Save selection info
+        self.cameras_folder_path = cameras_folder_path
+        self.camera_select = camera_select
+        self.user_select = user_select
+        self.task_select = task_select
+        
+        # Store the component name & use it as a save name
+        self.component_name = self.parent_folder
+        self.save_filename = self.component_name + ".json"
+        
+    # .................................................................................................................
+    
+    def reset(self):
+        # No need for a reset function for a classifier (outside of real-time loop)
+        print("No reset function for classifier: {}".format(self.class_name))
+        
+    # .................................................................................................................
+    # .................................................................................................................
 
 # /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 # /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

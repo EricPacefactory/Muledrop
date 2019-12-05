@@ -63,7 +63,6 @@ from local.lib.configuration_utils.display_specification import Detection_Displa
 
 # Make all required selections and setup/configure everything
 loader = Reconfigurable_Core_Stage_Loader("tracker", "passthrough_tracker", "Tracker_Stage")
-loader.selections()
 configurable_ref = loader.setup_all(__file__)
 
 # Set up object to handle all video processing

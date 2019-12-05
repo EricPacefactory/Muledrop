@@ -44,7 +44,7 @@ To run analysis on a camera, use the `run_file_collect.py` script and follow the
 
 ##### Frame Capture
 
-Used to alter the rate at which frames are read into the core processing sequence
+Used to alter the rate at which frames are read into the core processing sequence.
 
 ##### Preprocessor
 
@@ -52,29 +52,29 @@ Used to warp the incoming image data. The primary benefit is to minimize size di
 
 ##### Frame Processor
 
-Assumes the incoming video can be split into foreground and background elements, then attempts to convert the incomnig color image data into a binary image where all foreground elements are white and all background elements are black.
+Assumes the incoming video can be split into foreground and background elements, then attempts to convert the incoming color image data into a binary image where all foreground elements are white and all background elements are black.
 
 ##### Pixel Filter
 
-Experimental. Further modifies the binary image from the frame processor using color pixel information. Intended to provide an arbitrary way of altering the binary image, independent of the foreground/background assumption.
+Experimental. Further modifies the binary image from the frame processor using pixel color information. Intended to provide a more general way of altering the binary image, independent of the foreground/background assumption used by the frame processor.
 
 ##### Detector
 
-Takes a binary image and attempts to outline all unique foreground elements.
+Takes a foreground/background binary image and attempts to outline all unique foreground elements.
 
 ##### Tracker
 
-Tries to interpret detections as belonging to persistent objects (which are being repeatedly detected on every frame), and builds a history of positional information of each object.
+Assumes detections belong to persistent objects (which are being repeatedly detected on every frame), and builds a history of positional information of each object over time.
 
 ## External Processing
 
 ##### Background Capture/Generation
 
-Repeatedly stores frames from the input video source and occasionally tries to generate an image representing the background of the scene. Import for some types of frame processing as well as implementing ghosting.
+Repeatedly stores frames from the input video source and occasionally tries to generate an image representing the background of the scene. Important for some types of frame processing as well as implementing ghosting.
 
 ##### Snapshot Capture
 
-Repeatedly saves individual frames of the input video source so that events from the video can be reconstructed after-the-fact. These snapshots can also be used to evaluate certain rules (such as looking for idle objects or clutter, for example).
+Repeatedly saves individual frames of the input video source so that events from the video can be reconstructed after-the-fact. These snapshots could also be used to evaluate certain rules (such as looking for idle objects or clutter, for example).
 
 ##### Object Metadata Capture
 
@@ -82,10 +82,10 @@ Saves object metadata output from the (core) tracker stage. This data can then b
 
 ## MAJOR TODOs
 
-- Set up drawing functionality across all config utilties
+- 
 - Add preprocessor unwarping to object metadata capturing
 - Create example after-the-fact rule evaluation
 - Standardize data saving formats
-- Standardize database access so that 
+- Standardize database access so that auditing tools & rule evaluations can be built
 - Set up classification functionality
 - Re-implement support for web UI
