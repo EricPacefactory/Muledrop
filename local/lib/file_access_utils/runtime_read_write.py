@@ -708,9 +708,18 @@ class Image_Loader(Data_Loader):
     
     def load_from_path(self, load_path):
         
-        print("DEBUG: Need to add error checking, cv2.imread fails weirdly!!!")
+        # Load an image with error checking, though OpenCV doesn't like to raise errors while reading images...
+        try:
+            load_image = cv2.imread(load_path)
+        except Exception:
+            pass
         
-        return cv2.imread(load_path)
+        # OpenCV load image function doesn't give errors when loading non-image files or files-in-progress
+        # ... instead it just returns None
+        if load_image is None:
+            raise FileNotFoundError("Error loading image:", load_path)
+            
+        return load_image
         
     # .................................................................................................................
     
@@ -719,9 +728,7 @@ class Image_Loader(Data_Loader):
         # Build png name & path to file for loading
         load_path = os.path.join(self._data_folder_path, file_load_name_with_ext)
         
-        print("DEBUG: Need to add error checking, cv2.imread fails weirdly!!!")
-        
-        return cv2.imread(load_path)
+        return self.load_from_path(load_path)
     
     # .................................................................................................................
     
@@ -731,9 +738,7 @@ class Image_Loader(Data_Loader):
         load_name = "{}{}".format(file_load_name_no_ext, ".jpg")
         load_path = os.path.join(self._data_folder_path, load_name)
         
-        print("DEBUG: Need to add error checking, cv2.imread fails weirdly!!!")
-        
-        return cv2.imread(load_path)
+        return self.load_from_path(load_path)
     
     # .................................................................................................................
     
@@ -743,9 +748,7 @@ class Image_Loader(Data_Loader):
         load_name = "{}{}".format(file_load_name_no_ext, ".png")
         load_path = os.path.join(self._data_folder_path, load_name)
         
-        print("DEBUG: Need to add error checking, cv2.imread fails weirdly!!!")
-        
-        return cv2.imread(load_path)
+        return self.load_from_path(load_path)
     
     # .................................................................................................................
     # .................................................................................................................

@@ -78,7 +78,7 @@ def get_ordered_core_sequence():
     ordered_core_processing_sequence = \
     ["frame_capture",
      "preprocessor",
-     "frame_processor",
+     "foreground_extractor",
      "pixel_filter",
      "detector",
      "tracker"]

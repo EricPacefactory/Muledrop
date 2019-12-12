@@ -297,14 +297,12 @@ def get_snapshot_luts(snapshot_metadata_folder_path, snapshot_metadata_file_list
         # Grab handy-dandy metadata to build a database-like-dict
         snap_count = snap_md.get("count")
         snap_frame_index = snap_md.get("frame_index")
-        snap_objids = snap_md.get("object_ids_in_frame")
-        snap_time_sec = snap_md.get("time_elapsed_sec")
+        snap_epoch_ms = snap_md.get("epoch_ms_utc")
     
         # Create a new entry, which we'll index by snapshot count
         new_lut_entry = {"path": snap_path,
                          "frame_index": snap_frame_index,
-                         "objids": snap_objids,
-                         "time_elapsed_sec": snap_time_sec}
+                         "epoch_ms_utc": snap_epoch_ms}
         snap_count_luts.update({snap_count: new_lut_entry})
     
     return snap_count_luts
@@ -329,12 +327,12 @@ def annotate_trail(frame, object_metadata, final_plot_index):
         return
     
     # Get object metadata needed for trail drawing
-    obj_x_track = object_metadata.get("tracking").get("x_track")
-    obj_y_track = object_metadata.get("tracking").get("y_track")
+    obj_x_center = object_metadata.get("tracking").get("x_center")
+    obj_y_center = object_metadata.get("tracking").get("y_center")
     
     # Take only the data needed for plotting & convert to arrays for easier math
-    obj_x_array = np.float32(obj_x_track[final_plot_index:])
-    obj_y_array = np.float32(obj_y_track[final_plot_index:])
+    obj_x_array = np.float32(obj_x_center[final_plot_index:])
+    obj_y_array = np.float32(obj_y_center[final_plot_index:])
     
     # Convert trail data to pixel units and draw as an open polygon
     frame_scaling_array = get_frame_scaling(frame)
@@ -740,10 +738,3 @@ if __name__ == "__main__":
 #%% Scrap
     
 
-'''
-STOPPED HERE
-- MAYBE LOOK AT HAVING OBJMETADATA SAVER DO VALIDATION INDEX OFFSET?
-    - AND SAVE START/END INDICES SEPARATE FROM SNAPSHOT, FOR CONVENIENCE?
-    - ^^^ YES THIS! 'FRAME_INDEX' ENTRIES DONT BELONG IN START/END SNAPSHOT METADATA, SINCE IT HAS ITS OWN INDEX ALREADY
-'''
-    

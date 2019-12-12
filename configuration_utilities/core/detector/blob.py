@@ -78,7 +78,7 @@ class Custom_Detections_Display(Display_Window_Specification):
     # .................................................................................................................
         
     def display(self, stage_outputs, configurable_ref, mouse_xy,
-                current_frame_index, current_time_sec, current_datetime):
+                current_frame_index, current_epoch_ms, current_datetime):
         
         # Draw all detections into the appropriate output frame
         detection_frame = draw_detections(stage_outputs, configurable_ref)
@@ -135,15 +135,8 @@ stage_outputs = main_process.debug_stage_outputs
 stage_timing = main_process.debug_stage_timing
 object_ids_in_frame_dict = main_process.debug_object_ids_in_frame_dict
 snapshot_metadata = main_process.debug_current_snapshot_metadata
-last_frame_index, last_time_sec, last_datetime = main_process.debug_fsd_time_args
+last_frame_index, last_epoch_ms, last_datetime = main_process.debug_fed_time_args
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Scrap
 
-'''
-TODO:
-    - 'Shatterfix' or some kind of IoU/Jaccard check to avoid cases where boxes disappear for a frame or two
-        - maybe keep a copy of the previous frame/set of detections
-        - first pick up all valid detections
-        - for rejected detections, try combining with previous frame and check if valid
-'''

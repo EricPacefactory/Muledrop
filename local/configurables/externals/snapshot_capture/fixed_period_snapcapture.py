@@ -71,8 +71,8 @@ class Snapshot_Capture(Reference_Snapshot_Capture):
         # Allocate storage for fixed-frequency (over time) snapshots settings
         self._enable_downscale = None
         self._downscale_wh = None
-        self._next_snapshot_time_sec = None
-        self._total_snapshot_period_sec = None
+        self._next_snapshot_time_ms = None
+        self._total_snapshot_period_ms = None
         
         # .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . Control Group 1 .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
         
@@ -150,7 +150,7 @@ class Snapshot_Capture(Reference_Snapshot_Capture):
     def reset(self):
         
         # Reset timing, so snapshots can continue to run
-        self._next_snapshot_time_sec = None
+        self._next_snapshot_time_ms = None
         
     # .................................................................................................................
     
@@ -159,7 +159,8 @@ class Snapshot_Capture(Reference_Snapshot_Capture):
         # Pre-calculate the total number of seconds to wait between snapshots
         snap_min_from_hours = self.snapshot_period_hr * 60
         snap_sec_from_mins = (self.snapshot_period_min + snap_min_from_hours) * 60
-        self._total_snapshot_period_sec = max(0.001, self.snapshot_period_sec + snap_sec_from_mins)
+        total_snapshot_period_sec = max(0.001, self.snapshot_period_sec + snap_sec_from_mins)
+        self._total_snapshot_period_ms = int(round(1000 * total_snapshot_period_sec))
         
         # Pre-calculate the downscaled frame size (if we need it)
         self._enable_downscale, self._downscale_wh = max_dimension_downscale(self.video_wh, self.max_dimension_px)
@@ -172,19 +173,19 @@ class Snapshot_Capture(Reference_Snapshot_Capture):
     
     # .................................................................................................................
     
-    def trigger_snapshot(self, input_frame, current_frame_index, current_time_sec, current_datetime):
+    def trigger_snapshot(self, input_frame, current_frame_index, current_epoch_ms, current_datetime):
         
         # Wrap in try/except, since first evaluation will fail
         try:
-            need_new_snapshot = (current_time_sec > self._next_snapshot_time_sec)
+            need_new_snapshot = (current_epoch_ms > self._next_snapshot_time_ms)
             
         except TypeError:
-            # Exception thrown on first eval, since we don't have a next_snapshot_time_sec to evaluate
+            # Exception thrown on first eval, since we don't have a next_snapshot_time_m to evaluate
             need_new_snapshot = True
         
         # Update the next snapshot time if we need a snapshot
         if need_new_snapshot:
-            self._update_next_snapshot_time(current_time_sec, current_datetime)
+            self._update_next_snapshot_time(current_epoch_ms, current_datetime)
         
         return need_new_snapshot
     
@@ -200,18 +201,18 @@ class Snapshot_Capture(Reference_Snapshot_Capture):
     
     # .................................................................................................................
     
-    def _update_next_snapshot_time(self, current_time_sec, current_datetime):
+    def _update_next_snapshot_time(self, current_epoch_ms, current_datetime):
         
         try:
             # Update next snapshot time based on snapshot period
-            prev_snapshot_time = self._next_snapshot_time_sec
-            self._next_snapshot_time_sec = prev_snapshot_time + self._total_snapshot_period_sec
+            prev_snapshot_time_ms = self._next_snapshot_time_ms
+            self._next_snapshot_time_ms = prev_snapshot_time_ms + self._total_snapshot_period_ms
             
         except TypeError:
             
             # Will get an error on first run, since previous snapshot time doesn't exist yet!
-            prev_snapshot_time = float(1 + int(current_time_sec))
-            self._next_snapshot_time_sec = prev_snapshot_time + self._total_snapshot_period_sec
+            prev_snapshot_time_ms = current_epoch_ms
+            self._next_snapshot_time_ms = prev_snapshot_time_ms + self._total_snapshot_period_ms
     
     # .................................................................................................................
     # .................................................................................................................

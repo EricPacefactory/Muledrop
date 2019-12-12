@@ -222,27 +222,29 @@ class Median_Frame_Capture(Reference_Frame_Capture):
         
         # Allocate storage control variables
         self.capture_period_sec = None
-        self._next_capture_time_sec = -1
+        self._capture_period_ms = None
+        self._next_capture_time_ms = -1
         
     # .................................................................................................................
     
     def reset(self):
-        self._next_capture_time_sec = -1
+        self._next_capture_time_ms = -1
         
     # .................................................................................................................
     
     def set_capture_period(self, capture_period_sec):        
         self.capture_period_sec = capture_period_sec
+        self._capture_period_ms = int(round(1000 * capture_period_sec))
         
     # .................................................................................................................
     
-    def capture_condition(self, input_frame, current_frame_index, current_time_sec, current_datetime):
+    def capture_condition(self, input_frame, current_frame_index, current_epoch_ms, current_datetime):
         
         ''' Function which returns a boolean value to indicate whether the current frame should be captured '''
         
         # Capture every time we pass the next capture time!
-        if current_time_sec >= self._next_capture_time_sec:
-            self._next_capture_time_sec = current_time_sec + self.capture_period_sec
+        if current_epoch_ms >= self._next_capture_time_ms:
+            self._next_capture_time_ms = current_epoch_ms + self._capture_period_ms
             return True
         
         return False
@@ -267,19 +269,21 @@ class Median_Background_Creator(Reference_Background_Creator):
         
         # Allocate storage for control variables
         self.generation_period_sec = None
+        self._generation_period_ms = None
         self.min_captures_to_use = None
         self.max_captures_to_use = None
-        self._next_generation_time_sec = -1
+        self._next_generation_time_ms = None
         
     # .................................................................................................................
     
     def reset(self):
-        self._next_generation_time_sec = -1.0
+        self._next_generation_time_ms = -1.0
         
     # .................................................................................................................
     
     def set_generation_period(self, generation_period_sec):
         self.generation_period_sec = generation_period_sec
+        self._generation_period_ms = int(round(1000 * generation_period_sec))
         
     # .................................................................................................................
     
@@ -290,7 +294,7 @@ class Median_Background_Creator(Reference_Background_Creator):
     # .................................................................................................................
     
     def generation_condition(self, currently_generating, frame_was_captured, 
-                             current_frame_index, current_time_sec, current_datetime):
+                             current_frame_index, current_epoch_ms, current_datetime):
         
         ''' Function which returns a boolean value to indicate whether a new background image should be generated '''
         
@@ -303,8 +307,8 @@ class Median_Background_Creator(Reference_Background_Creator):
             return False
         
         # Generate every time we pass the next generation time!
-        if current_time_sec >= self._next_generation_time_sec:
-            self._next_generation_time_sec = current_time_sec + self.generation_period_sec
+        if current_epoch_ms >= self._next_generation_time_ms:
+            self._next_generation_time_ms = current_epoch_ms + self._generation_period_ms
             return True
         
         return False

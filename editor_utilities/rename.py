@@ -49,7 +49,7 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
-from local.lib.editor_lib import Edit_Selector, safe_quit, parse_selection_args
+from local.lib.editor_lib import Edit_Selector, safe_quit, parse_editor_args
 
 from local.lib.selection_utils import Resource_Selector
 
@@ -194,12 +194,7 @@ class Edit_Renamer:
         
         # First need to select the camera, then the video to rename
         camera_select, _ = self.edit.camera(camera_select)
-        video_select, video_path = self.edit.video(camera_select, video_select, show_rtsp = False)
-        
-        # Bail if the user tries to rename the RTSP option
-        if video_select.lower() == "rtsp":
-            print("", "Not allowed to rename the RTSP option!", "Quitting...", "", sep="\n")
-            safe_quit()
+        video_select, video_path = self.edit.video(camera_select, video_select)
             
         # Ask the user to rename the selected entry
         self._rename_video(camera_select, video_path, new_name)
@@ -351,7 +346,6 @@ def example_message(script_arguments):
           "",
           "*Note1: the system requires the 'live' user, so it cannot be renamed!",
           "*Note2: when renaming video files, paths aren't needed, but file extensions are and can't be changed!",
-          "*Note3: the rtsp video option cannot be renamed!",
           "",
           "NESTING: With the exception of cameras, all other entries are nested.",
           "Therefore, you'll need to provide the parent selections as follows:",
@@ -384,7 +378,7 @@ def example_message(script_arguments):
 #%% Parse arguments
 
 # Get arguments for this script call
-script_args = parse_selection_args(custom_arguments)
+script_args = parse_editor_args(custom_arguments)
 camera_select = script_args["camera"]
 user_select = script_args["user"]
 task_select = script_args["task"]

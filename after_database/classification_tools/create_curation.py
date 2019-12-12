@@ -64,7 +64,7 @@ from local.offline_database.file_database import Snap_DB, Object_DB
 from local.offline_database.file_database import post_snapshot_dataset_metadata, post_object_dataset_metadata
 from local.offline_database.object_reconstruction import Object_Reconstruction as Obj_Recon
 
-from local.lib.timekeeper_utils import isoformat_datetime_string
+from local.lib.timekeeper_utils import get_isoformat_string
 
 from eolib.utils.read_write import save_json, load_json
 from eolib.utils.files import get_file_list
@@ -132,8 +132,8 @@ earliest_datetime, latest_datetime = snap_db.get_bounding_datetimes()
 
 
 # Get the full range of data as datetime strings
-start_dt_isoformat = isoformat_datetime_string(earliest_datetime)
-end_dt_isoformat = isoformat_datetime_string(latest_datetime)
+start_dt_isoformat = get_isoformat_string(earliest_datetime)
+end_dt_isoformat = get_isoformat_string(latest_datetime)
 
 # Get all snapshot times for lookup
 all_snap_times = snap_db.get_all_snapshot_times_by_time_range(earliest_datetime, latest_datetime)

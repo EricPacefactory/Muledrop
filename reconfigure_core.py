@@ -53,12 +53,14 @@ import subprocess
 
 from time import sleep
 
-from local.lib.selection_utils import Resource_Selector, parse_args
+from local.lib.configuration_utils.script_arguments import script_arg_builder
+
+from local.lib.selection_utils import Resource_Selector
 from local.lib.file_access_utils.core import get_ordered_core_sequence, get_ordered_config_paths, build_core_folder_path
 from local.lib.file_access_utils.shared import load_with_error_if_missing
 
-from eolib.utils.files import get_file_list, get_folder_list
-from eolib.utils.cli_tools import cli_confirm, cli_select_from_list, clear_terminal, clean_error_quit, loop_on_index_error
+from eolib.utils.files import get_file_list
+from eolib.utils.cli_tools import cli_confirm, cli_select_from_list, clear_terminal, clean_error_quit
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
@@ -73,17 +75,25 @@ from eolib.utils.cli_tools import cli_confirm, cli_select_from_list, clear_termi
 
 # .....................................................................................................................
 
-def spyder_catcher():
+def parse_shared_args(debug_print = False):
     
-    # Spyder IDE seems to run a different env when using subprocess.run, which breaks this script...
-    if any(["spyder" in each_key.lower() for each_key in os.environ.keys()]):
-        print("", 
-              "!" * 36,
-              "WARNING:", 
-              "  Subprocess calls do not work properly in Spyder IDE!",
-              "  Use terminal if trying to launch configuration utilities.",
-              "", sep = "\n")
+    # Set script arguments for running files
+    args_list = ["camera",
+                 "user", 
+                 "task",
+                 "video"]
     
+    # Provide some extra information when accessing help text
+    script_description = "Hub script for launching core reconfiguration scripts"
+    
+    # Build & evaluate script arguments!
+    ap_result = script_arg_builder(args_list,
+                                   description = script_description,
+                                   parse_on_call = True,
+                                   debug_print = debug_print)
+    
+    return ap_result
+
 # .....................................................................................................................
 
 def clear_with_status(camera_select, user_select, task_select, video_select, component_select = None):
@@ -146,9 +156,6 @@ def get_default_option(stage_name):
 # .....................................................................................................................
 
 def select_core_component(core_config_utils_folder_path, ordered_stage_names):
-    
-    # Get path to the folder holding all core config utilies
-    #core_component_list = get_folder_list(core_config_utils_folder_path, return_full_path = False)
     
     # Clean up list for readability
     clean_stage_list = [clean_stage_name(each_stage) for each_stage in ordered_stage_names]
@@ -300,8 +307,11 @@ def run_config_utility(option_path, camera_select, user_select, task_select, vid
                        "-t", task_select,
                        "-v", video_select]
     
+    # Get python interpretter path, so we call subprocess using the same environment
+    python_interpretter = sys.executable
+    
     # Launch selected config util ity using direct path to option script
-    run_command_list = ["python3", option_path] + script_arg_list    
+    run_command_list = [python_interpretter, option_path] + script_arg_list    
     subproc = subprocess.run(run_command_list)
     
     # Hang on to errors
@@ -311,6 +321,9 @@ def run_config_utility(option_path, camera_select, user_select, task_select, vid
               "@ {}".format(option_path),
               "", 
               "Args: {}".format(" ".join(script_arg_list)),
+              "",
+              "Subprocess:",
+              subproc,
               "", sep="\n")
         input("Press enter to continue ")
     
@@ -322,15 +335,12 @@ def run_config_utility(option_path, camera_select, user_select, task_select, vid
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Setup
 
-# Provide warning if running in Spyder IDE, where subprocess call doesn't seem to work properly
-spyder_catcher()
-
 # Parse arguments
-arg_selections = parse_args()
-arg_camera_select = arg_selections.get("camera_select")
-arg_user_select = arg_selections.get("user_select")
-arg_task_select = arg_selections.get("task_select")
-arg_video_select = arg_selections.get("video_select")
+arg_selections = parse_shared_args()
+arg_camera_select = arg_selections.get("camera")
+arg_user_select = arg_selections.get("user")
+arg_task_select = arg_selections.get("task")
+arg_video_select = arg_selections.get("video")
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Ask user for base selections
@@ -389,7 +399,7 @@ print("", "{} closed...".format(os.path.basename(__file__)), "", sep="\n")
 
 '''
 STOPPED HERE
-- FIGURE OUT WHY IMPORT CV2 FAILS FROM SPYDER... SEEMS TO BE USING THE WRONG ENV
+- FIGURE OUT WHY CLOSING SCRIPTS FAILS FROM SPYDER... SEEMS TO BE DUE TO INPUT() FUNCTION?
 '''
 
 

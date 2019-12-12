@@ -78,7 +78,7 @@ class Dying_Display(Display_Window_Specification):
     # .................................................................................................................
         
     def display(self, stage_outputs, configurable_ref, mouse_xy,
-                current_frame_index, current_time_sec, current_datetime):
+                current_frame_index, current_epoch_ms, current_datetime):
         
         # Get configuration-only data out of the object
         dead_id_list = configurable_ref._config_dead_ids
@@ -93,46 +93,6 @@ class Dying_Display(Display_Window_Specification):
         if len(dead_id_list) < 1:
             simple_text(ids_frame, "None so far...", (5, 70))
             simple_text(ids_frame, "--> Requires fully configured tracking", (5, 95))
-        
-        return ids_frame
-        
-    # .................................................................................................................
-    # .................................................................................................................
-
-
-class Elder_Display(Display_Window_Specification):
-    
-    # .................................................................................................................
-    
-    def __init__(self, layout_index, num_rows, num_columns, initial_display = False,
-                 window_name = "Elder Objects"):
-        
-        # Inherit from parent class
-        super().__init__(window_name, layout_index, num_rows, num_columns, 
-                         initial_display = initial_display, 
-                         limit_wh = False)
-        
-        # Create blank frame for display
-        self._display_frame = np.full((350, 400, 3), (40, 40, 40), dtype=np.uint8)
-        
-    # .................................................................................................................
-        
-    def display(self, stage_outputs, configurable_ref, mouse_xy,
-                current_frame_index, current_time_sec, current_datetime):
-        
-        # Get configuration-only data out of the object
-        elder_id_list = configurable_ref._config_elder_ids
-        
-         # Write useful stats into an image for display
-        ids_frame = self._display_frame.copy()
-        simple_text(ids_frame, "--- Elder Objects (IDs - Saved) ---", (200, 15), center_text = True)
-        for each_idx, (each_id, each_save_status) in enumerate(elder_id_list):            
-            simple_text(ids_frame, "{} - {}".format(each_id, each_save_status), (5, 70 + each_idx * 25))
-        
-        # Message for when no data has arrived
-        if len(elder_id_list) < 1:
-            simple_text(ids_frame, "None so far...", (5, 70))
-            simple_text(ids_frame, "--> Only occurs for long-lasting objects", (5, 95))
         
         return ids_frame
         

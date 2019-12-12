@@ -53,13 +53,10 @@ import time
 import datetime as dt
 
 
-
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
 
 class Timekeeper:
-    
-    _start_time_sec = time.perf_counter()
     
     # .................................................................................................................
     
@@ -78,12 +75,12 @@ class Timekeeper:
                                               day = self._start_dt_utc.day)
         
         # Set up frame counting, which rolls over every day
-        self._current_day_utc = None
+        self._current_dt_year = None
         self._frame_index = None
     
     # .................................................................................................................
     
-    def get_video_timing(self, video_seconds_elapsed, video_frame_index):
+    def get_video_timing(self, video_ms_elapsed, video_frame_index):
         
         '''
         Inputs:
@@ -91,24 +88,24 @@ class Timekeeper:
             video_frame_index - Frame index reported by the video
         
         Returns:
-            current_frame_index, current_time_sec, current_datetime
+            current_frame_index, current_epoch_ms, current_datetime
             
         Note: 
             current_datetime is relative to the video file (using the video time and current date)
         '''
         
         # Convert the elapsed video time into a time delta, so we can contruct a 'fake' datetime
-        video_timedelta = dt.timedelta(seconds = video_seconds_elapsed)
-        video_tzinfo = dt.timezone(dt.timedelta(0))
+        video_timedelta = dt.timedelta(milliseconds = video_ms_elapsed)
+        video_tzinfo = get_utc_tzinfo()
 
         # Create file-based timing info
-        current_time_sec = video_seconds_elapsed
         current_datetime = (self._start_date_dt_local + video_timedelta).replace(tzinfo = video_tzinfo)
+        current_epoch_ms = datetime_to_epoch_ms_utc(current_datetime)
         
         # Don't do anything to the video frame index... (for now?)
         current_frame_index = video_frame_index
         
-        return current_frame_index, current_time_sec, current_datetime
+        return current_frame_index, current_epoch_ms, current_datetime
     
     # .................................................................................................................
     
@@ -116,27 +113,39 @@ class Timekeeper:
         
         '''
         Returns:
-            current_frame_index, current_time_sec, current_datetime_utc
+            current_frame_index, current_epoch_ms, current_datetime_utc
             
         Note: 
-            current_frame_index resets every (utc) day
+            current_frame_index resets every day (based on datetime)
         '''
         
         # Create rtsp-based timing info
-        current_time_sec = time.perf_counter() - self._start_time_sec
-        current_datetime_utc = get_utc_datetime()
-        current_frame_index = self.get_frame_index(current_datetime_utc)
+        current_datetime = get_local_datetime()
+        current_epoch_ms = datetime_to_epoch_ms_utc(current_datetime)
+        current_frame_index = self.update_frame_index(current_datetime)
         
-        return current_frame_index, current_time_sec, current_datetime_utc
+        return current_frame_index, current_epoch_ms, current_datetime
     
     # .................................................................................................................
     
-    def get_frame_index(self, current_datetime_utc):
+    def get_frame_index(self):
+        ''' Function which returns the timekeeper's current frame index counter '''
+        return self._frame_index
+    
+    # .................................................................................................................
+    
+    def update_frame_index(self, current_datetime):
         
-        # Reset the frame count every day
-        current_day = current_datetime_utc.day
-        if current_day != self._current_day_utc:
-            self._current_day_utc = current_day
+        ''' 
+        Function which both updates the current frame index counter and returns the updated value.
+        Note that this is intended for RTSP video streams, where a frame index isn't readily available.
+        Also note that the frame index resets at the end of every year!
+        '''
+        
+        # Reset the frame count every year
+        current_year = current_datetime.year
+        if current_year != self._current_dt_year:
+            self._current_dt_year = current_year
             self._frame_index = 0
             
         # Increment the frame counter every time we call this
@@ -154,49 +163,48 @@ class Timekeeper:
 # .....................................................................................................................
     
 def get_utc_datetime():
-    return add_utc_tzinfo(dt.datetime.utcnow())
+    return dt.datetime.utcnow().replace(tzinfo = get_utc_tzinfo())
     
 # .....................................................................................................................
     
 def get_local_datetime():
-    return add_local_tzinfo(dt.datetime.now())
+    return dt.datetime.now(tz = get_local_tzinfo())
 
 # .....................................................................................................................
 
-def isoformat_datetime_string(input_datetime):
+def get_isoformat_string(input_datetime):
     
     '''
-    Converts a datetime object into an isoformat string, without milli/micro seconds
+    Converts a datetime object into an isoformat string, without micro seconds
     Example:
-        "2019-01-30T11:22:33+00:00"
+        "2019-01-30T11:22:33+00:00.000"
         
-    Note - This function assumes the datetime object has timezone information (tzinfo)
-    If not, use add_local_tzinfo() or add_utc_tzinfo() functions to add tzinfo before calling this function.
+    Note: This function assumes the datetime object has timezone information (tzinfo)
     '''
     
     return input_datetime.isoformat("T", "milliseconds")
 
 # .....................................................................................................................
 
-def fileformat_datetime_string(input_datetime, tz_indicator = "U"):
+def get_human_readable_timestamp(input_datetime = None):
     
     '''
-    Converts a datetime object into a file-friendly string, without milli/micro seconds
+    Converts a datetime object into a human readable string
     Example:
-        "2019-01-30T11:22:33+00:00" -> "20190130_223300U"
+        "2019/01/30 06:22:33pm"
         
-    If the input datetime object use UTC timing, a 'U' will be appended to the time (as above).
-    Otherwise, an 'L' (for local) will be appended.
-    
-    Note - This function assumes the datetime object has timezone information (tzinfo)
-    If not, use add_local_tzinfo() or add_utc_tzinfo() functions to add tzinfo before calling this function.
+    Note: This function assumes the datetime object has timezone information (tzinfo)
     '''
     
-    # Add a U to the end of the string to indicate time is UTC or otherwise add an L for local
-    # (note the UTC offset is not provided for local times! This leaves the time string somewhat ambiguous)
-    tz_indicator = "U" if (input_datetime.tzname() == "UTC") else "L"
+    # Use the local date time if nothing is provided
+    if input_datetime is None:
+        input_datetime = get_local_datetime()
     
-    return input_datetime.strftime("%Y%m%d_%H%M%S{}".format(tz_indicator))
+    in_utc_timezone = (input_datetime.tzinfo == get_utc_tzinfo())
+    tzinfo_str = "UTC" if in_utc_timezone else "Local"
+    human_readable_str = input_datetime.strftime("%Y/%m/%d %I:%M:%S%P ({})".format(tzinfo_str))
+        
+    return human_readable_str
 
 # .....................................................................................................................
 
@@ -218,86 +226,6 @@ def get_utc_tzinfo():
     ''' Convenience function which returns a utc tzinfo object '''
     
     return dt.timezone.utc
-    
-# .....................................................................................................................
-
-def add_tzinfo(datetime_obj, tzinfo_obj):
-    
-    ''' Helper function for adding timezone data (tzinfo) to datetime objects '''
-    
-    return datetime_obj.replace(tzinfo = tzinfo_obj)
-
-# .....................................................................................................................
-
-def add_local_tzinfo(datetime_obj):
-    
-    ''' Helper function for adding local timezone info to an ambiguous datetime object '''
-    
-    return datetime_obj.replace(tzinfo = get_local_tzinfo())
-
-# .....................................................................................................................
-
-def add_utc_tzinfo(datetime_obj):
-    
-    ''' Helper function for adding utc timezone info to an ambiguous datetime object '''
-    
-    return datetime_obj.replace(tzinfo = get_utc_tzinfo())
-
-# .....................................................................................................................
-
-def local_time_to_isoformat_string(local_datetime = None):
-        
-    # Get current local time, if needed
-    if local_datetime is None:
-        local_datetime = get_local_datetime()
-    
-    # Add in local timezone info before formatting as a string, so we get the +/- offset
-    if local_datetime.tzinfo is None:
-        local_datetime = add_local_tzinfo(local_datetime)
-        
-    return isoformat_datetime_string(local_datetime)
-
-# .....................................................................................................................
-    
-def utc_time_to_isoformat_string(utc_datetime = None):
-        
-    # Get the current utc time, if needed
-    if utc_datetime is None:
-        utc_datetime = get_utc_datetime()
-        
-    # Add in utc timezone info before formatting as a string, so we get the +/- offset
-    if utc_datetime.tzinfo is None:
-        utc_datetime = add_utc_tzinfo(utc_datetime)
-    
-    return isoformat_datetime_string(utc_datetime)
-
-# .....................................................................................................................
-
-def local_time_to_fileformat_string(local_datetime = None):
-        
-    # Get current local time, if needed
-    if local_datetime is None:
-        local_datetime = get_local_datetime()
-    
-    # Add in local timezone info before formatting as a string, so we get the +/- offset
-    if local_datetime.tzinfo is None:
-        local_datetime = add_local_tzinfo(local_datetime)
-        
-    return fileformat_datetime_string(local_datetime)
-
-# .....................................................................................................................
-    
-def utc_time_to_fileformat_string(utc_datetime = None):
-        
-    # Get the current utc time, if needed
-    if utc_datetime is None:
-        utc_datetime = get_utc_datetime()
-        
-    # Add in utc timezone info before formatting as a string, so we get the +/- offset
-    if utc_datetime.tzinfo is None:
-        utc_datetime = add_utc_tzinfo(utc_datetime)
-    
-    return fileformat_datetime_string(utc_datetime)
 
 # .....................................................................................................................
 
@@ -337,11 +265,14 @@ def parse_isoformat_string(isoformat_datetime_str):
 
 # .....................................................................................................................
 
-def utc_datetime_to_epoch_ms(utc_datetime):
+def datetime_to_epoch_ms_utc(input_datetime):
     
-    ''' Function which converts a utc datetime to the number of milliseconds since the 'epoch' (~ Jan 1970) '''
+    ''' 
+    Function which converts a datetime to the number of milliseconds since the 'epoch' (~ Jan 1970) 
+    Note that the result is always in utc format!
+    '''
     
-    return int(round(1000 * utc_datetime.timestamp()))
+    return int(round(1000 * input_datetime.timestamp()))
 
 # .....................................................................................................................
 
@@ -364,7 +295,7 @@ def isoformat_to_epoch_ms(datetime_isoformat_string):
     then converts the datetime object into an epoch_ms value
     '''
     
-    return utc_datetime_to_epoch_ms(parse_isoformat_string(datetime_isoformat_string))
+    return datetime_to_epoch_ms_utc(parse_isoformat_string(datetime_isoformat_string))
 
 # .....................................................................................................................
 # .....................................................................................................................
@@ -374,7 +305,11 @@ def isoformat_to_epoch_ms(datetime_isoformat_string):
 
 if __name__ == "__main__":
     
-    pass
+    tt = get_local_datetime()
+    print(get_human_readable_timestamp(tt))
+    
+    qq = get_utc_datetime()
+    print(get_human_readable_timestamp(qq))
 
 
 # ---------------------------------------------------------------------------------------------------------------------

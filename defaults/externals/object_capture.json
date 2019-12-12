@@ -5,6 +5,6 @@
     "configuration_utility": "minimum_lifetime"
   },
   "setup_data": {
-    "minimum_object_lifetime_sec": 3.25
+    "minimum_object_lifetime_ms": 3250
   }
 }

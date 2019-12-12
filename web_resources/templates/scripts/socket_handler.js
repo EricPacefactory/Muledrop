@@ -73,7 +73,7 @@ sio.on("config_response", function(all_config_data) {
 // ....................................................................................................................................
 
 // Function called when receiving response to frame_request. Used to update image display in page
-// TEMPORARY: Very high network/CPU load! Should replace with WebRTC/RTSP connection. Requires python RTSP server
+// TEMPORARY: Very high network/CPU load! Should replace with something more appropriate in the future
 sio.on("frame_response", function(data) {
     //console.log("FRAME RESPONSE", data);
     let img_ref = document.getElementById("disp_image");

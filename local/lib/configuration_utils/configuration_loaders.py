@@ -49,11 +49,14 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
-import argparse
 import json
 
+from time import sleep
+
+from local.lib.configuration_utils.script_arguments import script_arg_builder
+
 from local.lib.selection_utils import Resource_Selector
-from local.lib.configuration_utils.video_setup import Dummy_vreader
+from local.lib.configuration_utils.video_setup import File_Video_Reader, Threaded_File_Video_Reader, RTSP_Video_Reader
 
 from local.lib.configuration_utils.core_bundle_loader import Core_Bundle
 from local.lib.file_access_utils.video import Playback_Access
@@ -65,13 +68,13 @@ from eolib.utils.function_helpers import dynamic_import_from_module
 from eolib.utils.read_write import load_json
 
 # ---------------------------------------------------------------------------------------------------------------------
-#%% Define base class
+#%% Define base classes
 
-class Configuration_Loader:
+class File_Configuration_Loader:
     
     # .................................................................................................................
     
-    def __init__(self, selections_on_launch = True):
+    def __init__(self):
         
         # Allocate storage for selections
         self.project_root_path = None
@@ -84,6 +87,7 @@ class Configuration_Loader:
         self.script_arg_inputs = {}
         
         # Allocate storage for video data
+        self.threaded_video_enabled = False
         self.vreader = None
         self.video_wh = None
         self.video_fps = None
@@ -100,32 +104,33 @@ class Configuration_Loader:
         self.threading_enabled = False
         
         # Allocate storage for display/screen information
+        self.display_enabled = False
         self.screen_info = None
-        
-        # Launch into selections, if needed
-        if selections_on_launch:
-            self.selections()
-    
-    # .................................................................................................................
-        
-    def parse_args(self):
-        
-        self.script_arg_inputs = parse_loader_args(enable_camera_select = True,
-                                                   enable_user_select = True,
-                                                   enable_task_select = False,
-                                                   enable_video_select = True,
-                                                   enable_socket_select = False)
-        
+            
     # .................................................................................................................
     
-    def selections(self, parse_script_args = True):
+    def __repr__(self):
         
-        # Parse script input arguments, if desired
-        if parse_script_args:
-            self.parse_args()
-        arg_camera_select = self.script_arg_inputs.get("camera_select")
-        arg_user_select = self.script_arg_inputs.get("user_select")
-        arg_video_select = self.script_arg_inputs.get("video_select")
+        repr_strs = [self.__class__.__name__]
+        repr_strs += ["     Camera: {}".format(self.camera_select),
+                      "       User: {}".format(self.user_select),
+                      "      Video: {}".format(self.video_select),
+                      "  Threading: {}".format(self.threading_enabled),
+                      "     Saving: {}".format(self.saving_enabled)]
+        
+        return "\n".join(repr_strs)
+    
+    # .................................................................................................................
+    
+    def selections(self, script_args_dict):
+        
+        # Store script arguments
+        self.script_arg_inputs = script_args_dict
+        
+        # Pull out input script argument values
+        arg_camera_select = self.script_arg_inputs.get("camera")
+        arg_user_select = self.script_arg_inputs.get("user")
+        arg_video_select = self.script_arg_inputs.get("video")
         
         # Create selector so we can make camera/user/video selections
         selector = Resource_Selector()
@@ -138,6 +143,10 @@ class Configuration_Loader:
         
         # Find list of all tasks
         self.task_name_list = selector.get_task_list(self.camera_select, self.user_select)
+        
+        # Get additional information
+        self.display_enabled = self.script_arg_inputs.get("display", False)
+        self.threaded_video_enabled = self.script_arg_inputs.get("threaded_video", False)
         
         return self
     
@@ -167,9 +176,15 @@ class Configuration_Loader:
     # .................................................................................................................
     
     def setup_video_reader(self):
+        
+        # Select video reader
+        Video_Reader = File_Video_Reader
+        if self.threaded_video_enabled:
+            Video_Reader = Threaded_File_Video_Reader
+            print("", "Threaded video capture enabled!", sep = "\n")
 
         # Set up the video source
-        self.vreader = Dummy_vreader(self.cameras_folder_path, self.camera_select, self.video_select)
+        self.vreader = Video_Reader(self.cameras_folder_path, self.camera_select, self.video_select)
         self.video_wh = self.vreader.video_wh
         self.video_fps = self.vreader.video_fps
         self.video_type = self.vreader.video_type
@@ -368,11 +383,74 @@ class Configuration_Loader:
     # .................................................................................................................
 
 
+# /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+# /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+class RTSP_Configuration_Loader(File_Configuration_Loader):
+    
+    # .................................................................................................................
+    
+    def __init__(self):
+    
+        # Inherit from parent class
+        super().__init__()
+        
+    # .................................................................................................................
+    
+    def selections(self, script_args_dict = {}):
+        
+        # Store script arguments
+        self.script_arg_inputs = script_args_dict
+        
+        # Pull out input script argument values
+        arg_camera_select = self.script_arg_inputs.get("camera")
+        arg_user_select = self.script_arg_inputs.get("user")
+        
+        # Create selector so we can make camera/user/video selections
+        selector = Resource_Selector()
+        self.project_root_path, self.cameras_folder_path = selector.get_project_pathing()
+        
+        # Select shared components
+        self.camera_select, _ = selector.camera(arg_camera_select, must_have_rtsp = True)
+        self.user_select, _ = selector.user(self.camera_select, arg_user_select)
+        self.video_select = "rtsp"
+        
+        # Find list of all tasks
+        self.task_name_list = selector.get_task_list(self.camera_select, self.user_select)
+        
+        # Get additional information
+        self.display_enabled = self.script_arg_inputs.get("display", False)
+        self.threaded_video_enabled = self.script_arg_inputs.get("threaded_video", False)
+        
+        return self
+    
+    # .................................................................................................................
+    
+    def setup_video_reader(self):
+        
+        # Select video reader
+        Video_Reader = RTSP_Video_Reader
+        if self.threaded_video_enabled:
+            #Video_Reader = Threaded_RTSP_Video_Reader
+            print("", "Threaded video capture is not yet implemented for RTSP!", sep = "\n")
+
+        # Set up the video source
+        self.vreader = Video_Reader(self.cameras_folder_path, self.camera_select)
+        self.video_wh = self.vreader.video_wh
+        self.video_fps = self.vreader.video_fps
+        self.video_type = self.vreader.video_type
+        
+        return self.vreader
+    
+    # .................................................................................................................
+    # .................................................................................................................
+
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Reconfigurable Implementations
 
 
-class Reconfigurable_Loader(Configuration_Loader):
+class Reconfigurable_Loader(File_Configuration_Loader):
     
     # .................................................................................................................
     
@@ -380,7 +458,7 @@ class Reconfigurable_Loader(Configuration_Loader):
                  selections_on_launch = True):
         
         # Inherit from parent class
-        super().__init__(selections_on_launch = False)
+        super().__init__()
         
         # Allocate storage for accessing re-configurable object
         self.configurable_ref = None
@@ -403,29 +481,38 @@ class Reconfigurable_Loader(Configuration_Loader):
         
         # Launch into selections, if needed
         if selections_on_launch:
-            self.selections()
+            script_args_dict = self.parse_standard_args()
+            self.selections(script_args_dict)
         
     # .................................................................................................................
         
-    def parse_args(self):
+    def parse_standard_args(self, debug_print = True):
         
-        self.script_arg_inputs = parse_loader_args(enable_camera_select = True,
-                                                   enable_user_select = True,
-                                                   enable_task_select = True,
-                                                   enable_video_select = True,
-                                                   enable_socket_select = True)
+        # Set script arguments for reconfigurable scripts
+        args_list = ["camera", "user",  "task", "video"]
+        
+        # Provide some extra information when accessing help text
+        script_description = "Reconfigure settings for {} stage".format(self.override_stage.replace("_", " "))
+        
+        # Build & evaluate script arguments!
+        ap_result = script_arg_builder(args_list,
+                                       description = script_description,
+                                       parse_on_call = True,
+                                       debug_print = debug_print)        
+        return ap_result
     
     # .................................................................................................................
     
-    def selections(self, parse_script_args = True):
+    def selections(self, script_args_dict):
         
-        # Parse script input arguments, if desired
-        if parse_script_args:
-            self.parse_args()
-        arg_camera_select = self.script_arg_inputs.get("camera_select")
-        arg_user_select = self.script_arg_inputs.get("user_select")
-        arg_task_select = self.script_arg_inputs.get("task_select")
-        arg_video_select = self.script_arg_inputs.get("video_select")
+        # Store script arguments
+        self.script_arg_inputs = script_args_dict
+        
+        # Pull out input script argument values
+        arg_camera_select = self.script_arg_inputs.get("camera")
+        arg_user_select = self.script_arg_inputs.get("user")
+        arg_task_select = self.script_arg_inputs.get("task")
+        arg_video_select = self.script_arg_inputs.get("video")
         
         # Create selector so we can make camera/user/video selections
         selector = Resource_Selector()
@@ -439,6 +526,10 @@ class Reconfigurable_Loader(Configuration_Loader):
         
         # Pretend that the list of all tasks is simply the selected task when re-configuring
         self.task_name_list = [self.task_select]
+        
+        # Hard-code out options intended for run-time
+        self.display_enabled = True
+        self.threaded_video_enabled = False
         
         return self
     
@@ -507,6 +598,9 @@ class Reconfigurable_Loader(Configuration_Loader):
             self._save_configurable(file_access_dict, setup_data_dict, user_confirm_save)
         else:
             print("", "Settings unchanged!", "Skipping save prompt...", "", sep="\n")
+        
+        # Delay slightly before closing, may help with strange out-of-order errors on Windows 10?
+        sleep(0.25)
 
     # .................................................................................................................
     
@@ -816,52 +910,10 @@ class Reconfigurable_Object_Capture_Loader(Reconfigurable_Loader):
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define functions
 
-def parse_loader_args(enable_camera_select = True,
-                      enable_user_select = True,
-                      enable_task_select = False,
-                      enable_video_select = True,
-                      enable_socket_select = False,
-                      output_key_prefix = "",
-                      output_key_suffix = "_select"):
-    
-    ''' 
-    Function for parsing standard input arguments for resource selection.
-    Multiple enable flags are available as input arguments for controllnig which inputs are provided by arg parser
-    This function returns a dictionary of the form:
-        output_dict = {"camera_select": <camera_arg_result>,
-                       "user_select":   <user_arg_result>,
-                       "task_select":   <task_arg_result>,
-                       "video_select":  <video_arg_result>}
-        
-    Note that the keys can be modified using the output_key_prefix/suffix function arguments.
-    For example, with output_key_prefix = "ini_" and output_key_suffix = "", the output dictionary keys would be:
-        "ini_camera", "ini_user", "ini_task", "ini_video"
-    '''
+# .....................................................................................................................
 
-    # Set up argparser options
-    ap = argparse.ArgumentParser()
-    if enable_camera_select: ap.add_argument("-c", "--camera", default = None, type = str, help = "Camera select")
-    if enable_user_select: ap.add_argument("-u", "--user", default = None, type = str, help = "User select")
-    if enable_task_select: ap.add_argument("-t", "--task", default = None, type = str, help = "Task select")
-    if enable_video_select: ap.add_argument("-v", "--video", default = None, type = str, help = "Video select")
-    ap_result = vars(ap.parse_args())
-    
-    # Set up socket args, if needed
-    if enable_socket_select:
-        ap.add_argument("-sip", "--socketip", default = None, type = str, help = "Specify socket server IP address")
-        ap.add_argument("-sport", "--socketport", default = None, type = str, help = "Specify socket server port")
-    
-    # Get script argument selections
-    out_key = lambda base_label: "{}{}{}".format(output_key_prefix, base_label, output_key_suffix)
-    output_dict = {out_key("camera"): ap_result.get("camera"),
-                   out_key("user"): ap_result.get("user"),
-                   out_key("task"): ap_result.get("task"),
-                   out_key("video"): ap_result.get("video"),
-                   out_key("socketip"): ap_result.get("socketip"),
-                   out_key("socketport"): ap_result.get("socketport")}
-    
-    return output_dict
-
+# .....................................................................................................................
+# .....................................................................................................................
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Demo 

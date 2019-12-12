@@ -420,7 +420,7 @@ def externals_config_route(python_file):
 @server.route("/")
 def home_route(redirected = False):
     
-    project_tree = build_cameras_tree(None, show_hidden = False, show_rtsp = False)
+    project_tree = build_cameras_tree(None, show_hidden = False)
     
     return render_template("home.html",
                            selections = selections,

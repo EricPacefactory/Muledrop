@@ -8,8 +8,8 @@
      "component_select": "preprocessor"
     },
     {
-     "display_name": "Frame Processor",
-     "component_select": "frame_processor"
+     "display_name": "Foreground Extractor",
+     "component_select": "foreground_extractor"
     },
     {
      "display_name": "Pixel Filter",

@@ -170,27 +170,29 @@ class Averaging_Frame_Capture(Reference_Frame_Capture):
         
         # Allocate storage control variables
         self.capture_period_sec = None
-        self._next_capture_time_sec = -1
+        self._capture_period_ms = None
+        self._next_capture_time_ms = -1
         
     # .................................................................................................................
     
     def reset(self):
-        self._next_capture_time_sec = -1
+        self._next_capture_time_ms = -1
         
     # .................................................................................................................
     
-    def set_capture_period(self, capture_period_sec):        
+    def set_capture_period(self, capture_period_sec):
         self.capture_period_sec = capture_period_sec
+        self._capture_period_ms = int(round(1000 * capture_period_sec))
         
     # .................................................................................................................
     
-    def capture_condition(self, input_frame, current_frame_index, current_time_sec, current_datetime):
+    def capture_condition(self, input_frame, current_frame_index, current_epoch_ms, current_datetime):
         
         ''' Function which returns a boolean value to indicate whether the current frame should be captured '''
         
         # Capture every time we pass the next capture time!
-        if current_time_sec >= self._next_capture_time_sec:
-            self._next_capture_time_sec = current_time_sec + self.capture_period_sec
+        if current_epoch_ms >= self._next_capture_time_ms:
+            self._next_capture_time_ms = current_epoch_ms + self._capture_period_ms
             return True
         
         return False
@@ -220,13 +222,13 @@ class Averaging_Background_Creator(Reference_Background_Creator):
         
         # Allocate variables to keep track of next generation time
         self._wait_for_new_generation = False
-        self._next_generation_time_sec = None
-        self._generation_lag_sec = 5.0
+        self._next_generation_time_ms = None
+        self._generation_lag_ms = 5000
         
     # .................................................................................................................
     
     def reset(self):
-        self._next_generation_time_sec = -1.0
+        self._next_generation_time_ms = -1.0
         
     # .................................................................................................................
     
@@ -237,7 +239,7 @@ class Averaging_Background_Creator(Reference_Background_Creator):
     # .................................................................................................................
     
     def generation_condition(self, currently_generating, frame_was_captured, 
-                             current_frame_index, current_time_sec, current_datetime):
+                             current_frame_index, current_epoch_ms, current_datetime):
         
         ''' Function which returns a boolean value to indicate whether a new background image should be generated '''
         
@@ -252,14 +254,14 @@ class Averaging_Background_Creator(Reference_Background_Creator):
         # Record latest capture time, since we'll use this (with a lag) to trigger background generation
         if frame_was_captured:
             self._wait_for_new_generation = True
-            self._next_generation_time_sec = current_time_sec + self._generation_lag_sec
+            self._next_generation_time_ms = current_epoch_ms + self._generation_lag_ms
         
         # Generate a new background whenever we pass the next time trigger
         if self._wait_for_new_generation:
             
             # Check if we've waited long enough for the capture lag (make sure newest capture is finished saving)
             # If so, make sure to reset the wait flag, so we don't check on the next iteration!
-            waited_long_enough = (current_time_sec > self._next_generation_time_sec)
+            waited_long_enough = (current_epoch_ms > self._next_generation_time_ms)
             if waited_long_enough:
                 self._wait_for_new_generation = False      
             return waited_long_enough

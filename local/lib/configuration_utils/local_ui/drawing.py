@@ -1314,7 +1314,7 @@ class Interactive_Entity:
         
         '''
         Helper class used to represent polygons with a given min/max number of points
-        Includes functions for modifying the polygon points list, as well as handlnig basic drawing functionality
+        Includes functions for modifying the polygon points list, as well as handling basic drawing functionality
         Works entirely in pixel units
         '''
         

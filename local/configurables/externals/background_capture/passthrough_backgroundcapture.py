@@ -109,7 +109,7 @@ class Passthrough_Frame_Capture(Reference_Frame_Capture):
     # .................................................................................................................
     
     
-    def capture_condition(self, input_frame, current_frame_index, current_time_sec, current_datetime):
+    def capture_condition(self, input_frame, current_frame_index, current_epoch_ms, current_datetime):
         
         ''' Function which returns a boolean value to indicate whether the current frame should be captured '''
         
@@ -121,7 +121,7 @@ class Passthrough_Frame_Capture(Reference_Frame_Capture):
             return True
         
         # Get capture if we don't already have one
-        no_existing_data = (self._latest_capture_time_sec is None)
+        no_existing_data = (self._latest_capture_epoch_ms is None)
         if no_existing_data:
             return True
         
@@ -151,7 +151,7 @@ class Passthrough_Background_Creator(Reference_Background_Creator):
     # .................................................................................................................
     
     def generation_condition(self, currently_generating, frame_was_captured, 
-                             current_frame_index, current_time_sec, current_datetime):
+                             current_frame_index, current_epoch_ms, current_datetime):
         
         ''' Function which returns a boolean value to indicate whether a new background image should be generated '''
         

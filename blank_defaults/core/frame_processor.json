@@ -1,8 +1,0 @@
-{
-  "access_info": {
-    "script_name": "passthrough_frameprocessor.py",
-    "class_name": "Frame_Processor_Stage",
-    "configuration_utility": "passthrough"
-  },
-  "setup_data": {}
-}

@@ -72,10 +72,11 @@ class Snap_Display(Display_Window_Specification):
     # .................................................................................................................
         
     def display(self, stage_outputs, configurable_ref, mouse_xy,
-                current_frame_index, current_time_sec, current_datetime):
+                current_frame_index, current_epoch_ms, current_datetime):
         
         # Display snapshot data, if available
-        new_snap_available = stage_outputs.get("snapshot_capture").get("new_snapshot")
+        new_snap_image = stage_outputs.get("snapshot_capture").get("snapshot_image")
+        new_snap_available = (new_snap_image is not None)
         if new_snap_available:
             return stage_outputs.get("snapshot_capture").get("snapshot_image")
         
@@ -112,10 +113,10 @@ class Snap_Stats_Display(Display_Window_Specification):
     # .................................................................................................................
         
     def display(self, stage_outputs, configurable_ref, mouse_xy,
-                current_frame_index, current_time_sec, current_datetime):
+                current_frame_index, current_epoch_ms, current_datetime):
         
         # Display snapshot data, if available
-        new_snap_available = stage_outputs.get("snapshot_capture").get("new_snapshot")
+        new_snap_available = (stage_outputs.get("snapshot_capture").get("snapshot_image") is not None)
         if new_snap_available:
             
             # Update statistics

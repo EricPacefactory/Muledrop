@@ -269,7 +269,7 @@ def load_supervised_labels(cameras_folder_path, camera_select, dataset_select,
             if no_filtered_data:
                 continue
         
-        # Add labellnig results to a dictionary containing all tasks labelling results
+        # Add labelling results to a dictionary containing all tasks labelling results
         task_supervised_labels.update({each_task: supervised_labels_dict})
     
     # Create a list of task names for convenience as well
@@ -354,6 +354,8 @@ def get_object_id_metadata_paths(object_metadata_folder):
     represent the metadata file path for loading the given object id
     Really intended as a temporary loading/indexing solution prior to having database implemented!
     '''
+    
+    raise AttributeError("THIS FUNCTION IS OUTDATED!. Use fileDB functionality instead!")
     
     # First get all files
     obj_id_file_list = get_file_list(object_metadata_folder, return_full_path = False, sort_list = False)

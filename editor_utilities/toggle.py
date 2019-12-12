@@ -49,7 +49,7 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
-from local.lib.editor_lib import Edit_Selector, safe_quit, parse_selection_args
+from local.lib.editor_lib import Edit_Selector, safe_quit, parse_editor_args
 
 from local.lib.selection_utils import Resource_Selector
 
@@ -192,12 +192,7 @@ class Edit_Toggler:
         
         # First need to select the camera, then the video to toggle
         camera_select, _ = self.edit.camera(camera_select)
-        video_select, video_path = self.edit.video(camera_select, video_select, show_rtsp = False)
-        
-        # Bail if the user tries to toggle the RTSP option
-        if video_select.lower() == "rtsp":
-            print("", "Not allowed to toggle the RTSP option!", "Quitting...", "", sep="\n")
-            safe_quit()
+        video_select, video_path = self.edit.video(camera_select, video_select)
         
         # If all goes well, ask the user to set the new toggle state
         self._toggle_video(camera_select, video_path, flip_state)
@@ -368,8 +363,7 @@ def example_message(script_arguments):
           "Only one entry may be toggled per script-call (if more than one -e* is given, the script cancels).",
           "",
           "*Note1: the system requires the 'live' user, so it cannot be toggled!",
-          "*Note2: the rtsp video option cannot be toggled!",
-          "*Note3: the hidden identifier '.' must be specified when selecting entities for toggling!",
+          "*Note2: the hidden identifier '.' must be specified when selecting entities for toggling!",
           "",
           "NESTING: With the exception of cameras, all other entries are nested.",
           "Therefore, you'll need to provide the parent selections as follows:",
@@ -402,7 +396,7 @@ def example_message(script_arguments):
 #%% Parse arguments
 
 # Get arguments for this script call
-script_args = parse_selection_args(custom_arguments)
+script_args = parse_editor_args(custom_arguments)
 camera_select = script_args["camera"]
 user_select = script_args["user"]
 task_select = script_args["task"]

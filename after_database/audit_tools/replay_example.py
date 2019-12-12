@@ -173,23 +173,31 @@ earliest_datetime, latest_datetime = snap_db.get_bounding_datetimes()
 snap_wh = snap_db.get_snap_frame_wh()
 
 # Ask the user for the range of datetimes to use for selecting data
-start_dt, end_dt, start_dt_isoformat, end_dt_isoformat = user_input_datetime_range(earliest_datetime, 
-                                                                                   latest_datetime, 
-                                                                                   enable_debug_mode)
+start_dt, end_dt, _, _ = user_input_datetime_range(earliest_datetime, 
+                                                   latest_datetime, 
+                                                   enable_debug_mode)
 
+# Get all the snapshot times we'll need for animation
+snap_time_ms_list = snap_db.get_all_snapshot_times_by_time_range(start_dt, end_dt)
+num_snaps = len(snap_time_ms_list)
 
+# Get playback timing information
+start_snap_time_ms = snap_time_ms_list[0]
+end_snap_time_ms = snap_time_ms_list[-1]
+total_ms_duration = end_snap_time_ms - start_snap_time_ms
+playback_progress = lambda current_time_ms: (current_snap_time_ms - start_snap_time_ms) / total_ms_duration
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Load object data
 
 # Get object metadata from the server
-obj_metadata_generator = obj_db.load_metadata_by_time_range(task_select, start_dt_isoformat, end_dt_isoformat)
+obj_metadata_generator = obj_db.load_metadata_by_time_range(task_select, start_dt, end_dt)
 
 # Create list of 'reconstructed' objects based on object metadata, so we can work/interact with the object data
 obj_list = Obj_Recon.create_reconstruction_list(obj_metadata_generator,
                                                 snap_wh,
-                                                start_dt_isoformat, 
-                                                end_dt_isoformat,
+                                                start_dt, 
+                                                end_dt,
                                                 smoothing_factor = 0.005)
 
 # Load in classification data, if any
@@ -200,7 +208,7 @@ set_object_classification_and_colors(class_db, task_select, obj_list)
 #%% Data playback
 
 # Create timebar to show playback location
-snap_width, snap_height = snap_db.get_snap_frame_wh()
+snap_width, snap_height = snap_wh
 timebar_height = 20
 blank_timebar = np.full((timebar_height, snap_width, 3), (40, 40, 40), dtype=np.uint8)
 tb_pt1 = lambda playback_pos: (playback_pos, -10)
@@ -210,10 +218,6 @@ tb_pt2 = lambda playback_pos: (playback_pos, timebar_height + 10)
 full_frame_height = snap_height + timebar_height
 full_frame_wh = (snap_width, full_frame_height)
 timebar_normalized_y_thresh = snap_height / full_frame_height
-
-# Get all the snapshot times we'll need for animation
-snap_times = snap_db.get_all_snapshot_times_by_time_range(start_dt, end_dt)
-num_snaps = len(snap_times)
 
 # Create window for display
 hover_callback = Hover_Callback(full_frame_wh)
@@ -234,7 +238,7 @@ print("",
       "",
       "  While playing, click on the timebar to change playback position",
       "",
-      "Press Esc to cancel", sep="\n")
+      "Press Esc to close", "", sep="\n")
 
 # Label keycodes for convenience
 esc_key = 27
@@ -258,7 +262,7 @@ snap_idx = 0
 while True:
     
     # Get the next snap time
-    current_snap_time = snap_times[snap_idx]
+    current_snap_time_ms = snap_time_ms_list[snap_idx]
     
     # Check for mouse clicks to update timebar position
     if hover_callback.clicked():
@@ -268,13 +272,13 @@ while True:
             snap_idx = int(round(mouse_x * num_snaps))
     
     # Load each snapshot image & draw object annoations over top
-    snap_image, snap_frame_idx = snap_db.load_snapshot_image(current_snap_time)    
+    snap_image, snap_frame_idx = snap_db.load_snapshot_image(current_snap_time_ms)    
     for each_obj in obj_list:
-        each_obj.draw_trail(snap_image, snap_frame_idx)
-        each_obj.draw_outline(snap_image, snap_frame_idx)
+        each_obj.draw_trail(snap_image, snap_frame_idx, current_snap_time_ms)
+        each_obj.draw_outline(snap_image, snap_frame_idx, current_snap_time_ms)
         
     # Draw the timebar image with playback indicator
-    playback_px = int(round((snap_idx / num_snaps) * (snap_width - 1)))
+    playback_px = int(round(playback_progress(current_snap_time_ms) * (snap_width - 1)))
     timebar_image = timebar_base.copy()
     timebar_image = cv2.rectangle(timebar_image, tb_pt1(playback_px), tb_pt2(playback_px), (255, 255, 255), 1)
     
@@ -323,7 +327,6 @@ while True:
 
 # Clean up
 cv2.destroyAllWindows()
-print("DONE!", "", sep="\n")
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -332,4 +335,8 @@ print("DONE!", "", sep="\n")
 # TODO:
 # - add timebar indicator to show when objects are present
 # - add smoothing controls (at least enabled/disable)
+# - handle object timing/frame index matching better...
+#       - When data is reset (i.e. multiple captures) frame index is also reset!
+#       - frame index reset causes errors in replay, due to duplicate index values
+#       - need to add additional check on snap timing, to filter out objects not in correct time range
 

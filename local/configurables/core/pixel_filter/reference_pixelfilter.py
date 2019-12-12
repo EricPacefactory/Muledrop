@@ -83,10 +83,17 @@ class Reference_Pixel_Filter(Core_Configurable_Base):
     
     # .................................................................................................................
     
-    # MAY OVERRIDE (BUT NOT NECESSARY, BETTER TO INSTEAD OVERRIDE: apply_frame_processing())
+    # MAY OVERRIDE. Only if some resources have been opened while running...
+    def close(self, final_frame_index, final_epoch_ms, final_datetime):
+        # Nothing opened, nothing to close!
+        return None
+    
+    # .................................................................................................................
+    
+    # MAY OVERRIDE (BUT NOT NECESSARY, BETTER TO INSTEAD OVERRIDE: apply_pixel_filtering())
     def run(self, binary_frame_1ch, preprocessed_frame, preprocessed_bg_frame, bg_update):
         # This function must maintain this input/output structure!
-        #   - Need to pass the preprocessed frame through (for the following pixel filter stage)
+        #   - Need to pass the preprocessed frame through (for the following detector stage)
         #   - Need to return a new binary frame (i.e. only a single 'color' channel)
         
         # Update stored background before trying to process frame data
@@ -95,7 +102,8 @@ class Reference_Pixel_Filter(Core_Configurable_Base):
         # Make sure binary frame data is returned (i.e. only has a single channel)
         filtered_binary_frame_1ch = self.apply_pixel_filtering(binary_frame_1ch, preprocessed_frame)
         
-        return {"filtered_binary_frame_1ch": filtered_binary_frame_1ch, "preprocessed_frame": preprocessed_frame}
+        return {"filtered_binary_frame_1ch": filtered_binary_frame_1ch, 
+                "preprocessed_frame": preprocessed_frame}
             
     # .................................................................................................................
     
@@ -117,7 +125,7 @@ class Reference_Pixel_Filter(Core_Configurable_Base):
         if not bg_update:
             return
             
-        # Place background frame processing here (also need to handle storage)
+        # Place background processing here (also need to handle storage)
         print("Background updated! Calling update_background() @ {}".format(self.script_name))
     
     # .................................................................................................................

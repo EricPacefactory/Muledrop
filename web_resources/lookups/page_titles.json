@@ -4,7 +4,7 @@
                    "fov": "Field-of-View Preprocessor",
                    "circle2square": "Circle-to-Square Preprocessor"
                   },
-  "frame_processor": {},
+  "foreground_extractor": {},
   "pixel_filter": {
                    "hsv": "Hue / Saturation / Value",
                    "rgb": "Red / Green / Blue",

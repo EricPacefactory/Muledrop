@@ -70,15 +70,15 @@ class Object_Capture(Reference_Object_Capture):
         
         self.ctrl_spec.new_control_group("Object Capture Controls")
         
-        self.minimum_object_lifetime_sec = \
+        self.minimum_object_lifetime_ms = \
         self.ctrl_spec.attach_slider(
-                "minimum_object_lifetime_sec", 
+                "minimum_object_lifetime_ms", 
                 label = "Minimum Object Lifetime", 
-                default_value = 3.5,
-                min_value = 0.0, max_value = 15.0, step_size = 1/1000,
-                return_type = float,
+                default_value = 3500,
+                min_value = 0, max_value = 15000,
+                return_type = int,
                 zero_referenced = True,
-                units = "seconds",
+                units = "milliseconds",
                 tooltip = "Amount of time an object must live for before it's data is saved.")
 
     
@@ -95,12 +95,13 @@ class Object_Capture(Reference_Object_Capture):
     
     # .................................................................................................................
     
-    def dying_save_condition(self, object_metadata, partition_index,
-                             current_frame_index, current_time_sec, current_datetime):
+    def dying_save_condition(self, object_metadata,
+                             current_frame_index, current_epoch_ms, current_datetime):
         
-        # Only save objects that have existed for a while
-        object_lifetime_sec = object_metadata.get("lifetime_sec")        
-        save_object_data = (object_lifetime_sec > self.minimum_object_lifetime_sec)
+        # Only save objects that have existed for 'long enough'
+        has_ancestor = (object_metadata.get("ancestor_id") != 0)
+        object_lifetime_ms = object_metadata.get("lifetime_ms")
+        save_object_data = has_ancestor or (object_lifetime_ms > self.minimum_object_lifetime_ms)
         
         return save_object_data
     

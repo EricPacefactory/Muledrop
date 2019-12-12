@@ -52,11 +52,11 @@ find_path_to_local()
 from local.lib.file_access_utils.shared import build_user_folder_path, build_task_folder_path
 
 from local.lib.file_access_utils.shared import auto_project_root_path, auto_cameras_folder_path
-from local.lib.file_access_utils.video import build_videos_folder_path, load_video_file_lists, load_rtsp_config
+from local.lib.file_access_utils.video import build_videos_folder_path, load_video_file_lists
 
 from local.lib.file_access_utils.externals import build_externals_folder_path, create_default_externals_config
 from local.lib.file_access_utils.core import create_default_core_configs
-from local.lib.file_access_utils.video import create_default_video_configs
+from local.lib.file_access_utils.video import create_default_video_configs, check_valid_rtsp_ip
 from local.lib.file_access_utils.classifier import create_default_classifier_configs
 
 from eolib.utils.files import get_folder_list, get_file_list
@@ -202,7 +202,7 @@ def create_folder_structure_from_dictionary(base_path, dictionary, make_folders 
 
 # .....................................................................................................................
 
-def build_camera_list(cameras_folder, show_hidden_cameras = False):
+def build_camera_list(cameras_folder, show_hidden_cameras = False, must_have_rtsp = False):
     
     # Find all the camera folders within the 'cameras' folder
     camera_path_list = get_folder_list(cameras_folder, 
@@ -210,6 +210,27 @@ def build_camera_list(cameras_folder, show_hidden_cameras = False):
                                        create_missing_folder = False, 
                                        return_full_path = True)
     camera_name_list = [os.path.basename(each_path) for each_path in camera_path_list]
+    
+    # Filter out cameras that don't have valid RTSP configs
+    if must_have_rtsp:
+        
+        # Keep only the camera entries that have valid rtsp ip addresses
+        filtered_name_list = []
+        filtered_path_list = []
+        for each_camera_name, each_camera_path in zip(camera_name_list, camera_path_list):            
+            is_valid_rtsp_ip = check_valid_rtsp_ip(cameras_folder, each_camera_name)
+            if is_valid_rtsp_ip:
+                filtered_name_list.append(each_camera_name)
+                filtered_path_list.append(each_camera_path)
+        
+        # Overwrite existing outputs
+        camera_name_list = filtered_name_list
+        camera_path_list = filtered_path_list
+        
+        # Warning if no cameras are left after rtsp-filter
+        no_rtsp_cameras = (len(camera_name_list) == 0)
+        if no_rtsp_cameras:
+            raise AttributeError("No RTSP configuration found for any cameras! Use RTSP editor to configure cameras.")
     
     return camera_name_list, camera_path_list
 
@@ -265,16 +286,14 @@ def build_external_list(cameras_folder, camera_select, user_select, show_hidden_
 # .....................................................................................................................
 
 def build_video_list(cameras_folder, camera_select, 
-                     show_hidden_videos = False, 
-                     show_rtsp_option = True,
+                     show_hidden_videos = False,
                      error_if_no_videos = True):
     
     cameras_folder = auto_cameras_folder_path(cameras_folder)
     
-    # Get file lists and rtsp data
+    # Get video file listing
     videos_folder_path = build_videos_folder_path(cameras_folder, camera_select)
     file_listings = load_video_file_lists(cameras_folder, camera_select)
-    rtsp_file_dict, rtsp_string = load_rtsp_config(cameras_folder, camera_select)
     
     # Build a list of all file paths to consider for the video load list
     full_path_list = file_listings["visible"] + (file_listings["hidden"] if show_hidden_videos else [])
@@ -306,11 +325,6 @@ def build_video_list(cameras_folder, camera_select,
     sorted_names, sorted_paths = [], []
     if len(name_list)*len(path_list) > 0:
         sorted_names, sorted_paths = zip(*sorted(zip(name_list, path_list)))
-    
-    # Add the rtsp data if needed, assuming the string is not empty
-    if show_rtsp_option and rtsp_string != "":
-        sorted_names = ["RTSP"] + list(sorted_names)
-        sorted_paths = [rtsp_string] + list(sorted_paths)
         
     # Raise an error if the resulting lists are empty
     if len(sorted_names)*len(sorted_paths) == 0:
@@ -367,7 +381,7 @@ def build_core_config_options_list(project_root_path, component_select, show_hid
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Tree functions
 
-def build_cameras_tree(cameras_folder, show_hidden = False, show_rtsp = False):
+def build_cameras_tree(cameras_folder, show_hidden = False):
     
     cameras_folder = auto_cameras_folder_path(cameras_folder)
 
@@ -380,7 +394,7 @@ def build_cameras_tree(cameras_folder, show_hidden = False, show_rtsp = False):
     for each_camera in camera_names_list:
         cameras_tree[each_camera] = {"users": {}, "videos": {}} 
         cameras_tree[each_camera]["users"] = _build_user_tree(cameras_folder, each_camera, show_hidden)
-        cameras_tree[each_camera]["videos"] = _build_video_tree(cameras_folder, each_camera, show_hidden, show_rtsp)
+        cameras_tree[each_camera]["videos"] = _build_video_tree(cameras_folder, each_camera, show_hidden)
     
     return cameras_tree
 
@@ -437,12 +451,10 @@ def _build_task_tree(cameras_folder, camera_select, user_select, show_hidden):
 
 # .....................................................................................................................
 
-def _build_video_tree(cameras_folder, camera_select, show_hidden, show_rtsp,
-                      error_if_no_videos = False):
+def _build_video_tree(cameras_folder, camera_select, show_hidden, error_if_no_videos = False):
     
     video_names_list, video_paths_list = build_video_list(cameras_folder, camera_select, 
-                                                          show_hidden_videos = show_hidden, 
-                                                          show_rtsp_option = show_rtsp,
+                                                          show_hidden_videos = show_hidden,
                                                           error_if_no_videos = error_if_no_videos)
         
     video_tree = {"names": video_names_list,

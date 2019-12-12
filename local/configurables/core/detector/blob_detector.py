@@ -67,7 +67,7 @@ class Detector_Stage(Reference_Detector):
         super().__init__(input_wh, file_dunder = __file__)
         
         # Set up blob detection sizing (parent class should have already done this, but just in case...)
-        Blob_Detection.set_frame_scaling(*input_wh)
+        Reference_Detection_Object.set_frame_scaling(*input_wh)
         
         # Allocate storage to look at the detections on each frame
         self._detection_ref_list = []
@@ -195,7 +195,7 @@ class Detector_Stage(Reference_Detector):
         for each_contour in contour_list:
             
             # Create a blob object for each contour found
-            new_blob = Blob_Detection(each_contour)
+            new_blob = Reference_Detection_Object(each_contour)
             
             # Check that the bounding box is correctly sized before adding to list
             goldi_width = (self.min_width_norm < new_blob.width < self.max_width_norm)
@@ -211,25 +211,6 @@ class Detector_Stage(Reference_Detector):
         
         return new_detection_ref_list
     
-    # .................................................................................................................
-    # .................................................................................................................
-
-
-# /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-# /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-
-class Blob_Detection(Reference_Detection_Object):
-    
-    # .................................................................................................................
-    
-    def __init__(self, contour):
-        
-        # Inherit from reference detection object
-        super().__init__("blob", contour)
-        
-        # Same as the reference detection object, nothing to add!
-        
     # .................................................................................................................
     # .................................................................................................................
 

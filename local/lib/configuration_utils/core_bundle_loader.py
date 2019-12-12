@@ -125,6 +125,30 @@ class Core_Bundle:
     
     # .................................................................................................................
     
+    def close_all(self, current_frame_index, current_epoch_ms, current_datetime):
+        
+        ''' 
+        Function which is called once the video ends (or is stopped/cancelled by user) 
+        Each stage must be called and is responsible for closing any opened resources
+        Importantly, the tracker stage is expected to output all active objects (and list them as dead) for saving
+        '''
+        
+        # Some initial feedback
+        print("Closing core ({})...".format(self.task_select), end = "")
+        
+        # Tell all stages to close
+        final_stage_outputs = OrderedDict()
+        for each_stage_name, each_stage_ref in self.core_ref_dict.items():
+            final_stage_outputs[each_stage_name] = \
+            each_stage_ref.close(current_frame_index, current_epoch_ms, current_datetime)
+        
+        # Final feedback
+        print("Done!")
+        
+        return final_stage_outputs
+    
+    # .................................................................................................................
+    
     def last_item(self):
         
         '''
@@ -213,8 +237,7 @@ class Core_Bundle:
     
     def run_all(self, 
                 bg_outputs, 
-                current_frame_index, current_time_sec, current_datetime,
-                current_snapshot_metdata):
+                current_frame_index, current_epoch_ms, current_datetime):
         
         '''
         Function for running the full core processing sequence,
@@ -225,7 +248,7 @@ class Core_Bundle:
         
         # Run the frame capture to decide if we should skip this frame
         start_time = perf_counter()
-        skip_frame = self._frame_capture.run(current_frame_index, current_time_sec, current_datetime)
+        skip_frame = self._frame_capture.run(current_frame_index, current_epoch_ms, current_datetime)
         end_time = perf_counter()
         
         # Bundle outputs
@@ -251,8 +274,7 @@ class Core_Bundle:
                 # Run each stage with timing
                 process_outputs, process_timing = \
                 self._run_one(process_outputs, each_stage_ref, 
-                              current_frame_index, current_time_sec, current_datetime,
-                              current_snapshot_metdata)
+                              current_frame_index, current_epoch_ms, current_datetime)
 
                 # Store results for analysis
                 stage_outputs.update({each_stage_name: process_outputs})
@@ -272,16 +294,14 @@ class Core_Bundle:
     # .................................................................................................................
     
     def _run_one(self, process_inputs, stage_ref, 
-                 current_frame_index, current_time_sec, current_datetime,
-                 current_snapshot_metadata):
+                 current_frame_index, current_epoch_ms, current_datetime):
         
         '''
         Function for running a single core processing stage
         '''
         
         # Provide each stage with the timing of the current video frame data
-        stage_ref.update_time(current_frame_index, current_time_sec, current_datetime)
-        stage_ref.update_snapshot_record(current_snapshot_metadata)
+        stage_ref.update_time(current_frame_index, current_epoch_ms, current_datetime)
         
         # Run each stage with timing
         start_time = perf_counter()

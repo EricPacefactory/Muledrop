@@ -51,14 +51,14 @@ find_path_to_local()
 
 from functools import partial
 
-from local.lib.editor_lib import Edit_Selector, safe_quit, parse_selection_args
+from local.lib.editor_lib import Edit_Selector, safe_quit, parse_editor_args
 
 from local.lib.selection_utils import Resource_Selector
 
 from local.lib.file_access_utils.video import load_rtsp_config, save_rtsp_config
 
 from eolib.utils.cli_tools import cli_select_from_list, cli_prompt_with_defaults
-from eolib.utils.network import build_rtsp_string, parse_rtsp_string
+from eolib.utils.network import build_rtsp_string, parse_rtsp_string, check_connection
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
@@ -225,32 +225,42 @@ class Edit_Rtsp:
         
     # .................................................................................................................
     
-    def ping(self):
+    def test_connect(self):
         
         # Load rtsp connection info
         rtsp_config, rtsp_string = load_rtsp_config(self.cameras_folder_path, self.camera_select)
         
         # Bail if the rtsp string is no good
-        if rtsp_string == "":
-            print("",
-                  "Invalid rtsp info! Cannot connect...",
-                  "", "Quitting...", sep="\n")
+        missing_rtsp_string = (rtsp_string == "")
+        if missing_rtsp_string:
+            print("", "Invalid rtsp info! Cannot connect!", "  Quitting...", "",  sep="\n")
+            safe_quit()
+            
+        # First check if the ip address is ok
+        rtsp_ip_address = rtsp_config["ip_address"]
+        rtsp_port = rtsp_config["port"]
+        print("", "Checking address ({}:{})".format(rtsp_ip_address, rtsp_port), sep = "\n")
+        connection_success = check_connection(rtsp_ip_address, rtsp_port)
+        if not connection_success:
+            print("  Bad connection!", "", sep = "\n")
+            safe_quit()
+        print("  Success!")
         
         # Provide feedback about connection progress
         print("",
               "Connecting...",
-              "{}".format(rtsp_string),
+              "  {}".format(rtsp_string),
               "", sep="\n")
         
+        # Try to read a single frame so we can tell if our connection is good
         import cv2
         try:
             vcap = cv2.VideoCapture(rtsp_string)
             (get_frame, frame) = vcap.read()
             vcap.release()
+            print("Successful connection!", "  Quitting...", "", sep="\n")
         except Exception:
-            print("",
-                  "RTSP Connection error!",
-                  "", "Quitting...", sep="\n")
+            print("RTSP Connection error!", "  Quitting...", "", sep="\n")
         safe_quit()
     
     # .................................................................................................................
@@ -309,8 +319,8 @@ def _rtsp_input_select():
     rtspstring_option = "Enter RTSP string"
     components_option = "Enter RTSP components"
     info_option = "View RTSP info"
-    ping_option = "Test RTSP connection"
-    input_options_prompt = [rtspstring_option, components_option, info_option, ping_option]
+    test_option = "Test RTSP connection"
+    input_options_prompt = [rtspstring_option, components_option, info_option, test_option]
     
     # Ask for user input (or quit if no selection is made)
     try:
@@ -324,7 +334,7 @@ def _rtsp_input_select():
     lut_out = {"rtspstring": (entry_select == rtspstring_option),
                "components": (entry_select == components_option),
                "info": (entry_select == info_option),
-               "ping": (entry_select == ping_option)}
+               "test_connect": (entry_select == test_option)}
     
     return lut_out
 
@@ -493,7 +503,7 @@ def custom_arguments(argparser):
                            type = str,
                            help = "Update rtsp route")
     
-    argparser.add_argument("-p", "--ping",
+    argparser.add_argument("-t", "--test_connect",
                            default = False,
                            action = "store_true",
                            help = "Test the rtsp connection")
@@ -525,7 +535,7 @@ def parse_rtsp_selection(script_arguments):
     
     # Decide if the rtsp string entry, component entry or info was selected by script arguments
     arg_entity_select = {"info": script_arguments["info"],
-                         "ping": script_arguments["ping"],
+                         "test_connect": script_arguments["test_connect"],
                          "rtspstring": rtsp_string_present,
                          "components": components_present}
     
@@ -553,7 +563,7 @@ def example_message(script_arguments):
           "OVERVIEW: RTSP settings can be viewed or altered with this script.",
           "All options require a camera selection!",
           "View rtsp settings using the info (-i) option (which then quits).",
-          "Test rtsp settings using the ping (-p) option.",
+          "Test rtsp connection using the test (-t) option.",
           "A new rtsp string can be set directly using the (-ps) argument.",
           "Individual rtsp components can be altered using the appropriate arguments:",
           " -pa ip_address",
@@ -592,8 +602,7 @@ def example_message(script_arguments):
 #%% Parse arguments
 
 # Get arguments for this script call
-script_args = parse_selection_args(custom_arguments, 
-                                   show_user = False, show_task = False, show_video = False)
+script_args = parse_editor_args(custom_arguments, show_user = False, show_task = False, show_video = False)
 camera_select = script_args["camera"]
 
 # Get the entity selection from input arguments (if provided)
@@ -633,8 +642,8 @@ if input_select["components"]:
 if input_select["info"]:
     rtsp.info()
     
-if input_select["ping"]:
-    rtsp.ping()
+if input_select["test_connect"]:
+    rtsp.test_connect()
 
     
 # ---------------------------------------------------------------------------------------------------------------------

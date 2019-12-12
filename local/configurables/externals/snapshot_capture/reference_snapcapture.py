@@ -51,7 +51,7 @@ find_path_to_local()
 
 from local.configurables.configurable_template import Externals_Configurable_Base
 
-from local.lib.timekeeper_utils import utc_time_to_isoformat_string, utc_datetime_to_epoch_ms
+from local.lib.timekeeper_utils import get_isoformat_string
 
 from local.lib.file_access_utils.reporting import Image_Report_Saver, Image_Metadata_Report_Saver
 
@@ -79,7 +79,6 @@ class Reference_Snapshot_Capture(Externals_Configurable_Base):
         # Allocate storage for reference info
         self.current_day = None
         self.snapshot_counter = None
-        self.first_snapshot_name = None
         
         # Allocate storage for most recent snapshot info
         self.latest_snapshot_metadata = None
@@ -123,7 +122,7 @@ class Reference_Snapshot_Capture(Externals_Configurable_Base):
     # .................................................................................................................
     
     # MAY OVERRIDE
-    def close(self, final_frame_index, final_time_sec, final_datetime):
+    def close(self, final_frame_index, final_epoch_ms, final_datetime):
         
         ''' Function called after video processing completes or is cancelled early '''
         
@@ -170,80 +169,55 @@ class Reference_Snapshot_Capture(Externals_Configurable_Base):
     
     # .................................................................................................................
     
-    # SHOULDN'T OVERRIDE. Instead override helper functions: create_snapshot_image(), trigger_snapshot()
-    def update_metadata(self, input_frame, current_frame_index, current_time_sec, current_datetime):
+    # SHOULDN'T OVERRIDE. Instead override helper functions: trigger_snapshot(), create_snapshot_image()
+    def run(self, input_frame, current_frame_index, current_epoch_ms, current_datetime):
         
         '''
-        One of the main functions called during run-time (the other being 'save_snapshots')
-        Gets called after each video frame is read, but before any processing
+        Main function called during run-time
+        Gets called for every video frame.
         Main job is to determine if the current frame should be saved as a snapshot,
-        also keeps track of the latest snapshot metadata, so it can be passed to objects for reference
+        and if so, save the snapshot image & metadata to disk. 
         
         Returns:
-            new_snapshot (boolean), latest_snapshot_metadata (dictionary)
+            snapshot_frame_data (nparray), latest_snapshot_metadata (dictionary)
         '''
         
-        # Check if we need to get a new snapshot
-        new_snapshot = self.trigger_snapshot(input_frame, current_frame_index, current_time_sec, current_datetime)
-        if new_snapshot:
-            
-            # Update snapshot metadata, based on timing info
-            self.latest_snapshot_metadata = self._create_snapshot_metadata(current_frame_index, 
-                                                                           current_time_sec, 
-                                                                           current_datetime)
-            
-        return new_snapshot, self.latest_snapshot_metadata
-    
-    # .................................................................................................................
-    
-    # SHOULDN'T OVERRIDE
-    def save_snapshots(self, current_frame, objids_in_frame_dict, save_snapshot):
-        
-        '''
-        One of the main functions called during run-time
-        Gets called after all task-processing is complete, right before looping for the next video frame
-        Main job is to save snapshot images & metadata to disk. 
-        (Runs after processing so we can find out which objects were in the frame before saving though!)
-        
-        Inputs:
-            save_snapshot -> Boolean. Comes from earlier snapshot metadata function. 
-                             If true, save the current frame data & corresponding metadata
-            
-            current_frame -> Image. The current frame data that should be saved as a snapshot
-            
-            objids_in_frame_dict -> Dictionary. Should contain keys representing each running task, 
-                                    with the corresponding values being lists of object ids in the frame at the time
-                                    
-        Returns:
-            snapshot frame data (will be None if no snapshot is being taken!)
-            (Note this function can also write to disk, if enabled)
-        '''
-        
-        # If we have snapshot data to save, we'll do it now, including active object id data
+        # Initialize outputs
         snapshot_frame_data = None
-        if save_snapshot:
-            
-            # For debugging
-            #print("Taking SNAP! ({})".format(self.class_name))
-            
-            # Retrieve latest snapshot data
-            snapshot_frame_data = self.create_snapshot_image(current_frame)
-            snapshot_metadata = self.latest_snapshot_metadata
-            
-            # Trigger (threaded) saving of data
-            self._save_report_data(snapshot_frame_data, snapshot_metadata, objids_in_frame_dict)
-            
-            # For configuration, the output image should be jpg quality-ified
-            if self.configure_mode:
-                snapshot_frame_data, image_size_bytes, processing_time_sec = \
-                self.image_saver.apply_jpg_quality(snapshot_frame_data, self._snapshot_jpg_quality)
-                self._config_image_size_bytes = image_size_bytes
-                self._config_proc_time_sec = processing_time_sec
+        latest_snapshot_metadata = self.latest_snapshot_metadata
         
-        # Clean up any finished saving threads
+        # Check if we need to save the current frame as a snapshot
+        need_new_snapshot = self.trigger_snapshot(input_frame, current_frame_index, current_epoch_ms, current_datetime)
+        if not need_new_snapshot:
+            return snapshot_frame_data, latest_snapshot_metadata
+        
+        # ////////////////////////////////////////////////////
+        #   *** If we get here, we're saving a snapshot! ***
+        # ////////////////////////////////////////////////////
+        
+        # Update snapshot metadata, based on timing info
+        latest_snapshot_metadata = self._create_snapshot_metadata(current_frame_index,
+                                                                  current_epoch_ms,
+                                                                  current_datetime)
+        
+        # Retrieve latest snapshot data
+        snapshot_frame_data = self.create_snapshot_image(input_frame)
+        
+        # Trigger (threaded) saving of data
+        self._save_report_data(snapshot_frame_data, latest_snapshot_metadata)
+        
+        # For configuration, the output image should be jpg quality-ified
+        if self.configure_mode:
+            snapshot_frame_data, image_size_bytes, processing_time_sec = \
+            self.image_saver.apply_jpg_quality(snapshot_frame_data, self._snapshot_jpg_quality)
+            self._config_image_size_bytes = image_size_bytes
+            self._config_proc_time_sec = processing_time_sec
+        
+        # Clean up any finished saving threads & save newest metadata internally
         self._clean_up()
+        self.latest_snapshot_metadata = latest_snapshot_metadata
         
-        return snapshot_frame_data
+        return snapshot_frame_data, latest_snapshot_metadata
     
     # .................................................................................................................
     
@@ -254,7 +228,7 @@ class Reference_Snapshot_Capture(Externals_Configurable_Base):
     # .................................................................................................................
     
     # SHOULD OVERRIDE. Use this function to set conditions for when snapshots are taken
-    def trigger_snapshot(self, input_frame, current_frame_index, current_time_sec, current_datetime):
+    def trigger_snapshot(self, input_frame, current_frame_index, current_epoch_ms, current_datetime):
         
         '''
         Function used to trigger snapshots! Must return only a boolean.
@@ -293,7 +267,7 @@ class Reference_Snapshot_Capture(Externals_Configurable_Base):
     # .................................................................................................................
     
     # SHOULDN'T OVERRIDE
-    def _create_snapshot_metadata(self, current_frame_index, current_time_sec, current_datetime):
+    def _create_snapshot_metadata(self, current_frame_index, current_epoch_ms, current_datetime):
         
         '''
         Function for generate snapshot metadata. Needs to follow a standard format so other scripts
@@ -306,25 +280,18 @@ class Reference_Snapshot_Capture(Externals_Configurable_Base):
             self._reset_counters()
         
         # Get info saved into snapshot metadata
-        snapshot_time_isoformat = utc_time_to_isoformat_string(current_datetime)
+        snapshot_time_isoformat = get_isoformat_string(current_datetime)
         snapshot_count = self.snapshot_counter
-        ms_since_epoch = utc_datetime_to_epoch_ms(current_datetime)
         
         # Build reporting file name
-        snapshot_name = self._create_snapshot_name(ms_since_epoch)
-        
-        # Record the first snapshot name, if needed
-        if self.first_snapshot_name is None:
-            self.first_snapshot_name = snapshot_name
+        snapshot_name = self._create_snapshot_name(current_epoch_ms)
             
         # Build metadata
-        snapshot_metadata = {"first_snapshot_name": self.first_snapshot_name,
-                             "name": snapshot_name,
+        snapshot_metadata = {"name": snapshot_name,
                              "datetime_isoformat": snapshot_time_isoformat,
                              "count": snapshot_count,
                              "frame_index": current_frame_index,
-                             "time_elapsed_sec": current_time_sec,
-                             "epoch_ms_utc": ms_since_epoch,
+                             "epoch_ms_utc": current_epoch_ms,
                              "video_select": self.video_select,
                              "video_wh": self.video_wh}
         
@@ -342,12 +309,11 @@ class Reference_Snapshot_Capture(Externals_Configurable_Base):
         
         # Snapshot counter starts at 1 not 0!
         self.snapshot_counter = 1
-        self.first_snapshot_name = None
     
     # .................................................................................................................
     
     # SHOULDN'T OVERRIDE
-    def _save_report_data(self, snapshot_image_data, snapshot_metadata, objids_in_frame_dict):
+    def _save_report_data(self, snapshot_image_data, snapshot_metadata):
         
         ''' Function which handles saving of image & metadata '''
         
@@ -360,8 +326,7 @@ class Reference_Snapshot_Capture(Externals_Configurable_Base):
         
         # Bundle active object id data into metadata before saving
         full_metadata = snapshot_metadata.copy()
-        full_metadata.update({"snap_wh": snap_wh,
-                              "object_ids_in_frame": objids_in_frame_dict})
+        full_metadata.update({"snap_wh": snap_wh})
         
         # Have reporting object handle image saving
         self.image_saver.save_jpg(file_save_name_no_ext = snapshot_name,

@@ -53,7 +53,7 @@ from local.lib.configuration_utils.configuration_loaders import Reconfigurable_O
 from local.lib.configuration_utils.video_processing_loops import Object_Capture_Video_Loop
 from local.lib.configuration_utils.display_specification import Input_Display, Tracked_Display
 
-from local.configurables.externals.object_capture._helper_functions import Dying_Display, Elder_Display
+from local.configurables.externals.object_capture._helper_functions import Dying_Display
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define displays
@@ -71,8 +71,7 @@ main_process = \
 Object_Capture_Video_Loop(loader,
                           ordered_display_list = [Input_Display(0, 2, 2, limit_wh = True),
                                                   Tracked_Display(1, 2, 2, show_ids = True),
-                                                  Dying_Display(2, 2, 2),
-                                                  Elder_Display(3, 2, 2)])
+                                                  Dying_Display(2, 2, 2)])
 
 # Most of the work is done here!
 main_process.loop()
@@ -87,7 +86,7 @@ stage_outputs = main_process.debug_stage_outputs
 stage_timing = main_process.debug_stage_timing
 object_ids_in_frame_dict = main_process.debug_object_ids_in_frame_dict
 snapshot_metadata = main_process.debug_current_snapshot_metadata
-last_frame_index, last_time_sec, last_datetime = main_process.debug_fsd_time_args
+last_frame_index, last_epoch_ms, last_datetime = main_process.debug_fed_time_args
 
 
 # ---------------------------------------------------------------------------------------------------------------------

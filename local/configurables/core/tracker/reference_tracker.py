@@ -55,7 +55,7 @@ import numpy as np
 from collections import deque
 
 from local.configurables.configurable_template import Core_Configurable_Base
-from local.lib.timekeeper_utils import isoformat_datetime_string
+from local.lib.timekeeper_utils import get_isoformat_string
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
@@ -92,13 +92,24 @@ class Reference_Tracker(Core_Configurable_Base):
         
     # .................................................................................................................
     
+    # SHOULD OVERRIDE. Need to return the dead id list
+    def close(self, final_frame_index, final_epoch_ms, final_datetime):
+        print("",
+              "",
+              "  Tracker ({}) not closed properly!",
+              "  A proper close(...) function should be implemented".format(self.script_name),
+              "",
+              sep = "\n")
+        return {"tracked_object_dict": {},  "validation_object_dict": {},  "dead_id_list": []}
+    
+    # .................................................................................................................
+    
     # MAY OVERRIDE (BUT NOT NECESSARY, BETTER TO INSTEAD OVERRIDE INTERNAL FUNCTION CALLS)
     # Should override: clear_dead_ids(), update_object_tracking(), apply_object_decay(), generate_new_objects()
     def run(self, detection_ref_list):
-            
-        # Grab time reference & snapshot data for convenience
-        current_frame_index, current_time_sec, current_datetime = self.get_time_info()
-        current_snapshot_metadata = self.get_snapshot_info()
+        
+        # Grab time references for convenience
+        current_frame_index, current_epoch_ms, current_datetime = self.get_time_info()
         
         # Clear dead objects (from the previous iteration)
         self.clear_dead_ids()
@@ -106,28 +117,26 @@ class Reference_Tracker(Core_Configurable_Base):
         # Update object tracking data based on the new detection data
         unmatched_object_id_list, unmatched_detection_index_list = \
         self.update_object_tracking(detection_ref_list, 
-                                    current_frame_index, current_time_sec, current_datetime,
-                                    current_snapshot_metadata)
+                                    current_frame_index, current_epoch_ms, current_datetime)
         
         # Apply object decay to determine which objects will be deleted on the next iteration
         dead_id_list = \
         self.apply_object_decay(unmatched_object_id_list, 
-                                current_frame_index, current_time_sec, current_datetime,
-                                current_snapshot_metadata)
+                                current_frame_index, current_epoch_ms, current_datetime)
+        
+        # Add long-lived objects to dead list so that they get saved (protect RAM usage) and replace with new objects 
+        dead_id_list = \
+        self.generate_new_decendent_objects(dead_id_list,
+                                            current_frame_index, current_epoch_ms, current_datetime)
         
         # Finally, generate any new objects for tracking & return the final tracked object dictionary
         tracked_object_dict, validation_object_dict = \
         self.generate_new_objects(unmatched_detection_index_list, detection_ref_list, 
-                                  current_frame_index, current_time_sec, current_datetime,
-                                  current_snapshot_metadata)
-        
-        # Finally, trigger the clean-up of long-lasting objects, which should be saved across multiple files
-        elder_id_list = self.partition_elder_objects(tracked_object_dict, dead_id_list)
+                                  current_frame_index, current_epoch_ms, current_datetime)
         
         return {"tracked_object_dict": tracked_object_dict, 
                 "validation_object_dict": validation_object_dict,
-                "dead_id_list": dead_id_list,
-                "elder_id_list": elder_id_list}
+                "dead_id_list": dead_id_list}
     
     # .................................................................................................................
     
@@ -149,8 +158,7 @@ class Reference_Tracker(Core_Configurable_Base):
     
     # SHOULD OVERRIDE. Maintain i/o structure
     def update_object_tracking(self, detection_ref_list, 
-                               current_frame_index, current_time_sec, current_datetime,
-                               current_snapshot_metadata):
+                               current_frame_index, current_epoch_ms, current_datetime):
         
         '''
         Function for updating objects with detections that match up with existing data
@@ -169,8 +177,7 @@ class Reference_Tracker(Core_Configurable_Base):
     
     # SHOULD OVERRIDE. Maintain i/o structure
     def apply_object_decay(self, unmatched_object_id_list, 
-                           current_frame_index, current_time_sec, current_datetime,
-                           current_snapshot_metadata):
+                           current_frame_index, current_epoch_ms, current_datetime):
         
         '''
         Function for getting rid of objects that didn't match up with detection data
@@ -189,9 +196,25 @@ class Reference_Tracker(Core_Configurable_Base):
     # .................................................................................................................
     
     # SHOULD OVERRIDE. Maintain i/o structure
+    def generate_new_decendent_objects(self, dead_id_list, current_frame_index, current_epoch_ms, current_datetime):
+        
+        '''
+        Function for creating new objects from long-lived tracked objects
+            - Intended to force saving of objects that have accumulated lots of data
+            - Main concern is preventing infinite RAM usage for objects/detections that might be 'stuck'
+            - Should return an updated copy of the dead_id_list (containing objects being removed)
+            - Should also update internal tracked/validation dictionaries with new decendent objects!
+        '''
+        
+        # Reference doesn't do anything, just pass the existing dead id list through to the output
+        
+        return dead_id_list
+    
+    # .................................................................................................................
+    
+    # SHOULD OVERRIDE. Maintain i/o structure
     def generate_new_objects(self, unmatched_detection_index_list, detection_ref_list, 
-                             current_frame_index, current_time_sec, current_datetime,
-                             current_snapshot_metadata):
+                             current_frame_index, current_epoch_ms, current_datetime):
         
         '''
         Function for creating new objects from unmatched detections from the current frame
@@ -203,33 +226,6 @@ class Reference_Tracker(Core_Configurable_Base):
         validation_object_dict = {}
         
         return tracked_object_dict, validation_object_dict
-    
-    # .................................................................................................................
-    
-    # MAY OVERRIDE
-    def partition_elder_objects(self, tracked_object_dict, dead_id_list):
-        
-        '''
-        Function for splitting up objects that last 'too long'
-        Used to prevent infinite memory usage for objects that don't disappear. Ideally the
-        results from this function should trigger object metadata saving!
-        '''
-        
-        # Loop over all tracked objects and check for paritioning requests
-        # (i.e. objects that are storing too much data and need to be split up)
-        elder_id_list = []
-        for each_id, each_obj in tracked_object_dict.items():
-            
-            # Don't count objects that are dying on this frame!
-            if each_id in dead_id_list:
-                continue
-            
-            # For living objects, check for partitioning
-            needs_partition = each_obj.check_for_partition_request()
-            if needs_partition:
-                elder_id_list.append(each_id)
-                
-        return elder_id_list
 
     # .................................................................................................................
     # .................................................................................................................
@@ -241,58 +237,52 @@ class Reference_Tracker(Core_Configurable_Base):
 
 class Reference_Trackable_Object:
     
-    track_point_str = "center"
     match_with_speed = False
-    max_samples = 5000
+    max_samples = 9000
     
     # .................................................................................................................
     
-    def __init__(self, nice_id, full_id, detection_object, current_snapshot_metadata,
-                 current_frame_index, current_time_sec, current_datetime):
+    def __init__(self, nice_id, full_id, detection_object,
+                 current_frame_index, current_epoch_ms, current_datetime):
         
         # Assign id to this new object
         self.nice_id = None
         self.full_id = None
         
         # Store start timing info
-        self.first_snapshot_metadata = current_snapshot_metadata.copy()
         self.first_frame_index = current_frame_index
-        self.first_time_sec = current_time_sec
+        self.first_epoch_ms = current_epoch_ms
         self.first_datetime = current_datetime
         
         # Allotcate storage for timing info as of the last detection match
-        self.last_match_snapshot_metadata = {}
         self.last_match_frame_index = current_frame_index
-        self.last_match_time_sec = current_time_sec
+        self.last_match_epoch_ms = current_epoch_ms
         self.last_match_datetime = current_datetime
-                
+        
+        # Allocate storage for ancestry tracking (i.e. RAM protection for objects that last 'too long')
+        self.ancestor_id = 0
+        self.decendent_id = 0
+        
         # Allocate storage for single-value variables (i.e. no history)
         self.detection_classification = detection_object.detection_classification
+        self.classification_score = detection_object.classification_score
         self.num_samples = 0
         self.num_validation_samples = 0
-        self.partition_index = 1
-        self._request_partition = False
         
         # Allocate storage for historical variables
         self.hull_history = deque([], maxlen = self.max_samples)
-        self.width_history = deque([], maxlen = self.max_samples)
-        self.height_history = deque([], maxlen = self.max_samples)
-        self.fill_history = deque([], maxlen = self.max_samples)
         self.x_center_history = deque([], maxlen = self.max_samples)
         self.y_center_history = deque([], maxlen = self.max_samples)
-        self.x_track_history = deque([], maxlen = self.max_samples)
-        self.y_track_history = deque([], maxlen = self.max_samples)
         self.track_status_history = deque([], maxlen = self.max_samples)
         
-        # Fill first data points
+        # Initialize history data
         self.update_id(nice_id, full_id)
-        self.update_from_detection(detection_object, current_snapshot_metadata,
-                                   current_frame_index, current_time_sec, current_datetime)
+        self.update_from_detection(detection_object, current_frame_index, current_epoch_ms, current_datetime)
         
     # .................................................................................................................
     
     def __repr__(self):        
-        return "{:.0f} samples @ ({:.3f}, {:.3f})".format(self.num_samples, self.x_track, self.y_track)
+        return "{:.0f} samples @ ({:.3f}, {:.3f})".format(self.num_samples, self.x_center, self.y_center)
     
     # .................................................................................................................
     #%% Class functions
@@ -304,26 +294,48 @@ class Reference_Trackable_Object:
     # .................................................................................................................
     
     @classmethod
-    def set_tracking_point(cls, track_point_str):
-        cls.track_point_str = track_point_str
-        
-    # .................................................................................................................
-    
-    @classmethod
     def set_matching_style(cls, match_with_speed):
         cls.match_with_speed = match_with_speed
     
     # .................................................................................................................
     #%% Updating functions
     
-    def lifetime_sec(self, current_time_sec):
-        return current_time_sec - self.first_time_sec
+    def get_lifetime_ms(self, current_epoch_ms):
+        ''' Function which returns the object's lifetime (in milliseconds) given the current epoch time '''
+        return current_epoch_ms - self.first_epoch_ms
     
     # .................................................................................................................
     
-    def match_decay_time_sec(self, current_time_sec):
-        return current_time_sec - self.last_match_time_sec
+    def get_match_decay_time_ms(self, current_epoch_ms):
+        ''' Function which returns the object's match decay time (in milliseconds) given the current epoch time '''
+        return current_epoch_ms - self.last_match_epoch_ms
     
+    # .................................................................................................................
+    
+    def is_out_of_storage_space(self):
+        ''' Function for checking if we've run out of storage space (i.e. about to overwrite old data) '''
+        return (self.num_samples >= self.max_samples)
+    
+    # .................................................................................................................
+    
+    def create_decendent(self, new_nice_id, new_full_id, 
+                         current_frame_index, current_epoch_ms, current_datetime):
+        
+        ''' 
+        Function for creating new objects to carry on existing objects 
+        which have lasted too long and need to be saved to protect RAM usage
+        '''
+        
+        # Create new object of the same class
+        new_decendent = self.__class__(new_nice_id, new_full_id, self,
+                                       current_frame_index, current_epoch_ms, current_datetime)
+        
+        # Assign the existing object id as the ancestor to the new object and vice versa as a decendent
+        new_decendent.set_ancestor_id(self.full_id)
+        self.set_decendent_id(new_full_id)
+        
+        return new_decendent
+        
     # .................................................................................................................
     
     def update_id(self, short_id, full_id):
@@ -340,8 +352,29 @@ class Reference_Trackable_Object:
     
     # .................................................................................................................
     
-    def update_from_detection(self, detection_object, current_snapshot_metadata,
-                              current_frame_index, current_time_sec, current_datetime):
+    def set_ancestor_id(self, ancestor_id):
+        
+        ''' 
+        Function for recording ids of objects that have lasted long enough to create new 
+        (separately recorded) objects to protect RAM usage. This ID allows for potential historical lookup of objects
+        '''
+        
+        self.ancestor_id = ancestor_id
+        
+    # .................................................................................................................
+    
+    def set_decendent_id(self, decendent_id):
+        
+        ''' 
+        Sister function to the ancestor id assignment. 
+        This function is used to record the id of a new object created from 'this' object
+        '''
+        
+        self.decendent_id = decendent_id
+    
+    # .................................................................................................................
+    
+    def update_from_detection(self, detection_object, current_frame_index, current_epoch_ms, current_datetime):
         
         '''
         Reference implementation does a one-to-one update using detection data directly. 
@@ -349,15 +382,14 @@ class Reference_Trackable_Object:
         '''
         
         # Record match timing data, in case this is the last time we match up with something
-        self._update_last_match_data(current_snapshot_metadata, 
-                                     current_frame_index, current_time_sec, current_datetime)
+        self._update_last_match_data(current_frame_index, current_epoch_ms, current_datetime)
         
         # Get detection data
         new_track_status = 1
-        new_hull, new_x_cen, new_y_cen, new_w, new_h, new_fill = self.get_detection_parameters(detection_object)
+        new_hull, new_x_cen, new_y_cen = self.get_detection_parameters(detection_object)
         
         # Copy new data into object
-        self.verbatim_update(new_hull, new_x_cen, new_y_cen, new_w, new_h, new_fill, new_track_status)
+        self.verbatim_update(new_hull, new_x_cen, new_y_cen, new_track_status)
         
     # .................................................................................................................
         
@@ -367,36 +399,6 @@ class Reference_Trackable_Object:
         
         use_propagation = (propagation_weight > 0.0)
         self.propagate_from_self(propagation_weight) if use_propagation else self.duplicate_from_self()
-        
-    # .................................................................................................................
-    
-    def check_for_partition_request(self):
-        self._request_partition = (self.num_samples >= self.max_samples)
-        return self._request_partition
-        
-    # .................................................................................................................
-    
-    def get_track_coordinates(self, x_center, y_center, width, height):
-        
-        '''
-        Function which returns different tracking co-ordinates, depending on tracking-point settings
-        '''
-        
-        if self.track_point_str == "center":
-            
-            x_track = x_center
-            y_track = y_center
-            
-        elif self.track_point_str == "base":
-            
-            x_track = x_center
-            y_track = y_center + (height / 2)
-        
-        else:
-            
-            raise AttributeError("TRACKING ERROR: Unrecognized tracking point: {}!".format(self.track_point_str))
-        
-        return x_track, y_track
         
     # .................................................................................................................
     
@@ -411,24 +413,16 @@ class Reference_Trackable_Object:
         new_hull = detection_object.hull
         new_x_cen = detection_object.x_center
         new_y_cen = detection_object.y_center
-        new_w = detection_object.width
-        new_h = detection_object.height
-        new_fill = detection_object.fill
         
-        return new_hull, new_x_cen, new_y_cen, new_w, new_h, new_fill
+        return new_hull, new_x_cen, new_y_cen
        
     # .................................................................................................................
 
-    def verbatim_update(self, new_hull, new_x_cen, new_y_cen, new_w, new_h, new_fill, new_track_status = 1):
+    def verbatim_update(self, new_hull, new_x_cen, new_y_cen, new_track_status = 1):
         
         '''
         Update object properties verbatim (i.e. take input data as final, no other processing)
         '''
-        
-        # Handle data partitioning
-        if self._request_partition:
-            self._partition()
-            self._request_partition = False
         
         # Update sample count
         self.num_samples += 1
@@ -439,18 +433,6 @@ class Reference_Trackable_Object:
         # Update centering position
         self.x_center_history.appendleft(new_x_cen)
         self.y_center_history.appendleft(new_y_cen)
-        
-        # Update positioning
-        new_x_track, new_y_track = self.get_track_coordinates(new_x_cen, new_y_cen, new_w, new_h)
-        self.x_track_history.appendleft(new_x_track)
-        self.y_track_history.appendleft(new_y_track)
-        
-        # Update object sizing
-        self.width_history.appendleft(new_w)
-        self.height_history.appendleft(new_h)
-        
-        # Update secondary feature(s)
-        self.fill_history.appendleft(new_fill)
         
         # Update tracking status (should be True/1 if we're matched to something, otherwise False/0)
         self.track_status_history.appendleft(new_track_status)
@@ -463,13 +445,10 @@ class Reference_Trackable_Object:
         new_hull = self.hull
         new_x_cen = self.x_center
         new_y_cen = self.y_center
-        new_w = self.width
-        new_h = self.height
-        new_fill = self.fill
         new_track_status = 0
         
         # Use existing update function to avoid duplicating tracking logic...
-        self.verbatim_update(new_hull, new_x_cen, new_y_cen, new_w, new_h, new_fill, new_track_status)
+        self.verbatim_update(new_hull, new_x_cen, new_y_cen, new_track_status)
         
     # .................................................................................................................
         
@@ -485,35 +464,33 @@ class Reference_Trackable_Object:
         new_hull = self.hull + np.float32((vx, vy))
         new_x_cen = self.x_center + vx
         new_y_cen = self.y_center + vy
-        new_w = self.width
-        new_h = self.height
-        new_fill = self.fill
         
         # Use existing update function to avoid duplicating tracking logic...
-        self.verbatim_update(new_hull, new_x_cen, new_y_cen, new_w, new_h, new_fill, new_track_status)
+        self.verbatim_update(new_hull, new_x_cen, new_y_cen, new_track_status)
     
     # .................................................................................................................
     
-    def get_save_data(self, is_final = True):
+    def get_save_data(self):
+        
+        # Calculate helpful additional metadata
+        lifetime_ms = self.get_lifetime_ms(self.last_match_epoch_ms)
+        is_final = (self.decendent_id == 0)
         
         # Bundle tracking data together for clarity
         tracking_data_dict, final_num_samples = self._get_tracking_data(is_final)
-        timing_data_dict = self._get_timing_data(is_final)
-        snapshot_data_dict = self._get_snapshot_data(is_final)
-        
-        # Calculate helpful additional metadata
-        lifetime_sec = self.last_match_time_sec - self.first_time_sec
+        timing_data_dict = self._get_timing_data()
         
         # Generate json-friendly data to save
         save_data_dict = {"full_id": self.full_id,
                           "nice_id": self.nice_id,
-                          "lifetime_sec": lifetime_sec,
+                          "ancestor_id": self.ancestor_id,
+                          "decendent_id": self.decendent_id,
+                          "is_final": is_final,
+                          "lifetime_ms": lifetime_ms,
                           "num_samples": final_num_samples,
                           "max_samples": self.max_samples,
-                          "partition_index": self.partition_index,
                           "detection_class": self.detection_classification,
-                          "is_final": is_final,
-                          "snapshots": snapshot_data_dict,
+                          "detection_score": self.classification_score,
                           "timing": timing_data_dict,
                           "tracking": tracking_data_dict}
         
@@ -532,8 +509,8 @@ class Reference_Trackable_Object:
             except IndexError:
                 # Should be a rare event to not find a a first good index (implies all tracking data is bad)
                 # This normally won't happen, since only tracked objects should be saved!
-                # However, it is possible that a partitioned object could have tracking lost during partitioning,
-                # which would cause the next partition to be all 'bad' data, causing this error!
+                # However, it is possible that a decendent object could have tracking lost during/after splitting,
+                # which would cause the decendent to contain only 'bad' data, causing this error!
                 # In this case, just accept all bad data...
                 first_good_idx = 0
         
@@ -541,79 +518,38 @@ class Reference_Trackable_Object:
         final_num_samples = self.num_samples - first_good_idx
         
         # Bundle tracking data together for clarity
-        tracking_data_dict = {"tracking_point": self.track_point_str,
-                              "sample_order": "newest_first",
+        tracking_data_dict = {"sample_order": "newest_first",
                               "num_validation_samples": self.num_validation_samples,
                               "num_decay_samples_removed": first_good_idx,
                               "warped": True,
                               "track_status": list(self.track_status_history)[first_good_idx:],
-                              "x_track": list(self.x_track_history)[first_good_idx:],
-                              "y_track": list(self.y_track_history)[first_good_idx:],
-                              "width": list(self.width_history)[first_good_idx:],
-                              "height": list(self.height_history)[first_good_idx:],
-                              "fill": list(self.fill_history)[first_good_idx:],
+                              "x_center": list(self.x_center_history)[first_good_idx:],
+                              "y_center": list(self.y_center_history)[first_good_idx:],
                               "hull": [each_hull.tolist() for each_hull in self.hull_history][first_good_idx:]}
         
         return tracking_data_dict, final_num_samples
     
     # .................................................................................................................
     
-    def _get_timing_data(self, is_final = True):
+    def _get_timing_data(self):
         
         # Bundle timing data together, for clarity
         timing_data_dict = {"first_frame_index": self.first_frame_index,
-                            "first_time_sec": self.first_time_sec,
-                            "first_datetime_isoformat": isoformat_datetime_string(self.first_datetime),
+                            "first_epoch_ms": self.first_epoch_ms,
+                            "first_datetime_isoformat": get_isoformat_string(self.first_datetime),
                             "last_frame_index": self.last_match_frame_index,
-                            "last_time_sec": self.last_match_time_sec,
-                            "last_datetime_isoformat": isoformat_datetime_string(self.last_match_datetime)}
+                            "last_epoch_ms": self.last_match_epoch_ms,
+                            "last_datetime_isoformat": get_isoformat_string(self.last_match_datetime)}
         
         return timing_data_dict
-    
-    # .................................................................................................................
-    
-    def _get_snapshot_data(self, is_final = True):
-        
-        snapshot_data_dict = {"first": self.first_snapshot_metadata,
-                              "last": self.last_match_snapshot_metadata}
-        
-        return snapshot_data_dict
-    
-    # .................................................................................................................
-    
-    def _partition(self):
-        
-        ''' 
-        Function for clearing out existing object data, without deleting the object
-        Should be used to prevent infinite memory usage and/or loss of older data samples
-        '''
-        
-        # Update partition indexing to indicate the data has been split
-        self.partition_index += 1
-        
-        # Clear the history storage
-        self.hull_history.clear()
-        self.width_history.clear()
-        self.height_history.clear()
-        self.fill_history.clear()
-        self.x_center_history.clear()
-        self.y_center_history.clear()
-        self.x_track_history.clear()
-        self.y_track_history.clear()
-        self.track_status_history.clear()
-        
-        # Reset the sample count, since we've just cleared everything!
-        self.num_samples = 0
         
     # .................................................................................................................
         
-    def _update_last_match_data(self, current_snapshot_metadata,
-                                current_frame_index, current_time_sec, current_datetime):
+    def _update_last_match_data(self, current_frame_index, current_epoch_ms, current_datetime):
         
         # Update the last match timing, since we've matched with a new detection
-        self.last_match_snapshot_metadata = current_snapshot_metadata # .copy() ?
         self.last_match_frame_index = current_frame_index
-        self.last_match_time_sec = current_time_sec
+        self.last_match_epoch_ms = current_epoch_ms
         self.last_match_datetime = current_datetime
         
     # .................................................................................................................
@@ -624,7 +560,7 @@ class Reference_Trackable_Object:
         ''' Calculate the change in x using the 2 most recent x-positions '''
         
         try:
-            return (self.x_track_history[0] - self.x_track_history[1]) * delta_weight
+            return (self.x_center_history[0] - self.x_center_history[1]) * delta_weight
         except IndexError:
             return 0
         
@@ -635,7 +571,7 @@ class Reference_Trackable_Object:
         ''' Calculate the change in y using the 2 most recent y-positions '''
         
         try:
-            return (self.y_track_history[0] - self.y_track_history[1]) * delta_weight
+            return (self.y_center_history[0] - self.y_center_history[1]) * delta_weight
         except IndexError:
             return 0
     
@@ -648,10 +584,10 @@ class Reference_Trackable_Object:
         '''
         
         try:
-            return (self.x_track_history[0], self.x_track_history[1])
+            return (self.x_center_history[0], self.x_center_history[1])
         except IndexError:
             # Fails on first index, since we don't have any historical data!
-            return (self.x_track_history[0], self.x_track_history[0])
+            return (self.x_center_history[0], self.x_center_history[0])
     
     # .................................................................................................................
     
@@ -662,10 +598,10 @@ class Reference_Trackable_Object:
         '''
         
         try:
-            return (self.y_track_history[0], self.y_track_history[1])
+            return (self.y_center_history[0], self.y_center_history[1])
         except IndexError:
             # Fails on first index, since we don't have any historical data!
-            return (self.y_track_history[0], self.y_track_history[0])
+            return (self.y_center_history[0], self.y_center_history[0])
     
     # .................................................................................................................
     
@@ -715,7 +651,7 @@ class Reference_Trackable_Object:
             
             # Otherwise, check if the x/y tracking location is inside any of the zones
             zone_array = np.float32(each_zone)
-            in_zone = (cv2.pointPolygonTest(zone_array, (self.x_track, self.y_track), measureDist = False) > 0)
+            in_zone = (cv2.pointPolygonTest(zone_array, (self.x_center, self.y_center), measureDist = False) > 0)
             if in_zone:
                 return True
             
@@ -751,44 +687,8 @@ class Reference_Trackable_Object:
     # .................................................................................................................
     
     @property
-    def x_track(self):
-        return self.x_track_history[0]
-    
-    # .................................................................................................................
-    
-    @property
-    def y_track(self):
-        return self.y_track_history[0]
-    
-    # .................................................................................................................
-    
-    @property
-    def xy_track(self):
-        return np.float32((self.x_track, self.y_track))
-    
-    # .................................................................................................................
-    
-    @property
-    def xy_track_history(self):
-        return np.vstack((self.x_track_history, self.y_track_history)).T
-    
-    # .................................................................................................................
-    
-    @property
-    def width(self):
-        return self.width_history[0]
-    
-    # .................................................................................................................
-    
-    @property
-    def height(self):
-        return self.height_history[0]
-    
-    # .................................................................................................................
-    
-    @property
-    def fill(self):
-        return self.fill_history[0]
+    def xy_center_history(self):
+        return np.vstack((self.x_center_history, self.y_center_history)).T
     
     # .................................................................................................................
     
@@ -800,32 +700,10 @@ class Reference_Trackable_Object:
     
     @property
     def tl_br(self):
-        '''
-        if self.track_point_str == "center":
-            
-            half_width = self.width / 2
-            half_height = self.height / 2
-            
-            tl = (self.x_center - half_width, self.y_center - half_height)
-            br = (self.x_center + half_width, self.y_center + half_height)
-            
-        elif self.track_point_str == "base":
-            
-            half_width = self.width / 2
-            half_height = self.height / 2
-            
-            tl = (self.x_center - half_width, self.y_center - half_height)
-            br = (self.x_center + half_width, self.y_center)
         
-        else:
-            warning_msg = "TL_BR Error: Unrecognized tracking point ({})!".format(self.track_point_str)
-            raise AttributeError(warning_msg)
-        '''
-        half_width = self.width / 2
-        half_height = self.height / 2
-        
-        tl = (self.x_center - half_width, self.y_center - half_height)
-        br = (self.x_center + half_width, self.y_center + half_height)
+        hull_array = self.hull
+        tl = np.min(hull_array, axis = 0)
+        br = np.max(hull_array, axis = 0)
         
         return np.float32((tl, br))
     
@@ -848,12 +726,10 @@ class Smoothed_Trackable_Object(Reference_Trackable_Object):
     
     # .................................................................................................................
     
-    def __init__(self, nice_id, full_id, detection_object, current_snapshot_metadata,
-                 current_frame_index, current_time_sec, current_datetime):
+    def __init__(self, nice_id, full_id, detection_object, current_frame_index, current_epoch_ms, current_datetime):
         
         # Inherit from reference object
-        super().__init__(nice_id, full_id, detection_object, current_snapshot_metadata,
-                         current_frame_index, current_time_sec, current_datetime)
+        super().__init__(nice_id, full_id, detection_object, current_frame_index, current_epoch_ms, current_datetime)
         
     # .................................................................................................................
     
@@ -876,8 +752,7 @@ class Smoothed_Trackable_Object(Reference_Trackable_Object):
         
     # .................................................................................................................
         
-    def update_from_detection(self, detection_object, current_snapshot_metadata,
-                              current_frame_index, current_time_sec, current_datetime):
+    def update_from_detection(self, detection_object, current_frame_index, current_epoch_ms, current_datetime):
         
         '''
         Overrides reference implementation!
@@ -885,44 +760,37 @@ class Smoothed_Trackable_Object(Reference_Trackable_Object):
         '''
         
         # Record match timing data, in case this is the last time we match up with something
-        self._update_last_match_data(current_snapshot_metadata, 
-                                     current_frame_index, current_time_sec, current_datetime)
+        self._update_last_match_data(current_frame_index, current_epoch_ms, current_datetime)
         
         # Get detection data
-        new_hull, new_x_cen, new_y_cen, new_w, new_h, new_fill = self.get_detection_parameters(detection_object)
+        new_hull, new_x_cen, new_y_cen = self.get_detection_parameters(detection_object)
         
         # Apply smooth updates
-        self.smooth_update(new_hull, new_x_cen, new_y_cen, new_w, new_h, new_fill)
+        self.smooth_update(new_hull, new_x_cen, new_y_cen)
         
     # .................................................................................................................
     
-    def smooth_update(self, new_hull, new_x_cen, new_y_cen, new_w, new_h, new_fill):
+    def smooth_update(self, new_hull, new_x_cen, new_y_cen):
         
         try:
             
             # Collect previous values
             old_x_cen = self.x_center
             old_y_cen = self.y_center
-            old_w = self.width
-            old_h = self.height
             
             # Calculate new (smoothed) values using new detection data and previous values
             smooth_x_cen = self.smooth_x(new_x_cen, old_x_cen)
             smooth_y_cen = self.smooth_y(new_y_cen, old_y_cen)
-            smooth_w = self.smooth_w(new_w, old_w)
-            smooth_h = self.smooth_h(new_h, old_h)
         
         except IndexError:   
             # Will get an error on initial detection, since we don't have previous values needed for smoothing
             # When this happens, just perform verbatim update
             smooth_x_cen = new_x_cen
             smooth_y_cen = new_y_cen
-            smooth_w = new_w
-            smooth_h = new_h
         
         # Update object state using smoothed values
         new_track_status = 1
-        self.verbatim_update(new_hull, smooth_x_cen, smooth_y_cen, smooth_w, smooth_h, new_fill, new_track_status)
+        self.verbatim_update(new_hull, smooth_x_cen, smooth_y_cen, new_track_status)
         
     # .................................................................................................................
     
@@ -935,16 +803,6 @@ class Smoothed_Trackable_Object(Reference_Trackable_Object):
     def smooth_y(self, new_y, old_y):
         predictive_y = self.y_delta() * self._speed_weight
         return self._newsmooth_y * new_y + self._oldsmooth_y * (old_y + predictive_y)
-    
-    # .................................................................................................................
-    
-    def smooth_w(self, new_w, old_w):
-        return self._newsmooth_x * new_w + self._oldsmooth_x * old_w
-    
-    # .................................................................................................................
-    
-    def smooth_h(self, new_h, old_h):
-        return self._newsmooth_y * new_h + self._oldsmooth_y * old_h
     
     # .................................................................................................................
     # .................................................................................................................
@@ -967,6 +825,7 @@ class ID_Manager:
         self.ids_start_at = ids_start_at
         self.year = None
         self.day_of_year = None
+        self.hour_of_day = None
         self.next_id_bank = None
         self.date_id = None
         
@@ -979,24 +838,26 @@ class ID_Manager:
         '''
         Function for returning object IDs with a date_id component to make them unique over time!
         IDs have the format:
-            *yyyyddd
+            yyyydddhh****
             
-        Where * is the ID, yyyy is the current year and ddd is the current day-of-the-year
+        Where **** is the ID, yyyy is the current year, ddd is the current day-of-the-year and hh is the current hour
         '''
         
         # Record the year & day-of-year from the given datetime
         time_data = current_datetime.timetuple()
-        prev_day_of_year = self.day_of_year
-        new_day_of_year = time_data.tm_yday
+        prev_hour_of_day = self.hour_of_day
+        new_hour_of_day = time_data.tm_hour
         
-        # If we reach a new day, reset the id bank and update the date id value for new objects
-        if new_day_of_year != prev_day_of_year:
+        # If we reach a new hour, reset the id bank and update the date id value for new objects
+        if new_hour_of_day != prev_hour_of_day:
             self.reset()
-            self.date_id = self._get_date_id(time_data.tm_year, new_day_of_year)
+            year_id = time_data.tm_year
+            day_of_year_id = time_data.tm_yday
+            self.date_id = self._get_date_id(year_id, day_of_year_id, new_hour_of_day)
         
         # Get the 'nice' id based on the current id bank setting, then update the bank
         nice_id = self.next_id_bank
-        full_id = (nice_id * 10000000) + self.date_id
+        full_id = self.date_id + nice_id
         
         # Update the bank to point at the next ID
         self.next_id_bank += 1
@@ -1010,27 +871,36 @@ class ID_Manager:
     
     # .................................................................................................................
     
-    def _get_date_id(self, current_year, day_of_year):
+    def _get_date_id(self, current_year, day_of_year, hour_of_day):
         
         '''
         Function for creating a 'date id' to append to object ids, in order to make them unique
         Takes on the format of: 
             
-            yyyyddd, 
+            yyyydddhh0000
             
-        where yyyy is the year (ex. 2019) and ddd is the day-of-the-year (a number between 1 and 365)
+        where
+          yyyy is the year (ex. 2019)
+          ddd is the day-of-the-year (a number between 001 and 365)
+          hh is the hour-of-the-day (a number between 00 and 23)
+          0000 is reserved space for object ids in the given year/day/hour
         '''
         
         # Record new date information
+        self.hour_of_day = hour_of_day
         self.day_of_year = day_of_year
         self.year = current_year
         
-        return (current_year * 1000) + day_of_year
+        # Calculate offset numbers
+        offset_year = current_year * 1000000000
+        offset_doy =  day_of_year  * 1000000
+        offset_hour = hour_of_day  * 10000
+        
+        return offset_year + offset_doy + offset_hour
         
     # .................................................................................................................
     # .................................................................................................................
-
-
+        
 # /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 # /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

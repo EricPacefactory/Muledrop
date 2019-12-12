@@ -87,9 +87,8 @@ class Configurable_Base:
         
         # Storage for timing info
         self.current_frame_index = None
-        self.current_time_sec = None
+        self.current_epoch_ms = None
         self.current_datetime = None
-        self.current_snapshot_metadata = None
         
         # Variables for controls/configuration functionality
         self.configure_mode = False
@@ -302,11 +301,17 @@ class Core_Configurable_Base(Configurable_Base):
         
     # .................................................................................................................
     
+    # SHOULD OVERRIDE
+    def close(self, final_frame_index, final_epoch_ms, final_datetime):
+        print("  Closing", self.parent_folder, "(should implement a close(...) function!)")
+        
+    # .................................................................................................................
+    
     # MAY OVERRIDE. Don't override the i/o
     def set_output_wh(self):
         '''        
         By default, objects use the same output size as the input
-        Some objects (preprocessor + frame processor) may need to override this function
+        Some objects (preprocessor + foreground extractor) may need to override this function
         Gets called during setup, after initializing the object
         '''
         try:
@@ -331,26 +336,15 @@ class Core_Configurable_Base(Configurable_Base):
     # .................................................................................................................
     
     # SHOULDN'T OVERRIDE
-    def update_time(self, current_frame_index, current_time_elapsed_sec, current_datetime):
+    def update_time(self, current_frame_index, current_epoch_ms, current_datetime):
         
         '''
         Function for telling each stage the current frame timing/datetime
         '''
         
         self.current_frame_index = current_frame_index
-        self.current_time_sec = current_time_elapsed_sec
+        self.current_epoch_ms = current_epoch_ms
         self.current_datetime = current_datetime
-    
-    # .................................................................................................................
-    
-    # SHOULDN'T OVERRIDE
-    def update_snapshot_record(self, current_snapshot_metadata):
-        
-        '''
-        Function for passing the most recent snapshot metadata into each stage
-        '''
-        
-        self.current_snapshot_metadata = current_snapshot_metadata
         
     # .................................................................................................................
     
@@ -361,19 +355,7 @@ class Core_Configurable_Base(Configurable_Base):
         Returns the current time elapsed (seconds) and current datetime
         '''
         
-        return self.current_frame_index, self.current_time_sec, self.current_datetime
-    
-    # .................................................................................................................
-    
-    # SHOULDN'T OVERRIDE
-    def get_snapshot_info(self):
-        
-        '''
-        Returns the current snapshot metadata. 
-        Should only be needed when storing data that references snapshot images (ex. object metadata)
-        '''
-        
-        return self.current_snapshot_metadata
+        return self.current_frame_index, self.current_epoch_ms, self.current_datetime
     
     # .................................................................................................................
     # .................................................................................................................

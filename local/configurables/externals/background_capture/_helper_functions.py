@@ -68,7 +68,7 @@ class Capture_Display(Display_Window_Specification):
     # .................................................................................................................
         
     def display(self, stage_outputs, configurable_ref, mouse_xy,
-                current_frame_index, current_time_sec, current_datetime):
+                current_frame_index, current_epoch_ms, current_datetime):
         
         # Grab data out of capturer object
         return configurable_ref.frame_capturer._latest_capture_frame

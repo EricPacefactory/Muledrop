@@ -50,13 +50,13 @@ Used to alter the rate at which frames are read into the core processing sequenc
 
 Used to warp the incoming image data. The primary benefit is to minimize size differences of objects throughout a given scene (due to perspective effects for example), which helps the later processing stages.
 
-##### Frame Processor
+##### Foreground Extractor
 
 Assumes the incoming video can be split into foreground and background elements, then attempts to convert the incoming color image data into a binary image where all foreground elements are white and all background elements are black.
 
 ##### Pixel Filter
 
-Experimental. Further modifies the binary image from the frame processor using pixel color information. Intended to provide a more general way of altering the binary image, independent of the foreground/background assumption used by the frame processor.
+Experimental. Further modifies the binary image from the foreground extractor using pixel color information. Intended to provide a more general way of altering the binary image, independent of the foreground/background assumption used by the foreground extractor.
 
 ##### Detector
 
@@ -70,7 +70,7 @@ Assumes detections belong to persistent objects (which are being repeatedly dete
 
 ##### Background Capture/Generation
 
-Repeatedly stores frames from the input video source and occasionally tries to generate an image representing the background of the scene. Important for some types of frame processing as well as implementing ghosting.
+Repeatedly stores frames from the input video source and occasionally tries to generate an image representing the background of the scene. Important for some types of foreground extraction as well as implementing ghosting.
 
 ##### Snapshot Capture
 

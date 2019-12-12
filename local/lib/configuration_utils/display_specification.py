@@ -111,7 +111,7 @@ class Display_Window_Specification:
     # .................................................................................................................
     
     def display(self, stage_outputs, configurable_ref, mouse_xy, 
-                current_frame_index, current_time_sec, current_datetime):
+                current_frame_index, current_epoch_ms, current_datetime):
         return stage_outputs.get("frame_capture").get("video_frame")
     
     # .................................................................................................................
@@ -166,7 +166,7 @@ class Matched_Size_Display(Display_Window_Specification):
     # .................................................................................................................
         
     def display(self, stage_outputs, configurable_ref, mouse_xy, 
-                current_frame_index, current_time_sec, current_datetime):
+                current_frame_index, current_epoch_ms, current_datetime):
         
         # Get display & reference frames
         reference_sized_frame = stage_outputs.get(self.reference_stage).get(self.reference_name)
@@ -205,7 +205,7 @@ class Input_Display(Display_Window_Specification):
     # .................................................................................................................
         
     def display(self, stage_outputs, configurable_ref, mouse_xy, 
-                current_frame_index, current_time_sec, current_datetime):
+                current_frame_index, current_epoch_ms, current_datetime):
         return stage_outputs.get("frame_capture").get("video_frame")
         
     # .................................................................................................................
@@ -232,7 +232,7 @@ class Background_Display(Display_Window_Specification):
     # .................................................................................................................
         
     def display(self, stage_outputs, configurable_ref, mouse_xy, 
-                current_frame_index, current_time_sec, current_datetime):
+                current_frame_index, current_epoch_ms, current_datetime):
         return stage_outputs.get("frame_capture").get("bg_frame")
         
     # .................................................................................................................
@@ -262,7 +262,7 @@ class Preprocessed_Display(Display_Window_Specification):
     # .................................................................................................................
         
     def display(self, stage_outputs, configurable_ref, mouse_xy, 
-                current_frame_index, current_time_sec, current_datetime):
+                current_frame_index, current_epoch_ms, current_datetime):
         return stage_outputs.get("preprocessor").get("preprocessed_frame")
         
     # .................................................................................................................
@@ -289,7 +289,7 @@ class Preprocessed_BG_Display(Display_Window_Specification):
     # .................................................................................................................
         
     def display(self, stage_outputs, configurable_ref, mouse_xy, 
-                current_frame_index, current_time_sec, current_datetime):
+                current_frame_index, current_epoch_ms, current_datetime):
         return stage_outputs.get("preprocessor").get("preprocessed_bg_frame")
         
     # .................................................................................................................
@@ -297,11 +297,11 @@ class Preprocessed_BG_Display(Display_Window_Specification):
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-#%% Frame processor displays
+#%% Foreground extractor displays
 
 class Binary_Display(Matched_Size_Display):
     
-    ''' Standard implementation for displaying the binary output image, after frame processing '''
+    ''' Standard implementation for displaying the binary output image, after foreground extraction '''
     
     # .................................................................................................................
     
@@ -310,7 +310,7 @@ class Binary_Display(Matched_Size_Display):
         
         # Inherit from parent class
         super().__init__("Binary Output", 
-                         "frame_processor", "binary_frame_1ch", 
+                         "foreground_extractor", "binary_frame_1ch", 
                          "preprocessor", "preprocessed_frame",
                          layout_index, num_rows, num_columns, 
                          initial_display = initial_display,
@@ -376,7 +376,7 @@ class Detection_Display(Display_Window_Specification):
     # .................................................................................................................
         
     def display(self, stage_outputs, configurable_ref, mouse_xy, 
-                current_frame_index, current_time_sec, current_datetime):
+                current_frame_index, current_epoch_ms, current_datetime):
         
         # Grab a copy of the color image that we can draw on
         detection_ref_list = stage_outputs["detector"]["detection_ref_list"]
@@ -445,7 +445,7 @@ class Tracked_Display(Display_Window_Specification):
     # .................................................................................................................
         
     def display(self, stage_outputs, configurable_ref, mouse_xy, 
-                current_frame_index, current_time_sec, current_datetime):
+                current_frame_index, current_epoch_ms, current_datetime):
         
         # Grab a of the preprocessed image that we can draw on it
         display_frame = stage_outputs.get("preprocessor").get("preprocessed_frame")
@@ -460,7 +460,7 @@ class Tracked_Display(Display_Window_Specification):
                                      self._show_bounding_boxes,
                                      self._show_trails,
                                      self._show_decay,
-                                     current_time_sec,
+                                     current_epoch_ms,
                                      outline_color = self._line_color, 
                                      box_color = self._line_color)
         
@@ -506,7 +506,7 @@ class Validation_Display(Display_Window_Specification):
     # .................................................................................................................
     
     def display(self, stage_outputs, configurable_ref, mouse_xy, 
-                current_frame_index, current_time_sec, current_datetime):
+                current_frame_index, current_epoch_ms, current_datetime):
         
         # Grab a of the preprocessed image that we can draw on it
         display_frame = stage_outputs.get("preprocessor").get("preprocessed_frame")
@@ -521,7 +521,7 @@ class Validation_Display(Display_Window_Specification):
                                      self._show_bounding_boxes,
                                      self._show_trails,
                                      self._show_decay,
-                                     current_time_sec,
+                                     current_epoch_ms,
                                      outline_color = self._line_color, 
                                      box_color = self._line_color)
         
@@ -536,7 +536,7 @@ class Validation_Display(Display_Window_Specification):
     
 def draw_objects_on_frame(display_frame, object_dict, 
                           show_ids, show_outlines, show_bounding_boxes, show_trails, show_decay,
-                          current_time_sec, outline_color, box_color):
+                          current_epoch_ms, outline_color, box_color):
     
     # Set up some dimming colors for each drawing color, in case of decaying objects
     dim_ol_color = [np.mean(outline_color)] * 3
@@ -559,14 +559,14 @@ def draw_objects_on_frame(display_frame, object_dict,
         draw_bx_color = box_color
         draw_tr_color = (0, 255, 255)
         if show_decay:
-            match_delta = each_obj.match_decay_time_sec(current_time_sec)            
-            if match_delta > (1/100):
+            match_delta = each_obj.get_match_decay_time_ms(current_epoch_ms)            
+            if match_delta > 1:
                 draw_ol_color = dim_ol_color 
                 draw_bx_color = dim_bx_color
                 draw_tr_color = dim_tr_color
                 
                 # Show decay time
-                cv2.putText(display_frame, "{:.3f}s".format(match_delta), tr,
+                cv2.putText(display_frame, "{:.3f}s".format(match_delta/1000), tr,
                         cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2, cv2.LINE_AA)
         
         # Show object outlines (i.e. blobs) if needed
@@ -580,7 +580,7 @@ def draw_objects_on_frame(display_frame, object_dict,
         
         # Draw object trails
         if show_trails:
-            xy_trail = np.int32(np.round(each_obj.xy_track_history * frame_wh))
+            xy_trail = np.int32(np.round(each_obj.xy_center_history * frame_wh))
             if len(xy_trail) > 1:
                 cv2.polylines(display_frame, [xy_trail], False, draw_tr_color, 1, cv2.LINE_AA)
             

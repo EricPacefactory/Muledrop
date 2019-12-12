@@ -49,8 +49,6 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
-import argparse
-
 from local.lib.file_access_utils.shared import find_root_path, find_cameras_folder
 from local.lib.file_access_utils.history import load_history, save_history
 
@@ -115,10 +113,9 @@ class Resource_Selector:
     
     # .................................................................................................................
     
-    def get_cameras_tree(self, show_rtsp = False):
+    def get_cameras_tree(self):
         return build_cameras_tree(self.cameras_folder_path,
-                                  show_hidden = self._show_hidden_resources,
-                                  show_rtsp = show_rtsp)
+                                  show_hidden = self._show_hidden_resources)
         
     # .................................................................................................................
     
@@ -138,11 +135,11 @@ class Resource_Selector:
     
     @clean_error_quit
     @keyboard_quit
-    def camera(self, camera_select = None, debug_mode = False):
+    def camera(self, camera_select = None, must_have_rtsp = False, debug_mode = False):
         
         # Get list of available selection options and then (try to) select one
         show_hidden_cameras = self._show_hidden_resources
-        camera_name_path_lists = build_camera_list(self.cameras_folder_path, show_hidden_cameras)
+        camera_name_path_lists = build_camera_list(self.cameras_folder_path, show_hidden_cameras, must_have_rtsp)
         camera_select, path_select = self._make_selection("camera", camera_select, camera_name_path_lists,
                                                           debug_mode = debug_mode)
         
@@ -180,22 +177,19 @@ class Resource_Selector:
     
     @clean_error_quit
     @keyboard_quit
-    def video(self, camera_select, video_select = None, show_rtsp_option = True, debug_mode = False):
+    def video(self, camera_select, video_select = None, debug_mode = False):
         
         # Get list of available selection options and then (try to) select one
         show_hidden_videos = self._show_hidden_resources
         video_name_path_lists = build_video_list(self.cameras_folder_path, camera_select, 
-                                                 show_hidden_videos, show_rtsp_option, error_if_no_videos = False)
+                                                 show_hidden_videos, error_if_no_videos = False)
         
         # Display a message if no videos are present
         if len(video_name_path_lists[0]) == 0:
             video_name_path_lists = (["No videos!"], [""])
         
-        # Only show zero indexed if the RTSP option is actually present
-        show_zero_indexed = (video_name_path_lists[0][0].lower() == "rtsp")
-        
         video_select, path_select = self._make_selection("video", video_select, video_name_path_lists,
-                                                         zero_indexed = show_zero_indexed,
+                                                         zero_indexed = False,
                                                          debug_mode = debug_mode)
         
         return video_select, path_select
@@ -295,50 +289,8 @@ class Resource_Selector:
     
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define functions
-        
+
 # .....................................................................................................................
-
-def parse_args(enable_camera_select = True,
-               enable_user_select = True,
-               enable_task_select = True,
-               enable_video_select = True,
-               output_key_prefix = "",
-               output_key_suffix = "_select"):
-    
-    ''' 
-    Function for parsing standard input arguments for resource selection.
-    Multiple enable flags are available as input arguments for controllnig which inputs are provided by arg parser
-    This function returns a dictionary of the form:
-        output_dict = {"camera_select": <camera_arg_result>,
-                       "user_select":   <user_arg_result>,
-                       "task_select":   <task_arg_result>,
-                       "video_select":  <video_arg_result>}
-        
-    Note that the keys can be modified using the output_key_prefix/suffix function arguments.
-    For example, with output_key_prefix = "ini_" and output_key_suffix = "", the output dictionary keys would be:
-        "ini_camera", "ini_user", "ini_task", "ini_video"
-    '''
-
-    # Set up argparser options
-    ap = argparse.ArgumentParser()
-    if enable_camera_select: ap.add_argument("-c", "--camera", default = None, type = str, help = "Camera select")
-    if enable_user_select: ap.add_argument("-u", "--user", default = None, type = str, help = "User select")
-    if enable_task_select: ap.add_argument("-t", "--task", default = None, type = str, help = "Task select")
-    if enable_video_select: ap.add_argument("-v", "--video", default = None, type = str, help = "Video select")
-    
-    ap.add_argument("-sip", "--socketip", default = None, type = str, help = "Specify socket server IP address")
-    ap.add_argument("-sport", "--socketport", default = None, type = str, help = "Specify socket server port")
-    
-    ap_result = vars(ap.parse_args())
-    
-    # Get script argument selections
-    out_key = lambda base_label: "{}{}{}".format(output_key_prefix, base_label, output_key_suffix)
-    output_dict = {out_key("camera"): ap_result.get("camera"),
-                   out_key("user"): ap_result.get("user"),
-                   out_key("task"): ap_result.get("task"),
-                   out_key("video"): ap_result.get("video")}
-    
-    return output_dict
 
 # .....................................................................................................................
 # .....................................................................................................................

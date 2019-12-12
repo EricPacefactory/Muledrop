@@ -80,11 +80,11 @@ class Custom_Input(Display_Window_Specification):
     # .................................................................................................................
         
     def display(self, stage_outputs, configurable_ref, mouse_xy, 
-                current_frame_index, current_time_sec, current_datetime):
+                current_frame_index, current_epoch_ms, current_datetime):
         
         # Get the cropping co-ords
         y1, y2, x1, x2 = configurable_ref._crop_y1y2x1x2
-        pt1 = (x1, y1)
+        pt1 = (x1 - 1, y1 - 1)
         pt2 = (x2, y2)
         
         # Get input display frame, then draw the cropped region over top of it
@@ -118,7 +118,7 @@ class Cropping_Info(Display_Window_Specification):
     # .................................................................................................................
         
     def display(self, stage_outputs, configurable_ref, mouse_xy,
-                current_frame_index, current_time_sec, current_datetime):
+                current_frame_index, current_epoch_ms, current_datetime):
         
         # Create a blank frame for drawing
         display_frame = self._info_frame.copy()
@@ -179,7 +179,7 @@ stage_outputs = main_process.debug_stage_outputs
 stage_timing = main_process.debug_stage_timing
 object_ids_in_frame_dict = main_process.debug_object_ids_in_frame_dict
 snapshot_metadata = main_process.debug_current_snapshot_metadata
-last_frame_index, last_time_sec, last_datetime = main_process.debug_fsd_time_args
+last_frame_index, last_epoch_ms, last_datetime = main_process.debug_fed_time_args
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Scrap

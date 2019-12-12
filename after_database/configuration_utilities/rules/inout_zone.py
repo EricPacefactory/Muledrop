@@ -317,7 +317,7 @@ for each_obj in obj_list:
     draw_frame = rule_obj.draw_alarm_image(draw_frame, each_obj)
     
 
-cv2.imshow("HUH", draw_frame); cv2.waitKey(0)
+cv2.imshow("With Sauce", draw_frame); cv2.waitKey(0)
 
 cv2.destroyAllWindows()
 

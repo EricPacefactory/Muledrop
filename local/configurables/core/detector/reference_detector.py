@@ -87,11 +87,18 @@ class Reference_Detector(Core_Configurable_Base):
     
     # .................................................................................................................
     
+    # MAY OVERRIDE. Only if some resources have been opened while running...
+    def close(self, final_frame_index, final_epoch_ms, final_datetime):
+        # Nothing opened, nothing to close!
+        return None
+    
+    # .................................................................................................................
+    
     # MAY OVERRIDE (BUT NOT NECESSARY, BETTER TO INSTEAD OVERRIDE: detections_from_frames())
     def run(self, filtered_binary_frame_1ch, preprocessed_frame):
         # This function must maintain this input/output structure!
         #   - Need to pass in binary (black or white only!) image data for (assumed) blob detection 
-        #   - Also pass the color image, in case the detector wants to try something fancy
+        #   - Also pass the color image, in case the detector wants to try something fancy with the color data
         #   - Return a list of detection objects, which should inherit from the reference detection class!
         
         # Return a list of objects from the detection class
@@ -120,10 +127,7 @@ class Reference_Detection_Object:
     
     # .................................................................................................................
     
-    def __init__(self, detection_type, contour):
-        
-        # Store the 'type' of detection, in case new versions are made in the future which are not compatible
-        self.detection_type = detection_type
+    def __init__(self, contour, detection_classification = "unclassified", classification_score = 0.0):
         
         # Get a simplified representation of the contour
         full_hull = cv2.convexHull(contour)
@@ -162,21 +166,16 @@ class Reference_Detection_Object:
         bot_right_x_px = top_left_x_px + box_width_px - 1
         bot_right_y_px = top_left_y_px + box_height_px - 1
         
-        # Calculate the relative amount of area taken by the outline vs the bounding box
-        box_area_px = (box_width_px - 1) * (box_height_px - 1)
-        self.fill = hull_area_px / box_area_px
-        
         # Store (normalized) location values
         self.top_left = np.float32((top_left_x_px, top_left_y_px)) * self._xy_loc_scaling
         self.bot_right = np.float32((bot_right_x_px, bot_right_y_px)) * self._xy_loc_scaling
         
         # Store width/height in format that allows reconstruction of tl/br using x/y center coords
         self.width, self.height = np.float64(self.bot_right - self.top_left)
-        self.box_area = self.width * self.height
         
-        # Store a property for assigning classifications during detection. Reference does not actually do this though!
-        self.detection_classification = None
-        self.classification_score = 0
+        # Store a property for assigning classifications during detection
+        self.detection_classification = detection_classification
+        self.classification_score = classification_score
         
     # .................................................................................................................
     

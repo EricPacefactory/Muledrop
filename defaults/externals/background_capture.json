@@ -6,7 +6,7 @@
   },
   "setup_data": {
     "capture_period_hr": 0,
-    "capture_period_min": 5,
+    "capture_period_min": 15,
     "capture_period_sec": 0,
     "update_weighting": 0.15000000000000002
   }

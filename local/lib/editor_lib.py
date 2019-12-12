@@ -49,7 +49,7 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
-import argparse
+from local.lib.configuration_utils.script_arguments import script_arg_builder 
 
 from eolib.utils.cli_tools import cli_select_from_list
 
@@ -163,19 +163,19 @@ class Edit_Selector:
 
     # .................................................................................................................
     
-    def video(self, camera_select, video_select = None, show_rtsp = True):
+    def video(self, camera_select, video_select = None):
         
         # Provide feedback about having to select the video first
         if video_select is None:
-            print("", "/" * 32,
+            print("", 
+                  "/" * 32,
                   "  Must select a video first",
                   "/" * 32, sep="\n")
         
         # Select video
         try:
             video_name, video_path = self.select.video(camera_select, 
-                                                       video_select = video_select,
-                                                       show_rtsp_option = show_rtsp)
+                                                       video_select = video_select)
         except ValueError:
             self.no_selection_quit()
             
@@ -206,47 +206,33 @@ def safe_quit():
 
 # .....................................................................................................................
 
-def parse_selection_args(custom_arg_parser_function = None, *, 
-                         show_camera = True,
-                         show_user = True,
-                         show_task = True,
-                         show_video = True):
+def parse_editor_args(custom_arg_parser_function = None, *, 
+                      show_camera = True,
+                      show_user = True,
+                      show_task = True,
+                      show_video = True):
     
-    # Construct the argument parser
-    ap = argparse.ArgumentParser()
     
-    if show_camera:
-        ap.add_argument("-c", "--camera",
-                        default = None,
-                        type = str,
-                        help="Camera selection")
+    # Set script arguments for running files    
+    args_list = []
+    args_list += ["camera"] if show_camera else []
+    args_list += ["user"] if show_user else []
+    args_list += ["task"] if show_task else []
+    args_list += ["video"] if show_video else []
     
-    if show_user:
-        ap.add_argument("-u", "--user",
-                        default = None,
-                        type = str,
-                        help="User selection")
+    # Build & evaluate script arguments!
+    ap_obj = script_arg_builder(args_list,
+                                parse_on_call = False,
+                                debug_print = False)
     
-    if show_task:
-        ap.add_argument("-t", "--task",
-                        default = None,
-                        type = str,
-                        help="Task selection")
-    
-    if show_video:
-        ap.add_argument("-v", "--video",
-                        default = None,
-                        type = str,
-                        help="Video selection")
-        
     # Add custom arguments if a function is provided
     if custom_arg_parser_function is not None:
-        ap = custom_arg_parser_function(ap)
+        ap_obj = custom_arg_parser_function(ap_obj)
 
     # Gather arguments into a dictionary for easier use
-    args = vars(ap.parse_args())
+    args_dict = vars(ap_obj.parse_args())
     
-    return args
+    return args_dict
 
 # .....................................................................................................................
 # .....................................................................................................................

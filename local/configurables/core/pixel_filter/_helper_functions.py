@@ -72,7 +72,7 @@ class Color_Filtered(Display_Window_Specification):
     # .................................................................................................................
         
     def display(self, stage_outputs, configurable_ref, mouse_xy,
-                current_frame_index, current_time_sec, current_datetime):
+                current_frame_index, current_epoch_ms, current_datetime):
         
         return color_masked(stage_outputs, configurable_ref)
         
@@ -92,7 +92,7 @@ def color_masked(stage_outputs, configurable_ref):
     '''
     
     # Grab the preprocessed frame and internal filtering mask so we can show the combined effect
-    color_frame = stage_outputs["frame_processor"]["preprocessed_frame"]
+    color_frame = stage_outputs["foreground_extractor"]["preprocessed_frame"]
     mask_frame = configurable_ref.filter_mask
     
     # If no mask is available, just return the un-masked frame

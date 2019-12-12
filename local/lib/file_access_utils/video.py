@@ -54,7 +54,7 @@ from local.lib.file_access_utils.shared import load_or_create_json
 from local.lib.file_access_utils.shared import load_replace_save
 from local.lib.file_access_utils.shared import copy_from_defaults
 
-from eolib.utils.network import build_rtsp_string
+from eolib.utils.network import build_rtsp_string, check_valid_ip
 
 
 
@@ -335,10 +335,6 @@ def build_video_name_path_lookup(cameras_folder, camera_select, video_select,
         video_name = os.path.basename(video_path)
         valid_dict[video_name] = video_path
         
-    # Finally, add rtsp data so we can look up the rtsp string!
-    _, rtsp_string = load_rtsp_config(cameras_folder, camera_select)
-    valid_dict["RTSP"] = rtsp_string
-        
     return valid_dict
 
 # .....................................................................................................................
@@ -389,6 +385,25 @@ def save_rtsp_config(cameras_folder, camera_select, new_rtsp_config, rtsp_filena
     return load_replace_save(rtsp_file_path, new_rtsp_config)
 
 # .....................................................................................................................
+
+def check_valid_rtsp_ip(cameras_folder, camera_select):
+    
+    ''' 
+    Function for (roughly) determining if the rtsp configuration of a camera is valid 
+    Only checks if the ip address is valid
+    
+    Returns:
+        has_valid_rtsp (boolean)
+    '''
+    
+    # Check for missing rtsp configuration
+    rtsp_config_dict, _ = load_rtsp_config(cameras_folder, camera_select)
+    rtsp_ip_address = rtsp_config_dict.get("ip_address", "")
+    has_valid_rtsp = check_valid_ip(rtsp_ip_address, return_error = False)
+    
+    return has_valid_rtsp
+
+# .....................................................................................................................
 # .....................................................................................................................
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -408,7 +423,7 @@ def load_playback_settings(cameras_folder, camera_select, video_select,
     # Create default file content in case it isn't there
     default_content = {}
     
-    # Build pathing to the rtsp file, then load it
+    # Load the playback settings file (or create it if missing)
     playback_settings_dict = load_or_create_json(load_path, default_content,
                                                  creation_printout = "Creating playback settings file:")
     

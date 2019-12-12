@@ -78,7 +78,7 @@ class Scaling_Info(Display_Window_Specification):
     # .................................................................................................................
         
     def display(self, stage_outputs, configurable_ref, mouse_xy,
-                current_frame_index, current_time_sec, current_datetime):
+                current_frame_index, current_epoch_ms, current_datetime):
         
         # Create a blank frame for drawing
         display_frame = self._info_frame.copy()
@@ -139,7 +139,7 @@ stage_outputs = main_process.debug_stage_outputs
 stage_timing = main_process.debug_stage_timing
 object_ids_in_frame_dict = main_process.debug_object_ids_in_frame_dict
 snapshot_metadata = main_process.debug_current_snapshot_metadata
-last_frame_index, last_time_sec, last_datetime = main_process.debug_fsd_time_args
+last_frame_index, last_epoch_ms, last_datetime = main_process.debug_fed_time_args
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Scrap

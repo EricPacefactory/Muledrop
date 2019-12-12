@@ -68,6 +68,32 @@ class Screen_Info:
         self._controls_dict = self._screen_info_dict.get("controls")
         self._displays_dict = self._screen_info_dict.get("displays")
         self._feedback_dict = self._screen_info_dict.get("feedback")
+        
+    # .................................................................................................................
+    
+    def __repr__(self):
+        
+        repr_strs = ["Screen:"]
+        longest_key = max((len(each_key) for each_key in self._screen_dict.keys()))
+        for each_key, each_value in self._screen_dict.items():
+            repr_strs += ["  {}: {}".format(each_key.rjust(longest_key), each_value)]
+            
+        repr_strs += ["", "Controls:"]
+        longest_key = max((len(each_key) for each_key in self._controls_dict.keys()))
+        for each_key, each_value in self._controls_dict.items():
+            repr_strs += ["  {}: {}".format(each_key.rjust(longest_key), each_value)]
+            
+        repr_strs += ["", "Displays:"]
+        longest_key = max((len(each_key) for each_key in self._displays_dict.keys()))
+        for each_key, each_value in self._displays_dict.items():
+            repr_strs += ["  {}: {}".format(each_key.rjust(longest_key), each_value)]
+            
+        repr_strs += ["", "Feedback:"]
+        longest_key = max((len(each_key) for each_key in self._feedback_dict.keys()))
+        for each_key, each_value in self._feedback_dict.items():
+            repr_strs += ["  {}: {}".format(each_key.rjust(longest_key), each_value)]
+    
+        return "\n".join(repr_strs)
     
     # .................................................................................................................
     
@@ -107,7 +133,7 @@ class Screen_Info:
 def load_screen_info(project_root_path, file_name = ".screen_info"):
     
     # Build default parameters for different use cases
-    default_screen = {"width": 1280,  "height": 720, "x_offset": 0, "y_offset": 0}
+    default_screen = {"width": 1920,  "height": 1080, "x_offset": 0, "y_offset": 0}
     default_controls = {"max_columns": 3,  "max_width": 500, "column_spacing": 20, "row_spacing": 250,
                         "x_padding": 20, "y_padding": 20, "empty_height": 30}
     default_displays = {"max_width": None, "max_height": None, 

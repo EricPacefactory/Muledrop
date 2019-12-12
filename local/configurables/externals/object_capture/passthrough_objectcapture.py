@@ -82,19 +82,8 @@ class Object_Capture(Reference_Object_Capture):
     
     # .................................................................................................................
     
-    def dying_save_condition(self, object_metadata, partition_index,
-                             current_frame_index, current_time_sec, current_datetime):
-        
-        # Only save the first object data
-        if not self._saved_data:
-            self._saved_data = True
-            return True
-        return False
-    
-    # .................................................................................................................
-    
-    def elder_save_condition(self, object_metadata, partition_index,
-                             current_frame_index, current_time_sec, current_datetime):
+    def dying_save_condition(self, object_metadata,
+                             current_frame_index, current_epoch_ms, current_datetime):
         
         # Only save the first object data
         if not self._saved_data:

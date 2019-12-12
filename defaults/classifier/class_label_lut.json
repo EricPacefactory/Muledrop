@@ -2,7 +2,7 @@
   "unclassified": {
     "class_index": -2,
     "trail_color": [255, 255, 0],
-    "outline_color": [0, 255, 0]
+    "outline_color": [255, 255, 0]
   },
   "ignore": {
     "class_index": -1,
@@ -17,12 +17,12 @@
   "pedestrian": {
     "class_index": 1,
     "trail_color": [255, 255, 0],
-    "outline_color": [255, 105, 10]
+    "outline_color":  [0, 255, 0]
   },
   "vehicle": {
     "class_index": 2,
     "trail_color": [255, 255, 0],
-    "outline_color": [10, 235, 245]
+    "outline_color": [0, 255, 255]
   },
   "other": {
     "class_index": 3,

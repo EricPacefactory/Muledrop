@@ -73,23 +73,30 @@ class Reference_Frame_Capture(Core_Configurable_Base):
         # ...
         # ...
         # ...
+        
+    # .................................................................................................................
+    
+    # MAY OVERRIDE. Only if some resources have been opened while running...
+    def close(self, final_frame_index, final_epoch_ms, final_datetime):
+        # Nothing opened, nothing to close!
+        return None
     
     # .................................................................................................................
     
     # MAY OVERRIDE (BUT NOT NECESSARY, BETTER TO INSTEAD OVERRIDE: skip_conditions(...))
-    def run(self, current_frame_index, time_elapsed_seconds, current_datetime):
+    def run(self, current_frame_index, current_epoch_ms, current_datetime):
         # This function must maintain this input/output structure!
         #   - Used to allow for input frames to be skipped over due to timing
         
         # Decide if we need to skip the current frame. Should return boolean!
-        skip_frame = self.skip_conditions(current_frame_index, time_elapsed_seconds, current_datetime)
+        skip_frame = self.skip_conditions(current_frame_index, current_epoch_ms, current_datetime)
         
         return skip_frame
     
     # .................................................................................................................
     
     # SHOULD OVERRIDE
-    def skip_conditions(self, current_frame_index, time_elapsed_seconds, current_datetime):        
+    def skip_conditions(self, current_frame_index, current_epoch_ms, current_datetime):        
         # Most basic implemention never skips frames
         return False
     

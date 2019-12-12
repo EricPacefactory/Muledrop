@@ -77,7 +77,7 @@ class Frame_Capture_Stage(Reference_Frame_Capture):
         
     # .................................................................................................................
         
-    def skip_conditions(self, current_frame_index, time_elapsed_seconds, current_datetime):        
+    def skip_conditions(self, current_frame_index, current_epoch_ms, current_datetime):        
         # Most basic implemention never skips frames
         return False
     

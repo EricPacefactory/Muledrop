@@ -57,8 +57,8 @@ import datetime as dt
 
 from time import perf_counter
 
-from local.lib.timekeeper_utils import utc_datetime_to_epoch_ms, epoch_ms_to_utc_datetime
-from local.lib.timekeeper_utils import parse_isoformat_string, isoformat_datetime_string, isoformat_to_epoch_ms
+from local.lib.timekeeper_utils import datetime_to_epoch_ms_utc, epoch_ms_to_utc_datetime
+from local.lib.timekeeper_utils import parse_isoformat_string, get_isoformat_string, isoformat_to_epoch_ms
 
 from local.lib.file_access_utils.structures import build_task_list
 
@@ -103,8 +103,15 @@ class File_DB:
     # .................................................................................................................
     
     def __repr__(self):
-        num_tables = len(self._list_table_names())
-        return "{} ({} tables)".format(self._class_name, num_tables)
+        
+        table_names_list = self._list_table_names()
+        num_tables = len(table_names_list)
+        
+        repr_strs = ["{} ({} tables)".format(self._class_name, num_tables)]
+        for each_table_name in table_names_list:
+            repr_strs += ["  {}".format(each_table_name)]
+        
+        return "\n".join(repr_strs)
     
     # .................................................................................................................
     
@@ -317,7 +324,7 @@ class Snap_DB(File_DB):
     def get_bounding_epoch_ms(self):
         
         # Build string to get min/max datetimes from snapshots
-        select_cmd = "SELECT min(epoch_ms_utc), max(epoch_ms_utc) from {}".format(self._table_name())
+        select_cmd = "SELECT min(epoch_ms_utc), max(epoch_ms_utc) FROM {}".format(self._table_name())
         
         # Get data from database!
         cursor = self._cursor()
@@ -330,10 +337,25 @@ class Snap_DB(File_DB):
     
     def get_bounding_datetimes(self):
         
-        # First get bounding epoch times, then convert to datetime objects
+        # First get bounding epoch times of bounding snapshots
         min_epoch_ms, max_epoch_ms = self.get_bounding_epoch_ms()
-        min_dt = epoch_ms_to_utc_datetime(min_epoch_ms)
-        max_dt = epoch_ms_to_utc_datetime(max_epoch_ms)
+        
+        # Build string to get the corresponding datetime strings for the bounding epoch values
+        select_min_cmd = "SELECT datetime_isoformat FROM {} WHERE epoch_ms_utc = {}".format(self._table_name(),
+                                                                                            min_epoch_ms)
+        select_max_cmd = "SELECT datetime_isoformat FROM {} WHERE epoch_ms_utc = {}".format(self._table_name(),
+                                                                                            max_epoch_ms)
+        
+        # Get data from database!
+        cursor = self._cursor()
+        cursor.execute(select_min_cmd)
+        min_dt_isoformat = cursor.fetchone()
+        cursor.execute(select_max_cmd)
+        max_dt_isoformat = cursor.fetchone()
+        
+        # Finally, convert datetime isoformat strings back to datetime objects
+        min_dt = parse_isoformat_string(min_dt_isoformat[0])
+        max_dt = parse_isoformat_string(max_dt_isoformat[0])
         
         return min_dt, max_dt
     
@@ -528,15 +550,17 @@ class Object_DB(File_DB):
         # Define table columns
         objs_columns = ["full_id INTEGER PRIMARY KEY",
                         "nice_id INTEGER", 
+                        "ancestor_id INTEGER", 
+                        "decendent_id INTEGER",
+                        "is_final INTEGER",
                         "detection_class TEXT",
-                        "start_epoch_ms_utc INTEGER",
-                        "end_epoch_ms_utc INTEGER",
-                        "lifetime_sec REAL", 
+                        "detection_score REAL",
+                        "first_epoch_ms INTEGER",
+                        "last_epoch_ms INTEGER",
+                        "lifetime_ms INTEGER", 
                         "start_frame_index INTEGER",
                         "end_frame_index INTEGER",
                         "num_samples INTEGER",
-                        "partition_index INTEGER",
-                        "is_final INTEGER",
                         "metadata_json TEXT"]
         objs_column_str = ", ".join(objs_columns)
         
@@ -550,22 +574,20 @@ class Object_DB(File_DB):
         
     # .................................................................................................................
     
-    def add_entry(self, task_select, full_id, nice_id, detection_class,
-                  start_epoch_ms_utc, end_epoch_ms_utc, lifetime_sec,
-                  start_frame_index, end_frame_index, num_samples, 
-                  partition_index, is_final, metadata_json):
+    def add_entry(self, task_select, full_id, nice_id, ancestor_id, decendent_id, is_final,
+                  detection_class, detection_score,
+                  first_epoch_ms, last_epoch_ms, lifetime_ms,
+                  start_frame_index, end_frame_index, num_samples, metadata_json):
         
         # Bundle data in the correct order for database entry
-        new_entry_var_list = ["full_id", "nice_id", "detection_class",
-                              "start_epoch_ms_utc", "end_epoch_ms_utc", "lifetime_sec",
-                              "start_frame_index", "end_frame_index", "num_samples", 
-                              "partition_index", "is_final",
-                              "metadata_json"]
-        new_entry_value_list = [full_id, nice_id, detection_class,
-                                start_epoch_ms_utc, end_epoch_ms_utc, lifetime_sec,
-                                start_frame_index, end_frame_index, num_samples, 
-                                partition_index, is_final, 
-                                metadata_json]
+        new_entry_var_list = ["full_id", "nice_id", "ancestor_id", "decendent_id", "is_final",
+                              "detection_class", "detection_score",
+                              "first_epoch_ms", "last_epoch_ms", "lifetime_ms",
+                              "start_frame_index", "end_frame_index", "num_samples", "metadata_json"]
+        new_entry_value_list = [full_id, nice_id, ancestor_id, decendent_id, is_final,
+                                detection_class, detection_score,
+                                first_epoch_ms, last_epoch_ms, lifetime_ms,
+                                start_frame_index, end_frame_index, num_samples,  metadata_json]
         new_entry_q_list = ["?"] * len(new_entry_var_list)
         
         # Build insert command
@@ -593,9 +615,9 @@ class Object_DB(File_DB):
                      SELECT full_id
                      FROM {}
                      WHERE 
-                     start_epoch_ms_utc >= {} 
+                     first_epoch_ms >= {} 
                      AND 
-                     end_epoch_ms_utc <= {}
+                     first_epoch_ms <= {}
                      """.format(table_name, start_epoch_ms_utc, end_epoch_ms_utc)
                      
         # Get data from database!
@@ -627,7 +649,7 @@ class Object_DB(File_DB):
                      FROM {}
                      WHERE {} 
                      BETWEEN 
-                     start_epoch_ms_utc AND end_epoch_ms_utc
+                     first_epoch_ms AND last_epoch_ms
                      """.format(table_name, target_epoch_ms_utc)
                      
         # Get data from database!
@@ -968,6 +990,27 @@ class Rule_DB(File_DB):
     # .................................................................................................................
 
 
+# /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+# /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+class Summary_DB(File_DB):
+    
+    # .................................................................................................................
+    
+    def __init__(self, cameras_folder_path, camera_select, user_select,
+                 db_path = ":memory:"):
+        
+        # Inherit from parent
+        super().__init__(cameras_folder_path, camera_select, user_select, db_path)
+        
+    # .................................................................................................................
+    # .................................................................................................................
+
+
+# /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+# /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define functions
@@ -988,7 +1031,7 @@ def _time_to_epoch_ms_utc(time_value):
     
     # If a datetime vlaue is provided, use timekeeper library to convert
     elif value_type is dt.datetime:
-        return utc_datetime_to_epoch_ms(time_value)
+        return datetime_to_epoch_ms_utc(time_value)
     
     # If a string is provided, assume it is an isoformat datetime string
     elif value_type is str:
@@ -1036,8 +1079,8 @@ def user_input_datetime_range(earliest_datetime, latest_datetime, debug_mode = F
     # Force earliest/latest boundary timing
     start_dt = max(earliest_datetime, start_dt)
     end_dt = min(latest_datetime, end_dt)
-    start_dt_isoformat = isoformat_datetime_string(start_dt)
-    end_dt_isoformat = isoformat_datetime_string(end_dt)
+    start_dt_isoformat = get_isoformat_string(start_dt)
+    end_dt_isoformat = get_isoformat_string(end_dt)
     
     return start_dt, end_dt, start_dt_isoformat, end_dt_isoformat
 
@@ -1061,30 +1104,29 @@ def _post_object_metadata(object_metadata_folder_path, task_select, database):
         obj_md = load_json(each_path)
         full_id = obj_md["full_id"]
         nice_id = obj_md["nice_id"]
-        detection_class = obj_md["detection_class"]
+        ancestor_id = obj_md["ancestor_id"]
+        decendent_id = obj_md["decendent_id"]
+        is_final = obj_md["is_final"]
         
-        first_datetime_str = obj_md["timing"]["first_datetime_isoformat"]
-        last_datetime_str = obj_md["timing"]["last_datetime_isoformat"]
-        start_epoch_ms_utc = utc_datetime_to_epoch_ms(parse_isoformat_string(first_datetime_str))
-        end_epoch_ms_utc = utc_datetime_to_epoch_ms(parse_isoformat_string(last_datetime_str))
-        lifetime_sec = obj_md["lifetime_sec"]
+        detection_class = obj_md["detection_class"]
+        detection_score = obj_md["detection_score"]
+        
+        first_epoch_ms = obj_md["timing"]["first_epoch_ms"]
+        last_epoch_ms = obj_md["timing"]["last_epoch_ms"]
+        lifetime_ms = obj_md["lifetime_ms"]
         
         first_frame_index = obj_md["timing"]["first_frame_index"]
         last_frame_index = obj_md["timing"]["last_frame_index"]
         num_samples = obj_md["num_samples"]
         
-        partition_index = obj_md["partition_index"]
-        is_final = obj_md["is_final"]
-        
         metadata_json = json.dumps(obj_md)
 
         # 'POST' to the database
         database.add_entry(task_select, 
-                           full_id, nice_id, detection_class,
-                           start_epoch_ms_utc, end_epoch_ms_utc, lifetime_sec,
-                           first_frame_index, last_frame_index, num_samples, 
-                           partition_index, is_final, 
-                           metadata_json)
+                           full_id, nice_id, ancestor_id, decendent_id, is_final,
+                           detection_class, detection_score,
+                           first_epoch_ms, last_epoch_ms, lifetime_ms,
+                           first_frame_index, last_frame_index, num_samples, metadata_json)
     
     # End timing
     t_end = perf_counter()

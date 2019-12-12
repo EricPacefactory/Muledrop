@@ -49,7 +49,7 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
-from local.lib.editor_lib import Edit_Selector, safe_quit, parse_selection_args
+from local.lib.editor_lib import Edit_Selector, safe_quit, parse_editor_args
 
 from local.lib.selection_utils import Resource_Selector
 
@@ -501,7 +501,7 @@ def example_message(script_arguments):
 #%% Parse arguments
 
 # Get arguments for this script call
-script_args = parse_selection_args(custom_arguments)
+script_args = parse_editor_args(custom_arguments)
 camera_select = script_args["camera"]
 user_select = script_args["user"]
 task_select = script_args["task"]

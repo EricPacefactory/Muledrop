@@ -78,7 +78,7 @@ class Pixel_Filter_Stage(Reference_Pixel_Filter):
     # .................................................................................................................
     
     def apply_pixel_filtering(self, binary_frame_1ch, color_frame):
-        # Don't do anything, just pass the frame processor result through
+        # Don't do anything, just pass the foreground extraction result through
         return binary_frame_1ch
     
     # .................................................................................................................

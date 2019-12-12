@@ -90,7 +90,7 @@ def web_core_config_video_loop(video_reader_ref,
     while True:
         
         # Grab frames from the video source (with timing information for each frame!)
-        req_break, input_frame, current_time_elapsed, current_datetime = video_reader_ref.read()
+        req_break, input_frame, current_epoch_ms, current_datetime = video_reader_ref.read()
         if req_break:
             # Loop the video back at the end if we miss a frame
             video_reader_ref.set_current_frame(0)
@@ -108,13 +108,13 @@ def web_core_config_video_loop(video_reader_ref,
             core_bundle_ref.force_save_core_config(core_ref)
         
         # Handle background capture stage
-        bg_outputs = background_capture_ref.run(input_frame, current_time_elapsed, current_datetime)
+        bg_outputs = background_capture_ref.run(input_frame, current_epoch_ms, current_datetime)
         
         # .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
         # --- THE FOLLOWING RUNS FOR EACH TASK ---
         
         skip_frame, stage_outputs, stage_timing = \
-        core_bundle_ref.run_all(bg_outputs, current_time_elapsed, current_datetime)
+        core_bundle_ref.run_all(bg_outputs, current_epoch_ms, current_datetime)
         
         # .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
         # Display

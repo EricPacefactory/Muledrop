@@ -74,7 +74,7 @@ class Custom_Input_Display(Display_Window_Specification):
     # .................................................................................................................
         
     def display(self, stage_outputs, configurable_ref, mouse_xy,
-                current_frame_index, current_time_sec, current_datetime):
+                current_frame_index, current_epoch_ms, current_datetime):
         
         display_frame = stage_outputs.get("frame_capture").get("video_frame")
         return configurable_ref._draw_extended_quad(display_frame)
@@ -116,7 +116,7 @@ stage_outputs = main_process.debug_stage_outputs
 stage_timing = main_process.debug_stage_timing
 object_ids_in_frame_dict = main_process.debug_object_ids_in_frame_dict
 snapshot_metadata = main_process.debug_current_snapshot_metadata
-last_frame_index, last_time_sec, last_datetime = main_process.debug_fsd_time_args
+last_frame_index, last_epoch_ms, last_datetime = main_process.debug_fed_time_args
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Scrap

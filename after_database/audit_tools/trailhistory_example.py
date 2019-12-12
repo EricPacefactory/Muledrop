@@ -353,6 +353,10 @@ def get_hovered_timebars(mouse_x, timebar_row_index_hover, object_reconstruction
 def show_looping_animation(snapshot_database, object_database, object_list, 
                            start_buffer_time_sec = 3.0, end_buffer_time_sec = 5.5):
 
+    # Don't do anything if there are no objects to animate! (i.e. a blank area was clicked)
+    if len(object_list) == 0:
+        return
+    
     # Figure out the time range to animate over
     earliest_time = np.min([each_obj.start_ems for each_obj in object_list])
     latest_time = np.max([each_obj.end_ems for each_obj in object_list])
@@ -392,8 +396,8 @@ def show_looping_animation(snapshot_database, object_database, object_list,
         # Get each snapshot and draw all outlines/trails for all objects in the frame
         snap_image, snap_frame_idx = snapshot_database.load_snapshot_image(each_snap_time)
         for each_obj in object_list:
-            each_obj.draw_trail(snap_image, snap_frame_idx)
-            each_obj.draw_outline(snap_image, snap_frame_idx)
+            each_obj.draw_trail(snap_image, snap_frame_idx, each_snap_time)
+            each_obj.draw_outline(snap_image, snap_frame_idx, each_snap_time)
         
         # Display the snapshot image, but stop if the window is closed
         winexists = anim_window.imshow(snap_image)
@@ -443,6 +447,7 @@ class_db = Classification_DB(cameras_folder_path, camera_select, user_select, ta
 post_snapshot_report_metadata(cameras_folder_path, camera_select, user_select, snap_db)
 post_object_report_metadata(cameras_folder_path, camera_select, user_select, task_select, obj_db)
 post_object_classification_data(cameras_folder_path, camera_select, user_select, task_select, class_db)
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Ask user for time window
@@ -499,6 +504,7 @@ bar_background = create_timebar_frame_object_reconstruction(bg_frame, timebar_ro
 timebar_image_height = bar_background.shape[0]
 timebar_image_wh = (frame_width, timebar_image_height)
 
+
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Interaction loop
 
@@ -515,7 +521,7 @@ cb_sequencer.add_callback_vstack("timebar", bar_hover_callback, timebar_image_wh
 disp_window = Simple_Window("Display")
 disp_window.attach_callback(cb_sequencer)
 disp_window.move_corner_pixels(50, 50)
-print("", "Press Esc to cancel", sep="\n")
+print("", "Press Esc to close", "", sep="\n")
 
 while True:
     

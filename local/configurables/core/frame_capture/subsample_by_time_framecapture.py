@@ -65,8 +65,8 @@ class Frame_Capture_Stage(Reference_Frame_Capture):
         super().__init__(input_wh, file_dunder = __file__)
         
         # Internal bookkeeping variables
-        self._total_sample_period_sec = None
-        self._next_sample_time_sec = -1
+        self._total_sample_period_ms = None
+        self._next_sample_time_ms = -1
         
         # .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . Control Group 1 .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
         
@@ -108,7 +108,7 @@ class Frame_Capture_Stage(Reference_Frame_Capture):
     # .................................................................................................................
     
     def reset(self):
-        self._next_sample_time_sec = -1
+        self._next_sample_time_ms = -1
         
     # .................................................................................................................
     
@@ -121,19 +121,20 @@ class Frame_Capture_Stage(Reference_Frame_Capture):
         # Calculate the actual sampling period (in seconds) based on user controls
         hours_to_mins = 60 * self.sample_period_hrs
         minutes_to_sec = 60 * (self.sample_period_mins + hours_to_mins)
-        self._total_sample_period_sec = float(self.sample_period_sec + minutes_to_sec)
+        total_sample_period_sec = (self.sample_period_sec + minutes_to_sec)
+        self._total_sample_period_ms = int(round(1000 * total_sample_period_sec))
         
     # .................................................................................................................
         
-    def skip_conditions(self, current_frame_index, time_elapsed_seconds, current_datetime):      
+    def skip_conditions(self, current_frame_index, current_epoch_ms, current_datetime):      
         
         # Skip as long as we haven't passed our next sample time, if we have, update it!
-        skip_frame = (time_elapsed_seconds < self._next_sample_time_sec)
+        skip_frame = (current_epoch_ms < self._next_sample_time_ms)
         if not skip_frame:
-            self._next_sample_time_sec = time_elapsed_seconds + self._total_sample_period_sec
+            self._next_sample_time_ms = current_epoch_ms + self._total_sample_period_ms
         
             # For debugging
-            #print("Next skip: {:.1f}s - (Now: {:.1f}s)".format(self._next_sample_time_sec, time_elapsed_seconds))  
+            #print("Next skip: {:.0f}ms - (Now: {:.0f}ms)".format(self._next_sample_time_ms, current_epoch_ms))  
         
         return skip_frame
     

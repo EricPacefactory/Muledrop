@@ -84,10 +84,17 @@ class Reference_Preprocessor(Core_Configurable_Base):
     
     # .................................................................................................................
     
+    # MAY OVERRIDE. Only if some resources have been opened while running...
+    def close(self, final_frame_index, final_epoch_ms, final_datetime):
+        # Nothing opened, nothing to close!
+        return None
+    
+    # .................................................................................................................
+    
     # MAY OVERRIDE (BUT NOT NECESSARY, BETTER TO INSTEAD OVERRIDE: apply_transformation())
     def run(self, video_frame, bg_frame, bg_update):
         # This function must maintain this input/output structure!
-        #   - Used to ensure live video data + background image getting to frame processor are matched
+        #   - Used to ensure live video data + background image getting to foreground extractor are matched
         #   - Any modifications applied by the preprocessor should be applied to the background frame before return
         
         # Apply preprocessing transformation to background images (when available) and all live video frames
@@ -103,7 +110,7 @@ class Reference_Preprocessor(Core_Configurable_Base):
     # MAY OVERRIDE (BUT NOT NECESSARY, IF POSSIBLE, BETTER TO INSTEAD OVERRIDE: apply_transformation())
     def preprocess_background(self, background_frame, bg_update):
         # This function must maintain this input/output structure
-        #   - Used to ensure live video data + background image getting to frame processor are matched
+        #   - Used to ensure live video data + background image getting to foreground extractor are matched
         #   - background image is not necessarily updated every frame (depends how often bg capture outputs)
         
         # Apply preprocessing transformation to the background image to match live video frames

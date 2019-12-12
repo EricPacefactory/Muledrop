@@ -63,7 +63,7 @@ from time import perf_counter
 
 # .....................................................................................................................
 
-def median_background_from_snapshots(database, start_dt, end_dt, num_snaps_to_average = 10,
+def median_background_from_snapshots(database, start_dt, end_dt, num_snaps_to_average = 25,
                                      print_feedback = True):
     
     # Start timing (with feedback)

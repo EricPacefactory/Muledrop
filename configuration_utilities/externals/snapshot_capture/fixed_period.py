@@ -70,7 +70,7 @@ class Snap_Stats(Snap_Stats_Display):
     # .................................................................................................................
     
     def _get_snapshot_period_sec(self, configurable_ref):
-        return configurable_ref._total_snapshot_period_sec
+        return configurable_ref._total_snapshot_period_ms / 1000.0
         
     # .................................................................................................................
     # .................................................................................................................
@@ -103,7 +103,7 @@ stage_outputs = main_process.debug_stage_outputs
 stage_timing = main_process.debug_stage_timing
 object_ids_in_frame_dict = main_process.debug_object_ids_in_frame_dict
 snapshot_metadata = main_process.debug_current_snapshot_metadata
-last_frame_index, last_time_sec, last_datetime = main_process.debug_fsd_time_args
+last_frame_index, last_epoch_ms, last_datetime = main_process.debug_fed_time_args
 
 
 # ---------------------------------------------------------------------------------------------------------------------

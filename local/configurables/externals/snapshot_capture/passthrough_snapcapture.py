@@ -79,7 +79,7 @@ class Snapshot_Capture(Reference_Snapshot_Capture):
     
     # .................................................................................................................
     
-    def trigger_snapshot(self, input_frame, current_frame_index, current_time_sec, current_datetime):
+    def trigger_snapshot(self, input_frame, current_frame_index, current_epoch_ms, current_datetime):
 
         # Passthrough snapshot will only capture the first frame, as an example
         need_new_snapshot = (self.latest_snapshot_metadata is None)

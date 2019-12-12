@@ -56,8 +56,6 @@ from time import perf_counter
 
 from scipy.interpolate import UnivariateSpline
 
-from local.lib.timekeeper_utils import isoformat_to_epoch_ms
-
 from local.offline_database.file_database import _time_to_epoch_ms_utc
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -76,8 +74,8 @@ class Object_Reconstruction:
         self.full_id = self.metadata.get("full_id")
         
         # Store object trail separately, since we'll want to use that a lot
-        obj_x_array = np.float32(object_metadata.get("tracking").get("x_track"))
-        obj_y_array = np.float32(object_metadata.get("tracking").get("y_track"))
+        obj_x_array = np.float32(object_metadata.get("tracking").get("x_center"))
+        obj_y_array = np.float32(object_metadata.get("tracking").get("y_center"))
         self._real_trail_xy = np.vstack((obj_x_array, obj_y_array)).T
         
         # Store smoothed trail
@@ -86,8 +84,8 @@ class Object_Reconstruction:
         # Store object start/end time in terms of video frame indice, used for syncing with snapshots
         self.start_idx = self.metadata.get("timing").get("first_frame_index")
         self.end_idx = self.metadata.get("timing").get("last_frame_index")
-        self.start_ems = isoformat_to_epoch_ms(self.metadata.get("timing").get("first_datetime_isoformat"))
-        self.end_ems = isoformat_to_epoch_ms(self.metadata.get("timing").get("last_datetime_isoformat"))
+        self.start_ems = self.metadata.get("timing").get("first_epoch_ms")
+        self.end_ems = self.metadata.get("timing").get("last_epoch_ms")
         
         # Store global start/end times, used for relative timing calculations
         self.global_start_ems = _time_to_epoch_ms_utc(global_start_time)
@@ -229,7 +227,14 @@ class Object_Reconstruction:
     
     # .................................................................................................................
     
-    def draw_outline(self, output_frame, frame_index, line_color = None, line_thickness = 1):
+    def draw_outline(self, output_frame, frame_index, snapshot_epoch_ms = None,
+                     line_color = None, line_thickness = 1):
+        
+        # If a snapshot time is provided, make sure the object existed during the given time!
+        if snapshot_epoch_ms is not None:            
+            in_time_range = (self.start_ems <= snapshot_epoch_ms < self.end_ems)
+            if not in_time_range:
+                return output_frame
         
         # Get hull data, if it exists
         hull_array = self.get_hull_array(frame_index, normalized = False)
@@ -254,9 +259,15 @@ class Object_Reconstruction:
     
     # .................................................................................................................
     
-    def draw_trail(self, output_frame, frame_index = None,
+    def draw_trail(self, output_frame, frame_index = None, snapshot_epoch_ms = None,
                    line_color = None, line_thickness = 1, 
                    use_outline_color = False):
+        
+        # If a snapshot time is provided, make sure the object existed during the given time!
+        if snapshot_epoch_ms is not None:            
+            in_time_range = (self.start_ems <= snapshot_epoch_ms < self.end_ems)
+            if not in_time_range:
+                return output_frame
         
         # Get reduced data set for plotting
         if frame_index:
@@ -292,8 +303,14 @@ class Object_Reconstruction:
     
     # .................................................................................................................
     
-    def draw_trail_segment(self, output_frame, start_frame_index, end_frame_index,
+    def draw_trail_segment(self, output_frame, start_frame_index, end_frame_index, snapshot_epoch_ms = None,
                            line_color = None, line_thickness = 1):
+        
+        # If a snapshot time is provided, make sure the object existed during the given time!
+        if snapshot_epoch_ms is not None:            
+            in_time_range = (self.start_ems <= snapshot_epoch_ms < self.end_ems)
+            if not in_time_range:
+                return output_frame
         
         # Get trail segment for plotting
         start_idx = self._rel_index(start_frame_index)
@@ -373,7 +390,7 @@ class Object_Reconstruction:
     
     @classmethod
     def create_reconstruction_list(cls, object_metadata_list, frame_wh, 
-                                   global_start_datetime_isoformat, global_end_datetime_isoformat,
+                                   global_start_time, global_end_time,
                                    print_feedback = True,
                                    **kwargs):
         
@@ -386,10 +403,10 @@ class Object_Reconstruction:
         
         object_list = []
         for each_obj_metadata in object_metadata_list:
-            new_reconstruction = cls(each_obj_metadata, 
-                                     frame_wh, 
-                                     global_start_datetime_isoformat, 
-                                     global_end_datetime_isoformat, 
+            new_reconstruction = cls(each_obj_metadata,
+                                     frame_wh,
+                                     global_start_time,
+                                     global_end_time,
                                      **kwargs)
             object_list.append(new_reconstruction)
             
@@ -415,14 +432,14 @@ class Smoothed_Object_Reconstruction(Object_Reconstruction):
     
     # .................................................................................................................
     
-    def __init__(self, object_metadata, frame_wh, global_start_datetime_isoformat, global_end_datetime_isoformat,
+    def __init__(self, object_metadata, frame_wh, global_start_time, global_end_time,
                  smoothing_factor = 0.005):
         
         # Store smoothing parameter, since it will be needed during trail generation
         self._smoothing_factor = smoothing_factor
         
         # Inherit from parent class
-        super().__init__(object_metadata, frame_wh, global_start_datetime_isoformat, global_end_datetime_isoformat)
+        super().__init__(object_metadata, frame_wh, global_start_time, global_end_time)
         
     # .................................................................................................................
     
@@ -452,11 +469,11 @@ class Smoothed_Object_Reconstruction(Object_Reconstruction):
 
 class Smooth_Hover_Object_Reconstruction(Smoothed_Object_Reconstruction):
     
-    def __init__(self, object_metadata, frame_wh, global_start_datetime_isoformat, global_end_datetime_isoformat, 
+    def __init__(self, object_metadata, frame_wh, global_start_time, global_end_time, 
                  smoothing_factor = 0.005, number_simplified_points = 11):
         
         # Inherit from parent class
-        super().__init__(object_metadata, frame_wh, global_start_datetime_isoformat, global_end_datetime_isoformat, 
+        super().__init__(object_metadata, frame_wh, global_start_time, global_end_time, 
                          smoothing_factor)
         
         # Create a simplified copy of the trail for mouse hovering/distance detection

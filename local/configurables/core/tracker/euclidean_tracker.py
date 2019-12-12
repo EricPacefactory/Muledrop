@@ -157,37 +157,37 @@ class Tracker_Stage(Reference_Tracker):
                 tooltip = "Maximum number of tracking data samples to store",
                 visible = False)
         
-        self.validation_time_sec = \
+        self.validation_time_ms = \
         self.ctrl_spec.attach_slider(
-                "validation_time_sec", 
+                "validation_time_ms", 
                 label = "Validation Time", 
-                default_value = 0.75,
-                min_value = 0.1, max_value = 15.0, step_size = 1/1000,
+                default_value = 750,
+                min_value = 100, max_value = 15000,
                 zero_referenced = True,
-                return_type = float,
-                units = "seconds",
+                return_type = int,
+                units = "milliseconds",
                 tooltip = "Amount of time to wait before validation objects are considered tracked objects")
         
-        self.validation_decay_timeout_sec = \
+        self.validation_decay_timeout_ms = \
         self.ctrl_spec.attach_slider(
-                "validation_decay_timeout_sec", 
+                "validation_decay_timeout_ms", 
                 label = "Validation Decay Timeout", 
-                default_value = 0.5,
-                min_value = 0.05, max_value = 15.0, step_size = 1/1000,
+                default_value = 500,
+                min_value = 50, max_value = 15000,
                 zero_referenced = True,
-                return_type = float,
-                units = "seconds",
+                return_type = int,
+                units = "milliseconds",
                 tooltip = "Time to wait before deleting a validation object that isn't matched with a detection")
         
-        self.track_decay_timeout_sec = \
+        self.track_decay_timeout_ms = \
         self.ctrl_spec.attach_slider(
-                "track_decay_timeout_sec", 
+                "track_decay_timeout_ms", 
                 label = "Tracked Decay Timeout", 
-                default_value = 2.5,
-                min_value = 0.1, max_value = 15.0, step_size = 1/1000,
+                default_value = 2500,
+                min_value = 100, max_value = 15000,
                 zero_referenced = True,
-                return_type = float,
-                units = "seconds",
+                return_type = int,
+                units = "milliseconds",
                 tooltip = "Time to wait before deleting a tracked object that isn't matched with a detection")
         
         self.enabled_edge_decay_zones = \
@@ -325,6 +325,17 @@ class Tracker_Stage(Reference_Tracker):
         
     # .................................................................................................................
     
+    def close(self, final_frame_index, final_epoch_ms, final_datetime):
+        
+        # List all active objects as dead, since we're closing...
+        dead_id_list = list(self.tracked_object_dict.keys())
+        
+        return {"tracked_object_dict": self.tracked_object_dict,
+                "validation_object_dict": self.validation_object_dict,
+                "dead_id_list": dead_id_list}
+        
+    # .................................................................................................................
+    
     def setup(self, variables_changed_dict):
         
         # Pick the appropriate fallback matching function for use when object-detection pairing isn't unique
@@ -337,7 +348,6 @@ class Tracker_Stage(Reference_Tracker):
         self._fallback_match_function = fallback_matching_func
         
         # Update the (smoothed) tracking class with new shared settings
-        Smoothed_Trackable_Object.set_tracking_point(self.track_point_str)
         Smoothed_Trackable_Object.set_matching_style(self.match_with_speed)
         Smoothed_Trackable_Object.set_max_samples(self.track_history_samples)
         Smoothed_Trackable_Object.set_smoothing_parameters(x_weight = self.smooth_x,
@@ -368,9 +378,7 @@ class Tracker_Stage(Reference_Tracker):
     
     # .................................................................................................................
     
-    def update_object_tracking(self, detection_ref_list, 
-                               current_frame_index, current_time_sec, current_datetime,
-                               current_snapshot_metadata):
+    def update_object_tracking(self, detection_ref_list, current_frame_index, current_epoch_ms, current_datetime):
         
         #print(detection_ref_list, self.tracked_object_dict)
         
@@ -382,24 +390,24 @@ class Tracker_Stage(Reference_Tracker):
         # Perform predictive decay whenever a detection overlaps multiple tracked objects
         unmatched_tobj_ids, unmatched_det_idxs = \
         self._tobj_overlaps(unmatched_tobj_ids, unmatched_det_idxs, detection_ref_list,
-                            current_snapshot_metadata, current_frame_index, current_time_sec, current_datetime)
+                            current_frame_index, current_epoch_ms, current_datetime)
         
         # Match tracked objects first
         unmatched_tobj_ids, unmatched_det_idxs = \
         self._update_tobj_tracking(unmatched_tobj_ids, unmatched_det_idxs, detection_ref_list,
-                                   current_snapshot_metadata, current_frame_index, current_time_sec, current_datetime)
+                                   current_frame_index, current_epoch_ms, current_datetime)
         
         # Use remaining detection data to try matching to validation objects
         unmatched_vobj_ids, unmatched_det_idxs = \
         self._update_vobj_tracking(unmatched_vobj_ids, unmatched_det_idxs, detection_ref_list,
-                                   current_snapshot_metadata, current_frame_index, current_time_sec, current_datetime)
+                                   current_frame_index, current_epoch_ms, current_datetime)
         
         return (unmatched_tobj_ids, unmatched_vobj_ids), unmatched_det_idxs
 
     # .................................................................................................................
     
     def _tobj_overlaps(self, unmatched_tobj_ids, unmatched_detection_indexs, detection_ref_list,
-                       current_snapshot_metadata, current_frame_index, current_time_sec, current_datetime):
+                       current_frame_index, current_epoch_ms, current_datetime):
         
         ''' 
         Function which handles cases where a detection overlaps/encompasses two or more tracked objects
@@ -455,7 +463,7 @@ class Tracker_Stage(Reference_Tracker):
     # .................................................................................................................
     
     def _update_tobj_tracking(self, unmatched_tobj_ids, unmatched_detection_indexs, detection_ref_list,
-                              current_snapshot_metadata, current_frame_index, current_time_sec, current_datetime):
+                              current_frame_index, current_epoch_ms, current_datetime):
         
         '''
         Function which matches detections with existing tracked objects.
@@ -479,8 +487,7 @@ class Tracker_Stage(Reference_Tracker):
             det_ref = detection_ref_list[each_det_idx]
             
             # Update each object using the detection object data
-            tobj_ref.update_from_detection(det_ref, current_snapshot_metadata,
-                                           current_frame_index, current_time_sec, current_datetime)
+            tobj_ref.update_from_detection(det_ref, current_frame_index, current_epoch_ms, current_datetime)
             
         # For remaining unmatched objects, perform an empty (i.e. copy existing data) update
         for each_id in still_unmatched_tobj_ids:
@@ -491,7 +498,7 @@ class Tracker_Stage(Reference_Tracker):
     # .................................................................................................................
     
     def _update_vobj_tracking(self, unmatched_vobj_ids, unmatched_detection_indexs, detection_ref_list,
-                              current_snapshot_metadata, current_frame_index, current_time_sec, current_datetime):
+                              current_frame_index, current_epoch_ms, current_datetime):
         
         '''
         Function which matches detections with existing validation objects.
@@ -515,8 +522,7 @@ class Tracker_Stage(Reference_Tracker):
             det_ref = detection_ref_list[each_det_idx]
             
             # Update each object using the detection object data
-            vobj_ref.update_from_detection(det_ref, current_snapshot_metadata,
-                                           current_frame_index, current_time_sec, current_datetime)
+            vobj_ref.update_from_detection(det_ref, current_frame_index, current_epoch_ms, current_datetime)
             
         # For remaining unmatched objects, also perform an empty (i.e. copy existing data) update
         for each_id in still_unmatched_vobj_ids:
@@ -527,15 +533,14 @@ class Tracker_Stage(Reference_Tracker):
     # .................................................................................................................
     
     def apply_object_decay(self, unmatched_object_id_list, 
-                           current_frame_index, current_time_sec, current_datetime,
-                           current_snapshot_metadata):
+                           current_frame_index, current_epoch_ms, current_datetime):
         
         # Result from update object tracking will be a tuple containing tobj/vobj id lists, so unpack for convenience
         unmatched_tobj_ids, unmatched_vobj_ids = unmatched_object_id_list
         
         # Apply decay to tracked & validation objects separately
-        dead_tobj_id_list = self._decay_tobjs(unmatched_tobj_ids, current_time_sec, current_datetime)
-        dead_vobj_id_list = self._decay_vobjs(unmatched_vobj_ids, current_time_sec, current_datetime)
+        dead_tobj_id_list = self._decay_tobjs(unmatched_tobj_ids, current_epoch_ms, current_datetime)
+        dead_vobj_id_list = self._decay_vobjs(unmatched_vobj_ids, current_epoch_ms, current_datetime)
         
         # Store internal copies, so we can access these on the next run() iteration
         self.dead_tracked_id_list = dead_tobj_id_list
@@ -547,7 +552,7 @@ class Tracker_Stage(Reference_Tracker):
     
     # .................................................................................................................
     
-    def _decay_tobjs(self, unmatched_tobj_id_list, current_time_sec, current_datetime):
+    def _decay_tobjs(self, unmatched_tobj_id_list, current_epoch_ms, current_datetime):
         
         dead_track_ids_list = []
         for each_id in unmatched_tobj_id_list:
@@ -556,8 +561,8 @@ class Tracker_Stage(Reference_Tracker):
             each_tobj = self.tracked_object_dict[each_id]
             
             # Check if the object decay timer is up, in which case it's a dead object
-            unmatch_time = each_tobj.match_decay_time_sec(current_time_sec)
-            if unmatch_time > self.track_decay_timeout_sec:
+            unmatch_time = each_tobj.get_match_decay_time_ms(current_epoch_ms)
+            if unmatch_time > self.track_decay_timeout_ms:
                 dead_track_ids_list.append(each_id)
                 continue
             
@@ -569,7 +574,7 @@ class Tracker_Stage(Reference_Tracker):
     
     # .................................................................................................................
     
-    def _decay_vobjs(self, unmatched_vobj_id_list, current_time_sec, current_datetime):
+    def _decay_vobjs(self, unmatched_vobj_id_list, current_epoch_ms, current_datetime):
         
         dead_validation_ids_list = []
         for each_id in unmatched_vobj_id_list:
@@ -578,8 +583,8 @@ class Tracker_Stage(Reference_Tracker):
             each_vobj = self.validation_object_dict[each_id]
             
             # Check if the object decay timer is up, in which case it's a dead object
-            unmatch_time = each_vobj.match_decay_time_sec(current_time_sec)
-            if unmatch_time > self.validation_decay_timeout_sec:
+            unmatch_time = each_vobj.get_match_decay_time_ms(current_epoch_ms)
+            if unmatch_time > self.validation_decay_timeout_ms:
                 dead_validation_ids_list.append(each_id)
                 continue
             
@@ -591,34 +596,76 @@ class Tracker_Stage(Reference_Tracker):
     
     # .................................................................................................................
     
+    def generate_new_decendent_objects(self, dead_id_list, current_frame_index, current_epoch_ms, current_datetime):
+        
+        '''
+        Function for creating new objects from long-lived tracked objects
+            - Intended to force saving of objects that have accumulated lots of data
+            - Main concern is preventing infinite RAM usage for objects/detections that might be 'stuck'
+            - Should return an updated copy of the dead_id_list (containing objects being removed)
+            - Should also update internal tracked/validation dictionaries with new decendent objects!
+        '''
+        
+        # Initialize output results
+        decendent_id_list = []
+        decendent_object_dict = {}
+        
+        # First figure out 
+        for each_tobj_id, each_tobj in self.tracked_object_dict.items():
+            
+            # Get tracked object sample count, to see if we need to force it to save
+            needs_decendent = each_tobj.is_out_of_storage_space()
+            if not needs_decendent:
+                continue
+            
+            # If we get here, we're creating a decendent object, so record the id
+            decendent_id_list.append(each_tobj_id)
+            
+            # Get new tracked id for each decendent object
+            new_nice_id, new_full_id = self.tobj_id_manager.new_id(current_datetime)
+            new_decendent = each_tobj.create_decendent(new_nice_id, new_full_id, 
+                                                       current_frame_index, current_epoch_ms, current_datetime)
+            
+            # Move decendent into the tracked object dictionary
+            decendent_object_dict[new_full_id] = new_decendent
+        
+        # Update tracked object dictionary with decendents
+        self.tracked_object_dict.update(decendent_object_dict)
+        
+        # Add decendent ids to the dead list
+        updated_dead_id_list = dead_id_list + decendent_id_list
+        self.dead_tracked_id_list = updated_dead_id_list
+        
+        return updated_dead_id_list
+    
+    # .................................................................................................................
+    
     def generate_new_objects(self, unmatched_detection_index_list, detection_ref_list, 
-                             current_frame_index, current_time_sec, current_datetime,
-                             current_snapshot_metadata):
+                             current_frame_index, current_epoch_ms, current_datetime):
         
         # Generate new tracked objects based on time (lifetime of validation objects)
-        self._generate_new_tobjs(current_frame_index, current_time_sec, current_datetime)
+        self._generate_new_tobjs(current_frame_index, current_epoch_ms, current_datetime)
         
         # Generate new validation objects based on unmatched (leftover) detections
         self._generate_new_vobjs(unmatched_detection_index_list, detection_ref_list, 
-                                 current_frame_index, current_time_sec, current_datetime,
-                                 current_snapshot_metadata)
+                                 current_frame_index, current_epoch_ms, current_datetime)
         
         # Return a copy of the (final) tracked object dictionary, since this is passed as an output from run()
         return self.tracked_object_dict, self.validation_object_dict
     
     # .................................................................................................................
     
-    def _generate_new_tobjs(self, current_frame_index, current_time_sec, current_datetime):
+    def _generate_new_tobjs(self, current_frame_index, current_epoch_ms, current_datetime):
         
         promote_vobj_id_list = []
         for each_vobj_id, each_vobj in self.validation_object_dict.items():            
             
             # Get validation object timing variables
-            match_decay_time = each_vobj.match_decay_time_sec(current_time_sec)
-            lifetime = each_vobj.lifetime_sec(current_time_sec)
+            match_decay_time = each_vobj.get_match_decay_time_ms(current_epoch_ms)
+            lifetime_ms = each_vobj.get_lifetime_ms(current_epoch_ms)
             
             # Check if the validation object has lived long enough (and was recently matched to a detection)
-            old_enough = (lifetime > self.validation_time_sec)
+            old_enough = (lifetime_ms > self.validation_time_ms)
             has_matched = (match_decay_time < self._approximate_zero)
             if old_enough and has_matched:
                 promote_vobj_id_list.append(each_vobj_id)
@@ -638,8 +685,7 @@ class Tracker_Stage(Reference_Tracker):
     # .................................................................................................................
     
     def _generate_new_vobjs(self, unmatched_detection_index_list, detection_ref_list,
-                            current_frame_index, current_time_sec, current_datetime,
-                            current_snapshot_metadata):
+                            current_frame_index, current_epoch_ms, current_datetime):
         
         # Generate new validation objects for all leftover detections
         for each_idx in unmatched_detection_index_list:
@@ -649,15 +695,14 @@ class Tracker_Stage(Reference_Tracker):
             
             # Create a new validation object using the given detection data
             new_nice_id, new_full_id = self.vobj_id_manager.new_id(current_datetime)
-            new_pot_obj = Smoothed_Trackable_Object(new_nice_id, new_full_id,
-                                                    each_unmatched_detection,
-                                                    current_snapshot_metadata,
-                                                    current_frame_index,
-                                                    current_time_sec, 
-                                                    current_datetime)
+            new_validation_obj = Smoothed_Trackable_Object(new_nice_id, new_full_id,
+                                                           each_unmatched_detection,
+                                                           current_frame_index,
+                                                           current_epoch_ms, 
+                                                           current_datetime)
             
             # Store the new validation object
-            self.validation_object_dict[new_full_id] = new_pot_obj
+            self.validation_object_dict[new_full_id] = new_validation_obj
             
         return None
     
@@ -688,14 +733,14 @@ def draw_validation_objects(stage_outputs, configurable_ref):
     show_bounding_boxes = configurable_ref._show_bounding_boxes
     show_trails = configurable_ref._show_trails
     show_decay = configurable_ref._show_decay
-    current_time_sec = configurable_ref.current_time_sec
+    current_epoch_ms = configurable_ref.current_epoch_ms
     
     # Grab dictionary of validation objects so we can draw them
     validation_object_dict = configurable_ref.validation_object_dict
     
     return _draw_objects_on_frame(validations_frame, validation_object_dict, 
                                   show_ids, show_outlines, show_bounding_boxes, show_trails, show_decay,
-                                  current_time_sec,
+                                  current_epoch_ms,
                                   outline_color = (255, 0, 255), 
                                   box_color = (255, 0, 255))
 
@@ -713,14 +758,14 @@ def draw_tracked_objects(stage_outputs, configurable_ref):
     show_bounding_boxes = configurable_ref._show_bounding_boxes
     show_trails = configurable_ref._show_trails
     show_decay = configurable_ref._show_decay
-    current_time_sec = configurable_ref.current_time_sec
+    current_epoch_ms = configurable_ref.current_epoch_ms
     
     # Grab dictionary of tracked objects so we can draw them
     tracked_object_dict = configurable_ref.tracked_object_dict
     
     return _draw_objects_on_frame(tracked_frame, tracked_object_dict, 
                                   show_ids, show_outlines, show_bounding_boxes, show_trails, show_decay,
-                                  current_time_sec,
+                                  current_epoch_ms,
                                   outline_color = (0, 255, 0), 
                                   box_color = (0, 255, 0))
 
@@ -728,7 +773,7 @@ def draw_tracked_objects(stage_outputs, configurable_ref):
     
 def _draw_objects_on_frame(display_frame, object_dict, 
                            show_ids, show_outlines, show_bounding_boxes, show_trails, show_decay,
-                           current_time_sec, outline_color, box_color):
+                           current_epoch_ms, outline_color, box_color):
     
     # Set up some dimming colors for each drawing color, in case of decaying objects
     dim_ol_color = [np.mean(outline_color)] * 3
@@ -751,7 +796,7 @@ def _draw_objects_on_frame(display_frame, object_dict,
         draw_bx_color = box_color
         draw_tr_color = (0, 255, 255)
         if show_decay:
-            match_delta = each_obj.match_decay_time_sec(current_time_sec)            
+            match_delta = each_obj.get_match_decay_time_ms(current_epoch_ms)            
             if match_delta > (1/100):
                 draw_ol_color = dim_ol_color 
                 draw_bx_color = dim_bx_color
@@ -772,7 +817,7 @@ def _draw_objects_on_frame(display_frame, object_dict,
         
         # Draw object trails
         if show_trails:
-            xy_trail = np.int32(np.round(each_obj.xy_track_history * frame_wh))
+            xy_trail = np.int32(np.round(each_obj.xy_center_history * frame_wh))
             if len(xy_trail) > 5:
                 cv2.polylines(display_frame, [xy_trail], False, draw_tr_color, 1, cv2.LINE_AA)
             

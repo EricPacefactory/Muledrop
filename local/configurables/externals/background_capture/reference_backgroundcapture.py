@@ -55,7 +55,7 @@ from time import perf_counter
 
 from local.configurables.configurable_template import Externals_Configurable_Base
 
-from local.lib.timekeeper_utils import utc_time_to_isoformat_string, utc_datetime_to_epoch_ms
+from local.lib.timekeeper_utils import get_isoformat_string
 
 from local.lib.file_access_utils.runtime_read_write import Parallel_Function, create_new_thread_lock
 from local.lib.file_access_utils.reporting import Image_Report_Saver, Image_Metadata_Report_Saver
@@ -160,7 +160,7 @@ class Reference_Background_Capture(Externals_Configurable_Base):
     # .................................................................................................................
     
     # MAY OVERRIDE
-    def close(self, final_frame_index, final_time_sec, final_datetime):
+    def close(self, final_frame_index, final_epoch_ms, final_datetime):
         
         ''' Function called after video processing completes or is cancelled early '''
         
@@ -250,7 +250,7 @@ class Reference_Background_Capture(Externals_Configurable_Base):
     # .................................................................................................................
     
     # MAY OVERRIDE, but better to override capturer & generator classes!
-    def run(self, input_frame, current_frame_index, current_time_sec, current_datetime):
+    def run(self, input_frame, current_frame_index, current_epoch_ms, current_datetime):
         
         ''' 
         Main function! Used to capture frames from a video source and use them to generate background images 
@@ -262,7 +262,7 @@ class Reference_Background_Capture(Externals_Configurable_Base):
             
             current_frame_index -> Integer. Current frame index of the video source
             
-            current_time_sec -> Float. Current time elapsed since the video started (in seconds)
+            current_epoch_ms -> Integer. Current epoch time, in mlliseconds
             
             current_datetime -> Datetime obj. Interpretation of this object depends on video source (files vs. streams)
             
@@ -272,12 +272,12 @@ class Reference_Background_Capture(Externals_Configurable_Base):
         
         # Trigger capture of frames as needed
         frame_was_captured, number_of_captures, create_capture_generator = \
-        self.frame_capturer.run(input_frame, current_frame_index, current_time_sec, current_datetime)
+        self.frame_capturer.run(input_frame, current_frame_index, current_epoch_ms, current_datetime)
         
         # Trigger generation of new background images as needed
         background_was_updated, background_image = \
         self.background_creator.run(frame_was_captured, number_of_captures, create_capture_generator,
-                                    current_frame_index, current_time_sec, current_datetime)
+                                    current_frame_index, current_epoch_ms, current_datetime)
         
         return {"video_frame": input_frame, 
                 "bg_frame": background_image,
@@ -367,7 +367,7 @@ class Reference_Frame_Capture:
         # Allocate storage for keeping track of the latest capture data
         self._latest_capture_frame = None
         self._latest_capture_index = None
-        self._latest_capture_time_sec = None
+        self._latest_capture_epoch_ms = None
         self._latest_capture_datetime = None
         self._capture_count = -1
         
@@ -469,7 +469,7 @@ class Reference_Frame_Capture:
     # .................................................................................................................
     
     # SHOULDN'T OVERRIDE. Instead override capture_condition()
-    def run(self, input_frame, current_frame_index, current_time_sec, current_datetime):
+    def run(self, input_frame, current_frame_index, current_epoch_ms, current_datetime):
         
         ''' 
         Function which handles all logic related to capturing frames for background generation.
@@ -482,14 +482,14 @@ class Reference_Frame_Capture:
         
         # Check if we need to capture the current frame
         frame_needs_to_be_captured = \
-        self.capture_condition(input_frame, current_frame_index, current_time_sec, current_datetime)
+        self.capture_condition(input_frame, current_frame_index, current_epoch_ms, current_datetime)
         
         # Save the captured frame if needed
         if frame_needs_to_be_captured:
             
             # Record capture event timing & data, so we can re-use it if needed, then save the capture data!
-            self._record_capture_event(input_frame, current_frame_index, current_time_sec, current_datetime)
-            self._save_capture_png(input_frame, current_frame_index, current_time_sec, current_datetime)
+            self._record_capture_event(input_frame, current_frame_index, current_epoch_ms, current_datetime)
+            self._save_capture_png(input_frame, current_frame_index, current_epoch_ms, current_datetime)
         
         # Provide a function for creating generators for loading capture data
         number_of_captures, create_capture_generator = self.create_capture_generator()
@@ -502,33 +502,33 @@ class Reference_Frame_Capture:
     # .................................................................................................................
     
     # MUST OVERRIDE
-    def capture_condition(self, input_frame, current_frame_index, current_time_sec, current_datetime):
+    def capture_condition(self, input_frame, current_frame_index, current_epoch_ms, current_datetime):
         
         ''' Function which decides when a given frame should be captured for background generation purposes '''
     
         # Reference implementation captures a single frame on startup
-        frame_needs_to_be_captured = (self._latest_capture_time_sec is None)
+        frame_needs_to_be_captured = (self._latest_capture_epoch_ms is None)
     
         return frame_needs_to_be_captured
     
     # .................................................................................................................
     
     # SHOULDN'T OVERRIDE
-    def _record_capture_event(self, input_frame, current_frame_index, current_time_sec, current_datetime):
+    def _record_capture_event(self, input_frame, current_frame_index, current_epoch_ms, current_datetime):
         
         ''' Function for keeping track of the latest captured frame data & timing '''
         
         # Store image & timing data
         self._latest_capture_frame = input_frame.copy()
         self._latest_capture_index = current_frame_index
-        self._latest_capture_time_sec = current_time_sec
+        self._latest_capture_epoch_ms = current_epoch_ms
         self._latest_capture_datetime = current_datetime
         self._capture_count = (self._capture_count + 1) % self.maximum_captures
     
     # .................................................................................................................
     
     # MAY OVERRIDE, but shouldn't be necessary unless using some special naming lookup
-    def _create_save_name(self, current_frame_index, current_time_sec, current_datetime):
+    def _create_save_name(self, current_frame_index, current_epoch_ms, current_datetime):
         
         ''' Function for naming files saved as captures for background generation '''
         
@@ -537,12 +537,12 @@ class Reference_Frame_Capture:
     # .................................................................................................................
     
     # SHOULDN'T OVERRIDE
-    def _save_capture_png(self, input_frame, current_frame_index, current_time_sec, current_datetime):
+    def _save_capture_png(self, input_frame, current_frame_index, current_epoch_ms, current_datetime):
         
         ''' Function which handles actual saving of capture frame data '''
         
         # Generate the save name
-        capture_save_name = self._create_save_name(current_frame_index, current_time_sec, current_datetime)
+        capture_save_name = self._create_save_name(current_frame_index, current_epoch_ms, current_datetime)
         
         # Have resource object handle image saving
         self.image_saver.save_png(file_save_name_no_ext = capture_save_name,
@@ -605,7 +605,7 @@ class Reference_Background_Creator:
         video_width, video_height = video_wh
         self._latest_generated_frame = None
         self._latest_generated_index = None
-        self._latest_generated_time_sec = None
+        self._latest_generated_epoch_ms = None
         self._latest_generated_datetime = None
         self._generated_count = -1
         
@@ -631,14 +631,6 @@ class Reference_Background_Creator:
         self.set_maximum_generated(10)
         self.set_generated_compression(0)
         self.set_report_quality(25)
-        
-        
-        '''
-        STOPPED HERE
-        - THEN UPDATE RUN_FILE_COLLECT WITH NEW BACKGROUND GENERATOR
-        - NEED TO CHECK INTERACTION WITH PREPROCESSORS/FRAMEPROCESSOR
-        - THEN CAN CONSIDER FINALIZING SAVING/LOADING SYSTEMS!?!?!?!
-        '''
     
     # .................................................................................................................
     
@@ -726,7 +718,7 @@ class Reference_Background_Creator:
 
     # SHOULDN'T OVERRIDE. Instead override generate_condition(), generation_function()
     def run(self, frame_was_captured, number_of_captures, create_capture_generator, 
-            current_frame_index, current_time_sec, current_datetime):
+            current_frame_index, current_epoch_ms, current_datetime):
         
         ''' 
         Function which handles all logic related to generating new background images.
@@ -744,7 +736,7 @@ class Reference_Background_Creator:
                                   
             current_frame_index -> Integer. Indicates current frame of video source
             
-            current_time_sec -> Float. Indicates amount of time elapsed since video start (in seconds)
+            current_epoch_ms -> Integer. Indicates amount of time elapsed since epoch in milliseconds
             
             current_datetime -> Datetime object. Stores datetime information. 
                                 Interpretation varies depending on video source (files vs streams)
@@ -757,27 +749,26 @@ class Reference_Background_Creator:
                                 Must always output a valid image, even if the background wasn't just updated.
         '''
         
-        
         # Check if a new background has finished generating
         currently_generating, background_was_generated, background_image = self._check_for_background_updates()
         
         # Check if we need to generate a new background image
         background_needs_to_be_generated = \
         self.generation_condition(currently_generating, frame_was_captured,
-                                  current_frame_index, current_time_sec, current_datetime)
+                                  current_frame_index, current_epoch_ms, current_datetime)
         
         # Trigger background generation if needed (generation is non-blocking!)
         if background_needs_to_be_generated:
-            print("New background needs to be generated!")
+            print("DEBUG: New background needs to be generated!")
             capture_data_as_generator = create_capture_generator()
             self.parallel_generation(number_of_captures, capture_data_as_generator)
             
         # Record generation event & save the data
         if background_was_generated:
-            print("New background generated!")
-            self._record_generated_event(background_image, current_frame_index, current_time_sec, current_datetime)
-            self._save_generated_png(background_image, current_frame_index, current_time_sec, current_datetime)
-            self._save_generated_report_data(background_image, current_frame_index, current_time_sec, current_datetime)
+            print("DEBUG: New background generated!")
+            self._record_generated_event(background_image, current_frame_index, current_epoch_ms, current_datetime)
+            self._save_generated_png(background_image, current_frame_index, current_epoch_ms, current_datetime)
+            self._save_generated_report_data(background_image, current_frame_index, current_epoch_ms, current_datetime)
             
         # Get rid of dead threads
         self._clean_up()
@@ -788,12 +779,12 @@ class Reference_Background_Creator:
     
     # MUST OVERRIDE
     def generation_condition(self, currently_generating, frame_was_captured,
-                             current_frame_index, current_time_sec, current_datetime):
+                             current_frame_index, current_epoch_ms, current_datetime):
         
         ''' Function which decides when a new background image should be generated '''
     
         # Reference implementation generates a single image on startup
-        no_existing_data = (self._latest_generated_time_sec is None)
+        no_existing_data = (self._latest_generated_epoch_ms is None)
         background_needs_to_be_generated = (no_existing_data and not currently_generating)
     
         return background_needs_to_be_generated
@@ -838,14 +829,14 @@ class Reference_Background_Creator:
     # .................................................................................................................
     
     # SHOULDN'T OVERRIDE
-    def _record_generated_event(self, new_background_image, current_frame_index, current_time_sec, current_datetime):
+    def _record_generated_event(self, new_background_image, current_frame_index, current_epoch_ms, current_datetime):
         
         ''' Function for keeping track of the latest generated frame data & timing '''
         
         # Store image & timing data
         self._latest_generated_frame = new_background_image.copy()
         self._latest_generated_index = current_frame_index
-        self._latest_generated_time_sec = current_time_sec
+        self._latest_generated_epoch_ms = current_epoch_ms
         self._latest_generated_datetime = current_datetime
         self._generated_count = (self._generated_count + 1) % self.maximum_generated
     
@@ -868,8 +859,6 @@ class Reference_Background_Creator:
             background_image = self.resource_image_loader.load_from_path(newest_background_path)
             self._record_generated_event(background_image, None, None, None)
             
-            
-            
             return generated_new_background, background_image
         
         # Switch between different ways of grabbing the first frames, depending on video source type
@@ -884,7 +873,7 @@ class Reference_Background_Creator:
             raise TypeError(" ".join(error_msgs))
             
         # Grab initial frames for generating the background & convert to a python generator object
-        frame_set_list, final_frame_index, final_time_sec, final_datetime = get_frame_set_func(video_reader)
+        frame_set_list, final_frame_index, final_epoch_ms, final_datetime = get_frame_set_func(video_reader)
         number_of_captures = len(frame_set_list)
         
         # Create generator out of frame set, so we can pass it in to generation functions
@@ -897,7 +886,7 @@ class Reference_Background_Creator:
         generated_new_background = True
         
         # Record generation event
-        time_args = (final_frame_index, final_time_sec, final_datetime)
+        time_args = (final_frame_index, final_epoch_ms, final_datetime)
         self._record_generated_event(background_image, *time_args)
         
         # Forcefully save the data, even if saving is disabled, just for startup generation!
@@ -912,7 +901,7 @@ class Reference_Background_Creator:
         print("",
               "Start up results",
               "Latest frame index: {}".format(self._latest_generated_index),
-              "Latest time (sec): {}".format(self._latest_generated_time_sec),
+              "Latest time (sec): {}".format(self._latest_generated_epoch_ms),
               "Latest datetime: {}".format(self._latest_generated_datetime), 
               sep="\n")
         '''
@@ -943,17 +932,17 @@ class Reference_Background_Creator:
               "  This may take some time...", sep = "\n")
         
         # Grab frames for generating the first background
-        starting_frame_index = video_reader.get_current_frame_file()
+        starting_frame_index = video_reader.get_current_frame()
         frame_set = []
         for each_frame_idx in frame_sample_indices:
             video_reader.set_current_frame(each_frame_idx)
-            req_break, frame, current_frame_index, current_time_sec, current_datetime = video_reader.read()
+            req_break, frame, current_frame_index, current_epoch_ms, current_datetime = video_reader.read()
             frame_set.append(frame)
         
         # Reset the video reader after we're done collecting frames
         video_reader.set_current_frame(starting_frame_index)
         
-        return frame_set, current_frame_index, current_time_sec, current_datetime        
+        return frame_set, current_frame_index, current_epoch_ms, current_datetime        
     
     # .................................................................................................................
     
@@ -962,15 +951,14 @@ class Reference_Background_Creator:
         
         ''' Function used to grab a set of frames from an rtsp stream, for generating backgrounds on startup '''
             
-        print("WARNING: GENERATE BG ON STARTUP NOT TESTED ON RTSP!!!")
+        print("DEBUG: GENERATE BG ON STARTUP NOT TESTED ON RTSP!!!")
         
         # Configure some processing parameters
         target_capture_time_sec = 5.0 * 60.0
         num_capture_frames_to_use = 25
-        capture_period_sec = target_capture_time_sec / (num_capture_frames_to_use + 1)
-        
-        current_time_sec = None
-        next_capture_time_sec = -1
+        capture_period_sec = (target_capture_time_sec / (num_capture_frames_to_use + 1))
+        capture_period_ms = int(round(1000 * capture_period_sec))
+        next_capture_epoch_ms = -1
         
         # Some feedback
         print("",
@@ -982,19 +970,19 @@ class Reference_Background_Creator:
         while len(frame_set) < num_capture_frames_to_use:
             
             # Read every frame from the stream
-            req_break, frame, current_frame_index, current_time_sec, current_datetime = video_reader.read()
+            req_break, frame, current_frame_index, current_epoch_ms, current_datetime = video_reader.read()
             
             # Store a frame every capture period
-            if current_time_sec >= next_capture_time_sec:
+            if current_epoch_ms >= next_capture_epoch_ms:
                 frame_set.append(frame)
-                next_capture_time_sec = current_time_sec + capture_period_sec
+                next_capture_epoch_ms = current_epoch_ms + capture_period_ms
         
-        return frame_set, current_frame_index, current_time_sec, current_datetime
+        return frame_set, current_frame_index, current_epoch_ms, current_datetime
     
     # .................................................................................................................
     
     # MAY OVERRIDE, but shouldn't be necessary unless using some special naming lookup
-    def _create_resource_save_name(self, current_frame_index, current_time_sec, current_datetime):
+    def _create_resource_save_name(self, current_frame_index, current_epoch_ms, current_datetime):
         
         ''' Function for naming generated background images (within internal resources folder) '''
         
@@ -1012,12 +1000,12 @@ class Reference_Background_Creator:
     # .................................................................................................................
     
     # SHOULDN'T OVERRIDE
-    def _save_generated_png(self, background_image, current_frame_index, current_time_sec, current_datetime):
+    def _save_generated_png(self, background_image, current_frame_index, current_epoch_ms, current_datetime):
         
         ''' Function which handles actual saving of generated frame data '''
         
         # Create the save name
-        generated_save_name = self._create_resource_save_name(current_frame_index, current_time_sec, current_datetime)
+        generated_save_name = self._create_resource_save_name(current_frame_index, current_epoch_ms, current_datetime)
         
         # Have resource object handle image saving
         self.resource_image_saver.save_png(file_save_name_no_ext = generated_save_name,
@@ -1027,23 +1015,26 @@ class Reference_Background_Creator:
     # .................................................................................................................
     
     # SHOULDN'T OVERRIDE
-    def _save_generated_report_data(self, background_image, current_frame_index, current_time_sec, current_datetime):
+    def _save_generated_report_data(self, background_image, current_frame_index, current_epoch_ms, current_datetime):
         
         ''' Function which creates reporting copies of newly generated background image '''
         
         # Get time as a string for reporting
-        bgcap_time_isoformat = utc_time_to_isoformat_string(current_datetime)
-        ms_since_epoch = utc_datetime_to_epoch_ms(current_datetime)
+        bgcap_time_isoformat = get_isoformat_string(current_datetime)
+        
+        # Get background image sizing, so we can save it with the metadata
+        bggen_height, bggen_width = background_image.shape[0:2]
+        bggen_wh = (bggen_width, bggen_height)
         
         # Build reporting file name & metadata
-        bgcap_name = self._create_reporting_save_name(ms_since_epoch)
+        bgcap_name = self._create_reporting_save_name(current_epoch_ms)
         bgcap_metadata = {"name": bgcap_name,
                           "datetime_isoformat": bgcap_time_isoformat,
                           "frame_index": current_frame_index,
-                          "time_elapsed_sec": current_time_sec,
-                          "epoch_ms_utc": ms_since_epoch,
+                          "epoch_ms_utc": current_epoch_ms,
                           "video_select": self.video_select,
-                          "video_wh": self.video_wh}
+                          "video_wh": self.video_wh,
+                          "bggen_wh": bggen_wh}
         
         # Have reporting object handle image saving
         self.report_image_saver.save_jpg(file_save_name_no_ext = bgcap_name,

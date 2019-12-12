@@ -74,7 +74,7 @@ class Snapshot_Capture(Reference_Snapshot_Capture):
         self._downscale_wh = None
         
         # Allocate storage for keeping track of (approximate) snapshot period
-        self._last_snap_time_sec = 0.0
+        self._last_snap_epoch_ms = 0.0
         self._approx_snap_period_sec = -1.0
         
         # .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . Control Group 1 .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
@@ -146,7 +146,7 @@ class Snapshot_Capture(Reference_Snapshot_Capture):
     
     # .................................................................................................................
     
-    def trigger_snapshot(self, input_frame, current_frame_index, current_time_sec, current_datetime):
+    def trigger_snapshot(self, input_frame, current_frame_index, current_epoch_ms, current_datetime):
         
         # Simple remainder check to subsample frames
         frame_index_remainder = ((current_frame_index - 1) % self._skip_frames_remainder)
@@ -154,8 +154,8 @@ class Snapshot_Capture(Reference_Snapshot_Capture):
         
         # Try to keep track of how long it takes to get a snapshot
         if need_new_snapshot:
-            self._approx_snap_period_sec = current_time_sec - self._last_snap_time_sec
-            self._last_snap_time_sec = current_time_sec            
+            self._approx_snap_period_sec = (current_epoch_ms - self._last_snap_epoch_ms) / 1000.0
+            self._last_snap_epoch_ms = current_epoch_ms
         
         return need_new_snapshot
     

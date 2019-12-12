@@ -1,0 +1,8 @@
+{
+  "access_info": {
+    "script_name": "passthrough_fgextractor.py",
+    "class_name": "FG_Extractor_Stage",
+    "configuration_utility": "passthrough"
+  },
+  "setup_data": {}
+}

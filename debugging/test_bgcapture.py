@@ -53,7 +53,7 @@ import cv2
 
 from local.lib.selection_utils import Resource_Selector
 from local.lib.configuration_utils.local_ui.windows_base import Simple_Window
-from local.lib.configuration_utils.video_setup import Dummy_vreader
+from local.lib.configuration_utils.video_setup import File_Video_Reader
 
 #from local.configurables.externals.background_capture.passthrough_backgroundcapture import Background_Capture
 #from local.configurables.externals.background_capture.averaging_backgroundcapture import Background_Capture
@@ -88,7 +88,7 @@ task_name_list = selector.get_task_list(camera_select, user_select)
 #%% Load video
 
 # Set up the video source
-vreader = Dummy_vreader(cameras_folder_path, camera_select, video_select)
+vreader = File_Video_Reader(cameras_folder_path, camera_select, video_select)
 video_wh = vreader.video_wh
 video_fps = vreader.video_fps
 video_type = vreader.video_type
@@ -140,7 +140,7 @@ while True:
     # Frame reading
     
     # Grab frames from the video source (with timing information for each frame!)
-    req_break, input_frame, current_frame_index, current_time_elapsed, current_datetime = vreader.read()
+    req_break, input_frame, current_frame_index, current_epoch_ms, current_datetime = vreader.read()
     if req_break:
         break
     
@@ -148,7 +148,7 @@ while True:
     # Get (shared) background image & snapshot metadata
     
     # Handle background capture stage
-    bg_outputs = bgcap.run(input_frame, current_frame_index, current_time_elapsed, current_datetime)
+    bg_outputs = bgcap.run(input_frame, current_frame_index, current_epoch_ms, current_datetime)
     
     # .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
     # Display
