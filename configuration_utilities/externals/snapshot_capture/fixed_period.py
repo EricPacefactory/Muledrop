@@ -49,31 +49,15 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
-from local.lib.configuration_utils.configuration_loaders import Reconfigurable_Snapshot_Capture_Loader
-from local.lib.configuration_utils.video_processing_loops import Snapshot_Capture_Video_Loop
-from local.lib.configuration_utils.display_specification import Input_Display
+from local.lib.launcher_utils.configuration_loaders import Reconfigurable_Snapshot_Capture_Loader
+from local.lib.launcher_utils.video_processing_loops import Snapshot_Capture_Video_Loop
+
+from local.lib.ui_utils.display_specification import Input_Display
 
 from local.configurables.externals.snapshot_capture._helper_functions import Snap_Display, Snap_Stats_Display
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define displays
-
-class Snap_Stats(Snap_Stats_Display):
-    
-    # .................................................................................................................
-    
-    def __init__(self, layout_index, num_rows, num_columns, initial_display = False):
-        
-        # Inherit from parent class
-        super().__init__(layout_index, num_rows, num_columns, initial_display = initial_display)
-        
-    # .................................................................................................................
-    
-    def _get_snapshot_period_sec(self, configurable_ref):
-        return configurable_ref._total_snapshot_period_ms / 1000.0
-        
-    # .................................................................................................................
-    # .................................................................................................................
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -88,7 +72,7 @@ main_process = \
 Snapshot_Capture_Video_Loop(loader,
                             ordered_display_list = [Input_Display(0, 2, 2),
                                                     Snap_Display(1, 2, 2, initial_display = True),
-                                                    Snap_Stats(4, 2, 3)])
+                                                    Snap_Stats_Display(4, 2, 3)])
 
 # Most of the work is done here!
 main_process.loop()
@@ -101,7 +85,6 @@ main_process.loop()
 last_frame = main_process.debug_frame
 stage_outputs = main_process.debug_stage_outputs
 stage_timing = main_process.debug_stage_timing
-object_ids_in_frame_dict = main_process.debug_object_ids_in_frame_dict
 snapshot_metadata = main_process.debug_current_snapshot_metadata
 last_frame_index, last_epoch_ms, last_datetime = main_process.debug_fed_time_args
 

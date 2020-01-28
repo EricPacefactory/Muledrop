@@ -1,0 +1,60 @@
+
+/* ----------------------------------------------------------------- */
+/* Global styling */
+/* ----------------------------------------------------------------- */
+
+:root {
+
+  --light_background: rgb(241, 229, 213);
+  --dark_background: rgb(48, 43, 47);
+  --dark_foreground: rgb(50, 41, 49);
+
+  --dark: rgb(46, 51, 53);
+  --full_dark: rgb(10, 10, 10);
+  --more_dark: rgb(29, 38, 41);
+  --less_dark: rgb(67, 73, 77);
+
+  --light: rgb(220,220,220);
+  --full_light: rgb(245,245,245);
+  --more_light: rgb(235,235,235);
+  --less_light: rgb(160,160,160);
+
+  --page_accent: rgb(56, 38, 38);
+  --page_accent_hl: rgb(40, 40, 40);
+  --page_accent_desat: rgb(35, 35, 35);
+
+  --accent_1: rgb(221, 70, 76);
+  --accent_2: rgb(18, 144, 179);
+  --accent_3: rgb(143, 192, 62);
+
+  --light_shadow: rgba(0, 0, 0, 0.1);
+  --medium_shadow: rgba(0, 0, 0, 0.2);
+  --heavy_shadow: rgba(0, 0, 0, 0.3);
+
+  --page_background: var(--dark_background);
+}
+
+
+/* ----------------------------------------------------------------- */
+/* Global page styling */
+
+html {
+  box-sizing: border-box;
+  font-family: Arial, Helvetica, sans-serif;
+  color: var(--light);
+  min-width: 100%;
+  min-height: 100%;
+  box-shadow: inset 0 0 24px 12px var(--medium_shadow);
+}
+
+body{
+  margin: 40px auto;
+  line-height: 1.4;
+  user-select: none;
+  background: var(--page_background);
+}
+
+.page_content {
+  display: grid;
+  grid-gap: 20px;
+}

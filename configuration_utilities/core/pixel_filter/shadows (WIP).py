@@ -49,10 +49,11 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
-from local.lib.configuration_utils.configuration_loaders import Reconfigurable_Core_Stage_Loader
-from local.lib.configuration_utils.video_processing_loops import Reconfigurable_Video_Loop
-from local.lib.configuration_utils.display_specification import Display_Window_Specification, Preprocessed_Display
-from local.lib.configuration_utils.display_specification import Filtered_Binary_Display
+from local.lib.launcher_utils.configuration_loaders import Reconfigurable_Core_Stage_Loader
+from local.lib.launcher_utils.video_processing_loops import Reconfigurable_Video_Loop
+
+from local.lib.ui_utils.display_specification import Display_Window_Specification, Preprocessed_Display
+from local.lib.ui_utils.display_specification import Filtered_Binary_Display
 
 from local.configurables.core.pixel_filter._helper_functions import Color_Filtered
 
@@ -100,7 +101,6 @@ main_process.loop()
 last_frame = main_process.debug_frame
 stage_outputs = main_process.debug_stage_outputs
 stage_timing = main_process.debug_stage_timing
-object_ids_in_frame_dict = main_process.debug_object_ids_in_frame_dict
 snapshot_metadata = main_process.debug_current_snapshot_metadata
 last_frame_index, last_epoch_ms, last_datetime = main_process.debug_fed_time_args
 

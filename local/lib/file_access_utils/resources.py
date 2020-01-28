@@ -49,10 +49,7 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
-from local.lib.file_access_utils.runtime_read_write import Image_Saver, Metadata_Saver, Image_Loader
-
-from local.lib.file_access_utils.video import create_default_video_configs
-from local.lib.file_access_utils.classifier import create_default_classifier_configs
+from local.lib.file_access_utils.threaded_read_write import Image_Saver, Metadata_Saver, Image_Loader
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Classes
@@ -72,8 +69,7 @@ class Image_Resources_Loader(Image_Loader):
         self.folder_paths = folder_paths
         
         # Inherit from base class
-        super().__init__(cameras_folder_path, camera_select, user_select, 
-                         task_select = None,
+        super().__init__(cameras_folder_path, camera_select, user_select,
                          saving_enabled = True,
                          create_load_folder_if_missing = True,
                          threading_enabled = True,
@@ -82,7 +78,7 @@ class Image_Resources_Loader(Image_Loader):
     # .................................................................................................................
     
     def _build_data_folder_path(self):   
-        return build_base_resource_path(self.cameras_folder_path, self.camera_select, *self.folder_paths)
+        return build_base_resources_path(self.cameras_folder_path, self.camera_select, *self.folder_paths)
     
     # .................................................................................................................
     # .................................................................................................................
@@ -102,8 +98,7 @@ class Image_Resources_Saver(Image_Saver):
         self.folder_paths = folder_paths
         
         # Inherit from base class
-        super().__init__(cameras_folder_path, camera_select, user_select, 
-                         task_select = None, 
+        super().__init__(cameras_folder_path, camera_select, user_select,
                          saving_enabled = True,
                          create_save_folder_if_missing = True,
                          threading_enabled = True,
@@ -112,7 +107,7 @@ class Image_Resources_Saver(Image_Saver):
     # .................................................................................................................
     
     def _build_data_folder_path(self):   
-        return build_base_resource_path(self.cameras_folder_path, self.camera_select, *self.folder_paths)
+        return build_base_resources_path(self.cameras_folder_path, self.camera_select, *self.folder_paths)
     
     # .................................................................................................................
     # .................................................................................................................
@@ -131,8 +126,7 @@ class Metadata_Resources_Saver(Metadata_Saver):
         self.folder_paths = folder_paths
         
         # Inherit from base class
-        super().__init__(cameras_folder_path, camera_select, user_select, 
-                         task_select = None,
+        super().__init__(cameras_folder_path, camera_select, user_select,
                          saving_enabled = True,
                          create_save_folder_if_missing = True,
                          threading_enabled = True,
@@ -141,25 +135,15 @@ class Metadata_Resources_Saver(Metadata_Saver):
     # .................................................................................................................
     
     def _build_data_folder_path(self):   
-        return build_base_resource_path(self.cameras_folder_path, self.camera_select, *self.folder_paths)
+        return build_base_resources_path(self.cameras_folder_path, self.camera_select, *self.folder_paths)
     
     # .................................................................................................................
     # .................................................................................................................
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Load & Save functions
-    
-# .....................................................................................................................
 
-def create_default_resources(project_root_path, resources_folder_path):
-    
-    # Create default video configs
-    video_resources_folder_path = os.path.join(resources_folder_path, "videos")
-    create_default_video_configs(project_root_path, video_resources_folder_path)
-    
-    # Create default classifier configs
-    classifier_resources_folder_path = os.path.join(resources_folder_path, "classifier")
-    create_default_classifier_configs(project_root_path, classifier_resources_folder_path)
+# .....................................................................................................................
 
 # .....................................................................................................................
 # .....................................................................................................................
@@ -169,15 +153,9 @@ def create_default_resources(project_root_path, resources_folder_path):
 
 # .....................................................................................................................
 
-def build_base_resource_path(cameras_folder, camera_select, *path_joins):
-    ''' Build path to base resources folder for a given camera '''    
+def build_base_resources_path(cameras_folder, camera_select, *path_joins):
+    ''' Build path to base resources folder for a given camera '''
     return os.path.join(cameras_folder, camera_select, "resources", *path_joins)
-
-# .....................................................................................................................
-
-def build_video_resources_path(cameras_folder, camera_select, *path_joins):
-    ''' Build pathing to video resources folder for a given camera '''
-    return build_base_resource_path(cameras_folder, camera_select, "videos", *path_joins)
 
 # .....................................................................................................................
 # .....................................................................................................................
@@ -191,8 +169,6 @@ if __name__ == "__main__":
     
     example_cameras_folder = "/path/to/nowhere"
     example_camera_select = "fake_camera"
-    
-    res_manager = Resource_Manager(example_cameras_folder, example_camera_select)
 
 
 # ---------------------------------------------------------------------------------------------------------------------

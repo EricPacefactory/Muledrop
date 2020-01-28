@@ -51,9 +51,10 @@ find_path_to_local()
 
 import cv2
 
-from local.lib.configuration_utils.configuration_loaders import Reconfigurable_Core_Stage_Loader
-from local.lib.configuration_utils.video_processing_loops import Reconfigurable_Video_Loop
-from local.lib.configuration_utils.display_specification import Display_Window_Specification, Binary_Display
+from local.lib.launcher_utils.configuration_loaders import Reconfigurable_Core_Stage_Loader
+from local.lib.launcher_utils.video_processing_loops import Reconfigurable_Video_Loop
+
+from local.lib.ui_utils.display_specification import Display_Window_Specification, Binary_Display
 
 from local.configurables.core.foreground_extractor._helper_functions import Outlined_Input, Masked_Differences
 
@@ -81,7 +82,7 @@ class Rolling_BG_Display(Display_Window_Specification):
         rolling_background_frame = configurable_ref._rolling_bg_frame_uint8
         
         # Scale it to the display size
-        display_height, display_width = stage_outputs.get("preprocessor").get("preprocessed_frame").shape[0:2]
+        display_height, display_width = stage_outputs["preprocessor"]["preprocessed_frame"].shape[0:2]
         
         return cv2.resize(rolling_background_frame, dsize = (display_width, display_height), 
                           interpolation = cv2.INTER_NEAREST)
@@ -122,7 +123,6 @@ main_process.loop()
 last_frame = main_process.debug_frame
 stage_outputs = main_process.debug_stage_outputs
 stage_timing = main_process.debug_stage_timing
-object_ids_in_frame_dict = main_process.debug_object_ids_in_frame_dict
 snapshot_metadata = main_process.debug_current_snapshot_metadata
 last_frame_index, last_epoch_ms, last_datetime = main_process.debug_fed_time_args
 

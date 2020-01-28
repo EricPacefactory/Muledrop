@@ -52,7 +52,7 @@ find_path_to_local()
 import cv2
 import numpy as np
 
-from itertools import permutations, product
+from scipy.optimize import linear_sum_assignment
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
@@ -62,81 +62,6 @@ from itertools import permutations, product
 #%% Define positioning functions
 
 # .....................................................................................................................
-    
-def calculate_squared_distance_pairing_matrix(row_entry_xy_tuple_list, col_entry_xy_tuple_list,
-                                              x_scale = 1.0, y_scale = 1.0):
-    
-    '''
-    Function which calculates the squared distance between each pair of row/col objects xys
-    This function assumes xy values are given with the desired tracking point already
-    (i.e. will not assume center/base tracking, that should be handled beforehand)
-    Note that this function doesn't assume any units! Can be used with meters/pixels/normalized etc.
-    For each row/col pairing, the calculation is given by:
-        
-        squared_distance = (x_scale * (row_x - col_x)) ^ 2 + (y_scale * (row_y- col_y)) ^ 2
-        
-    This returns a matrix with a format described below...        
-    
-    *** Given ***
-    row_entries = Objects: A, B, C, D, E
-    col_entries = Detections: 1, 2, 3
-    
-    *** Matrix Format ***
-    Entries (#) are calculated using the squared_distance formula above
-    
-          1    2    3
-    
-    A     #    #    #
-    
-    B     #    #    #
-    
-    C     #    #    #
-    
-    D     #    #    #
-    
-    E     #    #    #
-    
-    '''
-    
-    # Get number of rows & columns. Bail if either is zero
-    num_rows = len(row_entry_xy_tuple_list)
-    num_cols = len(col_entry_xy_tuple_list)
-    if num_rows == 0 or num_cols == 0:
-        return np.array(())
-    
-    # Convert to arrays and apply x/y dimensional scaling so we can get numpy to do all the heavy lifting
-    row_xy_array = np.float32(row_entry_xy_tuple_list) * np.float32((x_scale, y_scale))
-    col_xy_array = np.float32(col_entry_xy_tuple_list) * np.float32((x_scale, y_scale))
-    
-    # Calculate the x-difference between the row and column object locations
-    row_x_array = row_xy_array[:, 0]
-    col_x_array = col_xy_array[:, 0]
-    delta_x = np.tile(row_x_array, (num_cols, 1)).T - np.tile(col_x_array, (num_rows, 1))
-    
-    # Calculate the y-difference between the row and column object locations
-    row_y_array = row_xy_array[:, 1]
-    col_y_array = col_xy_array[:, 1]
-    delta_y = np.tile(row_y_array, (num_cols, 1)).T - np.tile(col_y_array, (num_rows, 1))
-    
-    # Square and sum the x/y distances to get our results!
-    square_distance_matrix = np.square(delta_x) + np.square(delta_y)
-    
-    return square_distance_matrix
-
-# .....................................................................................................................
-    
-def build_obj_det_match_xys(object_ref_list, detection_ref_list):
-    
-    '''
-    Get a list of xy tuples for both the objects and detections 
-    Only matches by object-to-detection center points (isn't affected by center/base tracking)
-    Assumes objects have an xy_match function, which can additionally use object speed to alter object xy position
-    '''
-    
-    object_xys = [each_obj.xy_match() for each_obj in object_ref_list]
-    detection_xys = [each_detection.xy_center for each_detection in detection_ref_list]
-    
-    return object_xys, detection_xys
 
 # .....................................................................................................................
 # .....................................................................................................................
@@ -170,17 +95,37 @@ def _fast_unique(iterable):
 
 # .....................................................................................................................
 
-def naive_object_detection_match(obj_by_det_sqdist_matrix, max_match_square_distance = 1.0):
+def naive_object_detection_match(obj_by_det_cost_matrix, max_allowable_cost = 1.0):
     
     '''
     Function for pairing objects to detections.
-    Works by assigning objects/detections their 'best' match, though this can lead to duplicate pairings
+    Works by assigning objects/detections based on the lowest cost assignement available.
+    Note that this approach his can lead to duplicate pairings!
     (i.e. two objects pairing with a single detections or vice versa). 
     
     Will always make the pairing using the smaller set. For example, if there
-    are 3 detections and 5 objects, then only 3 pairings will be made (the closest objects for each detection).
-    This favours unmatched objects/detections (objects in the above example)
-    instead of trying to resolve duplicate pairings.
+    are 3 detections and 5 objects, then only 3 pairings will be made (the 'best' objects for each detection).
+    
+    Inputs:
+        obj_by_det_cost_matrix --> np array. Each entry represents the 'cost' of assigning 
+                                   the given object (row) to the given detection (column)
+                                
+        max_allowable_cost --> Float. Cost values must be below the allowable max to be consider valid matches.
+        
+    Outputs:
+        is_unique --> Boolean. If true, the assignment is unique (i.e. no obj/detection was matched more than once)
+        
+        obj_det_idx_match_tuple_list --> List of tuples. Each tuple represents a pairing 
+                                         of one object with one detection. The tuple itself contains
+                                         the corresponding (row, column) index of the input cost matrix
+                                         
+        unmatched_objidx_list --> List. Represents the list of unmatched objects, where the entries themselves
+                                  correspond to the rows of the cost matrix that were not matched.
+                                  
+        unmatched_detidx_list --> List. Represents the list of unmatched detections, where the entries themselves
+                                  correspond to the columns of the cost matrix that were not matched.
+    
+    # ***************************
     
     Example:
         D1  D2
@@ -189,31 +134,33 @@ def naive_object_detection_match(obj_by_det_sqdist_matrix, max_match_square_dist
     Result:
         A -> D1
         B -> D1
+    
+    # ***************************
     '''
     
-    # Figure out how many objects/detections we have based on the distance matrix
-    num_objs, num_dets = obj_by_det_sqdist_matrix.shape
+    # Figure out how many objects/detections we have based on the cost matrix
+    num_objs, num_dets = obj_by_det_cost_matrix.shape
     more_objs = (num_objs >= num_dets)
     
     # Match by the smaller of the two sets of inputs (objects or detections)
     if more_objs:
-        best_match_rows = np.argmin(obj_by_det_sqdist_matrix, axis = 0)
+        best_match_rows = np.argmin(obj_by_det_cost_matrix, axis = 0)
         best_match_cols = np.arange(num_dets)
     else:
         best_match_rows = np.arange(num_objs)
-        best_match_cols = np.argmin(obj_by_det_sqdist_matrix, axis = 1)
+        best_match_cols = np.argmin(obj_by_det_cost_matrix, axis = 1)
     
-    # Filter out matches that were out of range
-    within_range = obj_by_det_sqdist_matrix[best_match_rows, best_match_cols] < max_match_square_distance
-    best_match_rows = best_match_rows[within_range].tolist()
-    best_match_cols = best_match_cols[within_range].tolist()    # tolist() conversion speeds up list-comp later!
+    # Filter out matches that have overly high costs
+    allowable_matches = obj_by_det_cost_matrix[best_match_rows, best_match_cols] < max_allowable_cost
+    best_match_rows = best_match_rows[allowable_matches].tolist()
+    best_match_cols = best_match_cols[allowable_matches].tolist()   # tolist() conversion speeds up list-comp later!
     
     # Check if there are any duplicate matches (i.e. not unique)
     check_len = best_match_rows if more_objs else best_match_cols
     is_unique = _fast_unique(check_len)
     
     # Bundle the object/detection index pairings together
-    obj_det_idx_match_tuple = list(zip(best_match_rows, best_match_cols))
+    obj_det_idx_match_tuple_list = list(zip(best_match_rows, best_match_cols))
     
     # Finally, get all the all the indices (obj/det) that are not part of the best-matches (i.e. unmatched)
     unmatched_objidx_list = [each_idx for each_idx in range(num_objs) if each_idx not in best_match_rows]
@@ -224,11 +171,11 @@ def naive_object_detection_match(obj_by_det_sqdist_matrix, max_match_square_dist
     print("")
     print("")
     print("***** GET NAIVE *****")
-    print("Square distance matrix:")
-    print(obj_by_det_sqdist_matrix)
+    print("Cost matrix:")
+    print(obj_by_det_cost_matrix)
     print("")
     print("Matches: ({})".format("Unique" if unique_mapping else "Not unique"))
-    print(obj_det_idx_match_tuple)
+    print(obj_det_idx_match_tuple_list)
     print("Unmatched Obj. Index:", unmatched_objidx_list)
     print("Unmatched Det. Index:", unmatched_detidx_list)
     print("")
@@ -236,38 +183,63 @@ def naive_object_detection_match(obj_by_det_sqdist_matrix, max_match_square_dist
     #cv2.waitKey(0)
     '''    
     
-    return is_unique, obj_det_idx_match_tuple, unmatched_objidx_list, unmatched_detidx_list
+    return is_unique, obj_det_idx_match_tuple_list, unmatched_objidx_list, unmatched_detidx_list
 
 # .....................................................................................................................
 
-def greedy_object_detection_match(obj_by_det_sqdist_matrix, max_match_square_distance = 1.0):
+def greedy_object_detection_match(obj_by_det_cost_matrix, max_allowable_cost = 1.0):
     
     '''
     Function for matching objects to detections using a greedy approach
-    Works by matching  on a 'shortest-distance-first' basis.
-    After matching the matched object/detection are excluded for the next round of matching
+    Works by matching 'best-match-first' basis.
+    After matching the matched pair are excluded from all assignment checks
     
-    This style of matching will always produce unique matched pairs, but is slower than the naive matching
-    function, and may give 'poor' results in specific cases, causing objects to leapfrog each other for example.
+    This style of matching will always produce unique matched pairs, but is typically slower (~x2) 
+    than the naive matching function, and may give 'poor' results in specific cases,
+    causing objects to leapfrog each other for example.
+    
+    Inputs:
+        obj_by_det_cost_matrix --> np array. Each entry represents the 'cost' of assigning 
+                                   the given object (row) to the given detection (column)
+                                
+        max_allowable_cost --> Float. Cost values must be below the allowable max to be consider valid matches.
+        
+    Outputs:        
+        obj_det_idx_match_tuple_list --> List of tuples. Each tuple represents a pairing 
+                                         of one object with one detection. The tuple itself contains
+                                         the corresponding (row, column) index of the input cost matrix
+                                         
+        unmatched_objidx_list --> List. Represents the list of unmatched objects, where the entries themselves
+                                  correspond to the rows of the cost matrix that were not matched.
+                                  
+        unmatched_detidx_list --> List. Represents the list of unmatched detections, where the entries themselves
+                                  correspond to the columns of the cost matrix that were not matched.
+    
+    # ***************************
     
     Example:
     Assume we have objects A & B from a previous frame, and detections D1 and D2 from the current frame, shown below.
+    Also assume that the cost matrix is just the distance between the object/detection.
     Since the B-to-D1 distance is the shortest pairing, it will be matched first, followed by A-to-D2.
-    This avoids duplications (both A & B would naively match to D1), but may not be the ideal pairing.
-        
+    This avoids duplications (both A & B would naively match to D1), 
+    but may not be the ideal pairing since the pairing is criss-crossed 
+    (if A/B continue traveling diagonally, each iteration would tend to leapfrog them back and forth!).
+    
         D1  D2
     A     B
     
     Result:
         B -> D1
         A -> D2
+        
+    # ***************************
     '''
     
-    # Get number of objects and detections based on the distance matrix
-    num_objs, num_dets = obj_by_det_sqdist_matrix.shape
+    # Get number of objects and detections based on the cost matrix
+    num_objs, num_dets = obj_by_det_cost_matrix.shape
     
-    # Sort all distances (smallest first)
-    sorted_idxs = np.argsort(obj_by_det_sqdist_matrix.ravel())
+    # Sort all costs (smallest first)
+    sorted_idxs = np.argsort(obj_by_det_cost_matrix.ravel())
     
     # Allocate looping resources
     max_iter = min(num_objs, num_dets)
@@ -275,7 +247,7 @@ def greedy_object_detection_match(obj_by_det_sqdist_matrix, max_match_square_dis
     matched_objs = []
     matched_dets = []
     
-    # Loop over the sorted distance values and add the corresponding obj/det index to our matched list,
+    # Loop over the sorted cost values and add the corresponding obj/det index to our matched list,
     # but only if we haven't already seen those indices
     for each_idx in sorted_idxs:
         
@@ -283,8 +255,8 @@ def greedy_object_detection_match(obj_by_det_sqdist_matrix, max_match_square_dis
         each_obj_idx = int(each_idx / num_dets)
         each_det_idx = each_idx % num_dets
         
-        # Stop if the current value exceeds the maximum distance (we won't find anything smaller going forward)
-        if obj_by_det_sqdist_matrix[each_obj_idx, each_det_idx] > max_match_square_distance:
+        # Stop if the current value exceeds the maximum cost (we won't find anything smaller going forward)
+        if obj_by_det_cost_matrix[each_obj_idx, each_det_idx] > max_allowable_cost:
             break
         
         # Add the object (row) and detection (column) index to our matched list, only if they are unique entries
@@ -298,7 +270,7 @@ def greedy_object_detection_match(obj_by_det_sqdist_matrix, max_match_square_dis
                 break
             
     # Bundle the object/detection index pairings together
-    obj_det_idx_match_tuple = list(zip(matched_objs, matched_dets))
+    obj_det_idx_match_tuple_list = list(zip(matched_objs, matched_dets))
     
     # Finally, get all the indices (obj/det) that are not part of the best-matches (i.e. unmatched)
     unmatched_objidx_list = [each_idx for each_idx in range(num_objs) if each_idx not in matched_objs]
@@ -309,11 +281,11 @@ def greedy_object_detection_match(obj_by_det_sqdist_matrix, max_match_square_dis
     print("")
     print("")
     print("***** GET GREEDY *****")
-    print("Square distance matrix:")
-    print(obj_by_det_sqdist_matrix)
+    print("Cost matrix:")
+    print(obj_by_det_cost_matrix)
     print("")
     print("Matches:")
-    print(obj_det_idx_match_tuple)
+    print(obj_det_idx_match_tuple_list)
     print("Unmatched Obj. Index:", unmatched_objidx_list)
     print("Unmatched Det. Index:", unmatched_detidx_list)
     print("")
@@ -321,186 +293,70 @@ def greedy_object_detection_match(obj_by_det_sqdist_matrix, max_match_square_dis
     cv2.waitKey(0)
     '''
         
-    return obj_det_idx_match_tuple, unmatched_objidx_list, unmatched_detidx_list
+    return obj_det_idx_match_tuple_list, unmatched_objidx_list, unmatched_detidx_list
 
 # .....................................................................................................................
-
-def pathmin_object_detection_match(obj_by_det_sqdist_matrix, max_match_square_distance = 1.0):
+    
+def minsum_object_detection_match(obj_by_det_cost_matrix, max_allowable_cost = 1.0):
     
     '''
-    Function which matches objects to detections by picking the (unique!) pair which minimizes
-    the total squared path lengths. Inituitively, this tends to pick pairings without outliers
-    (i.e. favors having consistent pairing distances over very small + very large distances)
+    Function for matching objects to detections by finding the pairing with the minimum total cost.
+    Google 'Hungarian algorithm' for more info.
     
-    Warning: For large numbers (>6) of objects & detections, this function can run extremely slow!
-             ... The scaling is so sudden, it seems like there might be something wrong?
-             Also, would be worth implementing more efficient permutation checker, based on max range exclusions!
-             
-             Note that this function may overwrite entries in the obj/det distance matrix!
-             
-    Example:
-        D1  D2
-    A     B
+    This style of matching should (usually) produce better pairing than the greedy approach. For example,
+    if the cost function is the square distance between objects/detections, then the result of this pairing
+    willl tend avoid outliers (i.e favor consistent pairing distances over very small + very large distances).
+    It will also tend to make the most 'possible' pairs.
     
-    Result:
-        A -> D1
-        B -> D2
+    Note however that this function runs significantly slower (~x10) than the greedy or naive pairing functions.
+    It also modifys the cost matrix!
+    
+    Inputs:
+        obj_by_det_cost_matrix --> np array. Each entry represents the 'cost' of assigning 
+                                   the given object (row) to the given detection (column)
+                                
+        max_allowable_cost --> Float. Cost values must be below the allowable max to be consider valid matches.
+        
+    Outputs:        
+        obj_det_idx_match_tuple_list --> List of tuples. Each tuple represents a pairing 
+                                         of one object with one detection. The tuple itself contains
+                                         the corresponding (row, column) index of the input cost matrix
+                                         
+        unmatched_objidx_list --> List. Represents the list of unmatched objects, where the entries themselves
+                                  correspond to the rows of the cost matrix that were not matched.
+                                  
+        unmatched_detidx_list --> List. Represents the list of unmatched detections, where the entries themselves
+                                  correspond to the columns of the cost matrix that were not matched.
     '''
     
     # Figure out sizing
-    num_objs, num_dets = obj_by_det_sqdist_matrix.shape
-    more_rows = (num_objs > num_dets)
-    short_matrix = obj_by_det_sqdist_matrix.T if more_rows else obj_by_det_sqdist_matrix
+    num_objs, num_dets = obj_by_det_cost_matrix.shape
     
-    # Overwrite any entries that exceed the max range, with a silly value to avoid matching
-    bad_indices = short_matrix > max_match_square_distance
-    short_matrix[bad_indices] = max_match_square_distance * 100
+    # Scale up 'high cost' values, so that they don't mess with matching too much
+    bad_matches = obj_by_det_cost_matrix > max_allowable_cost
+    obj_by_det_cost_matrix[bad_matches] = (100.0 * max_allowable_cost)
     
-    # Determine which side dimension is smaller, since we'll minimize based on those indices
-    if more_rows:
-        smaller_dim = num_dets
-        larger_dim = num_objs
-    else:
-        smaller_dim = num_objs
-        larger_dim = num_dets
+    # Find obj/detection matches. Note that the function handles short matrix conversion!
+    obj_match_idxs, det_match_idxs = linear_sum_assignment(obj_by_det_cost_matrix)
     
-    # Set up indexing vectors
-    small_index_vector = np.arange(smaller_dim)     # For 4x2 = [0,1] 
-    big_index_vector = np.arange(larger_dim)        # For 4x2 = [0,1,2,3]        
-    all_col_index_permutations = permutations(big_index_vector, smaller_dim)
+    # Allocate loop resources
+    obj_det_idx_match_tuple_list = []
+    matched_obj_list = []
+    matched_det_list = []
     
-    # Create indexing matrix for all unique row/column permutations
-    col_perm_index_matrix = np.int64(list(all_col_index_permutations))    
-    
-    # Calculate the sum of every column index permutation, and find the smallest total (i.e. best match!)
-    path_sums = np.sum(short_matrix[small_index_vector, col_perm_index_matrix], axis=1)
-    best_match_idx = np.argmin(path_sums)
-    best_match_vector = col_perm_index_matrix[best_match_idx]
-    
-    # Only take matches within the max matching range
-    good_rows, good_cols = [], []
-    for each_row_idx, each_col_idx in zip(small_index_vector, best_match_vector):
-        
-        # Check each matched (square) distance
-        sq_dist = short_matrix[each_row_idx, each_col_idx]
-        if sq_dist > max_match_square_distance:
-            continue
-        
-        # Keep the good ones
-        good_rows.append(each_row_idx)
-        good_cols.append(each_col_idx)
-    
-    # Assign matching, based on the shape of the indexing that was used
-    matched_obj_list, matched_det_list = (good_cols, good_rows) if more_rows else (good_rows, good_cols)
-    obj_det_idx_match_tuple = list(zip(matched_obj_list, matched_det_list))
+    # Build object/detection match lists
+    for each_obj_idx, each_det_idx in zip(obj_match_idxs, det_match_idxs):
+        match_cost = obj_by_det_cost_matrix[each_obj_idx, each_det_idx]
+        if match_cost < max_allowable_cost:
+            obj_det_idx_match_tuple_list.append((each_obj_idx, each_det_idx))
+            matched_obj_list.append(each_obj_idx)
+            matched_det_list.append(each_det_idx)
     
     # Now figure out which objects/detections weren't matched
     unmatched_objidx_list = [each_idx for each_idx in range(num_objs) if each_idx not in matched_obj_list]
     unmatched_detidx_list = [each_idx for each_idx in range(num_dets) if each_idx not in matched_det_list]
     
-    return obj_det_idx_match_tuple, unmatched_objidx_list, unmatched_detidx_list
-
-# .....................................................................................................................
-
-def alt_pathmin_unfinished(obj_by_det_sqdist_matrix, max_match_square_distance = 1.0):
-    
-    print("WARNING UNFINISHED!")
-    print("Doesn't handle certain edge cases properly...")
-    print("Namely when best matches all appear on the same row")
-    
-    num_objs, num_dets = obj_by_det_sqdist_matrix.shape
-    
-    # Remove any column indices that have no 
-    col_range = np.arange(num_dets)
-    valid_col_idxs = col_range[np.min(obj_by_det_sqdist_matrix, axis = 0) < max_match_square_distance]
-    
-    row_range = np.arange(num_objs)
-    valid_row_idxs = [row_range[obj_by_det_sqdist_matrix[:, each_col] < max_match_square_distance].tolist() \
-                      for each_col in valid_col_idxs]
-    
-    row_product = product(*valid_row_idxs)
-    
-    smallest_sum = 1000000
-    best_row_idxs = []
-    for product_idx, each_row_idxs in enumerate(row_product):
-        
-        # Ignore checks with duplicated rows
-        is_unique = _fast_unique(each_row_idxs)
-        if not is_unique:
-            continue
-        
-        dist_sum = np.sum(obj_by_det_sqdist_matrix[each_row_idxs, valid_col_idxs])
-        
-        if dist_sum < smallest_sum:
-            smallest_sum = dist_sum
-            best_row_idxs = each_row_idxs
-    
-    # Assign matching
-    matched_obj_list, matched_det_list = best_row_idxs, valid_col_idxs
-    obj_det_idx_match_tuple = list(zip(best_row_idxs, valid_col_idxs))
-    
-    # Now figure out which objects/detections weren't matched
-    unmatched_objidx_list = [each_idx for each_idx in range(num_objs) if each_idx not in matched_obj_list]
-    unmatched_detidx_list = [each_idx for each_idx in range(num_dets) if each_idx not in matched_det_list]
-    
-    return obj_det_idx_match_tuple, unmatched_objidx_list, unmatched_detidx_list
-
-# .....................................................................................................................
-# .....................................................................................................................
-
-
-# ---------------------------------------------------------------------------------------------------------------------
-#%% Define pairing update functions
-
-# .....................................................................................................................
-
-def pair_objects_to_detections(object_ref_dict, pairable_id_list,
-                               detection_ref_list, pairable_index_list, 
-                               max_match_x_dist, max_match_y_dist,
-                               fallback_matching_function):
-    
-    # Create lists of pairable objects & detections, so that we can rely on a fixed ordering!
-    pobj_ref_list = [object_ref_dict[each_id] for each_id in pairable_id_list]
-    pdet_ref_list = [detection_ref_list[each_idx] for each_idx in pairable_index_list]
-    objid_detidx_match_list = []
-    
-    # Bail if we have zero of either set since we won't be able to match anything
-    num_objs = len(pobj_ref_list)
-    num_dets = len(pdet_ref_list)
-    if num_objs == 0 or num_dets == 0:
-        return objid_detidx_match_list, pairable_id_list, pairable_index_list
-    
-    # Calculate x/y scaling so that the distance matrix encodes max distances
-    # (By scaling this way, we can say that objects that are within 0 < x (or y) < 1.0 are in matching range)
-    x_scale = 1 / max_match_x_dist if max_match_x_dist > 0 else 1E10
-    y_scale = 1 / max_match_y_dist if max_match_y_dist > 0 else 1E10
-    
-    # Get object/detection positioning for matching
-    obj_xys, det_xys = build_obj_det_match_xys(pobj_ref_list, pdet_ref_list)
-    obj_det_sqdist_matrix = calculate_squared_distance_pairing_matrix(obj_xys, det_xys, x_scale, y_scale)
-    
-    # Try to find a unique mapping from (previous) objects to (current) detections
-    unique_mapping, obj_det_refidx_match_list, unmatched_objref_idx_list, unmatched_detref_idx_list = \
-    naive_object_detection_match(obj_det_sqdist_matrix)
-    
-    # If the unique mapping failed, then try using a (slower) method that guarantees a unique pairing
-    if not unique_mapping:
-        
-        #print("*" * 32, "NON UNIQUE MAPPING!", "*" * 32, sep="\n")
-        
-        # Retry the object-to-detection match using a slower approach that will generate unique pairings
-        obj_det_refidx_match_list, unmatched_objref_idx_list, unmatched_detref_idx_list = \
-        fallback_matching_function(obj_det_sqdist_matrix)
-    
-    # Finally, convert matched/unmatched reference index values (which are relative to the pobj/pdet ref lists) 
-    # back into their respective pairable ids/indexs values
-    unmatched_obj_id_list = [pairable_id_list[each_ref_idx] for each_ref_idx in unmatched_objref_idx_list]
-    unmatched_det_index_list = [pairable_index_list[each_ref_idx] for each_ref_idx in unmatched_detref_idx_list]
-    for each_obj_ref_idx, each_det_ref_idx in obj_det_refidx_match_list:
-        converted_pair = (pairable_id_list[each_obj_ref_idx], pairable_index_list[each_det_ref_idx])
-        objid_detidx_match_list.append(converted_pair)
-    
-    return objid_detidx_match_list, unmatched_obj_id_list, unmatched_det_index_list
+    return obj_det_idx_match_tuple_list, unmatched_objidx_list, unmatched_detidx_list
 
 # .....................................................................................................................
 # .....................................................................................................................
@@ -509,6 +365,73 @@ def pair_objects_to_detections(object_ref_dict, pairable_id_list,
 #%% Demo
     
 if __name__ == "__main__":    
+    
+    def calculate_squared_distance_pairing_matrix(row_entry_xy_tuple_list, col_entry_xy_tuple_list,
+                                                  x_scale = 1.0, y_scale = 1.0):
+        
+        # Get number of rows & columns. Bail if either is zero
+        num_rows = len(row_entry_xy_tuple_list)
+        num_cols = len(col_entry_xy_tuple_list)
+        if num_rows == 0 or num_cols == 0:
+            return np.array(())
+        
+        # Convert to arrays and apply x/y dimensional scaling so we can get numpy to do all the heavy lifting
+        row_xy_array = np.float32(row_entry_xy_tuple_list) * np.float32((x_scale, y_scale))
+        col_xy_array = np.float32(col_entry_xy_tuple_list) * np.float32((x_scale, y_scale))
+        
+        # Calculate the x-difference between the row and column object locations
+        row_x_array = row_xy_array[:, 0]
+        col_x_array = col_xy_array[:, 0]
+        delta_x = np.tile(row_x_array, (num_cols, 1)).T - np.tile(col_x_array, (num_rows, 1))
+        
+        # Calculate the y-difference between the row and column object locations
+        row_y_array = row_xy_array[:, 1]
+        col_y_array = col_xy_array[:, 1]
+        delta_y = np.tile(row_y_array, (num_cols, 1)).T - np.tile(col_y_array, (num_rows, 1))
+        
+        # Square and sum the x/y distances to get our results!
+        square_distance_matrix = np.square(delta_x) + np.square(delta_y)
+        
+        return square_distance_matrix
+    
+    def draw_matches(match_name, display_frame, od_match_tuple_list, unmatched_objs, unmatched_dets, 
+                     window_pos = (200, 200),
+                     is_unique = None,
+                     letter_lookup = "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+                     match_range_color = (45, 45, 45)):
+        
+        draw_frame = display_frame.copy()
+        match_color = (255, 255, 0)
+        if is_unique is not None:
+            match_color = (255, 255, 0) if is_unique else (0, 0, 255)
+        
+        # Draw lines connecting object/detection matches
+        for each_obj_idx, each_det_idx in obj_det_match_tuple:
+            obj_pt = ro_px[each_obj_idx]
+            det_pt = rd_px[each_det_idx]
+            cv2.line(draw_frame, obj_pt, det_pt, match_color, 1, cv2.LINE_AA)
+        
+        # Draw match radius circle around all unmatched objects
+        for each_obj_idx in unmatched_objs:
+            obj_pt = ro_px[each_obj_idx]
+            cv2.ellipse(draw_frame, obj_pt, (match_x_px, match_y_px), 0, 0, 360, match_range_color, 1, cv2.LINE_AA)
+            
+        # Print info for inspection
+        obj_idxs, det_idxs = zip(*obj_det_match_tuple) if len(obj_det_match_tuple) > 0 else ([], [])
+        letter_obj_match = [letter_lookup[each_obj_idx] for each_obj_idx in obj_idxs]
+        uniq_obj_det_match_tuple = list(zip(letter_obj_match, det_idxs))
+        letter_obj_unmatch = [letter_lookup[each_obj_idx] for each_obj_idx in unmatched_objs]
+        print("", "",
+              "{} Match results".format(match_name), sep = "\n")
+        if is_unique is not None:
+            print("Unique mapping found:", is_unique)
+        print("Obj-to_det matches:",
+              *uniq_obj_det_match_tuple,
+              "Unmatched objs: {}".format(letter_obj_unmatch),
+              "Unmatched dets: {}".format(unmatched_dets),
+              sep="\n")
+        cv2.imshow("{} Match".format(match_name), draw_frame)
+        cv2.moveWindow("{} Match".format(match_name), *window_pos)
     
     cv2.destroyAllWindows()
     
@@ -519,7 +442,6 @@ if __name__ == "__main__":
     match_x_dist = 0.35
     match_y_dist = 0.35
     
-    match_range_color = (45, 45, 45)
     letter_lookup = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     text_config = {"fontFace": cv2.FONT_HERSHEY_SIMPLEX,
                    "fontScale": 0.5,
@@ -536,7 +458,6 @@ if __name__ == "__main__":
     
         # Generate some random object + detection points
         num_objs, num_dets = np.random.randint(2, 9, 2)
-        num_objs, num_det = 2,3
         
         # Generate some points and calculate their squared distance matrix
         ro = np.clip(np.random.rand(num_objs, 2), 0.05, 0.95)
@@ -584,96 +505,24 @@ if __name__ == "__main__":
             cv2.putText(blank_frame, "{}".format(each_det_idx), each_dxy, color = (0, 255, 0), **text_config)
         
         # Draw naive matches
-        naive_frame = blank_frame.copy()
         unique_mapping, obj_det_match_tuple, unmatched_obj_list, unmatched_det_list = \
-        naive_object_detection_match(ObyD_sqdist_matrix)
-        match_color = (255, 255, 0) if unique_mapping else (0, 0, 255)
-        for each_obj_idx, each_det_idx in obj_det_match_tuple:
-            obj_pt = ro_px[each_obj_idx]
-            det_pt = rd_px[each_det_idx]
-            cv2.line(naive_frame, obj_pt, det_pt, match_color, 1, cv2.LINE_AA)
-        # Draw match radius circle around all unmatched objects
-        for each_obj_idx in unmatched_obj_list:
-            obj_pt = ro_px[each_obj_idx]
-            cv2.ellipse(naive_frame, obj_pt, (match_x_px, match_y_px), 0, 0, 360, match_range_color, 1, cv2.LINE_AA)
-            
-        # Print info for inspection
-        obj_idxs, det_idxs = zip(*obj_det_match_tuple) if len(obj_det_match_tuple) > 0 else ([], [])
-        letter_obj_match = [letter_lookup[each_obj_idx] for each_obj_idx in obj_idxs]
-        uniq_obj_det_match_tuple = list(zip(letter_obj_match, det_idxs))
-        letter_obj_unmatch = [letter_lookup[each_obj_idx] for each_obj_idx in unmatched_obj_list]
-        print("", "",
-              "NAIVE Match results",
-              "Unique mapping found: {}".format(unique_mapping),
-              "Obj-to_det matches:",
-              *uniq_obj_det_match_tuple,
-              "Unmatched objs: {}".format(letter_obj_unmatch),
-              "Unmatched dets: {}".format(unmatched_det_list),
-              sep="\n")
-        cv2.imshow("NAIVE Match", naive_frame)
-        cv2.moveWindow("NAIVE Match", 450, 200)
+        naive_object_detection_match(ObyD_sqdist_matrix)        
+        draw_matches("NAIVE", blank_frame, obj_det_match_tuple, unmatched_obj_list, unmatched_det_list,
+                     window_pos = (450, 200),
+                     is_unique = unique_mapping)
         
         
         # Draw greedy matches
-        greed_frame = blank_frame.copy()
         obj_det_match_tuple, unmatched_obj_list, unmatched_det_list = \
         greedy_object_detection_match(ObyD_sqdist_matrix)
-        match_color = (255, 255, 0)
-        for each_obj_idx, each_det_idx in obj_det_match_tuple:
-            obj_pt = ro_px[each_obj_idx]
-            det_pt = rd_px[each_det_idx]
-            cv2.line(greed_frame, obj_pt, det_pt, match_color, 1, cv2.LINE_AA)
-        # Draw match radius circle around all unmatched objects
-        for each_obj_idx in unmatched_obj_list:
-            obj_pt = ro_px[each_obj_idx]
-            cv2.ellipse(greed_frame, obj_pt, (match_x_px, match_y_px), 0, 0, 360, match_range_color, 1, cv2.LINE_AA)
+        draw_matches("GREEDY", blank_frame, obj_det_match_tuple, unmatched_obj_list, unmatched_det_list,
+                     window_pos = (900, 200))
         
-        # Print info for inspection
-        obj_idxs, det_idxs = zip(*obj_det_match_tuple) if len(obj_det_match_tuple) > 0 else ([], [])
-        letter_obj_match = [letter_lookup[each_obj_idx] for each_obj_idx in obj_idxs]
-        greed_obj_det_match_tuple = list(zip(letter_obj_match, det_idxs))
-        letter_obj_unmatch = [letter_lookup[each_obj_idx] for each_obj_idx in unmatched_obj_list]
-        print("", 
-              "GREEDY Match results",
-              "Obj-to_det matches:",
-              *greed_obj_det_match_tuple,
-              "Unmatched objs: {}".format(letter_obj_unmatch),
-              "Unmatched dets: {}".format(unmatched_det_list),
-              sep="\n")
-        cv2.imshow("GREED Match", greed_frame)
-        cv2.moveWindow("GREED Match", 900, 200)
-        
-        
-        # Draw pathmin matches
-        exile_frame = blank_frame.copy()
+        # Draw MinSUM matches
         obj_det_match_tuple, unmatched_obj_list, unmatched_det_list = \
-        pathmin_object_detection_match(ObyD_sqdist_matrix)
-        match_color = (255, 255, 0)
-        for each_obj_idx, each_det_idx in obj_det_match_tuple:
-            obj_pt = ro_px[each_obj_idx]
-            det_pt = rd_px[each_det_idx]
-            cv2.line(exile_frame, obj_pt, det_pt, match_color, 1, cv2.LINE_AA)
-        # Draw match radius circle around all unmatched objects
-        for each_obj_idx in unmatched_obj_list:
-            obj_pt = ro_px[each_obj_idx]
-            cv2.ellipse(exile_frame, obj_pt, (match_x_px, match_y_px), 0, 0, 360, match_range_color, 1, cv2.LINE_AA)
-        
-        # Print info for inspection
-        obj_idxs, det_idxs = zip(*obj_det_match_tuple) if len(obj_det_match_tuple) > 0 else ([], [])
-        letter_obj_match = [letter_lookup[each_obj_idx] for each_obj_idx in obj_idxs]
-        greed_obj_det_match_tuple = list(zip(letter_obj_match, det_idxs))
-        letter_obj_unmatch = [letter_lookup[each_obj_idx] for each_obj_idx in unmatched_obj_list]
-        print("", 
-              "PATHMIN Match results",
-              "Obj-to_det matches:",
-              *greed_obj_det_match_tuple,
-              "Unmatched objs: {}".format(letter_obj_unmatch),
-              "Unmatched dets: {}".format(unmatched_det_list),
-              sep="\n")
-        
-        cv2.imshow("PATHMIN Match", exile_frame)
-        cv2.moveWindow("PATHMIN Match", 1350, 200)
-        
+        minsum_object_detection_match(ObyD_sqdist_matrix)
+        draw_matches("MINSUM", blank_frame, obj_det_match_tuple, unmatched_obj_list, unmatched_det_list,
+                     window_pos = (1350, 200))
         
         cv2.waitKey(0)
         
@@ -692,6 +541,7 @@ if __name__ == "__main__":
     
     # Generate some random object + detection points
     num_objs, num_dets = np.random.randint(2, 9, 2)
+    num_objs, num_dets = 3, 3
     
     # Generate some random points (with normalized co-ords)
     ro = np.clip(np.random.rand(num_objs, 2), 0.05, 0.95)
@@ -723,11 +573,11 @@ if __name__ == "__main__":
             greedy_object_detection_match(ObyD_sqdist_matrix)
         tg2 = perf_counter()
         
-        tp1 = perf_counter()
+        ts1 = perf_counter()
         for k in range(num_iter):
             obj_det_match_tuple, unmatched_obj_list, unmatched_det_list = \
-            pathmin_object_detection_match(ObyD_sqdist_matrix)
-        tp2 = perf_counter()
+            minsum_object_detection_match(ObyD_sqdist_matrix)
+        ts2 = perf_counter()
         
         print("")
         print("Length of ro, rd: {} x {}".format(len(ro), len(rd)))
@@ -735,7 +585,7 @@ if __name__ == "__main__":
         print("PER ITERATION TIMING:")
         print("  NAIVE TIME:", "{:.3f} ms".format(1000 *(tn2-tn1) / num_iter))
         print(" GREEDY TIME:", "{:.3f} ms".format(1000 *(tg2-tg1) / num_iter))
-        print("PATHMIN TIME:", "{:.3f} ms".format(1000 *(tp2-tp1) / num_iter))
+        print(" MINSUM TIME:", "{:.3f} ms".format(1000 *(ts2-ts1) / num_iter))
 
 
 

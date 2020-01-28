@@ -51,12 +51,13 @@ find_path_to_local()
 
 import numpy as np
 
-from local.lib.configuration_utils.display_specification import Display_Window_Specification
+from local.lib.ui_utils.display_specification import Display_Window_Specification
 
 from eolib.video.text_rendering import simple_text
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define shared displays
+
 
 class Snap_Display(Display_Window_Specification):
     
@@ -75,10 +76,17 @@ class Snap_Display(Display_Window_Specification):
                 current_frame_index, current_epoch_ms, current_datetime):
         
         # Display snapshot data, if available
-        new_snap_image = stage_outputs.get("snapshot_capture").get("snapshot_image")
+        new_snap_image = stage_outputs["snapshot_capture"]["snapshot_image"]
         new_snap_available = (new_snap_image is not None)
         if new_snap_available:
-            return stage_outputs.get("snapshot_capture").get("snapshot_image")
+            
+            # Apply jpg encoding to image data, to show compression effects
+            snapshot_frame_data, _, _ = \
+            configurable_ref.image_saver.apply_jpg_quality(new_snap_image, configurable_ref._snapshot_jpg_quality)
+            
+            return snapshot_frame_data
+        
+        return None
         
     # .................................................................................................................
     # .................................................................................................................
@@ -95,6 +103,9 @@ class Snap_Stats_Display(Display_Window_Specification):
         super().__init__(window_name, layout_index, num_rows, num_columns,
                          initial_display = initial_display, 
                          limit_wh = False)
+        
+        # Allocate storage for snapshot timing
+        self._last_snap_time_ms = None
         
         # Pre-calculate some useful quantities
         self._seconds_per_day = (60 * 60 * 24)
@@ -115,53 +126,56 @@ class Snap_Stats_Display(Display_Window_Specification):
     def display(self, stage_outputs, configurable_ref, mouse_xy,
                 current_frame_index, current_epoch_ms, current_datetime):
         
-        # Display snapshot data, if available
-        new_snap_available = (stage_outputs.get("snapshot_capture").get("snapshot_image") is not None)
-        if new_snap_available:
-            
-            # Update statistics
-            snap_period_sec = self._get_snapshot_period_sec(configurable_ref)
-            jpg_image_size_bytes = self._get_snap_size_bytes(configurable_ref)
-            jpg_comp_time_sec = self._get_compression_time_sec(configurable_ref)
-            
-            # Crunch some numbers for useful stats printout
-            byte_rate = (jpg_image_size_bytes / snap_period_sec)
-            bit_rate = (8 * byte_rate)
-            gb_per_day = (byte_rate * self._bitrate_to_gb_per_day)
-            days_to_terabyte = (self._days_to_tb_multipler / byte_rate)
-            ms_to_compress = (1000 * jpg_comp_time_sec)
-            jpg_image_size_kb = (jpg_image_size_bytes / self._kb_multiplier)
-            
-            # Write useful stats into an image for display
-            stats_frame = self._display_frame.copy()
-            simple_text(stats_frame, "--- Snapshot Image Statistics ---", (200, 15), center_text = True)
-            simple_text(stats_frame, "Snapshot size (kB): {:.1f}".format(jpg_image_size_kb), (5, 60))
-            simple_text(stats_frame, "Time to compress (ms): {:.1f}".format(ms_to_compress), (5, 100))
-            simple_text(stats_frame, "Bit rate: {:.0f}".format(bit_rate).format(bit_rate), (5, 140))
-            simple_text(stats_frame, "Daily usage (GB): {:.1f}".format(gb_per_day), (5, 180))
-            simple_text(stats_frame, "Days per 1TB: {:.1f}".format(days_to_terabyte), (5, 220))
-            
-            return stats_frame
+        # Don't display anything if no snapshot data is available
+        new_snap_image = stage_outputs["snapshot_capture"]["snapshot_image"]
+        no_snap_available = (new_snap_image is None)
+        if no_snap_available:
+            return None
+        
+        # If we get here, we've got a new snapshot, so record the timing. But bail if timing is invalid
+        elapsed_snap_time_sec = self._get_elapsed_snap_time_sec(current_epoch_ms)
+        if elapsed_snap_time_sec <= 0.001:
+            return None
+        
+        # Apply jpg encoding to image data, to show compression effects
+        jpg_image, jpg_image_size_bytes, jpg_comp_time_sec = \
+        configurable_ref.image_saver.apply_jpg_quality(new_snap_image, configurable_ref._snapshot_jpg_quality)
+        
+        # Crunch some numbers for useful stats printout
+        jpg_height, jpg_width = jpg_image.shape[0:2]
+        jpg_image_size_kb = (jpg_image_size_bytes / self._kb_multiplier)
+        ms_to_compress = (1000 * jpg_comp_time_sec)
+        byte_rate = (jpg_image_size_bytes / elapsed_snap_time_sec)
+        gb_per_day = (byte_rate * self._bitrate_to_gb_per_day)
+        days_to_terabyte = (self._days_to_tb_multipler / byte_rate)
+        
+        # Write useful stats into an image for display
+        stats_frame = self._display_frame.copy()
+        simple_text(stats_frame, "--- Snapshot Image Statistics ---", (200, 15), center_text = True)
+        simple_text(stats_frame, "Dimensions: {:.0f} x {:.0f}".format(jpg_width, jpg_height), (5, 60))
+        simple_text(stats_frame, "Snapshot file size (kB): {:.1f}".format(jpg_image_size_kb), (5, 100))
+        simple_text(stats_frame, "Time to compress (ms): {:.1f}".format(ms_to_compress), (5, 140))
+        simple_text(stats_frame, "Daily usage (GB): {:.1f}".format(gb_per_day), (5, 180))
+        simple_text(stats_frame, "Days to 1TB: {:.1f}".format(days_to_terabyte), (5, 220))
+        
+        return stats_frame
         
     # .................................................................................................................
     
-    def _get_snapshot_period_sec(self, configurable_ref):
+    def _get_elapsed_snap_time_sec(self, current_epoch_ms):
         
-        raise NotImplementedError("Override this function with snapshot period information!")
+        # Try to find the difference between the current snapshot timing and the previous timing
+        try:
+            elapsed_snap_time_sec = (current_epoch_ms - self._last_snap_time_ms) / 1000.0
+            
+        except TypeError:
+            # Calculation will fail on first run, because a previous time won't exist! So assume 1 second passed
+            elapsed_snap_time_sec = -1
+            
+        # Store current time for next iteration
+        self._last_snap_time_ms = current_epoch_ms
         
-        # Example return
-        snapshot_period_seconds = configurable_ref._some_variable_storing_period_info
-        return snapshot_period_seconds
-        
-    # .................................................................................................................
-    
-    def _get_snap_size_bytes(self, configurable_ref):
-        return configurable_ref._config_image_size_bytes
-    
-    # .................................................................................................................
-    
-    def _get_compression_time_sec(self, configurable_ref):
-        return configurable_ref._config_proc_time_sec
+        return elapsed_snap_time_sec
     
     # .................................................................................................................
     # .................................................................................................................

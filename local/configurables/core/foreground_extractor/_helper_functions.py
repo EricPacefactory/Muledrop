@@ -55,7 +55,7 @@ import numpy as np
 from collections import deque
 from functools import partial
 
-from local.lib.configuration_utils.display_specification import Display_Window_Specification
+from local.lib.ui_utils.display_specification import Display_Window_Specification
 
 from eolib.math.signal_processing import odd_tuplify
 
@@ -80,7 +80,7 @@ class Outlined_Input(Display_Window_Specification):
                 current_frame_index, current_epoch_ms, current_datetime):
         
         # Get frame for display
-        display_frame = stage_outputs.get("preprocessor").get("preprocessed_frame")
+        display_frame = stage_outputs["preprocessor"]["preprocessed_frame"]
         
         return draw_outlines(display_frame, stage_outputs, configurable_ref)
     
@@ -105,8 +105,8 @@ class Masked_Differences(Display_Window_Specification):
                 current_frame_index, current_epoch_ms, current_datetime):
         
         # Get frame for display
-        display_frame = stage_outputs.get("preprocessor").get("preprocessed_frame")
-        binary_frame_1ch = stage_outputs.get("foreground_extractor").get("binary_frame_1ch")
+        display_frame = stage_outputs["preprocessor"]["preprocessed_frame"]
+        binary_frame_1ch = stage_outputs["foreground_extractor"]["binary_frame_1ch"]
         
         # Scale the binary frame up to match the display
         display_height, display_width = display_frame.shape[0:2]

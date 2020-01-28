@@ -1,0 +1,8 @@
+{
+  "access_info": {
+    "class_name": "Object_Capture",
+    "script_name": "passthrough_objectcapture.py",
+    "configuration_utility": "passthrough"
+  },
+  "setup_data": {}
+}

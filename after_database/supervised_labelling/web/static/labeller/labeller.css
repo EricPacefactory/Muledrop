@@ -1,0 +1,194 @@
+
+/* ----------------------------------------------------------------- */
+/* Override shared styling */
+/* ----------------------------------------------------------------- */
+
+:root {
+  --page_accent: rgb(200, 125, 40);
+  --page_accent_hl: rgb(235, 145, 55);
+  --page_accent_desat: rgb(95, 80, 65);
+
+  --page_background: linear-gradient(180deg, 
+                                     var(--page_accent_desat) 5%, 
+                                     var(--dark_background) 100%);
+}
+
+
+/* ----------------------------------------------------------------- */
+/* Initial content loading animation */
+
+@keyframes load_content_animation {
+  from {
+    opacity: 0;
+    transform: translateY(-40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0px);
+  }
+}
+
+.page_content {
+  animation: load_content_animation 1.0s;
+}
+
+
+/* ----------------------------------------------------------------- */
+/* Top title text styling */
+
+#camera_title_div {
+  text-align: center;
+  font-weight: bolder;
+  font-size: 1.75em;
+  font-variant: small-caps;
+  text-decoration: underline;
+  padding: 0.5em 0;
+  color: var(--less_light);
+}
+
+#object_indicator_div {
+  text-align: center;
+  font-weight: bold;
+  font-size: 1.15em;
+  font-variant: small-caps;
+  padding: 0.5em 0;
+  color: var(--accent_2);
+}
+
+
+
+/* ----------------------------------------------------------------- */
+/* Display interface parent divs styling */
+
+#display_block_div {
+  display: grid;
+  background-color: var(--dark_foreground);
+  border: 1px solid black;
+  box-shadow: 0 2px 6px 6px var(--light_shadow);
+  max-width: 1100px;
+  min-width: fit-content;
+  margin: 40px auto;
+}
+
+#display_interface_div {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  grid-gap: 1em;
+  justify-items: center;
+}
+
+
+/* ----------------------------------------------------------------- */
+/* Image/animation element styling */
+
+#display_image_elem {
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+  border: 1px solid black;
+  cursor: pointer;
+  max-width: 800px;
+  max-height: 450px;
+}
+
+#display_image_elem:hover {
+  border-color: var(--less_light);
+}
+
+/* ----------------------------------------------------------------- */
+/* Previous/Next arrow button styling */
+
+.arrow_button {
+  display: block;
+  cursor: pointer;
+  width: 100%;
+  height: 100%;
+  margin: auto;
+  min-width: 50px;
+  max-width: 150px;
+  max-height: 250px;
+}
+
+.arrow_button svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  margin: auto;
+}
+
+.fg_polyline, .bg_polyline {
+  display: block;
+  margin: 0 auto;
+  stroke-linecap: square;
+  stroke-linejoin: bevel;
+  fill: none;
+}
+
+.fg_polyline {
+  stroke-width: 8px;
+  stroke: var(--page_accent_hl);
+}
+
+.arrow_button:hover .fg_polyline {
+  stroke: var(--light);
+}
+
+.bg_polyline {
+  stroke-width: 12px;
+  stroke: black;
+}
+
+
+/* ----------------------------------------------------------------- */
+/* Class label button styling */
+
+#label_block_ul {
+  list-style: none;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  padding: 2em;
+}
+
+.label_button_li, .label_button_hl_li {
+  flex-grow: 0;
+  flex-basis: 20%;
+  cursor: pointer;
+  display: block;
+  text-align: center;
+  text-transform: uppercase;
+  font-size: 0.8em;
+  padding: 8px;
+  margin: 8px;
+  background-color: var(--dark_background);
+  border: 1px solid black;
+}
+
+.label_button_li {
+  color: var(--less_light);
+}
+
+.label_button_li:hover {
+  color: var(--full_light);
+  border: 1px solid var(--less_light);
+}
+
+.label_button_hl_li {
+  font-weight: bold;
+  color: var(--page_accent);
+}
+
+/* ----------------------------------------------------------------- */
+/* Class label button animations */
+
+@keyframes highlight_label_animation {
+  from { background-color: var(--page_accent_desat); }
+  to { background-color: var(--dark_background); }
+}
+
+
+.label_button_hl_li {
+  animation: highlight_label_animation 0.2s;
+}

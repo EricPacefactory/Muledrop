@@ -59,12 +59,11 @@ class Object_Capture(Reference_Object_Capture):
     
     # .................................................................................................................
     
-    def __init__(self, cameras_folder_path, camera_select, user_select, task_select, 
-                 video_select, video_wh):
+    def __init__(self, cameras_folder_path, camera_select, user_select, video_select, video_wh):
         
         # Inherit from base class
-        super().__init__(cameras_folder_path, camera_select, user_select, task_select, 
-                         video_select, video_wh, file_dunder = __file__)
+        super().__init__(cameras_folder_path, camera_select, user_select, video_select, video_wh, 
+                         file_dunder = __file__)
         
         # Passthrough implementation saves only one object as an example, and nothing else!
         self._saved_data = False

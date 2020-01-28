@@ -155,7 +155,7 @@ class FG_Extractor_Stage(Reference_FG_Extractor):
         self.ctrl_spec.attach_slider(
                 "pre_blur_size", 
                 label = "Shared Blurriness", 
-                default_value = 0,
+                default_value = 3,
                 min_value = 0,
                 max_value = self._max_kernel_size,
                 return_type = int,
@@ -168,7 +168,7 @@ class FG_Extractor_Stage(Reference_FG_Extractor):
         self.ctrl_spec.attach_slider(
                 "threshold", 
                 label = "Threshold", 
-                default_value = 0,
+                default_value = 100,
                 min_value = 0,
                 max_value = 255,
                 return_type = int,
@@ -204,7 +204,7 @@ class FG_Extractor_Stage(Reference_FG_Extractor):
         self.ctrl_spec.attach_slider(
                 "post_blur_size", 
                 label = "Result Blurriness",
-                default_value = 0,
+                default_value = 1,
                 min_value = 0,
                 max_value = self._max_kernel_size,
                 return_type = int,
@@ -311,7 +311,7 @@ class FG_Extractor_Stage(Reference_FG_Extractor):
         self.ctrl_spec.attach_slider(
                 "capture_period_sec", 
                 label = "Capture Period", 
-                default_value = 10,
+                default_value = 5,
                 min_value = 1,
                 max_value = 300,
                 return_type = int,
@@ -323,7 +323,7 @@ class FG_Extractor_Stage(Reference_FG_Extractor):
         self.ctrl_spec.attach_slider(
                 "new_capture_weighting", 
                 label = "New Capture Weighting", 
-                default_value = 10/100,
+                default_value = 25/100,
                 min_value = 0.01, max_value = 1.0, step_size = 1/100,
                 return_type = float,
                 zero_referenced = True,

@@ -54,8 +54,9 @@ import numpy as np
 
 from collections import deque
 
+from local.lib.common.timekeeper_utils import get_isoformat_string
+
 from local.configurables.configurable_template import Core_Configurable_Base
-from local.lib.timekeeper_utils import get_isoformat_string
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
@@ -68,6 +69,14 @@ class Reference_Tracker(Core_Configurable_Base):
     def __init__(self, input_wh, file_dunder):
         
         super().__init__(input_wh, file_dunder = file_dunder)
+        
+        # Allocate storage for tracked objects
+        self._tracked_object_dict = {}
+        self._dead_tracked_id_list = []
+        
+        # Allocate storage for validation objects
+        self._validation_object_dict = {}
+        self._dead_validation_id_list = []
         
         # Store id assignment objects
         self.vobj_id_manager = ID_Manager()
@@ -87,146 +96,296 @@ class Reference_Tracker(Core_Configurable_Base):
         
     # .................................................................................................................
     
+    # MAY OVERRIDE
     def reset(self):
-        raise NotImplementedError("Must implement a tracker reset()")
+        
+        # Clear out all stored tracking data, since the reset may cause jumps in time/break continuity
+        self._tracked_object_dict = {}
+        self._validation_object_dict = {}
+        self._dead_tracked_id_list = []
+        self._dead_validation_id_list = []
+        
+        # Reset ID assignments
+        self.vobj_id_manager.reset()
+        self.tobj_id_manager.reset()
+        
+        return
         
     # .................................................................................................................
     
-    # SHOULD OVERRIDE. Need to return the dead id list
+    # MAY OVERRIDE. Maintain i/o structure
     def close(self, final_frame_index, final_epoch_ms, final_datetime):
-        print("",
-              "",
-              "  Tracker ({}) not closed properly!",
-              "  A proper close(...) function should be implemented".format(self.script_name),
-              "",
-              sep = "\n")
-        return {"tracked_object_dict": {},  "validation_object_dict": {},  "dead_id_list": []}
+        
+        # List all active objects as dead, since we're closing...
+        dead_id_list = list(self._tracked_object_dict.keys())
+        
+        return {"tracked_object_dict": self._tracked_object_dict,
+                "validation_object_dict": self._validation_object_dict,
+                "dead_id_list": dead_id_list}
     
     # .................................................................................................................
     
     # MAY OVERRIDE (BUT NOT NECESSARY, BETTER TO INSTEAD OVERRIDE INTERNAL FUNCTION CALLS)
     # Should override: clear_dead_ids(), update_object_tracking(), apply_object_decay(), generate_new_objects()
-    def run(self, detection_ref_list):
+    def run(self, detection_ref_dict):
         
         # Grab time references for convenience
-        current_frame_index, current_epoch_ms, current_datetime = self.get_time_info()
+        fed_time_args = self.get_time_info()    # fed => frame_index, epoch_ms, datetime
+        
+        # Grab current tracking dictionaries & dead lists
+        tobj_dict = self._tracked_object_dict
+        vobj_dict = self._validation_object_dict
+        dead_tobj_id_list = self._dead_tracked_id_list
+        dead_vobj_id_list = self._dead_validation_id_list
         
         # Clear dead objects (from the previous iteration)
-        self.clear_dead_ids()
+        tobj_dict, vobj_dict = self.clear_dead_ids(tobj_dict, vobj_dict, 
+                                                   dead_tobj_id_list, dead_vobj_id_list)
         
-        # Update object tracking data based on the new detection data
-        unmatched_object_id_list, unmatched_detection_index_list = \
-        self.update_object_tracking(detection_ref_list, 
-                                    current_frame_index, current_epoch_ms, current_datetime)
+        # Get lists of unmatched objects & detections
+        unmatched_tobj_ids = list(tobj_dict.keys())
+        unmatched_vobj_ids = list(vobj_dict.keys())
+        unmatched_det_ids = list(detection_ref_dict.keys())
         
-        # Apply object decay to determine which objects will be deleted on the next iteration
-        dead_id_list = \
-        self.apply_object_decay(unmatched_object_id_list, 
-                                current_frame_index, current_epoch_ms, current_datetime)
+        # Update tracked objects first
+        tobj_dict, still_unmatched_tobj_ids, still_unmatched_det_ids = \
+        self.update_tracked_object_tracking(tobj_dict, unmatched_tobj_ids, 
+                                            detection_ref_dict, unmatched_det_ids,
+                                            *fed_time_args)
+        
+        # Then update validation objects with leftover detections
+        vobj_dict, still_unmatched_vobj_ids, still_unmatched_det_ids = \
+        self.update_validation_object_tracking(vobj_dict, unmatched_vobj_ids, 
+                                               detection_ref_dict, still_unmatched_det_ids,
+                                               *fed_time_args)
+        
+        # Apply object decay to tracked objects
+        tobj_dict, dead_tobj_id_list = \
+        self.apply_tracked_object_decay(tobj_dict, still_unmatched_tobj_ids, *fed_time_args)
+        
+        # Apply object decay to validation objects
+        vobj_dict, dead_vobj_id_list = \
+        self.apply_validation_object_decay(vobj_dict, still_unmatched_vobj_ids, *fed_time_args)
         
         # Add long-lived objects to dead list so that they get saved (protect RAM usage) and replace with new objects 
-        dead_id_list = \
-        self.generate_new_decendent_objects(dead_id_list,
-                                            current_frame_index, current_epoch_ms, current_datetime)
+        tobj_dict, dead_tobj_id_list =  \
+        self.generate_new_decendent_objects(tobj_dict, dead_tobj_id_list, *fed_time_args)
         
-        # Finally, generate any new objects for tracking & return the final tracked object dictionary
-        tracked_object_dict, validation_object_dict = \
-        self.generate_new_objects(unmatched_detection_index_list, detection_ref_list, 
-                                  current_frame_index, current_epoch_ms, current_datetime)
+        # If needed, generate new tracked/validation objects
+        tobj_dict, vobj_dict = self.generate_new_tracked_objects(tobj_dict, vobj_dict, *fed_time_args)
+        vobj_dict = self.generate_new_validation_objects(vobj_dict, 
+                                                         detection_ref_dict, still_unmatched_det_ids,
+                                                         *fed_time_args)
         
-        return {"tracked_object_dict": tracked_object_dict, 
-                "validation_object_dict": validation_object_dict,
-                "dead_id_list": dead_id_list}
+        # Store tracking results & dying ids for the next iteration
+        self._tracked_object_dict = tobj_dict
+        self._validation_object_dict = vobj_dict
+        self._dead_tracked_id_list = dead_tobj_id_list
+        self._dead_validation_id_list = dead_vobj_id_list
+        
+        return {"tracked_object_dict": self._tracked_object_dict, 
+                "validation_object_dict": self._validation_object_dict,
+                "dead_id_list": self._dead_tracked_id_list}
+    
+    # .................................................................................................................
+    
+    # MAY OVERRIDE. Maintain i/o structure
+    def clear_dead_ids(self, tracked_object_dict, validation_object_dict, 
+                       dead_tracked_id_list, dead_validation_id_list):
+        
+        ''' 
+        Function for removing dead object ids (based on previous iteration) from the object dictionaries 
+            - Must return the updated tracked object dictionary
+            - Must return the updated validation object dictionary
+        '''
+        
+        # Clear out tracked objects that haven't been matched to detections for a while
+        for each_tobj_id in dead_tracked_id_list:
+            del tracked_object_dict[each_tobj_id]
+        
+        # Clear out validation objects that haven't been matched to detections for a while
+        for each_vobj_id in dead_validation_id_list:
+            del validation_object_dict[each_vobj_id]
+        
+        return tracked_object_dict, validation_object_dict
     
     # .................................................................................................................
     
     # SHOULD OVERRIDE. Maintain i/o structure
-    def clear_dead_ids(self):
+    def update_tracked_object_tracking(self, 
+                                       tracked_object_dict, unmatched_tobj_ids, 
+                                       detection_ref_dict, unmatched_detection_ids,
+                                       current_frame_index, current_epoch_ms, current_datetime):
         
         '''
-        Function for removing dead object ids (based on previous iteration) from the object dictionaries
-            - Should rely on internal variables for accessing object dictionaries
-            - Should also rely on internal variables for accessing dead id lists
-            - No return values!
+        Function which matches detections with existing tracked objects.
+            - Must return the updated tracking object dictionary
+            - Must return a list of remaining unmatched tracked objects (by id) 
+            - Must return a list of unmatched detections (by id)
         '''
         
-        # Reference implementation does nothing
-        
-        return
+        # Reference implementation does not modify anything
+        still_unmatched_tobj_ids = unmatched_tobj_ids
+        still_unmatched_det_ids = unmatched_detection_ids
+            
+        return tracked_object_dict, still_unmatched_tobj_ids, still_unmatched_det_ids
     
     # .................................................................................................................
     
     # SHOULD OVERRIDE. Maintain i/o structure
-    def update_object_tracking(self, detection_ref_list, 
-                               current_frame_index, current_epoch_ms, current_datetime):
+    def update_validation_object_tracking(self,
+                              validation_object_dict, unmatched_vobj_ids, 
+                              detection_ref_dict, unmatched_detection_ids,
+                              current_frame_index, current_epoch_ms, current_datetime):
         
         '''
-        Function for updating objects with detections that match up with existing data
-            - Unmatched object ids should be returned for use in applying decay
-            - Unmatched detections (objects in a list) should be returned for use in generating new objects
-            - Neither return needs to be stored internally!
+        Function which matches detections with existing validation objects.
+            - Must return the updated validation object dictionary
+            - Must return a list of remaining unmatched tracked objects (by id) 
+            - Must return a list of unmatched detections (by id)
         '''
         
-        # Reference performs no updates, passes all detections through
-        unmatched_object_ids = []
-        unmatched_detections = detection_ref_list
+        # Reference implementation does not modify anything
+        still_unmatched_vobj_ids = unmatched_vobj_ids
+        still_unmatched_det_ids = unmatched_detection_ids
         
-        return unmatched_object_ids, unmatched_detections
+        return validation_object_dict, still_unmatched_vobj_ids, still_unmatched_det_ids
     
     # .................................................................................................................
     
     # SHOULD OVERRIDE. Maintain i/o structure
-    def apply_object_decay(self, unmatched_object_id_list, 
-                           current_frame_index, current_epoch_ms, current_datetime):
+    def apply_tracked_object_decay(self, tracked_object_dict, unmatched_tobj_id_list, 
+                                   current_frame_index, current_epoch_ms, current_datetime):
         
-        '''
-        Function for getting rid of objects that didn't match up with detection data
-            - Don't clear ids here!
-            - Should return a list of dead ids, which can be used by following stages (e.g. object capture)
-                 so that they know if objects are about to be removed and react accordingly
-            - Implementation should also keep an internal copy of the dead id list, 
-                 for use in clearing ids on the next run() iteration
+        ''' 
+        Function for applying decay to tracked objects. 
+            - Must return the updated object dictionary
+            - Must return a list of objects that need to be deleted on the next iteration (i.e. dead list)
         '''
         
-        # Reference performs no tracking and therefore accumulates no objects for decay
-        dead_id_list = []
+        # Reference just kills all unmatched tracked objects immediately
+        dead_tracked_id_list = unmatched_tobj_id_list
         
-        return dead_id_list
+        return tracked_object_dict, dead_tracked_id_list
     
     # .................................................................................................................
     
     # SHOULD OVERRIDE. Maintain i/o structure
-    def generate_new_decendent_objects(self, dead_id_list, current_frame_index, current_epoch_ms, current_datetime):
+    def apply_validation_object_decay(self, validation_object_dict, unmatched_vobj_id_list, 
+                                      current_frame_index, current_epoch_ms, current_datetime):
+        
+        ''' 
+        Function for applying decay to validation objects. 
+            - Must return the updated object dictionary
+            - Must return a list of objects that need to be deleted on the next iteration (i.e. dead list)
+        '''
+        
+        # Reference just kills all unmatched validation objects immediately
+        dead_validation_ids_list = unmatched_vobj_id_list
+        
+        return validation_object_dict, dead_validation_ids_list
+    
+    # .................................................................................................................
+    
+    # MAY OVERRIDE. Maintain i/o structure
+    def generate_new_decendent_objects(self, tracked_object_dict, dead_tracked_id_list, 
+                                       current_frame_index, current_epoch_ms, current_datetime):
         
         '''
         Function for creating new objects from long-lived tracked objects
-            - Intended to force saving of objects that have accumulated lots of data
-            - Main concern is preventing infinite RAM usage for objects/detections that might be 'stuck'
-            - Should return an updated copy of the dead_id_list (containing objects being removed)
-            - Should also update internal tracked/validation dictionaries with new decendent objects!
+        Intended to force saving of objects that have accumulated lots of data
+        Main concern is preventing infinite RAM usage for objects/detections that might be 'stuck'
+            - Must return the updated tracked object dictionary
+            - Must return the updated dead id list
         '''
         
-        # Reference doesn't do anything, just pass the existing dead id list through to the output
+        # Initialize output results
+        ancestor_id_list = []
+        decendent_object_dict = {}
         
-        return dead_id_list
+        # Find all objects that are running out of storage and need to be decended
+        for each_tobj_id, each_tobj in tracked_object_dict.items():
+            
+            # Get tracked object sample count, to see if we need to force it to save
+            needs_decendent = each_tobj.is_out_of_storage_space()
+            if not needs_decendent:
+                continue
+            
+            # If we get here, we're creating a decendent object, so record the id
+            ancestor_id_list.append(each_tobj_id)
+            
+            # Get new tracked id for each decendent object
+            new_nice_id, new_full_id = self.tobj_id_manager.new_id(current_datetime)
+            new_decendent = each_tobj.create_decendent(new_nice_id, new_full_id, 
+                                                       current_frame_index, current_epoch_ms, current_datetime)
+            
+            # Move decendent into the tracked object dictionary
+            decendent_object_dict[new_full_id] = new_decendent
+        
+        # Add new decendents to the tracked object dictionary
+        tracked_object_dict.update(decendent_object_dict)
+        
+        # Add ancestor ids to the existing dead list so they are remove on the next iteration
+        updated_dead_tracked_id_list = dead_tracked_id_list + ancestor_id_list
+        
+        return tracked_object_dict, updated_dead_tracked_id_list
     
     # .................................................................................................................
     
     # SHOULD OVERRIDE. Maintain i/o structure
-    def generate_new_objects(self, unmatched_detection_index_list, detection_ref_list, 
-                             current_frame_index, current_epoch_ms, current_datetime):
+    def generate_new_tracked_objects(self, tracked_object_dict, validation_object_dict, 
+                                     current_frame_index, current_epoch_ms, current_datetime):
         
         '''
-        Function for creating new objects from unmatched detections from the current frame
-            - Should return a finalized dictionary of tracked objects
-            - Should also keep an internal copying of the output dictionary, since it can't be passed back to self
+        Function for creating new tracked objects from validation objects
+            - Must return an updated tracked object dictionary
+            - Must return an updated validation object dictionary
         '''
         
-        tracked_object_dict = {}
-        validation_object_dict = {}
+        # Reference doesn't do anything
         
         return tracked_object_dict, validation_object_dict
-
+    
+    # .................................................................................................................
+    
+    # SHOULD OVERRIDE. Maintain i/o structure
+    def generate_new_validation_objects(self, validation_object_dict, 
+                                        detection_ref_dict, unmatched_detection_id_list,
+                                        current_frame_index, current_epoch_ms, current_datetime):
+        
+        '''
+        Function for creating new validation objects from unmatched detections
+            - Must return an updated validation object dictionary
+        '''
+        
+        # Reference doesn't do anything
+        
+        return validation_object_dict
+    
+    # .................................................................................................................
+    
+    # MAY OVERRIDE. Maintain i/o structure
+    def promote_to_tracked_object(self, tracked_object_dict, validation_object_dict, validation_ids_to_promote_list,
+                                  current_frame_index, current_epoch_ms, current_datetime):
+        
+        ''' 
+        Function which moves validation objects to the tracked object dictionary
+            - Must return the updated tracked object dictionary
+            - Must return the updated validation object dictionary
+        '''
+        
+        # Promote all validation objects, by id
+        for each_vobj_id in validation_ids_to_promote_list:
+        
+            # Generate a new tracking id for the promoted validation object
+            new_nice_id, new_full_id = self.tobj_id_manager.new_id(current_datetime)
+            
+            # Move object from validation dictionary to tracking ditionary and update it with the new tracking id
+            tracked_object_dict[new_full_id] = validation_object_dict.pop(each_vobj_id)
+            tracked_object_dict[new_full_id].update_id(new_nice_id, new_full_id)
+        
+        return tracked_object_dict, validation_object_dict
+    
     # .................................................................................................................
     # .................................................................................................................
 
@@ -238,7 +397,7 @@ class Reference_Tracker(Core_Configurable_Base):
 class Reference_Trackable_Object:
     
     match_with_speed = False
-    max_samples = 9000
+    max_samples = 55000
     
     # .................................................................................................................
     
@@ -428,14 +587,14 @@ class Reference_Trackable_Object:
         self.num_samples += 1
         
         # Update object outline
-        self.hull_history.appendleft(new_hull)
+        self.hull_history.append(new_hull)
         
         # Update centering position
-        self.x_center_history.appendleft(new_x_cen)
-        self.y_center_history.appendleft(new_y_cen)
+        self.x_center_history.append(new_x_cen)
+        self.y_center_history.append(new_y_cen)
         
         # Update tracking status (should be True/1 if we're matched to something, otherwise False/0)
-        self.track_status_history.appendleft(new_track_status)
+        self.track_status_history.append(new_track_status)
         
     # .................................................................................................................
     
@@ -490,7 +649,7 @@ class Reference_Trackable_Object:
                           "num_samples": final_num_samples,
                           "max_samples": self.max_samples,
                           "detection_class": self.detection_classification,
-                          "detection_score": self.classification_score,
+                          "classification_score": self.classification_score,
                           "timing": timing_data_dict,
                           "tracking": tracking_data_dict}
         
@@ -501,31 +660,32 @@ class Reference_Trackable_Object:
     def _get_tracking_data(self, is_final = True):
         
         # If we're getting final data to save, back track to find out where the data was last 'good' (i.e. tracked)
-        first_good_idx = 0
+        last_good_rel_idx = -1
         if is_final:
             try:
-                while self.track_status_history[first_good_idx] == 0:
-                    first_good_idx += 1
+                while self.track_status_history[last_good_rel_idx] == 0:
+                    last_good_rel_idx -= 1
             except IndexError:
-                # Should be a rare event to not find a a first good index (implies all tracking data is bad)
+                # Should be a rare event to not find a last good index (implies all tracking data is bad)
                 # This normally won't happen, since only tracked objects should be saved!
                 # However, it is possible that a decendent object could have tracking lost during/after splitting,
                 # which would cause the decendent to contain only 'bad' data, causing this error!
                 # In this case, just accept all bad data...
-                first_good_idx = 0
+                last_good_rel_idx = -1
         
         # Calculate the actual number of samples (ignoring bad data)
-        final_num_samples = self.num_samples - first_good_idx
+        final_num_samples = self.num_samples + last_good_rel_idx + 1
+        num_decay_samples_removed = abs(last_good_rel_idx) - 1
         
         # Bundle tracking data together for clarity
-        tracking_data_dict = {"sample_order": "newest_first",
+        tracking_data_dict = {"sample_order": "oldest_first",
                               "num_validation_samples": self.num_validation_samples,
-                              "num_decay_samples_removed": first_good_idx,
+                              "num_decay_samples_removed": num_decay_samples_removed,
                               "warped": True,
-                              "track_status": list(self.track_status_history)[first_good_idx:],
-                              "x_center": list(self.x_center_history)[first_good_idx:],
-                              "y_center": list(self.y_center_history)[first_good_idx:],
-                              "hull": [each_hull.tolist() for each_hull in self.hull_history][first_good_idx:]}
+                              "track_status": list(self.track_status_history)[:final_num_samples],
+                              "x_center": list(self.x_center_history)[:final_num_samples],
+                              "y_center": list(self.y_center_history)[:final_num_samples],
+                              "hull": [each_hull.tolist() for each_hull in self.hull_history][:final_num_samples]}
         
         return tracking_data_dict, final_num_samples
     
@@ -560,7 +720,7 @@ class Reference_Trackable_Object:
         ''' Calculate the change in x using the 2 most recent x-positions '''
         
         try:
-            return (self.x_center_history[0] - self.x_center_history[1]) * delta_weight
+            return (self.x_center_history[-1] - self.x_center_history[-2]) * delta_weight
         except IndexError:
             return 0
         
@@ -571,43 +731,10 @@ class Reference_Trackable_Object:
         ''' Calculate the change in y using the 2 most recent y-positions '''
         
         try:
-            return (self.y_center_history[0] - self.y_center_history[1]) * delta_weight
+            return (self.y_center_history[-1] - self.y_center_history[-2]) * delta_weight
         except IndexError:
             return 0
     
-    # .................................................................................................................
-    
-    def x_dash(self):
-        
-        '''
-        Function which returns the two most recent x positions as a line segment
-        '''
-        
-        try:
-            return (self.x_center_history[0], self.x_center_history[1])
-        except IndexError:
-            # Fails on first index, since we don't have any historical data!
-            return (self.x_center_history[0], self.x_center_history[0])
-    
-    # .................................................................................................................
-    
-    def y_dash(self):
-        
-        '''
-        Function which returns the two most recent y positions as a line segment
-        '''
-        
-        try:
-            return (self.y_center_history[0], self.y_center_history[1])
-        except IndexError:
-            # Fails on first index, since we don't have any historical data!
-            return (self.y_center_history[0], self.y_center_history[0])
-    
-    # .................................................................................................................
-    
-    def xy_dash(self):
-        return np.vstack((self.x_dash(), self.y_dash())).T
-        
     # .................................................................................................................
     
     def x_match(self):
@@ -664,19 +791,19 @@ class Reference_Trackable_Object:
     
     @property
     def hull(self):
-        return self.hull_history[0]
+        return self.hull_history[-1]
     
     # .................................................................................................................
     
     @property
     def x_center(self):
-        return self.x_center_history[0]
+        return self.x_center_history[-1]
     
     # .................................................................................................................
     
     @property
     def y_center(self):
-        return self.y_center_history[0]
+        return self.y_center_history[-1]
     
     # .................................................................................................................
     
@@ -694,7 +821,7 @@ class Reference_Trackable_Object:
     
     @property
     def track_status(self):
-        return self.track_status_history[0]
+        return self.track_status_history[-1]
     
     # .................................................................................................................
     
@@ -907,6 +1034,10 @@ class ID_Manager:
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define functions
 
+# .....................................................................................................................
+
+# .....................................................................................................................
+# .....................................................................................................................
 
 
 # ---------------------------------------------------------------------------------------------------------------------

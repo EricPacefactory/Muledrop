@@ -49,54 +49,25 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
-from time import perf_counter
-from tqdm import tqdm
-
-from local.configurables.configurable_template import Classifier_Configurable_Base
-
-from local.lib.file_access_utils.classifier import new_classification_entry
-
-from local.offline_database.object_reconstruction import Object_Reconstruction
-
-
-from local.lib.file_access_utils.classifier import build_classifier_resources_path
-from local.lib.file_access_utils.resources import build_base_resource_path
+from local.configurables.configurable_template import After_Database_Configurable_Base
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
 
-class Reference_Classifier(Classifier_Configurable_Base):
+class Reference_Classifier(After_Database_Configurable_Base):
     
     # .................................................................................................................
     
-    def __init__(self, cameras_folder_path, camera_select, user_select, task_select, *, file_dunder):
+    def __init__(self, cameras_folder_path, camera_select, user_select, *, file_dunder):
         
         # Inherit from base class
-        super().__init__(cameras_folder_path, camera_select, user_select, task_select, file_dunder = file_dunder)
-        
-        # Store useful pathing needed by classifiers
-        self.config_folder_path = os.path.join(cameras_folder_path, 
-                                               camera_select,
-                                               "users",
-                                               user_select,
-                                               "tasks",
-                                               task_select,
-                                               "classifier")
-        self.resources_folder_path = build_classifier_resources_path(cameras_folder_path, camera_select)
+        super().__init__(cameras_folder_path, camera_select, user_select, "classifier", file_dunder = file_dunder)
         
     # .................................................................................................................
     
     def __repr__(self):
         
-        # Figure out how many snapshots we've already taken
-        num_snapshots = self.snapshot_counter
-        if not num_snapshots:
-            num_snapshots = "no"
-        
-        repr_strs = ["Snapshot Capture ({})".format(self.script_name),
-                     "  Metadata folder: {}".format(self.image_metadata_saver.relative_data_path()),
-                     "     Image folder: {}".format(self.image_saver.relative_data_path()),
-                     "  ({} snapshots so far)".format(num_snapshots)]
+        repr_strs = ["{} ({})".format(self.class_name, self.script_name)]
         
         return "\n".join(repr_strs)
     
@@ -108,95 +79,62 @@ class Reference_Classifier(Classifier_Configurable_Base):
         ''' Function called after classification is completed. Use to clean up any opened resources '''
         
         # Reference version doesn't need any clean-up, so do nothing
-        return
+        return None
     
     # .................................................................................................................
         
-    # MAY OVERRIDE, BUT BETTER TO OVERRIDE classifiy_one_object()!
-    def run(self, reconstructed_object_list, snapshot_database, enable_progress_bar = False):
+    # MAY OVERRIDE, BUT BETTER TO OVERRIDE request_object_data() & classifiy_one_object()!
+    def run(self, object_id, object_database, snapshot_database):
         
         ''' 
-        Main function of the classifier. 
-        This function is called after calling the create_object_list() function
-        and is responsible for generating a dictionary containing keys representing object ids,
-        for each id, there should be a corresponding dictionary holding classification info!
+        Main function of the classifier. Gets called on every object, independently
         '''
         
-        # Start progres bar for feedback
-        if enable_progress_bar:
-            num_objs = len(reconstructed_object_list)
-            cli_prog_bar = tqdm(total = num_objs, mininterval = 0.5)
-        
-        # Loop over every object and apply classifier
-        classification_dict = {}
-        for each_obj in reconstructed_object_list:
+        # First get object data (in a customizable format) then classify that object!
+        object_data = self.request_object_data(object_id, object_database)
+        class_label, score_pct, subclass, attributes = self.classify_one_object(object_data, snapshot_database)
             
-            # Classify each object
-            class_label, score_pct, subclass, attributes = self.classify_one_object(each_obj, snapshot_database)
-            
-            # Add new classification results to output
-            obj_id = each_obj.full_id
-            new_entry = new_classification_entry(obj_id, class_label, score_pct, subclass, attributes)
-            classification_dict.update(new_entry)
-            
-            # Update progress bar feedback, if needed
-            if enable_progress_bar:
-                cli_prog_bar.update()
-            
-        # Clean up
-        if enable_progress_bar:
-            cli_prog_bar.close()
-            
-        return classification_dict
-        
-    # .................................................................................................................
-    
-    # SHOULD OVERRIDE!
-    def classify_one_object(self, object_ref, snapshot_database):
-        
-        '''
-        Function which takes in a reconstructed object and a reference to the snapshot database,
-        and is expected to output a classification for the object
-        '''
-        
-        # Reference implementation doesn't do anything meaningful...
-        class_label = "unclassified"
-        score_pct = 0
-        subclass = ""
-        attributes = {}
-        
         return class_label, score_pct, subclass, attributes
     
     # .................................................................................................................
-    
-    # MAY OVERRIDE IF AN ALTERNATE OBJECT RECONSTRUCTION IS NEEDED (E.G. WITH SMOOTHING)
-    def create_object_list(self, object_metadata_generator, snapshot_wh, global_starting_time, global_ending_time):        
-        
-        ''' Function which creates the list of reconstructed objects passed into the run function '''
-        
-        obj_list = Object_Reconstruction.create_reconstruction_list(object_metadata_generator,
-                                                                    snapshot_wh,
-                                                                    global_starting_time, 
-                                                                    global_ending_time)
-        
-        return obj_list
 
-    # .................................................................................................................
-
-    # MAY OVERRIDE IF DIFFERENT DATA IS NEEDED (E.G. NOT ALL METADATA NEEDS TO BE LOADED)
-    def request_object_data(self, object_database, task_select, starting_time, ending_time):
+    # SHOULD OVERRIDE TO PROVIDE APPROPRIATE DATA FORMAT (E.G. NOT ALL METADATA NEEDS TO BE LOADED/RETURNED)
+    def request_object_data(self, object_id, object_database):
         
         ''' 
-        Function which creates a generator for loading object metadata off the provided object database 
-        The output of this function will feed into the input of the create_object_list(...) function
+        Function used to get the data needed to perform classification
+        The result of this function will be passed as an input to the classify_one_object() function
+        It is likely to be a dictionary, but could be override to provide something more specific, 
+        depending on the needs of the classifier!
         '''
         
-        # Get object metadata from the server
-        obj_metadata_generator = object_database.load_metadata_by_time_range(task_select, 
-                                                                             starting_time, 
-                                                                             ending_time)
+        # Reference does nothing!
+        object_data = {}
         
-        return obj_metadata_generator
+        return object_data
+    
+    # .................................................................................................................
+    
+    # SHOULD OVERRIDE
+    def classify_one_object(self, object_data, snapshot_database):
+        
+        '''
+        Function which performs actual classification, given some 'object_data' 
+        and access to the snapshot database, if needed.
+        Note that the object data can be in any format, 
+        depending on how it is output from the request_object_data() function.
+        
+        Must return:
+            class_label (string), score_pct (integer), subclass (string), attributes_dict (dict)
+        '''
+        
+        # Reference implementation just hard-codes meaningless outputs
+        class_label = "missing"
+        score_pct = 0
+        subclass = ""
+        attributes_dict = {}
+        
+        return class_label, score_pct, subclass, attributes_dict
 
     # .................................................................................................................
     # .................................................................................................................

@@ -49,64 +49,75 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
+from shutil import rmtree
 from time import perf_counter
 
-from local.lib.selection_utils import Resource_Selector
+from tqdm import tqdm
 
-from local.offline_database.file_database import Snap_DB, Object_DB, Classification_DB
-from local.offline_database.file_database import post_snapshot_report_metadata, post_object_report_metadata
-from local.offline_database.file_database import post_object_classification_data
+from local.lib.ui_utils.cli_selections import Resource_Selector
 
-from local.lib.file_access_utils.shared import configurable_dot_path
+from local.lib.file_access_utils.classifier import build_classifier_adb_metadata_report_path
+from local.lib.file_access_utils.classifier import load_classifier_config
+
+from local.offline_database.file_database import launch_file_db, close_dbs_if_missing_data
+
+from local.configurables.configurable_template import configurable_dot_path
+
+from eolib.utils.files import get_total_folder_size
 from eolib.utils.function_helpers import dynamic_import_from_module
-
 from eolib.utils.cli_tools import cli_confirm
-from eolib.utils.read_write import load_json
+from eolib.utils.quitters import ide_quit
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define functions
 
 # .................................................................................................................
     
-def import_classifier_class(cameras_folder_path, camera_select, user_select, task_select):
+def import_classifier_class(cameras_folder_path, camera_select, user_select):
     
     # Check configuration file to see which script/class to load from & get configuration data
-    pathing_args = (cameras_folder_path, camera_select, user_select, task_select)
-    _, file_access_dict, setup_data_dict = _load_classifier_config_data(*pathing_args)
-    script_name = file_access_dict.get("script_name")
-    class_name = file_access_dict.get("class_name")
+    pathing_args = (cameras_folder_path, camera_select, user_select)
+    _, file_access_dict, setup_data_dict = load_classifier_config(*pathing_args)
+    script_name = file_access_dict["script_name"]
+    class_name = file_access_dict["class_name"]
     
     # Programmatically import the target class
     dot_path = configurable_dot_path("after_database", "classifier", script_name)
     Imported_Classifier_Class = dynamic_import_from_module(dot_path, class_name)
     
     return Imported_Classifier_Class, setup_data_dict
-    
-# .................................................................................................................
-    
-def _load_classifier_config_data(cameras_folder_path, camera_select, user_select, task_select):
-    
-    ''' 
-    Function which finds and loads pre-saved configuration files for a classifier
-    '''
-    
-    # Get path to the config file
-    path_to_config = os.path.join(cameras_folder_path, 
-                                  camera_select, 
-                                  "users", 
-                                  user_select,
-                                  "tasks",
-                                  task_select,
-                                  "classifier", "classifier.json")
-    
-    # Load json data and split into file access info & setup configuration data
-    config_dict = load_json(path_to_config)
-    access_info_dict = config_dict.get("access_info")
-    setup_data_dict = config_dict.get("setup_data")
-    
-    return path_to_config, access_info_dict, setup_data_dict
 
 # .....................................................................................................................
+
+def delete_existing_classification_data(enable_deletion_prompt, 
+                                        cameras_folder_path,
+                                        camera_select, 
+                                        user_select, 
+                                        save_and_keep):
+    
+    # If prompt is skipped and deletion is disabled, don't do anything
+    if (not enable_deletion_prompt) and save_and_keep:
+        print("", "Existing files are not being deleted!", sep = "\n")
+        return
+    
+    # Build pathing to classification data
+    class_data_folder = build_classifier_adb_metadata_report_path(cameras_folder_path, camera_select, user_select)
+    os.makedirs(class_data_folder, exist_ok = True)
+    
+    # Check if data already exists
+    existing_file_count, _, total_file_size_mb, _ = get_total_folder_size(class_data_folder)
+    saved_data_exists = (existing_file_count > 0)
+    
+    # Provide prompt (if enabled) to allow user to avoid deleting existing data
+    if saved_data_exists and enable_deletion_prompt:
+        confirm_msg = "Saved data already exists! Delete? ({:.1f} MB)".format(total_file_size_mb)
+        confirm_data_delete = cli_confirm(confirm_msg, default_response = True)
+        if not confirm_data_delete:
+            return
+    
+    # If we get here, delete the files!
+    print("", "Deleting files:", "@ {}".format(class_data_folder), sep="\n")
+    rmtree(class_data_folder)
 
 # .....................................................................................................................
 # .....................................................................................................................
@@ -122,109 +133,107 @@ selector = Resource_Selector()
 project_root_path, cameras_folder_path = selector.get_project_pathing()
 camera_select, camera_path = selector.camera(debug_mode=enable_debug_mode)
 user_select, _ = selector.user(camera_select, debug_mode=enable_debug_mode)
-task_select, _ = selector.task(camera_select, user_select, debug_mode=enable_debug_mode)
+
 
 # ---------------------------------------------------------------------------------------------------------------------
-#%% Catalog existing snapshot data
+#%% Catalog existing data
 
-# Start 'fake' database for accessing snapshot/object data
-snap_db = Snap_DB(cameras_folder_path, camera_select, user_select)
-obj_db = Object_DB(cameras_folder_path, camera_select, user_select, task_select)
-class_db = Classification_DB(cameras_folder_path, camera_select, user_select, task_select)
+cam_db, snap_db, obj_db, class_db, _, _ = \
+launch_file_db(cameras_folder_path, camera_select, user_select,
+               launch_snapshot_db = True,
+               launch_object_db = True,
+               launch_classification_db = True,
+               launch_summary_db = False,
+               launch_rule_db = False)
 
-# Post snapshot/object/classification data to the databases on start-up
-post_snapshot_report_metadata(cameras_folder_path, camera_select, user_select, snap_db)
-post_object_report_metadata(cameras_folder_path, camera_select, user_select, task_select, obj_db)
-post_object_classification_data(cameras_folder_path, camera_select, user_select, task_select, class_db)
+# Catch missing data
+cam_db.close()
+close_dbs_if_missing_data(snap_db, obj_db)
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Get object IDs to classify
+
+# Get the maximum range of the data (based on the snapshots, because that's the most we could show)
+earliest_datetime, latest_datetime = snap_db.get_bounding_datetimes()
+obj_id_list = obj_db.get_object_ids_by_time_range(earliest_datetime, latest_datetime)
+
+# Bail if we have no object data!
+no_object_data = (len(obj_id_list) == 0)
+if no_object_data:
+    print("", "No object data found!", "  Quitting...", "", sep = "\n")
+    ide_quit()
 
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Load & configure classifier
 
-'''
-#import torch
-#from local.lib.classifier_models.squeezenet_variants import Truncated_SqueezeNet
-from local.lib.classifier_models.squeezenet_variants import Full_SqueezeNet_112x112
-from local.offline_database.object_reconstruction import Object_Reconstruction as Obj_Recon
-
-#ordered_class_names = class_db.ordered_class_names()
-#classifier_model = Truncated_SqueezeNet(ordered_class_names)
-#load_path = "/home/wrk/Desktop/pytorch_saved_models/truncated_squeezenet_112x112_state_dict_wip.pt"
-
-load_path = "/home/wrk/Desktop/pytorch_saved_models"
-load_name = "full_sn_112x112_wip"
-classifier_model = Full_SqueezeNet_112x112.load_model_from_path(load_path, load_name)
-classifier_model.set_to_inference_mode()
-'''
-
 # Programmatically import the target classifier class
-pathing_args = (cameras_folder_path, camera_select, user_select, task_select)
+pathing_args = (cameras_folder_path, camera_select, user_select)
 Imported_Classifier_Class, setup_data_dict = import_classifier_class(*pathing_args)
 classifier_ref = Imported_Classifier_Class(*pathing_args)
 classifier_ref.reconfigure(setup_data_dict)
-classifier_ref.set_to_inference_mode()
-
-
-STOPPED HERE
-- IMPORTED LOADING IS WORKING!
-- NEED TO CREATE CONFIG UTIL TO SAVE CONFIG IN THE FIRST PLACE!!!
-    - CONFIG UTIL ALSO HAS TO CREATE DEFAULT FILE, IF MISSING...
-        - SHOULD PROBABLY CREATE A TEMPORARY FILE ONLY, IN CASE THE USER DOESNT SAVE (AND DELETE IF THEY DONT SAVE!)
-    - SHOULD HAVE INITIAL MENU ASKING HOW TO USE MODEL:
-        - USE EXISTING MODEL (NO TRAINING)
-        - TRAIN WHOLE MODEL ON EXISTING CURATED DATASET
-        - FINE-TUNE TRAIN MODEL (ONLY LAST LAYERS?) ON CURATED DATA
-        - RESET TO ORIGINAL MODEL
-    - IF TRAINING IS SELECTED, THIS SHOULD RUN BEFORE THE REST OF THE UI POPS UP!
-    - ONCE AT REAL UI, SHOULD PRESENT WINDOW ANIMATING OBJECT
-        - CLASSIFIER SHOULD RUN ON EVERY FRAME, WITH RESULT SHOWN AS TIMEBAR TYPE VISUAL
-        - NEED ABILITY TO SWITCH TO OTHER OBJECTS (SLIDER)
-        - ALSO NEED TO BE ABLE TO CONTROL PLAYBACK? EITHER ARROW KEY BACK/FORWARD OR SPACEBAR PAUSE...?
-    - SHOULD ALSO SHOW WINDOW OF CROPPED IMAGE USED FOR CLASSIFICATION
-    - ALSO SHOW WINDOW INDICATING CLASSIFICATION LEGEND (COLORS)
-    - SHOULD HAVE A WINDOW SHOWING THE CLASSIFICATION BREAKDOWN  (I.E. WHAT PERCENT FOR EACH CLASS) FOR EVERY FRAME
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-#%% Get data for classification
+#%% Clear existing data
 
-# Get the maximum range of the data (based on the snapshots, because that's the most we could show)
-earliest_datetime, latest_datetime = snap_db.get_bounding_datetimes()
-snap_wh = snap_db.get_snap_frame_wh()
+# Don't update the classification file unless the user agrees!
+saving_enabled = cli_confirm("Save results?", default_response = True)
+if saving_enabled:
+    # Delete existing classification data, if needed
+    enable_deletion = True
+    save_and_keep = False
+    delete_existing_classification_data(enable_deletion, cameras_folder_path, camera_select, user_select, save_and_keep)
 
-# Create a list of objects, according to the classifier's requirements
-obj_metadata_generator = classifier_ref.request_object_data(obj_db, task_select, earliest_datetime, latest_datetime)
-obj_list = classifier_ref.create_object_list(obj_metadata_generator, snap_wh, earliest_datetime, latest_datetime)
+
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Run classification
+
+# Allocate storage for results feedback
+class_count_dict = {}
+update_class_count = lambda update_class_label: 1 + class_count_dict.get(update_class_label, 0)
 
 # Some feedback & timing
 print("", "Running classification...", sep = "\n")
 t_start = perf_counter()
 
-# Run the classifier on the selected dataset
-classification_dict = classifier_ref.run(obj_list, snap_db, enable_progress_bar = True)
-classifier_ref.close()
+# Create progress bar for better feedback
+total_objs = len(obj_id_list)
+cli_prog_bar = tqdm(total = total_objs, mininterval = 0.5)
 
-# Some final feedback & timing
+for each_obj_id in obj_id_list:
+    
+    # Run the classifier on the selected dataset
+    class_label, score_pct, subclass, attributes_dict = classifier_ref.run(each_obj_id, obj_db, snap_db)
+    
+    # Keep track of class counts for feedback
+    class_count_dict[class_label] = update_class_count(class_label)
+    
+    # Save results, if needed
+    if saving_enabled:
+        class_db.save_entry(each_obj_id, class_label, score_pct,subclass, attributes_dict)
+
+    # Provide some progress feedback
+    cli_prog_bar.update()
+
+# Clean up
+classifier_ref.close()
+cli_prog_bar.close()
+print("")
+
+# Some timing feedback
 t_end = perf_counter()
-total_processing_time_sec = t_end - t_start
+total_processing_time_sec = (t_end - t_start)
 print("", "Finished! Took {:.1f} seconds".format(total_processing_time_sec), sep = "\n")
 
-
-# ---------------------------------------------------------------------------------------------------------------------
-#%% Update local classification file
-
-# Don't update the classification file unless the user agrees!
-user_confirm = cli_confirm("Update local classification file?", default_response = False)
-if user_confirm:
-
-    # Update the classification database with new object classification!
-    for each_obj_id, each_result_dict in classification_dict.items():
-        class_db.update_entry(task_select, each_obj_id, 
-                              new_class_label = each_result_dict["class_label"],
-                              new_score_pct = each_result_dict["score_pct"])
-        
-    # Finally, update the local classification file to permanently save the changes
-    class_db.update_classification_file(task_select)
+# Some feedback about class counts
+longest_class_name = max([len(each_label) for each_label in class_count_dict.keys()])
+print("", 
+      "Classification results:", 
+      *["  {}: {}".format(each_label.rjust(longest_class_name), each_count) \
+        for each_label, each_count in class_count_dict.items()],
+      "", sep = "\n")
 
 
 # ---------------------------------------------------------------------------------------------------------------------

@@ -51,9 +51,9 @@ find_path_to_local()
 
 import cv2
 
-from local.lib.selection_utils import Resource_Selector
-from local.lib.configuration_utils.local_ui.windows_base import Simple_Window
-from local.lib.configuration_utils.video_setup import File_Video_Reader
+from local.lib.ui_utils.cli_selections import Resource_Selector
+from local.lib.ui_utils.local_ui.windows_base import Simple_Window
+from local.lib.launcher_utils.video_setup import File_Video_Reader
 
 #from local.configurables.externals.background_capture.passthrough_backgroundcapture import Background_Capture
 #from local.configurables.externals.background_capture.averaging_backgroundcapture import Background_Capture
@@ -80,9 +80,6 @@ camera_select, camera_path = selector.camera()
 user_select, user_path = selector.user(camera_select)
 video_select, video_path = selector.video(camera_select)
 
-# Find list of all tasks
-task_name_list = selector.get_task_list(camera_select, user_select)
-
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Load video
@@ -97,7 +94,7 @@ video_type = vreader.video_type
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Load background capture
 
-saving_enabled = cli_confirm("Save data?", default_response = False)
+saving_enabled = cli_confirm("Save background data?", default_response = False)
 threading_enabled = False
 
 externals_config = {"cameras_folder_path": cameras_folder_path,
@@ -110,7 +107,7 @@ bgcap = Background_Capture(**externals_config)
 bgcap.reconfigure({"capture_period_mins": 0.1, "update_weighting": 0.5})
 bgcap.toggle_report_saving(saving_enabled)
 bgcap.toggle_resource_saving(saving_enabled)
-bgcap.toggle_threading(threading_enabled)
+bgcap.toggle_threaded_saving(threading_enabled)
 
 bgcap.set_max_capture_count(50)
 bgcap.set_max_generated_count(10)
@@ -140,21 +137,22 @@ while True:
     # Frame reading
     
     # Grab frames from the video source (with timing information for each frame!)
-    req_break, input_frame, current_frame_index, current_epoch_ms, current_datetime = vreader.read()
+    req_break, input_frame, read_time_sec, current_frame_index, current_epoch_ms, current_datetime = vreader.read()
     if req_break:
         break
     
     # .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
-    # Get (shared) background image & snapshot metadata
+    # Get background image
     
     # Handle background capture stage
-    bg_outputs = bgcap.run(input_frame, current_frame_index, current_epoch_ms, current_datetime)
+    background_image, background_was_updated = bgcap.run(input_frame, 
+                                                         current_frame_index, current_epoch_ms, current_datetime)
     
     # .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
     # Display
     
-    input_window.imshow(bg_outputs.get("video_frame"))
-    bg_window.imshow(bg_outputs.get("bg_frame"))
+    input_window.imshow(input_frame)
+    bg_window.imshow(background_image)
     keypress = cv2.waitKey(10)
     if keypress == 27:
         break

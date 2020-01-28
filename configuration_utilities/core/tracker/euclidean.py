@@ -51,11 +51,11 @@ find_path_to_local()
 
 import numpy as np
 
-from local.lib.configuration_utils.configuration_loaders import Reconfigurable_Core_Stage_Loader
-from local.lib.configuration_utils.video_processing_loops import Reconfigurable_Video_Loop
-from local.lib.configuration_utils.display_specification import Display_Window_Specification
-from local.lib.configuration_utils.display_specification import Detection_Display, Filtered_Binary_Display
-from local.lib.configuration_utils.display_specification import draw_mouse_centered_ellipse, draw_objects_on_frame
+from local.lib.launcher_utils.configuration_loaders import Reconfigurable_Core_Stage_Loader
+from local.lib.launcher_utils.video_processing_loops import Reconfigurable_Video_Loop
+from local.lib.ui_utils.display_specification import Display_Window_Specification
+from local.lib.ui_utils.display_specification import Detection_Display, Filtered_Binary_Display
+from local.lib.ui_utils.display_specification import draw_mouse_centered_ellipse, draw_objects_on_frame
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define displays
@@ -87,12 +87,12 @@ class Custom_Tracking_Display(Display_Window_Specification):
                 current_frame_index, current_epoch_ms, current_datetime):
         
         # Grab a of the preprocessed image that we can draw on it
-        display_frame = stage_outputs.get("preprocessor").get("preprocessed_frame")
+        display_frame = stage_outputs["preprocessor"]["preprocessed_frame"]
         tracking_frame = display_frame.copy()
         
         # Grab dictionary of validation & tracked objects so we can draw them
-        validation_object_dict = stage_outputs.get("tracker").get("validation_object_dict")
-        tracked_object_dict = stage_outputs.get("tracker").get("tracked_object_dict", {})
+        validation_object_dict = stage_outputs["tracker"]["validation_object_dict"]
+        tracked_object_dict = stage_outputs["tracker"]["tracked_object_dict"]
         
         # Draw validation tracking visuals onto the frame
         tracking_frame = draw_objects_on_frame(tracking_frame, validation_object_dict, 
@@ -158,7 +158,7 @@ edge_drawing_spec = configurable_ref.get_drawing_spec("edge_zones_list")
 # Set up object to handle all video processing
 main_process = \
 Reconfigurable_Video_Loop(loader,
-                          ordered_display_list = [Detection_Display(0, 2, 2, 
+                          ordered_display_list = [Detection_Display(1, 4, 1, 
                                                                     window_name = "Detections & Edge Decay Zones",
                                                                     drawing_json = edge_drawing_spec),
                                                   Custom_Tracking_Display(1, 2, 2),
@@ -175,7 +175,6 @@ main_process.loop()
 last_frame = main_process.debug_frame
 stage_outputs = main_process.debug_stage_outputs
 stage_timing = main_process.debug_stage_timing
-object_ids_in_frame_dict = main_process.debug_object_ids_in_frame_dict
 snapshot_metadata = main_process.debug_current_snapshot_metadata
 last_frame_index, last_epoch_ms, last_datetime = main_process.debug_fed_time_args
 

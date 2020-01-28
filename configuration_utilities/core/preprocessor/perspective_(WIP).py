@@ -49,10 +49,11 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
-from local.lib.configuration_utils.configuration_loaders import Reconfigurable_Core_Stage_Loader
-from local.lib.configuration_utils.video_processing_loops import Reconfigurable_Video_Loop
-from local.lib.configuration_utils.display_specification import Display_Window_Specification, Input_Display
-from local.lib.configuration_utils.display_specification import Preprocessed_Display, Preprocessed_BG_Display
+from local.lib.launcher_utils.configuration_loaders import Reconfigurable_Core_Stage_Loader
+from local.lib.launcher_utils.video_processing_loops import Reconfigurable_Video_Loop
+
+from local.lib.ui_utils.display_specification import Display_Window_Specification
+from local.lib.ui_utils.display_specification import Preprocessed_Display
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define displays
@@ -76,7 +77,7 @@ class Custom_Input_Display(Display_Window_Specification):
     def display(self, stage_outputs, configurable_ref, mouse_xy,
                 current_frame_index, current_epoch_ms, current_datetime):
         
-        display_frame = stage_outputs.get("frame_capture").get("video_frame")
+        display_frame = stage_outputs["video_capture_input"]["video_frame"]
         return configurable_ref._draw_extended_quad(display_frame)
     
     # .................................................................................................................
@@ -99,9 +100,8 @@ zone_drawing_spec = configurable_ref.get_drawing_spec("perspective_quad")
 # Set up object to handle all video processing
 main_process = \
 Reconfigurable_Video_Loop(loader,
-                          ordered_display_list = [Custom_Input_Display(0, 2, 2, drawing_json = zone_drawing_spec),
-                                                  Preprocessed_Display(1, 2, 2, limit_wh = False),
-                                                  Preprocessed_BG_Display(2, 2, 2, limit_wh = False)])
+                          ordered_display_list = [Custom_Input_Display(2, 3, 2, drawing_json = zone_drawing_spec),
+                                                  Preprocessed_Display(3, 3, 2, limit_wh = False)])
 
 # Most of the work is done here!
 main_process.loop()
@@ -114,7 +114,6 @@ main_process.loop()
 last_frame = main_process.debug_frame
 stage_outputs = main_process.debug_stage_outputs
 stage_timing = main_process.debug_stage_timing
-object_ids_in_frame_dict = main_process.debug_object_ids_in_frame_dict
 snapshot_metadata = main_process.debug_current_snapshot_metadata
 last_frame_index, last_epoch_ms, last_datetime = main_process.debug_fed_time_args
 

@@ -51,9 +51,10 @@ find_path_to_local()
 
 import cv2
 
-from local.lib.selection_utils import Resource_Selector
-from local.lib.configuration_utils.local_ui.windows_base import Simple_Window
-from local.lib.configuration_utils.video_setup import File_Video_Reader
+from local.lib.ui_utils.cli_selections import Resource_Selector
+from local.lib.ui_utils.local_ui.windows_base import Simple_Window
+
+from local.lib.launcher_utils.video_setup import File_Video_Reader
 
 #from local.configurables.externals.snapshot_capture.passthrough_snapcapture import Snapshot_Capture
 from local.configurables.externals.snapshot_capture.fixed_sample_snapcapture import Snapshot_Capture
@@ -80,9 +81,6 @@ camera_select, camera_path = selector.camera()
 user_select, user_path = selector.user(camera_select)
 video_select, video_path = selector.video(camera_select)
 
-# Find list of all tasks
-task_name_list = selector.get_task_list(camera_select, user_select)
-
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Load video
@@ -98,7 +96,7 @@ video_type = vreader.video_type
 #%% Load background capture
 
 # Set saving behavior parameters
-saving_enabled = cli_confirm("Save data?", default_response = False)
+saving_enabled = cli_confirm("Save snapshot data?", default_response = False)
 threading_enabled = True
 
 externals_config = {"cameras_folder_path": cameras_folder_path,
@@ -113,10 +111,7 @@ snapcap = Snapshot_Capture(**externals_config)
 snapcap.reconfigure()
 snapcap.toggle_image_saving(saving_enabled)
 snapcap.toggle_metadata_saving(saving_enabled)
-snapcap.toggle_threading(threading_enabled)
-
-# Create empty object ids for testing saving
-snap_objids_dict = {each_task_name: [] for each_task_name in task_name_list}
+snapcap.toggle_threaded_saving(threading_enabled)
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Set up displays
@@ -139,23 +134,19 @@ while True:
     # Frame reading
     
     # Grab frames from the video source (with timing information for each frame!)
-    req_break, input_frame, current_frame_index, current_epoch_ms, current_datetime = vreader.read()
+    req_break, input_frame, read_time_sec, current_frame_index, current_epoch_ms, current_datetime = vreader.read()
     if req_break:
         break
     
     # .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
     # Get snapshot data
     
-    # Get snapshot if needed and return most recent snapshot data for object metadata capture
-    need_new_snapshot, current_snapshot_metadata = snapcap.metadata(input_frame, 
-                                                                    current_frame_index,
-                                                                    current_epoch_ms, 
-                                                                    current_datetime)
-    
-    # .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
-    # Save snapshot data, with active object ids
-    
-    snapshot_frame = snapcap.save_snapshots(need_new_snapshot, input_frame, snap_objids_dict)
+    # Handle snapshot capture stage
+    snapshot_frame, current_snapshot_metadata = snapcap.run(input_frame, 
+                                                            current_frame_index, 
+                                                            current_epoch_ms, 
+                                                            current_datetime)
+   
     
     # .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
     # Display

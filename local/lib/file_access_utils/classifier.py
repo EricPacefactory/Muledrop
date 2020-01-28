@@ -49,12 +49,10 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
-from local.lib.file_access_utils.shared import copy_from_defaults
+from local.lib.file_access_utils.after_database import build_after_database_configs_folder_path
+from local.lib.file_access_utils.reporting import build_after_database_report_path
+from local.lib.file_access_utils.resources import build_base_resources_path
 
-from local.lib.file_access_utils.reporting import build_object_metadata_report_path, build_classification_file_path
-
-from eolib.utils.cli_tools import cli_folder_list_select
-from eolib.utils.files import get_file_list
 from eolib.utils.read_write import load_json, save_json
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -62,15 +60,20 @@ from eolib.utils.read_write import load_json, save_json
 
 # .....................................................................................................................
 
-def build_classifier_resources_path(cameras_folder_path, camera_select, *path_joins):
-    return os.path.join(cameras_folder_path, camera_select, "resources", "classifier", *path_joins)
+def build_classifier_config_path(cameras_folder_path, camera_select, user_select, *path_joins):
+    return build_after_database_configs_folder_path(cameras_folder_path, camera_select, user_select, 
+                                                    "classifier", "classifier.json")
 
 # .....................................................................................................................
 
-def build_dataset_path(cameras_folder_path, camera_select, *path_joins):
-    classifier_folder_path = build_classifier_resources_path(cameras_folder_path, camera_select)
-    return os.path.join(classifier_folder_path, "datasets", *path_joins)
+def build_classifier_adb_metadata_report_path(cameras_folder_path, camera_select, user_select, *path_joins):
+    return build_after_database_report_path(cameras_folder_path, camera_select, user_select, "classifier")
 
+# .....................................................................................................................
+
+def build_classifier_resources_path(cameras_folder_path, camera_select, *path_joins):
+    return build_base_resources_path(cameras_folder_path, camera_select, "classifier", *path_joins)
+    
 # .....................................................................................................................
 
 def build_model_path(cameras_folder_path, camera_select, *path_joins):
@@ -79,126 +82,80 @@ def build_model_path(cameras_folder_path, camera_select, *path_joins):
 
 # .....................................................................................................................
 
-def build_supervised_labels_folder_path(cameras_folder_path, camera_select, dataset_select, *path_joins):
-    return build_dataset_path(cameras_folder_path, camera_select, dataset_select, "supervised_labels", *path_joins)
-
-# .....................................................................................................................
-
-def build_curation_folder_path(cameras_folder_path, camera_select, dataset_select, *path_joins):
-    return build_dataset_path(cameras_folder_path, camera_select, dataset_select, "supervised_curation", *path_joins)
-
-# .....................................................................................................................
-
 def build_labels_lut_path(cameras_folder_path, camera_select): 
     return build_classifier_resources_path(cameras_folder_path, camera_select, "class_label_lut.json")
 
 # .....................................................................................................................
+
+def build_supervised_labels_folder_path(cameras_folder_path, camera_select, user_select, start_datetime):
+    target_folder = create_supervised_labels_folder_name(user_select, start_datetime)
+    return build_classifier_resources_path(cameras_folder_path, camera_select, "supervised_labels", target_folder)
+
 # .....................................................................................................................
+# .....................................................................................................................
+
 
 # ---------------------------------------------------------------------------------------------------------------------
-#%% Dataset Pathing functions
+#%% File naming functions
 
 # .....................................................................................................................
 
-def build_snapshot_image_dataset_path(cameras_folder_path, camera_select, dataset_select):
-    return build_dataset_path(cameras_folder_path, camera_select, dataset_select, "images", "snapshots")
+def create_classifier_file_name(object_full_id):
+    return "class-{}.json.gz".format(object_full_id)
 
 # .....................................................................................................................
 
-def build_snapshot_metadata_dataset_path(cameras_folder_path, camera_select, dataset_select):
-    return build_dataset_path(cameras_folder_path, camera_select, dataset_select, "metadata", "snapshots")
-
-# .....................................................................................................................
-
-def build_object_metadata_dataset_path(cameras_folder_path, camera_select, task_select, dataset_select):
-    object_folder_name = "objects-({})".format(task_select)
-    return build_dataset_path(cameras_folder_path, camera_select, dataset_select, "metadata", object_folder_name)
-
-# .....................................................................................................................
+def create_supervised_labels_folder_name(user_select, data_start_datetime):
     
-def build_crop_folder_save_paths(cameras_folder_path, camera_select, dataset_select, class_label):
-    return build_dataset_path(cameras_folder_path, camera_select, dataset_select, "cropped", class_label)
+    # Build standard folder path name based on dataset start timing & user
+    datetime_name = data_start_datetime.strftime("%Y%m%d_%H%M%S")
+    supervised_labels_folder_name = "{}-{}".format(user_select, datetime_name)
+    
+    return supervised_labels_folder_name
+
+# .....................................................................................................................
+
+def create_supervised_label_file_name(object_full_id):
+    return "supervlabel-{}.json.gz".format(object_full_id)
 
 # .....................................................................................................................
 # .....................................................................................................................
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Data access functions
-        
-# .....................................................................................................................
-
-def create_default_classifier_configs(project_root_path, classifier_resources_path):
-    
-    # Only copy defaults if no files are present
-    file_list = os.listdir(classifier_resources_path)
-    json_files = [each_file for each_file in file_list if "json" in os.path.splitext(each_file)[1]]
-    no_configs = (len(json_files) == 0)
-    
-    # Pull default json config files out of the defaults folder, and copy in to the target task path
-    if no_configs:
-        copy_from_defaults(project_root_path, 
-                           target_defaults_folder = "classifier",
-                           copy_to_path = classifier_resources_path)
 
 # .....................................................................................................................
 
-def create_blank_classification_file(cameras_folder, camera_select, user_select, task_select,
-                                     default_class_label = "unclassified",
-                                     default_score_pct = 0,
-                                     default_subclass = "",
-                                     default_attributes = {}):
+def save_classifier_data(cameras_folder_path, camera_select, user_select, 
+                         object_full_id, class_label, score_pct, subclass, attributes_dict):
     
-    ''' 
-    Function used to initialize a classification file when running locally
-    This file is meant to replicate the use of a classification database
-    '''
+    # Build pathing to save
+    save_file_name = create_classifier_file_name(object_full_id)
+    save_folder_path = build_classifier_adb_metadata_report_path(cameras_folder_path, camera_select, user_select)
+    save_file_path = os.path.join(save_folder_path, save_file_name)
     
-    # Get pathing to corresponding object metadata, so we can create a blank entry for all object ids
-    obj_metadata_report_folder = build_object_metadata_report_path(cameras_folder, 
-                                                                   camera_select,
-                                                                   user_select,
-                                                                   task_select)
-    
-    # Allocate storage for the blank classification dictionary
-    blank_class_dict = {}
-    blank_entry =  {"class_label": default_class_label, 
-                    "score_pct": default_score_pct,
-                    "subclass": default_subclass,  
-                    "attributes_dict": default_attributes}
-    
-    # Get all reported object metadata files
-    obj_md_file_paths = get_file_list(obj_metadata_report_folder, return_full_path = True, sort_list = False)
-    for each_path in obj_md_file_paths:
-        
-        # Grab the object id from it's metadata, and nothing else 
-        # (inefficient... would be nice to use the file name but maybe not safe in the long term?)
-        obj_md = load_json(each_path)
-        obj_full_id = obj_md["full_id"]
-        
-        # Add object id with blank classification to the output dictionary
-        new_blank_entry = new_classification_entry(obj_full_id, **blank_entry)
-        blank_class_dict.update(new_blank_entry)
-    
-    # Build pathing to the classification file (and create the folder if needed)
-    class_file_path = build_classification_file_path(cameras_folder, camera_select, user_select, task_select)
-    class_folder_path = os.path.dirname(class_file_path)
-    os.makedirs(class_folder_path, exist_ok = True)
-    
-    # Save the completed blank file
-    save_json(class_file_path, blank_class_dict, use_gzip = True)
-    
-    return blank_class_dict
+    # Bundle data and save
+    save_data = new_classification_entry(object_full_id, class_label, score_pct, subclass, attributes_dict)
+    save_json(save_file_path, save_data, use_gzip = True, create_missing_folder_path = True)
 
 # .....................................................................................................................
     
-def new_classification_entry(object_full_id, class_label, score_pct, subclass, attributes_dict):
+def new_classification_entry(object_full_id, 
+                             class_label = "unclassified", 
+                             score_pct = 0, 
+                             subclass = "", 
+                             attributes_dict = None):
     
     ''' Helper function for creating properly formatted classification entries '''
     
-    return {object_full_id: {"class_label": class_label,
-                             "score_pct": score_pct,
-                             "subclass": subclass,
-                             "attributes": attributes_dict}}
+    # Avoid funny mutability stuff
+    attributes_dict = {} if attributes_dict is None else attributes_dict
+    
+    return {"full_id": object_full_id,
+            "class_label": class_label,
+            "score_pct": score_pct,
+            "subclass": subclass,
+            "attributes": attributes_dict}
 
 # .....................................................................................................................
     
@@ -220,107 +177,86 @@ def default_label_lut():
     
     return default_lut
 
+# .................................................................................................................
+    
+def load_classifier_config(cameras_folder_path, camera_select, user_select):
+    
+    ''' 
+    Function which loads configuration files for a classifier
+    '''
+    
+    # Get path to the config file
+    config_file_path = build_classifier_config_path(cameras_folder_path, camera_select, user_select)
+    
+    # Load json data and split into file access info & setup configuration data
+    config_dict = load_json(config_file_path)
+    access_info_dict = config_dict["access_info"]
+    setup_data_dict = config_dict["setup_data"]
+    
+    return config_file_path, access_info_dict, setup_data_dict
+
 # .....................................................................................................................
     
 def load_label_lut_tuple(cameras_folder_path, camera_select):
+    
+    '''
+    Function which loads the label lookup table, for classification
+    Returns:
+        label_lut_dict (dict), label_to_index_lut (dict)
+        
+    The label_lut_dict has keys representing class labels, and values which are dicts containing settings
+    The label_to_index_lut is a shortcut version of the label lut, which maps labels to indices directly
+    '''
     
     # Build the pathing to the labelling lut file & load it
     label_lut_file_path = build_labels_lut_path(cameras_folder_path, camera_select)
     label_lut_dict = load_json(label_lut_file_path, convert_integer_keys = True)
     
     # Create handy alternative versions of the data for convenience
-    get_idx = lambda label: label_lut_dict.get(label).get("class_index")
+    get_idx = lambda label: label_lut_dict[label]["class_index"]
     label_to_index_lut = {each_label: get_idx(each_label) for each_label in label_lut_dict.keys()}
     
     return label_lut_dict, label_to_index_lut
 
 # .....................................................................................................................
 
-def load_supervised_labels(cameras_folder_path, camera_select, dataset_select, 
-                           remove_labels_list = []):
+def save_supervised_label(supervised_labels_folder_path, object_full_id, supervised_label_dict):
     
-    # First build pathing to where the supervised label files are located
-    supervised_labels_folder = build_supervised_labels_folder_path(cameras_folder_path, camera_select, dataset_select)
+    # Build path to save target object data
+    save_name = create_supervised_label_file_name(object_full_id)
+    save_path = os.path.join(supervised_labels_folder_path, save_name)
     
-    # Get pathing to each file (one for each task)
-    labelling_file_paths = get_file_list(supervised_labels_folder, 
-                                         return_full_path = True,
-                                         sort_list = False, 
-                                         allowable_exts_list = [".json"])
-    
-    # Loop over all task files and load the labelling, with filtering if needed
-    filter_results = (remove_labels_list != [])
-    task_supervised_labels = {}
-    for each_path in labelling_file_paths:
-        
-        # Figure out task from loading path
-        file_name = os.path.basename(each_path)
-        each_task, _ = os.path.splitext(file_name)
-        
-        # Load the target labelling data
-        supervised_labels_dict = load_json(each_path, convert_integer_keys = True)
-        
-        # Filter out unclassified/ignored results if needed
-        if filter_results:
-            supervised_labels_dict = filter_labelling_results(supervised_labels_dict, remove_labels_list)
-            
-            # Skip this task if there is no data left after filtering
-            no_filtered_data = len(supervised_labels_dict) == 0
-            if no_filtered_data:
-                continue
-        
-        # Add labelling results to a dictionary containing all tasks labelling results
-        task_supervised_labels.update({each_task: supervised_labels_dict})
-    
-    # Create a list of task names for convenience as well
-    task_name_list = list(task_supervised_labels.keys())
-    
-    return task_name_list, task_supervised_labels
+    return save_json(save_path, supervised_label_dict, use_gzip = True, check_validity = True)
 
 # .....................................................................................................................
     
-def load_local_classification_file(cameras_folder_path, camera_select, user_select, task_select):
+def load_supervised_labels(supervised_labels_folder_path, object_id_list, default_if_missing = None):
     
-    # First get pathing to the classification file, if it exists
-    class_file_path = build_classification_file_path(cameras_folder_path, camera_select, user_select, task_select)
+    # Make sure the folder path exists
+    os.makedirs(supervised_labels_folder_path, exist_ok = True)
     
-    # If the class file doesn't already exist, create a blank (all objects are unclassified) one
-    class_file_doesnt_exist = (not os.path.exists(class_file_path))
-    if class_file_doesnt_exist:
-        create_blank_classification_file(cameras_folder_path, camera_select, user_select, task_select)
+    # Set up default entry, if nothing was provided
+    default_object_entry = {"class_label": "unclassified"}
+    if default_if_missing is not None:
+        default_object_entry = default_if_missing
     
-    # Load the classification file data
-    class_labels_dict = load_json(class_file_path, convert_integer_keys = True)
+    # Load all of target object ID labelling data into a dictionary
+    labelling_results_dict = {}
+    for each_full_id in object_id_list:
+        
+        # Build pathing to target object data
+        load_file_name = create_supervised_label_file_name(each_full_id)
+        load_file_path = os.path.join(supervised_labels_folder_path, load_file_name)
+        
+        # Load the supervised labelling data, if present, otherwise use the default
+        object_entry = default_object_entry.copy()
+        file_exists = (os.path.exists(load_file_path))
+        if file_exists:
+            supervised_labelling_data = load_json(load_file_path)
+            object_entry = supervised_labelling_data
+        labelling_results_dict.update({each_full_id: object_entry})
     
-    return class_labels_dict
-
-# .....................................................................................................................
-
-def update_local_classification_file(cameras_folder_path, camera_select, user_select, task_select, update_dict):
-    
-    # Build pathing to the classification file
-    class_file_path = build_classification_file_path(cameras_folder_path, camera_select, user_select, task_select)
-    
-    # Load data and update json
-    class_labels_dict = load_json(class_file_path, convert_integer_keys = True)
-    class_labels_dict.update(update_dict)
-    
-    # Re-save file
-    save_json(class_file_path, class_labels_dict, use_gzip = True)
-
-# .....................................................................................................................
-
-def select_classification_dataset(cameras_folder_path, camera_select, enable_debug_mode = False):
-    
-    # Get listing of all available datasets
-    all_dataset_folders_path = build_dataset_path(cameras_folder_path, camera_select)
-    
-    # Ask user to select from the available dataset folders
-    dataset_folder_path, dataset_select, _ = cli_folder_list_select(all_dataset_folders_path, 
-                                                                    prompt_heading = "Select a classification dataset", 
-                                                                    debug_mode = enable_debug_mode)
-    
-    return dataset_folder_path, dataset_select
+    return labelling_results_dict
 
 # .....................................................................................................................
 
@@ -344,75 +280,6 @@ def filter_labelling_results(supervised_labels_dict, remove_labels_list):
         filtered_labelling_dict.update(new_filtered_entry)
         
     return filtered_labelling_dict
-
-# .....................................................................................................................
-
-def get_object_id_metadata_paths(object_metadata_folder):
-    
-    '''
-    Function which bundles object ids, by integer, into a dictionary whose values 
-    represent the metadata file path for loading the given object id
-    Really intended as a temporary loading/indexing solution prior to having database implemented!
-    '''
-    
-    raise AttributeError("THIS FUNCTION IS OUTDATED!. Use fileDB functionality instead!")
-    
-    # First get all files
-    obj_id_file_list = get_file_list(object_metadata_folder, return_full_path = False, sort_list = False)
-    
-    obj_id_path_lut = {}
-    for each_file in obj_id_file_list:
-        
-        # First check if the file contains more than 1 partition (i.e. must be loaded in parts)
-        # Example file format: 772019130-0.json.gz 
-        #                  --> Object id 77, captured on the 130th day of 2019, partition index 0
-        obj_id_str, obj_data_info = each_file.split("-")
-        partition_index_str = obj_data_info.split(".")[0]
-        
-        # Handle future error, where object data may be stored across indexed files
-        partition_index_too_high = (int(partition_index_str) > 0)
-        if partition_index_too_high:
-            err_msgs = ["Partition index > 0 found", 
-                        "@ {}".format(object_metadata_folder),
-                        "Feature not yet implemented!"]
-            raise NotImplementedError("\n".join(err_msgs))
-        
-        # Create bundled output values
-        obj_id_int = int(obj_id_str)
-        obj_id_path = os.path.join(object_metadata_folder, each_file)
-        
-        # Add entry to dictionary
-        new_entry = {obj_id_int: obj_id_path}
-        obj_id_path_lut.update(new_entry)
-        
-    return obj_id_path_lut
-
-# .....................................................................................................................
-
-def get_snapshot_count_paths(snapshot_metadata_folder):
-    
-    '''
-    Function which bundles snapshot counts, by integer, into a dictionary whose values
-    represent the metadata/image file paths for loading the given snapshot data
-    Really intended as a temporary loading/indexing solution prior to having database implemented!
-    '''
-    
-    # First get all files
-    snapshot_file_list = get_file_list(snapshot_metadata_folder, return_full_path = False, sort_list = True)
-    
-    count_starts_at = 1
-    snap_count_path_lut = {}
-    for each_idx, each_file in enumerate(snapshot_file_list):
-        
-        # Assume first snapshot is count zero and snaps are in counting order... (HACKY!)
-        snap_count_int = count_starts_at + each_idx
-        snap_file_path = os.path.join(snapshot_metadata_folder, each_file)
-        
-        # Add new entry to the dictionary
-        new_entry = {snap_count_int: snap_file_path}
-        snap_count_path_lut.update(new_entry)
-    
-    return snap_count_path_lut
 
 # .....................................................................................................................
 # .....................................................................................................................

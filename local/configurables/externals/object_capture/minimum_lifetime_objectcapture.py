@@ -59,12 +59,11 @@ class Object_Capture(Reference_Object_Capture):
     
     # .................................................................................................................
     
-    def __init__(self, cameras_folder_path, camera_select, user_select, task_select, 
-                 video_select, video_wh):
+    def __init__(self, cameras_folder_path, camera_select, user_select, video_select, video_wh):
         
         # Inherit from base class
-        super().__init__(cameras_folder_path, camera_select, user_select, task_select, 
-                         video_select, video_wh, file_dunder = __file__)
+        super().__init__(cameras_folder_path, camera_select, user_select, video_select, video_wh, 
+                         file_dunder = __file__)
         
         # .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . Control Group 1 .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
         
@@ -99,8 +98,8 @@ class Object_Capture(Reference_Object_Capture):
                              current_frame_index, current_epoch_ms, current_datetime):
         
         # Only save objects that have existed for 'long enough'
-        has_ancestor = (object_metadata.get("ancestor_id") != 0)
-        object_lifetime_ms = object_metadata.get("lifetime_ms")
+        has_ancestor = (object_metadata["ancestor_id"] != 0)
+        object_lifetime_ms = object_metadata["lifetime_ms"]
         save_object_data = has_ancestor or (object_lifetime_ms > self.minimum_object_lifetime_ms)
         
         return save_object_data

@@ -49,7 +49,7 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
-from local.lib.configuration_utils.display_specification import Display_Window_Specification
+from local.lib.ui_utils.display_specification import Display_Window_Specification
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define shared displays

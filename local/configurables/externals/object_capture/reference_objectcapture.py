@@ -63,11 +63,10 @@ class Reference_Object_Capture(Externals_Configurable_Base):
     
     # .................................................................................................................
     
-    def __init__(self, cameras_folder_path, camera_select, user_select, task_select, 
-                 video_select, video_wh, *, file_dunder):
+    def __init__(self, cameras_folder_path, camera_select, user_select, video_select, video_wh, *, file_dunder):
         
         # Inherit from base class
-        super().__init__(cameras_folder_path, camera_select, user_select, task_select, 
+        super().__init__(cameras_folder_path, camera_select, user_select, 
                          video_select, video_wh, file_dunder = file_dunder)
         
         # Store state config
@@ -78,11 +77,11 @@ class Reference_Object_Capture(Externals_Configurable_Base):
         self._config_dead_ids = deque([], maxlen = 10)
         
         # Create object to handle saving data
-        self.metadata_saver = Object_Metadata_Report_Saver(cameras_folder_path, camera_select, user_select, task_select)
+        self.metadata_saver = Object_Metadata_Report_Saver(cameras_folder_path, camera_select, user_select)
         
         # Set default behaviour states
         self.toggle_metadata_saving(True)
-        self.toggle_threading(True)
+        self.toggle_threaded_saving(True)
         
     # .................................................................................................................
     
@@ -110,7 +109,7 @@ class Reference_Object_Capture(Externals_Configurable_Base):
         ''' Function called after video processing completes or is cancelled early '''
         
         # Make sure file i/o is finished
-        print("Closing object capture ({})...".format(self.task_select), end="")
+        print("Closing object capture...", end="")
         self.run(final_stage_outputs, final_frame_index, final_epoch_ms, final_datetime)
         self.metadata_saver.close()
         print(" Done!")
@@ -128,7 +127,7 @@ class Reference_Object_Capture(Externals_Configurable_Base):
     # .................................................................................................................
     
     # SHOULDN'T OVERRIDE
-    def toggle_threading(self, enable_threaded_saving):
+    def toggle_threaded_saving(self, enable_threaded_saving):
         
         ''' 
         Function used to enable or disable threading of image/metadata saving. 
@@ -146,13 +145,13 @@ class Reference_Object_Capture(Externals_Configurable_Base):
         
         ''' 
         Main use function!
-        Purpose is to take in the tracking results (on a per-task basis) and save object data as needed.
+        Purpose is to take in the tracking results and save object data as needed.
         Also outputs a boolean indicating the existance of on-screen objects
         
         Inputs:
-            stage_outputs -> Dictionary. Should be provided from a single task! Each key represents
-                             a core-processing stage name (e.g. preprocessor). The values are themselves
-                             dictionaries, which labels/data based on the outputs of each stage
+            stage_outputs -> Dictionary. Each key represents a core-processing stage name (e.g. preprocessor).
+                             The values are themselves dictionaries, 
+                             with labels/data based on the outputs of each stage
                              
             current_frame_index -> Integer. Current frame of the video
             
@@ -162,7 +161,7 @@ class Reference_Object_Capture(Externals_Configurable_Base):
                                 Interpretation varies based on video source type (running off files vs live-streams)
                                 
         Outputs:
-            objects_are_in_frame -> Boolean. True if there are any tracked objects on screen
+            None!
         '''
         
         # Put stage output data in more convenient variables
@@ -173,11 +172,6 @@ class Reference_Object_Capture(Externals_Configurable_Base):
 
         # Clean up any finished saving threads
         self._clean_up()
-        
-        # Get simple indicator of whether there are currently objects on screen
-        objects_are_in_frame = (len(tracked_object_dict) > 0)
-        
-        return objects_are_in_frame
     
     # .................................................................................................................
     
@@ -209,8 +203,9 @@ class Reference_Object_Capture(Externals_Configurable_Base):
         ''' Function which splits stage outputs into more convenient variables for use in the run function '''
         
         # Get object dictionary and dead id list so we can grab objects that are disappearing
-        tracked_object_dict = stage_outputs.get("tracker", {}).get("tracked_object_dict", {})
-        dead_id_list = stage_outputs.get("tracker", {}).get("dead_id_list", [])
+        tracker_stage = stage_outputs.get("tracker", {})
+        tracked_object_dict = tracker_stage.get("tracked_object_dict", {})
+        dead_id_list = tracker_stage.get("dead_id_list", [])
         
         return tracked_object_dict, dead_id_list
     
@@ -226,7 +221,7 @@ class Reference_Object_Capture(Externals_Configurable_Base):
         for each_id in dead_id_list:
             
             # Grab object reference so we can access it's data
-            obj_ref = tracked_object_dict.get(each_id)
+            obj_ref = tracked_object_dict[each_id]
             obj_metadata = self._get_object_metadata(obj_ref)
             
             # Check if we need to save this object

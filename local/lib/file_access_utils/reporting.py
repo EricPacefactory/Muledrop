@@ -49,7 +49,7 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
-from local.lib.file_access_utils.runtime_read_write import Image_Saver, Metadata_Saver
+from local.lib.file_access_utils.threaded_read_write import Image_Saver, Metadata_Saver
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Classes
@@ -66,7 +66,6 @@ class Image_Report_Saver(Image_Saver):
         
         # Inherit from base class
         super().__init__(cameras_folder_path, camera_select, user_select, 
-                         task_select = None,
                          saving_enabled = True,
                          threading_enabled = True, 
                          lock = lock)
@@ -97,8 +96,7 @@ class Image_Metadata_Report_Saver(Metadata_Saver):
         self.image_folder_name = image_folder_name
         
         # Inherit from base class
-        super().__init__(cameras_folder_path, camera_select, user_select, 
-                         task_select = None,
+        super().__init__(cameras_folder_path, camera_select, user_select,
                          saving_enabled = True,
                          threading_enabled = True,
                          lock = lock)
@@ -123,11 +121,11 @@ class Object_Metadata_Report_Saver(Metadata_Saver):
     
     # .................................................................................................................
     
-    def __init__(self, cameras_folder_path, camera_select, user_select, task_select,
+    def __init__(self, cameras_folder_path, camera_select, user_select,
                  threading_enabled = True, saving_enabled = True, *, lock = None):
         
         # Inherit from base class
-        super().__init__(cameras_folder_path, camera_select, user_select, task_select,
+        super().__init__(cameras_folder_path, camera_select, user_select,
                          saving_enabled = saving_enabled,
                          threading_enabled = threading_enabled, 
                          lock = lock)
@@ -137,8 +135,7 @@ class Object_Metadata_Report_Saver(Metadata_Saver):
     def _build_data_folder_path(self):
         return build_object_metadata_report_path(self.cameras_folder_path,
                                                  self.camera_select,
-                                                 self.user_select,
-                                                 self.task_select)
+                                                 self.user_select)
         
     # .................................................................................................................
     # .................................................................................................................
@@ -184,6 +181,11 @@ def build_video_report_path(cameras_folder, camera_select, user_select, *path_jo
 #%% Specific pathing functions
 
 # .....................................................................................................................
+
+def build_camera_info_metadata_report_path(cameras_folder, camera_select, user_select, *path_joins):
+    return build_metadata_report_path(cameras_folder, camera_select, user_select, "camera_info", *path_joins)
+
+# .....................................................................................................................
     
 def build_snapshot_image_report_path(cameras_folder, camera_select, user_select):
     return build_image_report_path(cameras_folder, camera_select, user_select, "snapshots")
@@ -205,28 +207,13 @@ def build_background_metadata_report_path(cameras_folder, camera_select, user_se
 
 # .....................................................................................................................
     
-def build_object_metadata_report_path(cameras_folder, camera_select, user_select, task_select):
-    object_folder_name = "objects-({})".format(task_select)
-    return build_metadata_report_path(cameras_folder, camera_select, user_select, object_folder_name)
+def build_object_metadata_report_path(cameras_folder, camera_select, user_select):
+    return build_metadata_report_path(cameras_folder, camera_select, user_select, "objects")
 
 # .....................................................................................................................
 
 def build_after_database_report_path(cameras_folder, camera_select, user_select, *path_joins):
     return build_user_report_path(cameras_folder, camera_select, user_select, "after_database", *path_joins)
-
-# .....................................................................................................................
-
-def build_classification_file_path(cameras_folder, camera_select, user_select, task_select):
-    
-    ''' Function for creating pathing to an offline classification file, used to replicate database access'''
-    
-    # Pathing to folder containing classifications (when running locally)
-    classification_file_name = "{}.json.gz".format(task_select)
-    classification_file_path = build_after_database_report_path(cameras_folder, camera_select, user_select, 
-                                                                "local_classifications", 
-                                                                classification_file_name)
-    
-    return classification_file_path
 
 # .....................................................................................................................
 # .....................................................................................................................
@@ -238,12 +225,11 @@ def build_classification_file_path(cameras_folder, camera_select, user_select, t
 
 if __name__ == "__main__":
     
-    example_cameras_folder = "/home/wrk/Desktop/example_test"
+    example_cameras_folder = os.path.expanduser("~/Desktop/example_test")
     example_camera_select = "fake_camera"
     example_user_select = "Nobody"
-    example_task_select = "Potato_Farming"
     
-    omd_saver = Object_Metadata_Report_Saver(example_cameras_folder, example_camera_select, example_user_select, example_task_select)
+    omd_saver = Object_Metadata_Report_Saver(example_cameras_folder, example_camera_select, example_user_select)
     imd_saver = Image_Metadata_Report_Saver(example_cameras_folder, example_camera_select, example_user_select, "snapshots")
 
     print("Example saving paths:",

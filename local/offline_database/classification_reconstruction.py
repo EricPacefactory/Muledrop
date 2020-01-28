@@ -60,7 +60,39 @@ find_path_to_local()
 
 # .....................................................................................................................
 
-def set_object_classification_and_colors(database, task_select, object_list):
+def create_object_class_dict(class_database, object_list,
+                             set_object_classification = True):
+    
+    '''
+    Function which takes in a list of reconstructed objects and returns a dictionary whose keys
+    represent different class labels. Each class label entry holds a list of objects corresponding to that class label
+    '''
+    
+    object_class_dict = {}
+    for each_obj in object_list:
+        
+        # Look up the classification data for each object
+        obj_id = each_obj.full_id
+        class_label, score_pct, subclass, attributes_dict = class_database.load_classification_data(obj_id)
+        
+        # Add an empty list for any non-existant class labels, so we can append objects to it
+        if class_label not in object_class_dict:
+            object_class_dict[class_label] = {}
+        
+        # Update each object with classification & graphics settings, if needed
+        if set_object_classification:
+            trail_color, outline_color = class_database.get_class_colors(class_label)
+            each_obj.set_classification(class_label, subclass, attributes_dict)
+            each_obj.set_graphics(trail_color, outline_color)
+        
+        # Finally, add the object to the corresponding class list
+        object_class_dict[class_label][obj_id] = each_obj
+    
+    return object_class_dict
+
+# .....................................................................................................................
+
+def set_object_classification_and_colors(database, object_list):
     
     # Record the number of classes
     class_count_dict = {}
@@ -68,12 +100,12 @@ def set_object_classification_and_colors(database, task_select, object_list):
     # Load classification for all the objects
     for each_obj in object_list:
     
-        # Lookup the classification data for each object
-        class_label, score_pct, subclass, attributes = database.load_classification_data(task_select, each_obj.full_id)
+        # Look up the classification data for each object
+        class_label, score_pct, subclass, attributes_dict = database.load_classification_data(each_obj.full_id)
         trail_color, outline_color = database.get_class_colors(class_label)
         
         # Update each object with classification & graphics settings
-        each_obj.set_classification(class_label, subclass, attributes)
+        each_obj.set_classification(class_label, subclass, attributes_dict)
         each_obj.set_graphics(trail_color, outline_color)
         
         # Update class count

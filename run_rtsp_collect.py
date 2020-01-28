@@ -51,14 +51,12 @@ find_path_to_local()
 
 from shutil import rmtree
 
-from local.lib.configuration_utils.script_arguments import script_arg_builder
+from local.lib.ui_utils.script_arguments import script_arg_builder
 
-from local.lib.configuration_utils.configuration_loaders import RTSP_Configuration_Loader
-from local.lib.configuration_utils.video_processing_loops import Video_Processing_Loop
+from local.lib.launcher_utils.configuration_loaders import RTSP_Configuration_Loader
+from local.lib.launcher_utils.video_processing_loops import Video_Processing_Loop
 
 from local.lib.file_access_utils.reporting import build_user_report_path
-
-from local.lib.timekeeper_utils import get_human_readable_timestamp
 
 from eolib.utils.files import get_total_folder_size
 from eolib.utils.cli_tools import cli_confirm
@@ -73,7 +71,7 @@ def parse_run_args(debug_print = False):
     # Set script arguments for running on streams
     args_list = ["camera",
                  {"user": {"default": "live"}}, 
-                 "display", 
+                 "display",
                  {"threaded_video": {"default": True}}, 
                  "save_and_keep", 
                  "save_and_delete"]
@@ -162,21 +160,21 @@ if save_data:
 
 # Turn on saving if needed and enabled threaded i/o on rtps streams, to avoid blocking
 loader.toggle_saving(save_data)
-loader.toggle_threading(True)
+loader.toggle_threaded_saving(True)
 
 # Configure everything!
-loader.setup_all()
+start_timestamp = loader.setup_all()
 
 # Set up object to handle all video processing
 main_process = Video_Processing_Loop(loader)
 
 # Feedback on launch
 enable_disable_txt = ("enabled" if save_data else "disabled")
-print("", get_human_readable_timestamp(), "Running RTSP Stream (saving {})".format(enable_disable_txt), sep = "\n")
+print("", "{}  |  Saving {}".format(start_timestamp, enable_disable_txt), sep = "\n")
 
 # Most of the work is done here!
 total_processing_time_sec = main_process.loop(enable_progress_bar = False)
-print("", get_human_readable_timestamp(), "Finished!", sep = "\n")
+print("", "Finished!", "Ran for {:.0f} minutes".format(total_processing_time_sec / 60), sep = "\n")
 
 
 # ---------------------------------------------------------------------------------------------------------------------

@@ -54,18 +54,16 @@ import numpy as np
 
 from itertools import cycle
 
-from local.lib.selection_utils import Resource_Selector
+from local.lib.ui_utils.cli_selections import Resource_Selector
 
-from local.offline_database.file_database import Snap_DB, Object_DB, Classification_DB
-from local.offline_database.file_database import post_snapshot_report_metadata, post_object_report_metadata
-from local.offline_database.file_database import post_object_classification_data
-from local.offline_database.file_database import user_input_datetime_range
-from local.offline_database.object_reconstruction import Smooth_Hover_Object_Reconstruction
+from local.offline_database.file_database import user_input_datetime_range, launch_file_db, close_dbs_if_missing_data
+from local.offline_database.object_reconstruction import Smooth_Hover_Object_Reconstruction, Hover_Mapping
 from local.offline_database.object_reconstruction import create_trail_frame_from_object_reconstruction
 from local.offline_database.snapshot_reconstruction import median_background_from_snapshots
 from local.offline_database.classification_reconstruction import set_object_classification_and_colors
+from local.offline_database.classification_reconstruction import create_object_class_dict
 
-from local.lib.configuration_utils.local_ui.windows_base import Simple_Window
+from local.lib.ui_utils.local_ui.windows_base import Simple_Window
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
@@ -193,18 +191,18 @@ class Callback_Sequencer:
         # Loop over each callback region to figure out which one should be called
         for each_label, each_entry in self._callback_lut.items():
             
-            x1, x2 = each_entry.get("x_bounds")
-            y1, y2 = each_entry.get("y_bounds")
+            x1, x2 = each_entry["x_bounds"]
+            y1, y2 = each_entry["y_bounds"]
             if (x1 <= mx < x2) and (y1 <= my < y2):
                 self._active_cb_lut[each_label] = True
                 mx_offset, my_offset = (mx - x1,  my - y1)
-                each_entry.get("obj")(event, mx_offset, my_offset, flags, param)
+                each_entry["obj"](event, mx_offset, my_offset, flags, param)
                 break
             
     # .................................................................................................................
     
     def is_active(self, callback_label):
-        return self._active_cb_lut.get(callback_label)
+        return self._active_cb_lut[callback_label]
     
     # .................................................................................................................
     # .................................................................................................................
@@ -219,11 +217,11 @@ class Hover_Object(Smooth_Hover_Object_Reconstruction):
     # .................................................................................................................
     
     def __init__(self, object_metadata, frame_wh, global_start_datetime_isoformat, global_end_datetime_isoformat,
-                 smoothing_factor = 0.005, number_simplified_points = 11, timebar_row_height = 30):
+                 smoothing_factor = 0.015, timebar_row_height = 30):
         
         # Inherit from parent class
         super().__init__(object_metadata, frame_wh, global_start_datetime_isoformat, global_end_datetime_isoformat, 
-                         smoothing_factor, number_simplified_points)
+                         smoothing_factor)
         
         # Store addition timebar drawing sizes & scalings
         self._timebar_row_height = timebar_row_height
@@ -308,33 +306,23 @@ def create_timebar_frame_object_reconstruction(example_frame, timebar_row_height
                                                bg_color = (40, 40, 40)):
     
     # Figure out image sizing from example frame and number of classes (rows) needed
+    num_classes = len(class_count_dict)
     bar_width = example_frame.shape[1]
-    bar_height = len(class_count_dict) * timebar_row_height
+    bar_height = num_classes * timebar_row_height
     
     # Set up blank background timebar to draw in to
     bar_background = np.full((bar_height, bar_width, 3), bg_color, dtype=np.uint8)
+    
+    # Draw separator lines between class rows
+    for k in range(num_classes):
+        y_line = k * (timebar_row_height) - 1
+        cv2.line(bar_background, (-10, y_line), (bar_width + 10, y_line), (25, 25, 25), 1)
     
     # Draw all object timebars (likely overlapping)
     for each_obj in object_list:
         each_obj.draw_trail_timebar(bar_background)
         
     return bar_background
-
-# .....................................................................................................................
-
-def get_closest_trail(mouse_xy, object_reconstructions_list):
-    
-    # Check the distance to every trail
-    mouse_sq_dists = []
-    for each_recon in object_reconstructions_list:
-        each_sq_dist = each_recon.minimum_sq_distance(mouse_xy)
-        mouse_sq_dists.append(each_sq_dist)
-        
-    # Check if the closest distance is 'close enough' and if so, highlight it & the corresponding time bar slice
-    closest_index = np.argmin(mouse_sq_dists)
-    closest_squared_distance = np.min(mouse_sq_dists)
-    
-    return closest_index, closest_squared_distance
 
 # .....................................................................................................................
 
@@ -421,7 +409,7 @@ def show_looping_animation(snapshot_database, object_database, object_list,
 # .....................................................................................................................
 
 # ---------------------------------------------------------------------------------------------------------------------
-#%% Select camera/user/task
+#%% Select camera/user
 
 enable_debug_mode = False
 
@@ -429,24 +417,25 @@ enable_debug_mode = False
 selector = Resource_Selector()
 project_root_path, cameras_folder_path = selector.get_project_pathing()
 
-# Select the camera/user/task to show data for (needs to have saved report data already!)
+# Select the camera/user to show data for (needs to have saved report data already!)
 camera_select, camera_path = selector.camera(debug_mode=enable_debug_mode)
 user_select, _ = selector.user(camera_select, debug_mode=enable_debug_mode)
-task_select, _ = selector.task(camera_select, user_select, debug_mode=enable_debug_mode)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-#%% Catalog existing snapshot data
+#%% Catalog existing data
 
-# Start 'fake' database for accessing snapshot/object data
-snap_db = Snap_DB(cameras_folder_path, camera_select, user_select)
-obj_db = Object_DB(cameras_folder_path, camera_select, user_select, task_select)
-class_db = Classification_DB(cameras_folder_path, camera_select, user_select, task_select)
+cam_db, snap_db, obj_db, class_db, _, _ = \
+launch_file_db(cameras_folder_path, camera_select, user_select,
+               launch_snapshot_db = True,
+               launch_object_db = True,
+               launch_classification_db = True,
+               launch_summary_db = False,
+               launch_rule_db = False)
 
-# Post snapshot/object/classification data to the databases on start-up
-post_snapshot_report_metadata(cameras_folder_path, camera_select, user_select, snap_db)
-post_object_report_metadata(cameras_folder_path, camera_select, user_select, task_select, obj_db)
-post_object_classification_data(cameras_folder_path, camera_select, user_select, task_select, class_db)
+# Catch missing data
+cam_db.close()
+close_dbs_if_missing_data(snap_db, obj_db)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -477,24 +466,34 @@ timebar_row_height = 30
 #%% Load object data
 
 # Get object metadata from the server
-obj_metadata_generator = obj_db.load_metadata_by_time_range(task_select, start_dt, end_dt)
+obj_metadata_generator = obj_db.load_metadata_by_time_range(start_dt, end_dt)
 
 # Create list of 'reconstructed' objects based on object metadata, so we can work/interact with the object data
 obj_list = Hover_Object.create_reconstruction_list(obj_metadata_generator,
                                                    frame_wh,
                                                    start_dt, 
                                                    end_dt,
-                                                   smoothing_factor = 0.005,
                                                    timebar_row_height = timebar_row_height)
 
+# Organize objects by class label -> then by object id (nested dictionaries)
+objclass_dict = create_object_class_dict(class_db, obj_list)
+
+# Generate trail hover mapping, for quicker mouse-to-trail lookup
+hover_map = Hover_Mapping(objclass_dict)
+
+
 # Load in classification data, if any
-class_count_dict = set_object_classification_and_colors(class_db, task_select, obj_list)
+class_count_dict = set_object_classification_and_colors(class_db, obj_list)
 
 # Tell each object which class row index it is (for timebar)
 class_label_list = list(class_count_dict.keys())
 for each_obj in obj_list:
     each_obj.set_timebar_row_index(class_label_list)
 num_classes = len(class_label_list)
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Create initial images
 
 # Generate the background display frame, containing all object trails
 trails_background = create_trail_frame_from_object_reconstruction(bg_frame, obj_list)
@@ -534,15 +533,16 @@ while True:
         
         # Get relative mouse co-ords
         mouse_xy = trail_hover_callback.mouse_xy()
-        closest_obj_idx, closest_trail_dist = get_closest_trail(mouse_xy, obj_list)
+        closest_trail_dist, closest_obj_id, closest_obj_class = hover_map.closest_point(mouse_xy)
         
         # Highlight the closest trail/timebar segment if the mouse is close enough
         if closest_trail_dist < 0.05:
-            obj_list[closest_obj_idx].hover_highlight(display_frame, timebar_frame)
+            obj_ref = objclass_dict[closest_obj_class][closest_obj_id]
+            obj_ref.hover_highlight(display_frame, timebar_frame)
             
             # Play an animation if the user clicks on the highlighted trail
             if trail_hover_callback.clicked():
-                objs_to_animate_list = [obj_list[closest_obj_idx]]
+                objs_to_animate_list = [obj_ref]
                 show_looping_animation(snap_db, obj_db, objs_to_animate_list)
     
     # Respond to timebar hover, if active
@@ -550,10 +550,10 @@ while True:
         
         # Get relative mouse co-ords
         mouse_x, mouse_y = bar_hover_callback.mouse_xy()
-        timebar_row_index_hover = int(round(mouse_y * (num_classes - 1)))
+        timebar_row_index_hover = int(np.floor(mouse_y * num_classes))
         hovered_obj_idxs = get_hovered_timebars(mouse_x, timebar_row_index_hover, obj_list)
         
-        # Highlight all the timebars being hovers & the corresponding trails
+        # Highlight all the timebars being hovered & the corresponding trails
         for each_idx in hovered_obj_idxs:
             obj_list[each_idx].hover_highlight(display_frame, timebar_frame)
     
@@ -580,9 +580,9 @@ cv2.destroyAllWindows()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Scrap
 
-# TODO
+# TODO/IDEAs
+# - add fading to trails that don't start or end near the mouses current location
 # - add better control over smoothing
-# - improve mouse-to-nearest-trail detection (only using points now, better to check point-to-line-segment distances)
 # - add mouse scroll wheel control (on trail hover) that selects between second,third,fourth etc. closest trails
 # - add lasso drawing capability to trail hover (i.e. exclude trails outside of lasso region)
 # - add input for controling the time bar scale (zooming in/out over time)

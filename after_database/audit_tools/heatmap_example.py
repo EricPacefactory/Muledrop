@@ -52,20 +52,17 @@ find_path_to_local()
 import cv2
 import numpy as np
 
-from local.lib.selection_utils import Resource_Selector
+from local.lib.ui_utils.cli_selections import Resource_Selector
 
 from local.lib.file_access_utils.screen_info import Screen_Info
 
-from local.offline_database.file_database import Snap_DB, Object_DB, Classification_DB
-from local.offline_database.file_database import post_snapshot_report_metadata, post_object_report_metadata
-from local.offline_database.file_database import post_object_classification_data
-from local.offline_database.file_database import user_input_datetime_range
+from local.offline_database.file_database import user_input_datetime_range, launch_file_db, close_dbs_if_missing_data
 from local.offline_database.object_reconstruction import Smoothed_Object_Reconstruction as Obj_Recon
 from local.offline_database.object_reconstruction import create_trail_frame_from_object_reconstruction
 from local.offline_database.snapshot_reconstruction import median_background_from_snapshots
 from local.offline_database.classification_reconstruction import set_object_classification_and_colors
 
-from local.lib.configuration_utils.local_ui.windows_base import Simple_Window
+from local.lib.ui_utils.local_ui.windows_base import Simple_Window
 
 from eolib.utils.colormaps import apply_colormap, inferno_colormap
 
@@ -171,6 +168,7 @@ def create_final_heatmaps_dict(final_frame_wh, class_heat_frame_dict, dwell_morp
         # Combine trail heat & dwell heat maps, then scale to get a valid uint8 image (grayscale)
         combined_heat_frame = (trail_heat + dwell_heat)
         max_combined_heat = np.max(combined_heat_frame)
+        max_combined_heat = max(max_combined_heat, 15)  # Avoid silly results when little data is present
         combined_heat_frame = np.uint8(255 * combined_heat_frame / max_combined_heat)
         
         # Apply a colormap to the combine heatmap for visualization
@@ -227,7 +225,7 @@ def draw_mouse_location(frame, mouse_xy, line_color = (0, 255, 0), line_thicknes
 # .....................................................................................................................
 
 # ---------------------------------------------------------------------------------------------------------------------
-#%% Select camera/user/task
+#%% Select camera/user
 
 enable_debug_mode = False
 
@@ -235,10 +233,9 @@ enable_debug_mode = False
 selector = Resource_Selector()
 project_root_path, cameras_folder_path = selector.get_project_pathing()
 
-# Select the camera/user/task to show data for (needs to have saved report data already!)
+# Select the camera/user to show data for (needs to have saved report data already!)
 camera_select, camera_path = selector.camera(debug_mode=enable_debug_mode)
 user_select, _ = selector.user(camera_select, debug_mode=enable_debug_mode)
-task_select, _ = selector.task(camera_select, user_select, debug_mode=enable_debug_mode)
 
 # Get screen size so we know where to place windows
 screen_info = Screen_Info(project_root_path)
@@ -247,17 +244,19 @@ screen_wh = (screen_width, screen_height)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-#%% Catalog existing snapshot data
+#%% Catalog existing data
 
-# Start 'fake' database for accessing snapshot/object data
-snap_db = Snap_DB(cameras_folder_path, camera_select, user_select)
-obj_db = Object_DB(cameras_folder_path, camera_select, user_select, task_select)
-class_db = Classification_DB(cameras_folder_path, camera_select, user_select, task_select)
+cam_db, snap_db, obj_db, class_db, _, _ = \
+launch_file_db(cameras_folder_path, camera_select, user_select,
+               launch_snapshot_db = True,
+               launch_object_db = True,
+               launch_classification_db = True,
+               launch_summary_db = False,
+               launch_rule_db = False)
 
-# Post snapshot/object/classification data to the databases on start-up
-post_snapshot_report_metadata(cameras_folder_path, camera_select, user_select, snap_db)
-post_object_report_metadata(cameras_folder_path, camera_select, user_select, task_select, obj_db)
-post_object_classification_data(cameras_folder_path, camera_select, user_select, task_select, class_db)
+# Catch missing data
+cam_db.close()
+close_dbs_if_missing_data(snap_db, obj_db)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -285,31 +284,31 @@ frame_wh = (frame_width, frame_height)
 #%% Load object data
 
 # Get object metadata from the server
-obj_metadata_generator = obj_db.load_metadata_by_time_range(task_select, start_dt, end_dt)
+obj_metadata_generator = obj_db.load_metadata_by_time_range(start_dt, end_dt)
 
 # Create list of 'reconstructed' objects based on object metadata, so we can work/interact with the object data
 obj_list = Obj_Recon.create_reconstruction_list(obj_metadata_generator,
                                                 frame_wh,
                                                 start_dt, 
-                                                end_dt,
-                                                smoothing_factor = 0.005)
+                                                end_dt)
 
 # Load in classification data, if any
-class_count_dict = set_object_classification_and_colors(class_db, task_select, obj_list)
+class_count_dict = set_object_classification_and_colors(class_db, obj_list)
 
 # Tell each object which class row index it is (for timebar)
 class_label_list = list(class_count_dict.keys())
 num_classes = len(class_label_list)
 
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Create initial images
+
 # Generate the background display frame, containing all object trails
 trails_background = create_trail_frame_from_object_reconstruction(bg_frame, obj_list)
 
-
-# ---------------------------------------------------------------------------------------------------------------------
-#%% Generate heatmaps
-
+# Generate heatmaps
 class_heat_frame_dict = build_trail_dwell_heatmaps(frame_wh, class_label_list)
 final_heat_frames_dict = create_final_heatmaps_dict(frame_wh, class_heat_frame_dict)
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Display

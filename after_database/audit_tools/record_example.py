@@ -55,13 +55,9 @@ import numpy as np
 from time import perf_counter
 from tqdm import tqdm
 
-from local.lib.selection_utils import Resource_Selector
-from local.lib.editor_lib import safe_quit
+from local.lib.ui_utils.cli_selections import Resource_Selector
 
-from local.offline_database.file_database import Snap_DB, Object_DB, Classification_DB
-from local.offline_database.file_database import post_snapshot_report_metadata, post_object_report_metadata
-from local.offline_database.file_database import post_object_classification_data
-from local.offline_database.file_database import user_input_datetime_range
+from local.offline_database.file_database import user_input_datetime_range, launch_file_db, close_dbs_if_missing_data
 from local.offline_database.object_reconstruction import Smoothed_Object_Reconstruction as Obj_Recon
 from local.offline_database.classification_reconstruction import set_object_classification_and_colors
 
@@ -69,6 +65,7 @@ from local.offline_database.classification_reconstruction import set_object_clas
 from eolib.video.read_write import Video_Recorder
 
 from eolib.utils.cli_tools import cli_prompt_with_defaults, cli_confirm
+from eolib.utils.quitters import ide_quit
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
@@ -82,20 +79,20 @@ from eolib.utils.cli_tools import cli_prompt_with_defaults, cli_confirm
 def parse_record_args():
     
     default_output_path = "~/Desktop"
-    default_codec = "X264"
-    default_recording_ext = "avi"
+    default_codec = "avc1"
+    default_recording_ext = "mp4"
     
     # Set up argument parsing
-    ap = argparse.ArgumentParser()
+    ap = argparse.ArgumentParser(formatter_class = argparse.RawTextHelpFormatter)
     ap.add_argument("-o", "--output", default = default_output_path, type = str,
                     help = "Base folder path for the recorded video file. \
-                            (Default: {})".format(default_output_path))
+                            \n(Default: {})".format(default_output_path))
     ap.add_argument("-x", "--extension", default = default_recording_ext, type = str,
                     help = "File extension of the recorded video (avi, mp4, mkv, etc.). \
-                            (Default: {})".format(default_recording_ext))
+                            \n(Default: {})".format(default_recording_ext))
     ap.add_argument("-c", "--codec", default = default_codec, type = str,
-                    help = "FourCC code used for recording (X264, XVID, MJPG, mp4v, etc.). \
-                            (Default: {})".format(default_codec))
+                    help = "FourCC code used for recording (avc1, X264, XVID, MJPG, mp4v, etc.). \
+                            \n(Default: {})".format(default_codec))
     
     # Get arg inputs into a dictionary
     args = vars(ap.parse_args())
@@ -134,7 +131,7 @@ def no_decimal_string_format(number_for_string):
 
 # .....................................................................................................................
     
-def build_recording_path(base_path, camera_select, user_select, task_select, timelapse_factor, file_ext):
+def build_recording_path(base_path, camera_select, user_select, timelapse_factor, file_ext):
     
     # Check that the base pathing exists (if not, ask user if it's ok to create the folder)
     if not os.path.exists(base_path):
@@ -149,7 +146,7 @@ def build_recording_path(base_path, camera_select, user_select, task_select, tim
         user_confirm_folder_creation = cli_confirm("Create folder for recording?")
         if not user_confirm_folder_creation:
             print("", "Recording folder not created! Cancelling recording...", "", sep = "\n")
-            safe_quit()
+            ide_quit()
     
     # Build full folder pathing
     recording_folder = os.path.join(base_path, "safety-cv-recordings")
@@ -159,10 +156,10 @@ def build_recording_path(base_path, camera_select, user_select, task_select, tim
     tl_str = "" 
     need_tl_str = abs(timelapse_factor - 1.0) > 0.001
     if need_tl_str:
-        tl_str = "_TLx{}".format(no_decimal_string_format(timelapse_factor))
+        tl_str = "-TLx{}".format(no_decimal_string_format(timelapse_factor))
     
     # Build file name & combine with recording folder path for final output
-    file_name = "{}_{}_({}){}{}".format(camera_select, user_select, task_select, tl_str, file_ext)
+    file_name = "{}-({}){}{}".format(camera_select, user_select, tl_str, file_ext)
     return os.path.join(recording_folder, file_name)
 
 # .....................................................................................................................
@@ -202,7 +199,7 @@ def get_recording_times(snapshot_times_ms_list, effective_timelapse_factor):
 recording_folder_path, recording_file_ext, recording_codec = parse_record_args()
 
 # ---------------------------------------------------------------------------------------------------------------------
-#%% Select camera/user/task
+#%% Select camera/user
 
 enable_debug_mode = False
 
@@ -210,24 +207,25 @@ enable_debug_mode = False
 selector = Resource_Selector()
 project_root_path, cameras_folder_path = selector.get_project_pathing()
 
-# Select the camera/user/task to show data for (needs to have saved report data already!)
+# Select the camera/user to show data for (needs to have saved report data already!)
 camera_select, camera_path = selector.camera(debug_mode=enable_debug_mode)
 user_select, _ = selector.user(camera_select, debug_mode=enable_debug_mode)
-task_select, _ = selector.task(camera_select, user_select, debug_mode=enable_debug_mode)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-#%% Catalog existing snapshot data
+#%% Catalog existing data
 
-# Start 'fake' database for accessing snapshot/object data
-snap_db = Snap_DB(cameras_folder_path, camera_select, user_select)
-obj_db = Object_DB(cameras_folder_path, camera_select, user_select, task_select)
-class_db = Classification_DB(cameras_folder_path, camera_select, user_select, task_select)
+cam_db, snap_db, obj_db, class_db, _, _ = \
+launch_file_db(cameras_folder_path, camera_select, user_select,
+               launch_snapshot_db = True,
+               launch_object_db = True,
+               launch_classification_db = True,
+               launch_summary_db = False,
+               launch_rule_db = False)
 
-# Post snapshot/object/classification data to the databases on start-up
-post_snapshot_report_metadata(cameras_folder_path, camera_select, user_select, snap_db)
-post_object_report_metadata(cameras_folder_path, camera_select, user_select, task_select, obj_db)
-post_object_classification_data(cameras_folder_path, camera_select, user_select, task_select, class_db)
+# Catch missing data
+cam_db.close()
+close_dbs_if_missing_data(snap_db, obj_db)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -247,17 +245,16 @@ start_dt, end_dt, start_dt_isoformat, end_dt_isoformat = user_input_datetime_ran
 #%% Load object data
 
 # Get object metadata from the server
-obj_metadata_generator = obj_db.load_metadata_by_time_range(task_select, start_dt_isoformat, end_dt_isoformat)
+obj_metadata_generator = obj_db.load_metadata_by_time_range(start_dt_isoformat, end_dt_isoformat)
 
 # Create list of 'reconstructed' objects based on object metadata, so we can work/interact with the object data
 obj_list = Obj_Recon.create_reconstruction_list(obj_metadata_generator,
                                                 snap_wh,
                                                 start_dt_isoformat, 
-                                                end_dt_isoformat,
-                                                smoothing_factor = 0.005)
+                                                end_dt_isoformat)
 
 # Load in classification data, if any
-set_object_classification_and_colors(class_db, task_select, obj_list)
+set_object_classification_and_colors(class_db, obj_list)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -292,8 +289,7 @@ recording_snap_times_ms_list = get_recording_times(snap_times_ms_list, effective
 # Build pathing to recorded file
 recording_file_path = build_recording_path(recording_folder_path, 
                                            camera_select, 
-                                           user_select, 
-                                           task_select, 
+                                           user_select,
                                            user_tl_factor, 
                                            recording_file_ext)
 
@@ -316,7 +312,7 @@ print("",
 
 # Create cli progress bar for feedback
 num_recording_snaps = len(recording_snap_times_ms_list)
-cli_prog_bar = tqdm(total = num_recording_snaps, mininterval = 1.5)
+cli_prog_bar = tqdm(total = num_recording_snaps, mininterval = 0.5)
 
 # Start timing for final feedback
 t_start = perf_counter()

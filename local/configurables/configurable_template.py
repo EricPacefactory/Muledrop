@@ -51,11 +51,12 @@ find_path_to_local()
 
 import numpy as np
 
-from local.lib.configuration_utils.controls_specification import Controls_Specification
+from time import sleep
+
+from local.lib.ui_utils.controls_specification import Controls_Specification
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
-
 
 
 class Configurable_Base:
@@ -103,12 +104,33 @@ class Configurable_Base:
         try:
             
             # List out each (reconfigurable) variable and it's current value
-            settings_dict = self.current_settings()            
-            repr_strings = ["  {}: {}".format(each_key, each_value) for each_key, each_value in settings_dict.items()]
+            save_draw, nosave_draw, save_sliders, nosave_sliders, invis_set = self.current_settings()
+            no_drawing_vars = ((len(save_draw) + len(nosave_draw)) < 1)
+            no_slider_vars = ((len(save_sliders) + len(nosave_sliders)) < 1)
+            no_invis_vars = (len(invis_set) < 1)
             
-            # Return a special message in the case of having no settings (e.g. a passthrough)
-            if len(settings_dict) < 1:
-                repr_strings = ["  No configurable settings!"]
+            # Print out names of drawing variables
+            repr_strings = ["", "--- Drawing variables ---"]
+            if no_drawing_vars:
+                repr_strings += ["  (none)"]
+            else:
+                repr_strings += ["  {}: {}".format(*key_value) for key_value in save_draw.items()]
+                repr_strings += ["  (not saved) {}: {}".format(*key_value) for key_value in nosave_draw.items()]
+            
+            # Print out names of 'slider' (i.e. non-drawing) variables
+            repr_strings += ["", "--- Slider variables ---"]
+            if no_slider_vars:
+                repr_strings += ["  (none)"]
+            else:
+                repr_strings += ["  {}: {}".format(*key_value) for key_value in save_sliders.items()]
+                repr_strings += ["  (not saved) {}: {}".format(*key_value) for key_value in nosave_sliders.items()]
+            
+            # Print out names of invisible variables (i.e. vars with hidden controls)
+            repr_strings += ["", "--- Invisible variables ---"]
+            if no_invis_vars:
+                repr_strings += ["  (none)"]
+            else:
+                repr_strings += ["  " + ", ".join(list(invis_set))]
             
         except Exception:
             repr_strings = ["No repr"]
@@ -151,20 +173,8 @@ class Configurable_Base:
         after updating the controls
         '''
         
-        # Loop through all variable names in the setup dictionary
-        # and update those values for this object, though only if we have matching variables!
-        for each_variable_name, each_value in setup_data_dict.items():
-            
-            # Make sure we're not setting non-existent variables
-            missing_attribute = (not hasattr(self, each_variable_name))
-            if missing_attribute:
-                print("", 
-                      "{} ({})".format(self.component_name.capitalize(), self.script_name),
-                      "  Skipping unrecognized variable name: {}".format(each_variable_name), sep="\n")
-                continue
-            
-            # If we get here, we have the attribute, so update it
-            setattr(self, each_variable_name, each_value)
+        # Set all the variable values specified by the setup_data_dict
+        self._set_variable_name_values(setup_data_dict)
         
         # Call the setup function to handle any post-update setup required
         self.setup(setup_data_dict)
@@ -208,35 +218,24 @@ class Configurable_Base:
     # .................................................................................................................
     
     # SHOULDN'T OVERRIDE
-    def current_settings(self, show_only_saveable = False):
+    def current_settings(self):
         
         '''
         Function which returns a json-friendly output describing the current
         configuration settings (i.e. settings that can be controlled) of this object
         '''
         
-        current_variable_values_dict = {}
-        variable_name_list = self.ctrl_spec.get_full_variable_name_list(show_only_saveable)
-        for each_variable_name in variable_name_list:
-            
-            # Make sure this object has the given variable name before trying to access it
-            missing_attribute = (not hasattr(self, each_variable_name))
-            if missing_attribute:
-                print("", 
-                  "!" * 42,
-                  "Error reading configurable settings! ({} - {})".format(self.class_name, self.script_name),
-                  "Couldn't find variable name: {}".format(each_variable_name),
-                  "!" * 42,
-                  "", sep="\n")
-                continue
-            
-            # If we get here, get the current value of the variable and place it in the output dictionary
-            current_variable_values_dict.update({each_variable_name: getattr(self, each_variable_name)})
-            
-        # Convert data types to json-friendly format (mainly dealing with numpy arrays)
-        json_property_dict = jsonify_numpy_data(current_variable_values_dict)
+        # Grab variable name info from the control specs
+        save_draw_vars, nosave_draw_vars, save_slider_vars, nosave_slider_vars, invisible_vars_set = \
+        self.ctrl_spec.get_all_variable_naming()
         
-        return json_property_dict
+        # Loop through all saveable drawing variables and retrieve values
+        save_draw_json = self._get_variable_name_values(save_draw_vars, jsonify = True)
+        nosave_draw_json = self._get_variable_name_values(nosave_draw_vars, jsonify = True)
+        save_slider_json = self._get_variable_name_values(save_slider_vars, jsonify = True)
+        nosave_slider_json = self._get_variable_name_values(nosave_slider_vars, jsonify = True)
+        
+        return save_draw_json, nosave_draw_json, save_slider_json, nosave_slider_json, invisible_vars_set
         
     # .................................................................................................................
     
@@ -268,9 +267,79 @@ class Configurable_Base:
         # Grab relevant data for saving
         clean_script_name, _ = os.path.splitext(self.script_name)
         file_access_dict = {"script_name": clean_script_name, "class_name": self.class_name}
-        setup_data_dict = self.current_settings(show_only_saveable = True)
+        
+        # Get current variable settings to and bundle the saveable ones
+        save_draw_json, _, save_slider_json, _, _ = self.current_settings()
+        setup_data_dict = {**save_slider_json, **save_draw_json}
         
         return file_access_dict, setup_data_dict
+    
+    # .................................................................................................................
+    
+    def _set_variable_name_values(self, variable_name_dict):
+        
+        '''
+        Helper function which sets the value of a set of variable names, based on an input dictionary
+        The input dict should have keys corresponding to the variable names to change,
+        with values corresponding to the value that should be set.
+        '''
+        
+        # Loop through all variable names in the provided dictionary
+        # and update those values for this object, though only if we have matching variables!
+        for each_variable_name, each_value in variable_name_dict.items():
+            
+            # Make sure we're not setting non-existent variables & warn the user about it
+            missing_attribute = (not hasattr(self, each_variable_name))
+            if missing_attribute:
+                print("", 
+                      "!" * 56,
+                      "WARNING: {} ({})".format(self.component_name.capitalize(), self.script_name),
+                      "  Skipping unrecognized variable name: {}".format(each_variable_name),
+                      "  This configuration is likely out of date or has an error!",
+                      "!" * 56,
+                      sep="\n")
+                sleep(2.0)
+                continue
+            
+            # If we get here, we have the attribute, so update it
+            setattr(self, each_variable_name, each_value)
+            
+        return
+    
+    # .................................................................................................................
+    
+    def _get_variable_name_values(self, variable_name_list, jsonify = True):
+        
+        '''
+        Helper function which reads the current value of each variable name provided as an input list
+        Returns a dictionary, with keys corresponding to the variable names and their corresponding values
+        Can optionally convert data to json-friendly format (i.e. convert numpy arrays to lists) for saving
+        '''
+        
+        # Loop through each variable name and check if it exists within this object, if so, retrieve the value
+        variable_values_dict = {}
+        for each_variable_name in variable_name_list:
+            
+            # Make sure this object has the given variable name before trying to access it
+            missing_attribute = (not hasattr(self, each_variable_name))
+            if missing_attribute:
+                print("", 
+                  "!" * 56,
+                  "WARNING: {} ({})".format(self.component_name.capitalize(), self.script_name),
+                  "  Couldn't find variable name: {}".format(each_variable_name),
+                  "!" * 56,
+                  "", sep="\n")
+                sleep(2.0)
+                continue
+        
+            # If we get here, get the current value of the variable and place it in the output dictionary
+            variable_values_dict.update({each_variable_name: getattr(self, each_variable_name)})
+            
+        # If needed, convert data types to json-friendly format (getting rid of numpy arrays)
+        if jsonify:
+            return jsonify_numpy_data(variable_values_dict)
+        
+        return variable_values_dict
     
     # .................................................................................................................
     # .................................................................................................................
@@ -368,7 +437,7 @@ class Externals_Configurable_Base(Configurable_Base):
     
     # .................................................................................................................
     
-    def __init__(self, cameras_folder_path, camera_select, user_select, task_select, video_select, video_wh,
+    def __init__(self, cameras_folder_path, camera_select, user_select, video_select, video_wh,
                  *, file_dunder):
         
         # Inherit from base class
@@ -380,7 +449,6 @@ class Externals_Configurable_Base(Configurable_Base):
         self.cameras_folder_path = cameras_folder_path
         self.camera_select = camera_select
         self.user_select = user_select
-        self.task_select = task_select
         self.video_select = video_select
         self.video_wh = video_wh
         
@@ -395,22 +463,21 @@ class Externals_Configurable_Base(Configurable_Base):
 # /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 # /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-class Classifier_Configurable_Base(Configurable_Base):
+class After_Database_Configurable_Base(Configurable_Base):
     
     # .................................................................................................................
     
-    def __init__(self, cameras_folder_path, camera_select, user_select, task_select, *, file_dunder):
+    def __init__(self, cameras_folder_path, camera_select, user_select, adb_type, *, file_dunder):
         
         # Inherit from base class
         super().__init__(file_dunder = file_dunder,
-                         target_parent_folder = "classifier",
+                         target_parent_folder = adb_type,
                          target_grandparent_folder = None)
         
         # Save selection info
         self.cameras_folder_path = cameras_folder_path
         self.camera_select = camera_select
         self.user_select = user_select
-        self.task_select = task_select
         
         # Store the component name & use it as a save name
         self.component_name = self.parent_folder
@@ -431,6 +498,26 @@ class Classifier_Configurable_Base(Configurable_Base):
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define functions
+
+# .....................................................................................................................
+
+def configurable_dot_path(*module_pathing):
+    
+    '''
+    Takes in any number of strings and generates the corresponding configurable 'dot-path',
+    assuming the base pathing is local/configurables/...
+    Intended to be used for programmatically importing functions/classes
+    
+    For example, with inputs ("core", "tracker", "example_tracker.py"), the output would be:
+        "local.configurables.core.tracker.example_tracker"
+        
+    Also accepts paths with slashes. For example ("core", "tracker/example_tracker.py") is also a valid input
+    '''
+    
+    # Remove file extensions and swap slashes ("/") for dots (".")
+    clean_names_list = [os.path.splitext(each_module)[0].replace("/", ".") for each_module in module_pathing]
+    
+    return ".".join(["local", "configurables", *clean_names_list])
     
 # .....................................................................................................................
     

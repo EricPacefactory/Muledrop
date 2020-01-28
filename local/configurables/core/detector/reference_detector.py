@@ -101,17 +101,18 @@ class Reference_Detector(Core_Configurable_Base):
         #   - Also pass the color image, in case the detector wants to try something fancy with the color data
         #   - Return a list of detection objects, which should inherit from the reference detection class!
         
-        # Return a list of objects from the detection class
-        detection_ref_list = self.detections_from_frames(filtered_binary_frame_1ch, preprocessed_frame)
+        # Return a dictionary of detection objects
+        detection_ref_dict = self.detections_from_frames(filtered_binary_frame_1ch, preprocessed_frame)
         
-        return {"detection_ref_list": detection_ref_list}
+        return {"detection_ref_dict": detection_ref_dict}
     
     # .................................................................................................................
     
     # SHOULD OVERRIDE
     def detections_from_frames(self, binary_frame_1ch, preprocessed_frame):
         # Use binary (and color if needed) frame data to determine where objects are in the current scene
-        return []
+        # Should return a dictionary, with keys to distinguish detections and values storing detection data
+        return {}
     
     # .................................................................................................................
     # .................................................................................................................

@@ -65,19 +65,6 @@ class Tracker_Stage(Reference_Tracker):
         
     # .................................................................................................................
     
-    def reset(self):
-        # No storage, nothing to reset
-        return
-    
-    # .................................................................................................................
-    
-    def close(self, final_frame_index, final_epoch_ms, final_datetime):
-        return {"tracked_object_dict": {},
-                "validation_object_dict": {},
-                "dead_id_list": []}
-        
-    # .................................................................................................................
-    
     def setup(self, variables_changed_dict):
         # Don't do anything
         pass

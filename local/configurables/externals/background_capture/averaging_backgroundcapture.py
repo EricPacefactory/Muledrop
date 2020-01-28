@@ -263,7 +263,7 @@ class Averaging_Background_Creator(Reference_Background_Creator):
             # If so, make sure to reset the wait flag, so we don't check on the next iteration!
             waited_long_enough = (current_epoch_ms > self._next_generation_time_ms)
             if waited_long_enough:
-                self._wait_for_new_generation = False      
+                self._wait_for_new_generation = False
             return waited_long_enough
         
         return False

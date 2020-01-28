@@ -78,8 +78,8 @@ class Detector_Stage(Reference_Detector):
     # .................................................................................................................
     
     def detections_from_frames(self, binary_frame_1ch, preprocessed_frame):
-        # Use binary (and color if needed) frame data to determine where objects are in the current scene
-        return []
+        # Passthrough doesn't detect anything, so return empty dictionary
+        return {}
     
     # .................................................................................................................
     # .................................................................................................................

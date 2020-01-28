@@ -1,10 +1,10 @@
 # Project Muledrop
 
-(Only tested on: Linux Mint 19.1 Tessa, Python 3.5+)
+(Only tested on: Linux Mint 19.1 Tessa, Python 3.6.7)
 
 ## Requirements
 
-Small parts of this project rely on a command line tool called [ranger](https://github.com/ranger/ranger), which provides a command-line menu selection screen. On Ubuntu, this can be installed as follows:
+Some of the configuration tools for this project rely on a command line program called [ranger](https://github.com/ranger/ranger), which provides a command-line menu selection screen. On Ubuntu, this can be installed as follows:
 
 `sudo apt install ranger`
 
@@ -12,7 +12,7 @@ Simlarly, [tkinter](https://wiki.python.org/moin/TkInter) is used for providing 
 
 `sudo apt install python3-tk`
 
-Additionally, these scripts rely on OpenCV. A pip install of OpenCV is included in the requirements file, though a compiled installation is recommended. Version 3.3+ should work fine.
+Additionally, these scripts rely on OpenCV. A pip install of OpenCV is included in the requirements file, though a compiled installation is recommended. The compiled version has better support for some features (like recording) and runs faster (+30%) than the pip install. Version 3.3+ should work fine, including version 4+.
 
 **Important Note:**
 
@@ -20,69 +20,36 @@ These scripts rely on a set of library functions (eolib) which are not included 
 
 ## Getting started
 
-All new cameras/users/tasks/videos etc. are added using the editior utilties. For now, these must be accessed individually from the editior utilities folder.
+In order to generate/save reporting data, the system needs to have a camera entry which is used to organize all data coming from a single source. At least one video source should also be associated with the camera entry, so that there is some data to analyze! The video can be a file or an RTSP networked source.
 
-To create a new camera, use the `create.py` script and follow the prompts. Also remember to add a video for the new camera (also using the `create.py` script). Video file selection is handled by either **ranger** or **tkinter** (see requirements section), so it is best to have one of these installed to simplify setup.
+To create new camera entries and assign video files or RTSP networking info, the `editor.py` script should be used. This script can be found in the root folder of the project.
+
+Upon launching this script, a number of options will be presented. To create a new camera entry, select the `Create` option followed by the `Camera` option, then follow the prompts to enter a name for the camera, select a default configuration and (if desired) associate a video file with the camera. Note that video file selection is handled by either **ranger** or **tkinter** (see requirements section), so it is best to have one of these installed to simplify setup.
+
+RTSP info is also assigned using the `editor.py` script and is found under it's own menu option (i.e. by selecting `Rtsp` as opposed to selecting the `Create` option).
 
 ## Configuration
 
-Once a camera (and video file) entry is available, it can be configured! By default, all cameras are initialized with a pre-determined configuration stored in the defaults folder. The simplest default configuration does nothing, but the defaults can be updated if an effective general-purpose configuration is found.
+Once a camera (and video file) entry is available, it can be configured! All cameras are initialized with a set of configuration files based on the selection made when creating the camera (using the editor utilities). The simplest default configuration (a 'blank' configuration) does nothing, but some initialization types may do a reasonable job without any additional tweaking, depending on the scene and desired results.
 
-Camera analysis is split into two major components: core processing stages & external processing. The core processing stages take in raw video frames and sequentially process them to obtain tracking object metadata. External processing performs functions that occur before & after the core processing stages. These include background capture & generation, snapshot capturing and object metadata saving.
+Camera analysis is split into two major components: core processing stages & external processing. The core processing stages take in raw video frames and sequentially process them to obtain tracking metadata for every object. External processing performs functions that occur before & after the core processing stages. These include background capture & generation, snapshot capturing and object metadata saving.
 
-To configure core processing stages, the `reconfigure_core.py` script can be launched, which acts as a command-line hub interface for all core configuration utilities.
+To configure core processing stages, the `reconfigure.py` script can be launched, which acts as a command-line hub interface for all core configuration utilities.
 
-There is currently no hub interface for configuring external processing stages. So these must be launched manually by launching the appropriate scripts inside the configuration_utilites folder.
+To configure external processing stages, call `reconfigure.py -e` which will provide options for selecting external stages, instead of core stages.
 
 ## Analysis
 
-After configuring a camera, the configuration can be run to collect data that would be used for reporting/rule evaluations. Currently only files are supported.
+After configuring a camera, a provided video can be processed to generate data that would be used for reporting/rule evaluations.
 
-To run analysis on a camera, use the `run_file_collect.py` script and follow the prompts.
+To run analysis on a file for a camera, use the `run_file_collect.py` script and follow the prompts. To run analysis on a networked stream, use `run_rtsp_collect.py` but be sure to configure the RTSP access info for the camera through the editor utilities.
 
-## Core Process Stages
+Note that each of these scripts can accept a `-d` parameter, which will enable a display while running (so that the tracking behavior can be directly observed as it happens). This can be useful/interesting to check, but beware that it can dramatically slow down data collection!
 
-##### Frame Capture
-
-Used to alter the rate at which frames are read into the core processing sequence.
-
-##### Preprocessor
-
-Used to warp the incoming image data. The primary benefit is to minimize size differences of objects throughout a given scene (due to perspective effects for example), which helps the later processing stages.
-
-##### Foreground Extractor
-
-Assumes the incoming video can be split into foreground and background elements, then attempts to convert the incoming color image data into a binary image where all foreground elements are white and all background elements are black.
-
-##### Pixel Filter
-
-Experimental. Further modifies the binary image from the foreground extractor using pixel color information. Intended to provide a more general way of altering the binary image, independent of the foreground/background assumption used by the foreground extractor.
-
-##### Detector
-
-Takes a foreground/background binary image and attempts to outline all unique foreground elements.
-
-##### Tracker
-
-Assumes detections belong to persistent objects (which are being repeatedly detected on every frame), and builds a history of positional information of each object over time.
-
-## External Processing
-
-##### Background Capture/Generation
-
-Repeatedly stores frames from the input video source and occasionally tries to generate an image representing the background of the scene. Important for some types of foreground extraction as well as implementing ghosting.
-
-##### Snapshot Capture
-
-Repeatedly saves individual frames of the input video source so that events from the video can be reconstructed after-the-fact. These snapshots could also be used to evaluate certain rules (such as looking for idle objects or clutter, for example).
-
-##### Object Metadata Capture
-
-Saves object metadata output from the (core) tracker stage. This data can then be evaluated (after-the-fact) to determine if the object broke any rules. Additionally, with the snapshot images it is possible to visualize the object pathing/behavior.
+## 
 
 ## MAJOR TODOs
 
-- 
 - Add preprocessor unwarping to object metadata capturing
 - Create example after-the-fact rule evaluation
 - Standardize data saving formats

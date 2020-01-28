@@ -49,25 +49,24 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
-from local.lib.file_access_utils.shared import build_task_folder_path, copy_from_defaults, full_replace_save
+from local.lib.file_access_utils.shared import build_user_folder_path
+from local.lib.file_access_utils.read_write import full_replace_save
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Pathing functions
 
 # .....................................................................................................................
 
-def build_core_folder_path(cameras_folder, camera_select, user_select, task_select):
+def build_core_folder_path(cameras_folder, camera_select, user_select, *path_joins):
     ''' Function which builds the path the folder containing core configuration files '''
-    return build_task_folder_path(cameras_folder, camera_select, user_select, task_select, "core")
+    return build_user_folder_path(cameras_folder, camera_select, user_select, "core", *path_joins)
 
 # .....................................................................................................................
 
-def build_config_save_path(cameras_folder, camera_select, user_select, task_select, stage_name):
-    ''' Function which builds the pathing for loading/saving a specific core config file '''
-    core_folder_path = build_core_folder_path(cameras_folder, camera_select, user_select, task_select)
+def build_config_save_path(cameras_folder, camera_select, user_select, stage_name):
+    ''' Function which builds the pathing for loading/saving a specific core config file '''    
     config_file_name = "".join([stage_name, ".json"])
-    
-    return os.path.join(core_folder_path, config_file_name)
+    return build_core_folder_path(cameras_folder, camera_select, user_select, config_file_name)
 
 # .....................................................................................................................
 
@@ -76,8 +75,7 @@ def get_ordered_core_sequence():
     ''' Function which provides the (hard-coded) core processing sequence '''
     
     ordered_core_processing_sequence = \
-    ["frame_capture",
-     "preprocessor",
+    ["preprocessor",
      "foreground_extractor",
      "pixel_filter",
      "detector",
@@ -85,7 +83,6 @@ def get_ordered_core_sequence():
     
     return ordered_core_processing_sequence
     
-
 # .....................................................................................................................
 
 def get_ordered_config_paths(core_folder_path):
@@ -134,36 +131,18 @@ def get_ordered_config_paths(core_folder_path):
 #%% Config functions
 
 # .....................................................................................................................
-
-def create_default_core_configs(project_root_path, task_folder_path):
     
-    # Build pathing to where the core configs are located
-    copy_target_folder = os.path.join(task_folder_path, "core")
-    
-    # Only copy defaults if no files are present
-    file_list = os.listdir(copy_target_folder)
-    no_core_configs = len(file_list) == 0
-    
-    # Pull default json config files out of the defaults folder, and copy in to the target task path
-    if no_core_configs:
-        copy_from_defaults(project_root_path, 
-                           target_defaults_folder = "core",
-                           copy_to_path = copy_target_folder)
-
-# .....................................................................................................................
-    
-def save_core_config(cameras_folder, camera_select, user_select, task_select,
+def save_core_config(cameras_folder, camera_select, user_select,
                      stage_name, script_name, class_name, config_data, confirm_save = True):
     
     # Build save pathing
-    core_config_folder_path = build_core_folder_path(cameras_folder, camera_select, user_select, task_select)
+    core_config_folder_path = build_core_folder_path(cameras_folder, camera_select, user_select)
     config_file_paths, stage_name_order = get_ordered_config_paths(core_config_folder_path)
     
     if stage_name not in stage_name_order:
         raise NameError("Stage not recognized! ({}) Expecting: {}".format(stage_name, stage_name_order))
     stage_index = stage_name_order.index(stage_name)
     save_file_path = config_file_paths[stage_index]
-    #config_file_path = build_config_save_path(cameras_folder, camera_select, user_select, task_select, stage_name)
     
     # Build the data structure for core config data
     save_data = {"access_info": {"script_name": script_name,
@@ -183,9 +162,6 @@ def save_core_config(cameras_folder, camera_select, user_select, task_select,
 #%% Demo
 
 if __name__ == "__main__":
-    
-    pp = "/home/wrk/Desktop/PythonData/safety-cv-2/cameras/Timmys_West/users/live/tasks/main_task/core"
-    ordered_config_paths, ordered_stage_names = get_ordered_config_paths(pp)
     
     pass
 

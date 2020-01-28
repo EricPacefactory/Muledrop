@@ -3,7 +3,7 @@
 """
 Created on Fri Oct 11 14:58:54 2019
 
-@author: pacefactory
+@author: eo
 """
 
 
@@ -54,14 +54,11 @@ import numpy as np
 
 from time import perf_counter
 
-from local.lib.selection_utils import Resource_Selector
+from local.lib.ui_utils.cli_selections import Resource_Selector
 
-from local.lib.configuration_utils.local_ui.windows_base import Simple_Window
+from local.lib.ui_utils.local_ui.windows_base import Simple_Window
 
-from local.offline_database.file_database import Snap_DB, Object_DB, Classification_DB
-from local.offline_database.file_database import post_snapshot_report_metadata, post_object_report_metadata
-from local.offline_database.file_database import post_object_classification_data
-from local.offline_database.file_database import user_input_datetime_range
+from local.offline_database.file_database import user_input_datetime_range, launch_file_db
 from local.offline_database.object_reconstruction import Smoothed_Object_Reconstruction as Obj_Recon
 from local.offline_database.object_reconstruction import create_trail_frame_from_object_reconstruction
 from local.offline_database.snapshot_reconstruction import median_background_from_snapshots
@@ -81,7 +78,7 @@ from local.offline_database.classification_reconstruction import set_object_clas
 # .....................................................................................................................
 
 # ---------------------------------------------------------------------------------------------------------------------
-#%% Select camera/user/task
+#%% Make user selections
 
 enable_debug_mode = False
 
@@ -89,24 +86,16 @@ enable_debug_mode = False
 selector = Resource_Selector()
 project_root_path, cameras_folder_path = selector.get_project_pathing()
 
-# Select the camera/user/task to show data for (needs to have saved report data already!)
+# Select the camera/user to show data for (needs to have saved report data already!)
 camera_select, camera_path = selector.camera(debug_mode=enable_debug_mode)
 user_select, _ = selector.user(camera_select, debug_mode=enable_debug_mode)
-task_select, _ = selector.task(camera_select, user_select, debug_mode=enable_debug_mode)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-#%% Catalog existing snapshot data
+#%% Catalog existing data
 
-# Start 'fake' database for accessing snapshot/object data
-snap_db = Snap_DB(cameras_folder_path, camera_select, user_select)
-obj_db = Object_DB(cameras_folder_path, camera_select, user_select, task_select)
-class_db = Classification_DB(cameras_folder_path, camera_select, user_select, task_select)
+_, snap_db, obj_db, class_db, _, _ = launch_file_db(cameras_folder_path, camera_select, user_select)
 
-# Post snapshot data to the database on start-up
-post_snapshot_report_metadata(cameras_folder_path, camera_select, user_select, snap_db)
-post_object_report_metadata(cameras_folder_path, camera_select, user_select, task_select, obj_db)
-post_object_classification_data(cameras_folder_path, camera_select, user_select, task_select, class_db)
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Ask user for time window
@@ -133,7 +122,7 @@ frame_wh = (frame_width, frame_height)
 #%% Load object data
 
 # Get object metadata from the server
-obj_metadata_generator = obj_db.load_metadata_by_time_range(task_select, start_dt_isoformat, end_dt_isoformat)
+obj_metadata_generator = obj_db.load_metadata_by_time_range(start_dt_isoformat, end_dt_isoformat)
 
 # Create list of 'reconstructed' objects based on object metadata, so we can work/interact with the object data
 obj_list = Obj_Recon.create_reconstruction_list(obj_metadata_generator,
@@ -143,7 +132,7 @@ obj_list = Obj_Recon.create_reconstruction_list(obj_metadata_generator,
                                                 smoothing_factor = 0.005)
 
 # Load in classification data, if any
-set_object_classification_and_colors(class_db, task_select, obj_list)
+set_object_classification_and_colors(class_db, obj_list)
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Draw trails
@@ -231,7 +220,7 @@ class In_Out_Zone_Rule:
             # Get the start & end frame indices so we can draw the line segment in a different color
             start_frame_idx = end_idx - each_in_zone_segment[1]  #each_in_zone_segment[-1] - 1
             end_frame_idx = end_idx - each_in_zone_segment[0]  # each_in_zone_segment[0] + 1
-        
+            
             # Overlay a different color when the object is in the zone(s)
             object_reconstruction.draw_trail_segment(display_frame, start_frame_idx, end_frame_idx, 
                                                      line_color = (0, 0, 255), line_thickness = 4)
@@ -252,7 +241,7 @@ class In_Out_Zone_Rule:
 
 cv2.destroyAllWindows()
 
-from local.lib.configuration_utils.local_ui.drawing import Entity_Drawer
+from local.lib.ui_utils.local_ui.drawing import Entity_Drawer
 
 drawer = Entity_Drawer(frame_wh,
                        minimum_entities=0,
@@ -293,7 +282,7 @@ while True:
     if drawer.on_change(True):
         print("CHANGED")        
         
-        rule_obj.reconfigure(drawer.entity_list)
+        rule_obj.reconfigure(drawer.get_entities_list(normalize = True))
         
         t_start = perf_counter()
         for each_obj in obj_list:

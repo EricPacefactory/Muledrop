@@ -1,0 +1,8 @@
+{
+  "access_info": {
+    "class_name": "Background_Capture",
+    "script_name": "passthrough_backgroundcapture.py",
+    "configuration_utility": "passthrough"
+  },
+  "setup_data": {}
+}

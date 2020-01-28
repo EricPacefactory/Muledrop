@@ -1,0 +1,8 @@
+{
+  "access_info": {
+    "class_name": "Summary_Stage",
+    "script_name": "passthrough_summary.py",
+    "configuration_utility": "passthrough"
+  },
+  "setup_data": {}
+}

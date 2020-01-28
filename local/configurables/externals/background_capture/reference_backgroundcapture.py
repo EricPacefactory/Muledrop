@@ -55,9 +55,9 @@ from time import perf_counter
 
 from local.configurables.configurable_template import Externals_Configurable_Base
 
-from local.lib.timekeeper_utils import get_isoformat_string
+from local.lib.common.timekeeper_utils import get_isoformat_string
 
-from local.lib.file_access_utils.runtime_read_write import Parallel_Function, create_new_thread_lock
+from local.lib.file_access_utils.threaded_read_write import Parallel_Function, create_new_thread_lock
 from local.lib.file_access_utils.reporting import Image_Report_Saver, Image_Metadata_Report_Saver
 from local.lib.file_access_utils.resources import Image_Resources_Saver, Image_Resources_Loader
 
@@ -88,9 +88,8 @@ class Reference_Background_Capture(Externals_Configurable_Base):
         '''
         
         # Inherit from base class
-        task_select = None
-        super().__init__(cameras_folder_path, camera_select, user_select, task_select, 
-                         video_select, video_wh, file_dunder = file_dunder)
+        super().__init__(cameras_folder_path, camera_select, user_select, video_select, video_wh, 
+                         file_dunder = file_dunder)
         
         # Allocate storage for shared background capture variables
         self.max_capture_count = None
@@ -122,7 +121,7 @@ class Reference_Background_Capture(Externals_Configurable_Base):
         # Set default behaviour states
         self.toggle_report_saving(True)
         self.toggle_resource_saving(True)
-        self.toggle_threading(True)
+        self.toggle_threaded_saving(True)
         self.set_max_capture_count(10)
         self.set_max_generated_count(5)
         self.set_png_compression(0)
@@ -194,7 +193,7 @@ class Reference_Background_Capture(Externals_Configurable_Base):
     # .................................................................................................................
     
     # SHOULDN'T OVERRIDE
-    def toggle_threading(self, enable_threaded_saving):
+    def toggle_threaded_saving(self, enable_threaded_saving):
         
         ''' 
         Function used to enable or disable threading of image/metadata saving. 
@@ -203,8 +202,8 @@ class Reference_Background_Capture(Externals_Configurable_Base):
         '''
         
         self.threading_enabled = enable_threaded_saving
-        self.frame_capturer.toggle_threading(enable_threaded_saving)
-        self.background_creator.toggle_threading(enable_threaded_saving)
+        self.frame_capturer.toggle_threaded_saving(enable_threaded_saving)
+        self.background_creator.toggle_threaded_saving(enable_threaded_saving)
         
     # .................................................................................................................
     
@@ -267,7 +266,7 @@ class Reference_Background_Capture(Externals_Configurable_Base):
             current_datetime -> Datetime obj. Interpretation of this object depends on video source (files vs. streams)
             
         Outputs:
-            dictionary -> {"video_frame", "bg_frame", "bg_update"}        
+            background_frame (np array), background_was_updated (boolean)        
         '''
         
         # Trigger capture of frames as needed
@@ -279,9 +278,7 @@ class Reference_Background_Capture(Externals_Configurable_Base):
         self.background_creator.run(frame_was_captured, number_of_captures, create_capture_generator,
                                     current_frame_index, current_epoch_ms, current_datetime)
         
-        return {"video_frame": input_frame, 
-                "bg_frame": background_image,
-                "bg_update": background_was_updated}
+        return background_image, background_was_updated
         
     # .................................................................................................................
     
@@ -311,7 +308,7 @@ class Reference_Background_Capture(Externals_Configurable_Base):
         # Print out generation time (assuming a background was actually generated and not loaded!)
         if generated_new_background:
             print("")
-            print("Initial background generation took (ms): {}".format(1000 * (t2 - t1)))
+            print("Initial background generation took (ms): {:.0f}".format(1000 * (t2 - t1)))
         
         return initial_background_image
     
@@ -371,6 +368,10 @@ class Reference_Frame_Capture:
         self._latest_capture_datetime = None
         self._capture_count = -1
         
+        # Allocate storage for capture generator function (so we don't have to constantly re-create it!)
+        self._capture_generator_func = None
+        self._capture_generator_count = None
+        
         # Create object to handle resource saving/loading
         resource_args = (cameras_folder_path, camera_select, user_select, "backgrounds")
         self.image_saver = Image_Resources_Saver(*resource_args, "captures", lock = lock)
@@ -378,7 +379,7 @@ class Reference_Frame_Capture:
         
         # Set default behaviour states
         self.toggle_saving(True)
-        self.toggle_threading(True)
+        self.toggle_threaded_saving(True)
         self.set_maximum_captures(10)
         self.set_capture_compression(0)
         
@@ -428,7 +429,7 @@ class Reference_Frame_Capture:
     # .................................................................................................................
     
     # SHOULDN'T OVERRIDE
-    def toggle_threading(self, enable_threading):
+    def toggle_threaded_saving(self, enable_threading):
         self.threading_enabled = enable_threading
         self.image_saver.toggle_threading(enable_threading)
         
@@ -447,24 +448,32 @@ class Reference_Frame_Capture:
     # .................................................................................................................
     
     # SHOULDN'T OVERRIDE
-    def create_capture_generator(self, sort_chronologically = True):        
+    def create_capture_generator(self, new_frame_captured, sort_chronologically = True):        
         
         '''
         Function which returns a generator for providing captured images
         When generator is used, it provided images via OpenCv imread() function
         '''
         
-        # Get sorted list of capture files to load
-        capture_file_path_list = self.image_loader.list_file_paths(sort_chronologically = sort_chronologically,
-                                                                   allowable_exts_list = [".png"])
-        number_of_captures = len(capture_file_path_list)
+        # Only create/update the generate when needed
+        need_initial_generator = (self._capture_generator_func is None)
+        if need_initial_generator or new_frame_captured:
+            
+            # Get sorted list of capture files to load
+            capture_file_path_list = self.image_loader.list_file_paths(sort_chronologically = sort_chronologically,
+                                                                       allowable_exts_list = [".png"])
+            number_of_captures = len(capture_file_path_list)
+            
+            # Create generator for loading from the list of file paths
+            def capture_image_generator():
+                for each_path in capture_file_path_list:
+                    yield self.image_loader.load_from_path(each_path)
+            
+            # Store generator & capture count
+            self._capture_generator_func = capture_image_generator
+            self._capture_generator_count = number_of_captures
         
-        # Create generator for loading from the list of file paths
-        def capture_image_generator():            
-            for each_path in capture_file_path_list:
-                yield self.image_loader.load_from_path(each_path)
-        
-        return number_of_captures, capture_image_generator
+        return self._capture_count, self._capture_generator_func
         
     # .................................................................................................................
     
@@ -492,7 +501,7 @@ class Reference_Frame_Capture:
             self._save_capture_png(input_frame, current_frame_index, current_epoch_ms, current_datetime)
         
         # Provide a function for creating generators for loading capture data
-        number_of_captures, create_capture_generator = self.create_capture_generator()
+        number_of_captures, create_capture_generator = self.create_capture_generator(frame_needs_to_be_captured)
         
         # Get rid of dead threads
         self._clean_up()
@@ -627,7 +636,7 @@ class Reference_Background_Creator:
         # Set default behaviour states
         self.toggle_resource_saving(True)
         self.toggle_report_saving(True)
-        self.toggle_threading(True)
+        self.toggle_threaded_saving(True)
         self.set_maximum_generated(10)
         self.set_generated_compression(0)
         self.set_report_quality(25)
@@ -689,7 +698,7 @@ class Reference_Background_Creator:
     # .................................................................................................................
     
     # SHOULDN'T OVERRIDE
-    def toggle_threading(self, enable_threading):
+    def toggle_threaded_saving(self, enable_threading):
         self.threading_enabled = enable_threading
         self.parallel_generation.toggle_threading(enable_threading)
         self.resource_image_saver.toggle_threading(enable_threading)
@@ -852,14 +861,20 @@ class Reference_Background_Creator:
             
             # Some feedback about loading an existing background image
             print("", "Found existing background image! Loading...", sep = "\n")
-            generated_new_background = False
             
-            # Get the newest background file available, load it, and make sure to record it as a generation event
+            # Get the newest background file available, load it
             newest_background_path = existing_background_path_list[0]
-            background_image = self.resource_image_loader.load_from_path(newest_background_path)
-            self._record_generated_event(background_image, None, None, None)
+            background_image = self.resource_image_loader.load_from_path(newest_background_path, error_if_none = False)
             
-            return generated_new_background, background_image
+            # Make sure the loaded image is valid, since OpenCV doesn't handle this well...
+            image_is_valid = (background_image is not None)
+            if image_is_valid:
+                generated_new_background = False
+                self._record_generated_event(background_image, None, None, None)            
+                return generated_new_background, background_image
+            
+            # If we get here, the loaded file was no good, so warn about it
+            print("  --> existing background file is bad/corrupt?")
         
         # Switch between different ways of grabbing the first frames, depending on video source type
         video_type = video_reader.video_type
@@ -932,15 +947,23 @@ class Reference_Background_Creator:
               "  This may take some time...", sep = "\n")
         
         # Grab frames for generating the first background
-        starting_frame_index = video_reader.get_current_frame()
         frame_set = []
         for each_frame_idx in frame_sample_indices:
-            video_reader.set_current_frame(each_frame_idx)
-            req_break, frame, current_frame_index, current_epoch_ms, current_datetime = video_reader.read()
-            frame_set.append(frame)
+            
+            read_frames = True
+            while read_frames:                
+                req_break, frame, _, current_frame_index, current_epoch_ms, current_datetime = video_reader.read()
+                if req_break:
+                    print("", "DEBUG: BGGen (file) on startup ended due to req break!", "", sep = "\n")
+                    break
+                
+                # Only store frames at target indices
+                if current_frame_index >= each_frame_idx:
+                    frame_set.append(frame)
+                    read_frames = False
         
         # Reset the video reader after we're done collecting frames
-        video_reader.set_current_frame(starting_frame_index)
+        video_reader.reset_videocapture()
         
         return frame_set, current_frame_index, current_epoch_ms, current_datetime        
     
@@ -970,12 +993,18 @@ class Reference_Background_Creator:
         while len(frame_set) < num_capture_frames_to_use:
             
             # Read every frame from the stream
-            req_break, frame, current_frame_index, current_epoch_ms, current_datetime = video_reader.read()
+            req_break, frame, _, current_frame_index, current_epoch_ms, current_datetime = video_reader.read()
+            if req_break:
+                print("", "DEBUG: BGGen (rtsp) on startup ended due to req break!", "", sep = "\n")
+                break
             
             # Store a frame every capture period
             if current_epoch_ms >= next_capture_epoch_ms:
                 frame_set.append(frame)
                 next_capture_epoch_ms = current_epoch_ms + capture_period_ms
+        
+        # Reset the video reader after we're done collecting frames
+        video_reader.reset_videocapture()
         
         return frame_set, current_frame_index, current_epoch_ms, current_datetime
     
@@ -1031,7 +1060,7 @@ class Reference_Background_Creator:
         bgcap_metadata = {"name": bgcap_name,
                           "datetime_isoformat": bgcap_time_isoformat,
                           "frame_index": current_frame_index,
-                          "epoch_ms_utc": current_epoch_ms,
+                          "epoch_ms": current_epoch_ms,
                           "video_select": self.video_select,
                           "video_wh": self.video_wh,
                           "bggen_wh": bggen_wh}

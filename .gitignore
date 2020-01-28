@@ -2,9 +2,7 @@
 # Project files
 cameras/
 specifications/
-.selection_history
-.pathing_info
-.screen_info
+settings/
 .txt
 
 # Cache files
@@ -22,7 +20,4 @@ __pycache__
 **.kra
 **.csv
 **.odp
-
-# Misc. files
-specifications/
 

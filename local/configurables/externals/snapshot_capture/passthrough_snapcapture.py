@@ -101,19 +101,7 @@ class Snapshot_Capture(Reference_Snapshot_Capture):
 #%% Demo
 
 if __name__ == "__main__":
-    
-    example_cameras_folder = "/not/a/real/path"
-    example_camera_select = "No_Cam"
-    example_user_select = "sudo_user"
-    example_video_select = "blank_vid.wmv"
-    example_video_wh = (50, 50)
-
-    example_snapcap = Snapshot_Capture(example_cameras_folder, 
-                                       example_camera_select, 
-                                       example_user_select, 
-                                       example_video_select, 
-                                       example_video_wh)
-    example_snapcap.reconfigure()
+    pass
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Scrap

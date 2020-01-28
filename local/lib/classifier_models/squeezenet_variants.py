@@ -321,8 +321,8 @@ class Full_SqueezeNet_112x112(nn.Module):
         
         # Load data from pytorch saved data
         loaded_data = torch.load(path_to_model_data)        
-        ordered_class_labels = loaded_data.get("ordered_class_labels")
-        model_state_dict = loaded_data.get("model_state_dict")
+        ordered_class_labels = loaded_data["ordered_class_labels"]
+        model_state_dict = loaded_data["model_state_dict"]
         
         # Initialize a new model from the loaded data
         new_model = cls(ordered_class_labels, random_initialization = False)
@@ -503,8 +503,8 @@ class Truncated_SqueezeNet_112x112(nn.Module):
         
         # Load data from pytorch saved data
         loaded_data = torch.load(path_to_model_data)        
-        ordered_class_labels = loaded_data.get("ordered_class_labels")
-        model_state_dict = loaded_data.get("model_state_dict")
+        ordered_class_labels = loaded_data["ordered_class_labels"]
+        model_state_dict = loaded_data["model_state_dict"]
         
         # Initialize a new model from the loaded data
         new_model = cls(ordered_class_labels, random_initialization = False)

@@ -73,10 +73,6 @@ class Snapshot_Capture(Reference_Snapshot_Capture):
         self._skip_frames_remainder = None
         self._downscale_wh = None
         
-        # Allocate storage for keeping track of (approximate) snapshot period
-        self._last_snap_epoch_ms = 0.0
-        self._approx_snap_period_sec = -1.0
-        
         # .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . Control Group 1 .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
         
         self.ctrl_spec.new_control_group("Snapshot Controls")
@@ -151,11 +147,6 @@ class Snapshot_Capture(Reference_Snapshot_Capture):
         # Simple remainder check to subsample frames
         frame_index_remainder = ((current_frame_index - 1) % self._skip_frames_remainder)
         need_new_snapshot = (frame_index_remainder == 0)
-        
-        # Try to keep track of how long it takes to get a snapshot
-        if need_new_snapshot:
-            self._approx_snap_period_sec = (current_epoch_ms - self._last_snap_epoch_ms) / 1000.0
-            self._last_snap_epoch_ms = current_epoch_ms
         
         return need_new_snapshot
     

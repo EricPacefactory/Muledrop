@@ -1,0 +1,8 @@
+{
+  "access_info": {
+    "class_name": "Snapshot_Capture",
+    "script_name": "passthrough_snapcapture.py",
+    "configuration_utility": "passthrough"
+  },
+  "setup_data": {}
+}

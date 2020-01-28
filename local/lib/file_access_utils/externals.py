@@ -49,7 +49,7 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
-from local.lib.file_access_utils.shared import copy_from_defaults, build_user_folder_path
+from local.lib.file_access_utils.shared import build_user_folder_path
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Pathing functions
@@ -66,13 +66,6 @@ def build_externals_folder_path(cameras_folder, camera_select, user_select, *pat
 #%% Config functions
 
 # .....................................................................................................................
-    
-def create_default_externals_config(project_root_path, externals_path, overwrite_existing = True):
-    
-    # Pull out the default json configs from the externals folder and copy into the externals path
-    copy_from_defaults(project_root_path, 
-                       target_defaults_folder = "externals",
-                       copy_to_path = externals_path)
 
 # .....................................................................................................................
 # .....................................................................................................................

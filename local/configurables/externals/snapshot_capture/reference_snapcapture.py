@@ -51,7 +51,7 @@ find_path_to_local()
 
 from local.configurables.configurable_template import Externals_Configurable_Base
 
-from local.lib.timekeeper_utils import get_isoformat_string
+from local.lib.common.timekeeper_utils import get_isoformat_string
 
 from local.lib.file_access_utils.reporting import Image_Report_Saver, Image_Metadata_Report_Saver
 
@@ -66,9 +66,8 @@ class Reference_Snapshot_Capture(Externals_Configurable_Base):
     def __init__(self, cameras_folder_path, camera_select, user_select, video_select, video_wh, *, file_dunder):
         
         # Inherit from base class
-        task_select = None
-        super().__init__(cameras_folder_path, camera_select, user_select, task_select, 
-                         video_select, video_wh, file_dunder = file_dunder)
+        super().__init__(cameras_folder_path, camera_select, user_select, video_select, video_wh, 
+                         file_dunder = file_dunder)
         
         # Store snapshotting config
         self.image_saving_enabled = None
@@ -91,7 +90,7 @@ class Reference_Snapshot_Capture(Externals_Configurable_Base):
         # Set default behaviour states
         self.toggle_image_saving(True)
         self.toggle_metadata_saving(True)
-        self.toggle_threading(True)
+        self.toggle_threaded_saving(True)
         self.set_snapshot_quality(25)
         
     # .................................................................................................................
@@ -155,7 +154,7 @@ class Reference_Snapshot_Capture(Externals_Configurable_Base):
     # .................................................................................................................
     
     # SHOULDN'T OVERRIDE
-    def toggle_threading(self, enable_threaded_saving):
+    def toggle_threaded_saving(self, enable_threaded_saving):
         
         ''' 
         Function used to enable or disable threading of image/metadata saving. 
@@ -206,17 +205,8 @@ class Reference_Snapshot_Capture(Externals_Configurable_Base):
         # Trigger (threaded) saving of data
         self._save_report_data(snapshot_frame_data, latest_snapshot_metadata)
         
-        # For configuration, the output image should be jpg quality-ified
-        if self.configure_mode:
-            snapshot_frame_data, image_size_bytes, processing_time_sec = \
-            self.image_saver.apply_jpg_quality(snapshot_frame_data, self._snapshot_jpg_quality)
-            self._config_image_size_bytes = image_size_bytes
-            self._config_proc_time_sec = processing_time_sec
-        
         # Clean up any finished saving threads & save newest metadata internally
-        self._clean_up()
         self.latest_snapshot_metadata = latest_snapshot_metadata
-        
         return snapshot_frame_data, latest_snapshot_metadata
     
     # .................................................................................................................
@@ -291,7 +281,7 @@ class Reference_Snapshot_Capture(Externals_Configurable_Base):
                              "datetime_isoformat": snapshot_time_isoformat,
                              "count": snapshot_count,
                              "frame_index": current_frame_index,
-                             "epoch_ms_utc": current_epoch_ms,
+                             "epoch_ms": current_epoch_ms,
                              "video_select": self.video_select,
                              "video_wh": self.video_wh}
         
@@ -318,7 +308,7 @@ class Reference_Snapshot_Capture(Externals_Configurable_Base):
         ''' Function which handles saving of image & metadata '''
         
         # Get snapshot name from metadata
-        snapshot_name = snapshot_metadata.get("name")
+        snapshot_name = snapshot_metadata["name"]
         
         # Get snapshot sizing, so we can save it with the metadata
         snap_height, snap_width = snapshot_image_data.shape[0:2]

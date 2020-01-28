@@ -49,7 +49,7 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
-from local.lib.file_access_utils.shared import load_or_create_json
+from local.lib.file_access_utils.settings import load_screen_info
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
@@ -64,10 +64,10 @@ class Screen_Info:
         self._screen_info_dict = load_screen_info(project_root_path)
         
         # Split screen info into dictionaries for each use case
-        self._screen_dict = self._screen_info_dict.get("screen")
-        self._controls_dict = self._screen_info_dict.get("controls")
-        self._displays_dict = self._screen_info_dict.get("displays")
-        self._feedback_dict = self._screen_info_dict.get("feedback")
+        self._screen_dict = self._screen_info_dict["screen"]
+        self._controls_dict = self._screen_info_dict["controls"]
+        self._displays_dict = self._screen_info_dict["displays"]
+        self._feedback_dict = self._screen_info_dict["feedback"]
         
     # .................................................................................................................
     
@@ -120,7 +120,7 @@ class Screen_Info:
     def _bundle_return(self, dictionary, return_args):
         
         only_1_arg = (len(return_args) == 1)
-        return dictionary.get(return_args[0]) if only_1_arg else [dictionary.get(each_arg) for each_arg in return_args]
+        return dictionary[return_args[0]] if only_1_arg else [dictionary[each_arg] for each_arg in return_args]
     
     # .................................................................................................................
     # .................................................................................................................
@@ -129,29 +129,6 @@ class Screen_Info:
 #%% Define functions
 
 # .....................................................................................................................
-
-def load_screen_info(project_root_path, file_name = ".screen_info"):
-    
-    # Build default parameters for different use cases
-    default_screen = {"width": 1920,  "height": 1080, "x_offset": 0, "y_offset": 0}
-    default_controls = {"max_columns": 3,  "max_width": 500, "column_spacing": 20, "row_spacing": 250,
-                        "x_padding": 20, "y_padding": 20, "empty_height": 30}
-    default_displays = {"max_width": None, "max_height": None, 
-                        "top_left_x": 40, "top_left_y": 175, "reserved_vertical": 150}
-    default_feedback = {"width": 300, "x_padding": 20, "y_padding": 20, "row_spacing": 20}
-    
-    # Bundle all the default parameters
-    default_config = {"screen": default_screen,
-                      "controls": default_controls,
-                      "displays": default_displays,
-                      "feedback": default_feedback}
-    
-    # First create history path, then load the history file
-    file_path = os.path.join(project_root_path, file_name)
-    screen_info_config = load_or_create_json(file_path, default_config,
-                                             creation_printout = "Creating screen info file:")
-    
-    return screen_info_config
 
 # .....................................................................................................................
 # .....................................................................................................................

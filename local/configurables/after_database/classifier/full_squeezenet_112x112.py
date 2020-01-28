@@ -61,10 +61,10 @@ class Image_Based_Classifier_Stage(Reference_Classifier):
     
     # .................................................................................................................
     
-    def __init__(self, cameras_folder_path, camera_select, user_select, task_select):
+    def __init__(self, cameras_folder_path, camera_select, user_select):
         
         # Inherit from base class
-        super().__init__(cameras_folder_path, camera_select, user_select, task_select, file_dunder = __file__)
+        super().__init__(cameras_folder_path, camera_select, user_select, file_dunder = __file__)
         
         # Allocate storage for the classifier
         self.classifier_model = None
@@ -93,7 +93,7 @@ class Image_Based_Classifier_Stage(Reference_Classifier):
             
         # Figure out model naming
         model_base_name = Full_SqueezeNet_112x112.base_save_name
-        self._model_save_name = "{}_({})".format(model_base_name, task_select)
+        self._model_save_name = "{}-({})".format(model_base_name, self.camera_select)
         
         # Set up 'control' parameters
         default_control_value = existing_model_files[0]

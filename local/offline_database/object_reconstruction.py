@@ -55,8 +55,9 @@ import numpy as np
 from time import perf_counter
 
 from scipy.interpolate import UnivariateSpline
+from scipy.spatial import cKDTree
 
-from local.offline_database.file_database import _time_to_epoch_ms_utc
+from local.offline_database.file_database import _time_to_epoch_ms
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
@@ -69,27 +70,28 @@ class Object_Reconstruction:
         
         # Store full copy of metadata for easy re-use
         self.metadata = object_metadata
-        self.num_samples = self.metadata.get("num_samples")
-        self.nice_id = self.metadata.get("nice_id")
-        self.full_id = self.metadata.get("full_id")
+        self.num_samples = self.metadata["num_samples"]
+        self.nice_id = self.metadata["nice_id"]
+        self.full_id = self.metadata["full_id"]
+        self.lifetime_ms = self.metadata["lifetime_ms"]
         
         # Store object trail separately, since we'll want to use that a lot
-        obj_x_array = np.float32(object_metadata.get("tracking").get("x_center"))
-        obj_y_array = np.float32(object_metadata.get("tracking").get("y_center"))
+        obj_x_array = np.float32(object_metadata["tracking"]["x_center"])
+        obj_y_array = np.float32(object_metadata["tracking"]["y_center"])
         self._real_trail_xy = np.vstack((obj_x_array, obj_y_array)).T
         
         # Store smoothed trail
         self.trail_xy = self._create_trail_xy()
         
         # Store object start/end time in terms of video frame indice, used for syncing with snapshots
-        self.start_idx = self.metadata.get("timing").get("first_frame_index")
-        self.end_idx = self.metadata.get("timing").get("last_frame_index")
-        self.start_ems = self.metadata.get("timing").get("first_epoch_ms")
-        self.end_ems = self.metadata.get("timing").get("last_epoch_ms")
+        self.start_idx = self.metadata["timing"]["first_frame_index"]
+        self.end_idx = self.metadata["timing"]["last_frame_index"]
+        self.start_ems = self.metadata["timing"]["first_epoch_ms"]
+        self.end_ems = self.metadata["timing"]["last_epoch_ms"]
         
         # Store global start/end times, used for relative timing calculations
-        self.global_start_ems = _time_to_epoch_ms_utc(global_start_time)
-        self.global_end_ems = _time_to_epoch_ms_utc(global_end_time)
+        self.global_start_ems = _time_to_epoch_ms(global_start_time)
+        self.global_end_ems = _time_to_epoch_ms(global_end_time)
         self.global_length_ems = self.global_end_ems - self.global_start_ems
         
         # Store relative timing (normalized values, based on global time range)
@@ -101,7 +103,7 @@ class Object_Reconstruction:
         
         # Allocate storage for graphics settings
         self._trail_color = (0, 255, 255)
-        self._outline_color = (0, 255, 0)
+        self._outline_color = (0, 255, 255)
         
         # Allocate storage for classification data
         self._classification_label = "unclassified"
@@ -125,7 +127,8 @@ class Object_Reconstruction:
         
         ''' Function for converting absolute frame indices into a index relative to the object dataset '''
         
-        return self.end_idx - frame_index
+        #return self.end_idx - frame_index
+        return frame_index - self.start_idx
     
     # .................................................................................................................
     
@@ -179,7 +182,7 @@ class Object_Reconstruction:
         
         # Only grab target hull data if we have a valid frame index
         if valid_index:
-            hull_data = self.metadata.get("tracking").get("hull")[rel_idx]
+            hull_data = self.metadata["tracking"]["hull"][rel_idx]
             return self._arrayify(hull_data) if normalized else self._pixelize(hull_data)
         
         return None
@@ -276,9 +279,7 @@ class Object_Reconstruction:
             valid_index, rel_idx = self._index_in_dataset(frame_index)
             if not valid_index:
                 return output_frame
-            
-            last_idx = rel_idx
-            plot_trail_xy = self.trail_xy[last_idx:]
+            plot_trail_xy = self.trail_xy[:rel_idx]
         else:
             plot_trail_xy = self.trail_xy
         
@@ -326,7 +327,7 @@ class Object_Reconstruction:
             return output_frame
         
         # Grab trail data (which is stored in reverse order...)
-        plot_trail_xy = self.trail_xy[end_idx:start_idx]
+        plot_trail_xy = self.trail_xy[start_idx:end_idx]
         
         # If a line color isn't specified, use the built-in color
         if line_color is None:
@@ -433,7 +434,7 @@ class Smoothed_Object_Reconstruction(Object_Reconstruction):
     # .................................................................................................................
     
     def __init__(self, object_metadata, frame_wh, global_start_time, global_end_time,
-                 smoothing_factor = 0.005):
+                 smoothing_factor = 0.015):
         
         # Store smoothing parameter, since it will be needed during trail generation
         self._smoothing_factor = smoothing_factor
@@ -470,44 +471,11 @@ class Smoothed_Object_Reconstruction(Object_Reconstruction):
 class Smooth_Hover_Object_Reconstruction(Smoothed_Object_Reconstruction):
     
     def __init__(self, object_metadata, frame_wh, global_start_time, global_end_time, 
-                 smoothing_factor = 0.005, number_simplified_points = 11):
+                 smoothing_factor = 0.015):
         
         # Inherit from parent class
         super().__init__(object_metadata, frame_wh, global_start_time, global_end_time, 
                          smoothing_factor)
-        
-        # Create a simplified copy of the trail for mouse hovering/distance detection
-        self._simple_trail_xy = self._create_simplified_trail_xy(number_simplified_points)
-    
-    # .................................................................................................................
-    
-    def _create_simplified_trail_xy(self, number_simplified_points):
-        
-        # Pull out smoothed x/y array data
-        x_array_norm = self.trail_xy[:, 0]
-        y_array_norm = self.trail_xy[:, 1]
-        
-        # Downsample trail to get simplified representation
-        full_idx = np.linspace(0.0, 1.0, self.num_samples)
-        interp_idxs = np.linspace(0.0, 1.0, number_simplified_points)
-        obj_x_simple = np.interp(interp_idxs, full_idx, x_array_norm)
-        obj_y_simple = np.interp(interp_idxs, full_idx, y_array_norm)
-        simple_trail_xy = np.vstack((obj_x_simple, obj_y_simple)).T
-        
-        return simple_trail_xy
-    
-    # .................................................................................................................
-    
-    def minimum_sq_distance(self, point_xy_normalized):
-        
-        # Ideally find the shortest distance to the path, which would involve finding the distance
-        # to each point & line segment!
-        
-        # For now, just find the minimum distance to all (simplified) co-ords
-        sq_distances = np.sum(np.power(self._simple_trail_xy - point_xy_normalized, 2), axis = 1)
-        min_sq_distance = np.min(sq_distances)
-        
-        return min_sq_distance
     
     # .................................................................................................................
     
@@ -516,6 +484,117 @@ class Smooth_Hover_Object_Reconstruction(Smoothed_Object_Reconstruction):
     
     # .................................................................................................................
     # .................................................................................................................
+
+
+# /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+# /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+class Hover_Mapping:
+    
+    # .................................................................................................................
+    
+    def __init__(self, object_class_dict, tree_leaf_size = 8, hover_map_name = None, print_feedback = True):
+        
+        # Warn user about hover map generation, since it could take a while
+        if print_feedback:
+            name_str = "hover map" if (hover_map_name is None) else "{} hover map".format(hover_map_name)
+            feedback_msg = "Generating {}...".format(name_str)
+            print("", feedback_msg, sep = "\n")
+        
+        # Keep track of timing for feedback
+        start_time = perf_counter()
+        
+        # Assign numbers to represent each class (so we don't store a silly number of class label strings)
+        self.index_to_class_lut, self.class_to_idx_lut = self._build_class_label_index(object_class_dict)
+        
+        # Construct the kd tree & data needed to lookup object associated with each point in the tree
+        xy_array, self.obj_ids_array, self.class_indices_array = self._build_data_arrays(object_class_dict)
+        self.kdtree = cKDTree(xy_array, tree_leaf_size)
+        
+        # Feedback about hover map being completed
+        end_time = perf_counter()
+        if print_feedback:
+            print("  Finished! Took {:.0f} ms".format(1000 * (end_time - start_time)))
+    
+    # .................................................................................................................
+    
+    def _build_class_label_index(self, object_class_dict):
+        
+        index_to_class_lut = dict(enumerate(object_class_dict.keys()))
+        class_to_index_lut = {each_value: each_key for each_key, each_value in index_to_class_lut.items()}
+        
+        return index_to_class_lut, class_to_index_lut
+    
+    # .................................................................................................................
+    
+    def _build_data_arrays(self, object_class_dict):
+        
+        # Allocate empty lists that we'll fill in a loop
+        all_xy = []
+        all_ids = []
+        all_class_idxs = []
+        
+        # Gather arrays of object xy data and corresponding object ids (inefficiently!)
+        # ... would be better to pre-allocate arrays, knowing the total samples from all objects
+        # ... would also be nice to have some more efficient way to store repeated ids/class labels
+        for each_class_label, each_obj_dict in object_class_dict.items():
+            
+            class_idx = self.class_to_idx_lut[each_class_label]
+            for each_obj_id, each_obj in each_obj_dict.items():
+                all_xy.append(each_obj.trail_xy)
+                all_ids.append(np.full(each_obj.num_samples, each_obj_id))
+                all_class_idxs.append(np.full(each_obj.num_samples, class_idx))
+            
+        # Convert list of arrays into single concatenated arrays
+        xy_array = np.vstack(all_xy)
+        id_array = np.hstack(all_ids)
+        class_index_array = np.hstack(all_class_idxs)
+        
+        return xy_array, id_array, class_index_array
+    
+    # .................................................................................................................
+    
+    def closest_point(self, point_xy):
+        
+        # For clarity
+        num_neighbours = 1
+        
+        # Find (only) the closest object
+        closest_distance, closest_array_idx = self.kdtree.query(point_xy, num_neighbours)
+        closest_object_id = self.obj_ids_array[closest_array_idx]
+        closest_object_class_index = self.class_indices_array[closest_array_idx]
+        
+        # Get object label for easier use
+        closest_object_class_label = self.index_to_class_lut[closest_object_class_index]
+        
+        return closest_distance, closest_object_id, closest_object_class_label
+    
+    # .................................................................................................................
+    
+    def within_radius(self, point_xy, radius):
+        
+        # Return all array indices within the target radius of the target point
+        closest_array_indices = self.kdtree.query_ball_point(point_xy, radius, return_sorted = False)
+        
+        # Filter out repeated objects
+        closest_object_ids_array = self.obj_ids_array[closest_array_indices]
+        unique_obj_ids_array, unique_indices_array = np.unique(closest_object_ids_array, return_index = True)
+        
+        # Figure out the corresponding class labels for the closest (unique!) object ids
+        unique_close_indices = np.array(closest_array_indices)[unique_indices_array]
+        unique_obj_class_indexes_array = self.class_indices_array[unique_close_indices]
+        unique_obj_class_labels = [self.index_to_class_lut[each_class_index] 
+                                   for each_class_index in unique_obj_class_indexes_array]
+        
+        # Finally, combine object id and class labels into list of 2-tuples
+        obj_id_label_tuple_list = list(zip(unique_obj_ids_array.tolist(), unique_obj_class_labels))
+        
+        return obj_id_label_tuple_list
+    
+    # .................................................................................................................
+    # .................................................................................................................
+
     
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define functions

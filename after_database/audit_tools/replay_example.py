@@ -52,14 +52,11 @@ find_path_to_local()
 import cv2
 import numpy as np
 
-from local.lib.selection_utils import Resource_Selector
+from local.lib.ui_utils.cli_selections import Resource_Selector
 
-from local.lib.configuration_utils.local_ui.windows_base import Simple_Window
+from local.lib.ui_utils.local_ui.windows_base import Simple_Window
 
-from local.offline_database.file_database import Snap_DB, Object_DB, Classification_DB
-from local.offline_database.file_database import post_snapshot_report_metadata, post_object_report_metadata
-from local.offline_database.file_database import post_object_classification_data
-from local.offline_database.file_database import user_input_datetime_range
+from local.offline_database.file_database import user_input_datetime_range, launch_file_db, close_dbs_if_missing_data
 from local.offline_database.object_reconstruction import Smoothed_Object_Reconstruction as Obj_Recon
 from local.offline_database.classification_reconstruction import set_object_classification_and_colors
 
@@ -137,7 +134,7 @@ def redraw_timebar_base(blank_timebar, start_idx, end_idx, max_idx, highlight_co
 # .....................................................................................................................
 
 # ---------------------------------------------------------------------------------------------------------------------
-#%% Select camera/user/task
+#%% Select camera/user
 
 enable_debug_mode = False
 
@@ -145,32 +142,33 @@ enable_debug_mode = False
 selector = Resource_Selector()
 project_root_path, cameras_folder_path = selector.get_project_pathing()
 
-# Select the camera/user/task to show data for (needs to have saved report data already!)
+# Select the camera/user to show data for (needs to have saved report data already!)
 camera_select, camera_path = selector.camera(debug_mode=enable_debug_mode)
 user_select, _ = selector.user(camera_select, debug_mode=enable_debug_mode)
-task_select, _ = selector.task(camera_select, user_select, debug_mode=enable_debug_mode)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-#%% Catalog existing snapshot data
+#%% Catalog existing data
 
-# Start 'fake' database for accessing snapshot/object data
-snap_db = Snap_DB(cameras_folder_path, camera_select, user_select)
-obj_db = Object_DB(cameras_folder_path, camera_select, user_select, task_select)
-class_db = Classification_DB(cameras_folder_path, camera_select, user_select, task_select)
+cam_db, snap_db, obj_db, class_db, _, _ = \
+launch_file_db(cameras_folder_path, camera_select, user_select,
+               launch_snapshot_db = True,
+               launch_object_db = True,
+               launch_classification_db = True,
+               launch_summary_db = False,
+               launch_rule_db = False)
 
-# Post snapshot/object/classification data to the databases on start-up
-post_snapshot_report_metadata(cameras_folder_path, camera_select, user_select, snap_db)
-post_object_report_metadata(cameras_folder_path, camera_select, user_select, task_select, obj_db)
-post_object_classification_data(cameras_folder_path, camera_select, user_select, task_select, class_db)
-
-
-# ---------------------------------------------------------------------------------------------------------------------
-#%% Ask user for time window
+# Catch missing data
+cam_db.close()
+close_dbs_if_missing_data(snap_db, obj_db)
 
 # Get the maximum range of the data (based on the snapshots, because that's the most we could show)
 earliest_datetime, latest_datetime = snap_db.get_bounding_datetimes()
 snap_wh = snap_db.get_snap_frame_wh()
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Ask user for time window
 
 # Ask the user for the range of datetimes to use for selecting data
 start_dt, end_dt, _, _ = user_input_datetime_range(earliest_datetime, 
@@ -187,21 +185,21 @@ end_snap_time_ms = snap_time_ms_list[-1]
 total_ms_duration = end_snap_time_ms - start_snap_time_ms
 playback_progress = lambda current_time_ms: (current_snap_time_ms - start_snap_time_ms) / total_ms_duration
 
+
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Load object data
 
 # Get object metadata from the server
-obj_metadata_generator = obj_db.load_metadata_by_time_range(task_select, start_dt, end_dt)
+obj_metadata_generator = obj_db.load_metadata_by_time_range(start_dt, end_dt)
 
 # Create list of 'reconstructed' objects based on object metadata, so we can work/interact with the object data
 obj_list = Obj_Recon.create_reconstruction_list(obj_metadata_generator,
                                                 snap_wh,
                                                 start_dt, 
-                                                end_dt,
-                                                smoothing_factor = 0.005)
+                                                end_dt)
 
 # Load in classification data, if any
-set_object_classification_and_colors(class_db, task_select, obj_list)
+set_object_classification_and_colors(class_db, obj_list)
 
 
 # ---------------------------------------------------------------------------------------------------------------------

@@ -429,31 +429,6 @@ class Preprocessor_Stage(Reference_Preprocessor):
     
 # .....................................................................................................................
 
-def draw_apertures(stage_outputs, fov_ref):
-    
-    # Grab the 'preprocessed_frame' output of the fov preprocessor stage
-    display_frame = stage_outputs["frame_capture"]["video_frame"]
-    
-    # Draw rectangle around the image edge for symmetry checks
-    in_width, in_height = fov_ref.input_wh
-    cv2.rectangle(display_frame, (0, 0), (in_width - 1, in_height - 1), (255,255,255), 1)
-    
-    # Get centering info
-    cen_xy = tuple(fov_ref._cen_xy)
-    
-    # Draw output aperture indicator
-    out_apert_px = tuple(fov_ref._out_apert_xy_px)
-    cv2.ellipse(display_frame, cen_xy, out_apert_px, 0, 0, 360, (255, 255, 0), 4, cv2.LINE_AA)
-    
-    #pt_list = fov_ref._out_poly_px
-    #cv2.polylines(disp_frame, [pt_list], True, (255, 255, 0), 4, cv2.LINE_AA)
-    
-    # Draw input aperture indicator
-    in_apert_px = tuple(fov_ref._in_apert_xy_px)
-    cv2.ellipse(display_frame, cen_xy, in_apert_px, 0, 0, 360, (0, 255, 255), 4, cv2.LINE_AA)
-    
-    return display_frame
-
 # .....................................................................................................................
 # .....................................................................................................................
 

@@ -69,9 +69,9 @@ class Detector_Stage(Reference_Detector):
         # Set up blob detection sizing (parent class should have already done this, but just in case...)
         Reference_Detection_Object.set_frame_scaling(*input_wh)
         
-        # Allocate storage to look at the detections on each frame
-        self._detection_ref_list = []
-        self._rejection_ref_list = []
+        # Allocate storage for detections on each frame
+        self._detection_ref_dict = {}
+        self._rejection_ref_dict = {}
         
         # Allocate storage for configuration visualization variables
         self._x_follower_size_px = 0
@@ -173,8 +173,8 @@ class Detector_Stage(Reference_Detector):
     
     def reset(self):
         # Clear out all stored detections, since a reset may cause jumps in time/break detection continuity
-        self._detection_ref_list = []
-        self._rejection_ref_list = []
+        self._detection_ref_dict = {}
+        self._rejection_ref_dict = {}
         
     # .................................................................................................................
     
@@ -190,26 +190,26 @@ class Detector_Stage(Reference_Detector):
         contour_list = get_contour_list_ocv_3_or_4(binary_frame_1ch)
         
         # Fill out bounding box list
-        new_detection_ref_list = []
-        reject_ref_list = []
-        for each_contour in contour_list:
+        new_detection_ref_dict = {}
+        reject_ref_dict = {}
+        for each_idx, each_contour in enumerate(contour_list):
             
             # Create a blob object for each contour found
-            new_blob = Reference_Detection_Object(each_contour)
+            new_detection = Reference_Detection_Object(each_contour)
             
             # Check that the bounding box is correctly sized before adding to list
-            goldi_width = (self.min_width_norm < new_blob.width < self.max_width_norm)
-            goldi_height = (self.min_height_norm < new_blob.height < self.max_height_norm)
+            goldi_width = (self.min_width_norm < new_detection.width < self.max_width_norm)
+            goldi_height = (self.min_height_norm < new_detection.height < self.max_height_norm)
             if goldi_width and goldi_height:
-                new_detection_ref_list.append(new_blob)
+                new_detection_ref_dict[each_idx] = new_detection
             else:
-                reject_ref_list.append(new_blob)
+                reject_ref_dict[each_idx] = new_detection
                 
         # Store the detections (mostly for analysis/debugging)
-        self._detection_ref_list = new_detection_ref_list
-        self._rejection_ref_list = reject_ref_list
+        self._detection_ref_dict = new_detection_ref_dict
+        self._rejection_ref_dict = reject_ref_dict
         
-        return new_detection_ref_list
+        return new_detection_ref_dict
     
     # .................................................................................................................
     # .................................................................................................................
@@ -219,10 +219,11 @@ class Detector_Stage(Reference_Detector):
     
 # .....................................................................................................................
 
-def draw_detections(stage_outputs, configurable_ref):
+def draw_detections(stage_outputs, configurable_ref,
+                    detection_color = (255, 255, 0), reject_color = (0, 0, 255)):
     
     # Grab a copy of the color image that we can draw on
-    display_frame = stage_outputs.get("preprocessor").get("preprocessed_frame")
+    display_frame = stage_outputs["preprocessor"]["preprocessed_frame"]
     detection_frame = display_frame.copy()
     
     # Get display controls
@@ -230,20 +231,22 @@ def draw_detections(stage_outputs, configurable_ref):
     show_outlines = configurable_ref._show_outlines
     show_rejections = configurable_ref._show_rejections
     
-    # Grab the detection list out so we can draw with it!
-    detection_ref_list = configurable_ref._detection_ref_list
-    rejection_ref_list = configurable_ref._rejection_ref_list if show_rejections else []
+    # Grab the detection dictionaries so we can draw with it!
+    detections_list = configurable_ref._detection_ref_dict.values()
+    rejections_list = configurable_ref._rejection_ref_dict.values() if show_rejections else []
     
     # Record frame sizing so we can draw normalized co-ordinate locations
     frame_h, frame_w = detection_frame.shape[0:2]
     frame_wh = np.array((frame_w, frame_h))
     
-    for list_idx, each_list in enumerate((rejection_ref_list, detection_ref_list)):
+    for list_idx, each_list in enumerate((rejections_list, detections_list)):
+        
+        is_reject = (list_idx == 0)
         for each_blob in each_list:
             
-            is_detect = (list_idx > 0)
-            blob_color = (255, 255, 0) if is_detect else (0, 0, 255)
-            box_color = (255, 255, 0) if is_detect else (0, 0, 255)
+            # Change color based on validity of detection
+            blob_color = reject_color if is_reject else detection_color
+            box_color = reject_color if is_reject else detection_color
             
             # Draw the blob bounding boxes (for detections only)
             if show_outlines:
