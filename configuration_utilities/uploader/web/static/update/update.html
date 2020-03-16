@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Update</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" href="data:;base64,iVBORw0KGgo=">
+    <link rel="stylesheet" type="text/css" href="/shared/shared.css">
+    <link rel="stylesheet" type="text/css" href="/shared/uploaders.css">
+    <link rel="stylesheet" type="text/css" href="/update/update.css">
+</head>
+
+<body>
+
+    <!-- Generic div to hold page content. CSS for this element is stored in shared file -->
+    <div class="layout_wrapper_div">
+
+        <header>Update</header>
+
+        <!-- Container div to help arrange main elements of this page into a column -->
+        <div class="content_container_div">
+
+            <!-- Explanation of how the 'update' upload works -->
+            <div class="explanation_div">
+                <p>The file updater allows for partial replacement of existing files. Only existing cameras can be updated.</p>
+                <p>The uploaded file should consist of one or more named camera folders and should be zipped. The name of the zipped file will be ignored.</p>
+                <p>The named camera folders should contain files to be updated. All files already on the system and not in the update file will not be modified!</p>
+            </div>
+
+            <!-- Define file upload elements -->
+            <form method="POST" action="/update/upload" enctype="multipart/form-data">
+                <label for="file_input" class="file_loader_label">
+                    <img src="/shared/icons/camera_folder.svg" alt="Upload camera folder(s)">
+                    <div id="upload_file_indicator">Upload Camera_Folder(s).zip</div>
+                </label>
+                <input type="file" id="file_input" name="upload_file" accept=".zip" onchange="this.form.submit()">
+            </form>
+
+        </div>
+
+        <footer onclick="window.location.href='/'">BACK</footer>
+    </div>
+
+</body>
+</html>

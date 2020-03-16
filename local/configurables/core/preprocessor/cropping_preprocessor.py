@@ -49,7 +49,6 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
-import cv2
 import numpy as np
 
 from local.configurables.core.preprocessor.reference_preprocessor import Reference_Preprocessor
@@ -202,6 +201,27 @@ class Preprocessor_Stage(Reference_Preprocessor):
             print(err)
             #print(self.output_w, self.output_h, self.interpolation_type)
             return frame
+        
+    # .................................................................................................................
+    
+    def unwarp_required(self):
+        # Only need to unwarp if cropping is enabled
+        return self._enable_cropping
+    
+    # .................................................................................................................
+
+    def unwarp_xy(self, warped_normalized_xy_npfloat32):
+        
+        # Get important crop scaling values
+        input_width, input_height = self.input_wh
+        crop_width, crop_height = self.output_wh
+        crop_y1, _, crop_x1, _ = self._crop_y1y2x1x2
+        
+        # If we do crop, the unwarp is handled 
+        new_x = ((warped_normalized_xy_npfloat32[:, 0] * (crop_width - 1) + crop_x1) / (input_width - 1))
+        new_y = ((warped_normalized_xy_npfloat32[:, 1] * (crop_height - 1) + crop_y1) / (input_height - 1))
+        
+        return np.vstack((new_x, new_y)).T
         
     # .................................................................................................................
     # .................................................................................................................

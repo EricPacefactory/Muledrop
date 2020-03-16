@@ -1,6 +1,6 @@
 
 // ---------------------------------------------------------------------------------------------------------------------
-// Define html element access helpers
+// Define html/css/url helper functions
 
 // DOM access helpers
 const getelem_camera_title = () => document.getElementById("camera_title_div");
@@ -32,16 +32,16 @@ const build_display_animation_url = (object_id) => `/animationrequest/${object_i
 // Initial setup
 // (All 'manually' run code is here! Everything else is handled with callbacks)
 
-// Define some globally used variables 
+// Define some globally used variables. These shouldn't be used directly! Use set/get functions instead!
 //   (note: using 'let' instead of 'var' hides these from the console!)
-let global_consts = {"object_id_list": [], "num_objects": null};
-let global_state = {"current_object_index": 0, "label_buttons_enabled": false};
+let _global_consts = {"object_id_list": []};
+let _global_state = {"current_object_index": 0, "label_buttons_enabled": false, "display_state": "image"};
 
 // Make initial request for data needed to generate starting UI
 fetch(build_setup_request_url())
 .then(flask_data_json_str => flask_data_json_str.json())
 .then(setup_global_constants_and_state)
-.then(setup_constant_ui_elements)
+.then(setup_initial_ui)
 .then(update_ui_for_new_object)
 .catch(error => console.error("Setup error:", error))
 
@@ -56,10 +56,9 @@ function setup_global_constants_and_state(setup_json_data) {
     // Some feedback
     console.log("Got setup data:", setup_json_data);
 
-    // Store global constants
+    // Store global constants.
     const object_id_list = setup_json_data["object_id_list"];
-    global_consts["object_id_list"] = object_id_list
-    global_consts["num_objects"] = object_id_list.length;
+    _global_consts["object_id_list"] = object_id_list
 
     // Set initial state
     set_current_object_index(0);
@@ -69,7 +68,7 @@ function setup_global_constants_and_state(setup_json_data) {
 
 // .....................................................................................................................
 
-function setup_constant_ui_elements(setup_json_data){
+function setup_initial_ui(setup_json_data){
 
     // Pull out only the terms we need to setup the constant UI elements
     const {camera_select, user_select, ordered_labels_list, ...rest} = setup_json_data;
@@ -77,7 +76,6 @@ function setup_constant_ui_elements(setup_json_data){
     // Set up camera title & dynamically create class label buttons
     create_camera_title(camera_select, user_select);
     create_label_buttons(ordered_labels_list);
-    enable_label_buttons();
 
     // Attach image/animation toggle callback to the image element
     const image_elem = getelem_display();
@@ -92,30 +90,42 @@ function setup_constant_ui_elements(setup_json_data){
 
 // .....................................................................................................................
 
-function toggle_display_callback(){
+function update_ui_for_new_object(){
 
-    // First figure out which state we're in by looking at the display img tag src url (default to 'image')
-    const current_display_route = get_display_src();
-    let current_display_state = "image";
-    if(current_display_route.includes("animation")){
-        current_display_state = "animation";
-    }
+    // Helper function which handles all updates needed when switching to a new object
+    set_object_id_title();
+    set_pixel_display_state("image");
+    update_label_button_highlighting();
+}
 
-    // Toggle between image/animation, depending on the whatever the current state is
-    let new_display_state = current_display_state;
-    switch(current_display_state){
-        case "image":
-            new_display_state = "animation";
-            break;
-        case "animation":
-            new_display_state = "image";
-            break;
-        default:
-            console.log("ERROR - Couldn't toggle display state. Unrecognized state:", current_display_state)
-    }
+// .....................................................................................................................
 
-    // Force display update
-    update_pixel_display(new_display_state);
+function set_object_id_title(){
+
+    // Get current selected object index & total number of objects, for feedback
+    const show_object_index = 1 + get_current_object_index();
+    const num_objects = get_object_count();
+
+    // Display the object index (i.e. count)
+    const index_indicator = `Object: ${show_object_index} / ${num_objects}`;
+    const object_index_indicator_div = getelem_objindex_indicator();
+    object_index_indicator_div.innerText = index_indicator;
+}
+
+// .....................................................................................................................
+
+function update_label_button_highlighting(){
+
+    // Get the current object id so we can request it's current labelling data
+    const current_object_id = get_current_object_id();
+
+    // Make the request for the object labelling data, then highlight the correspond class label button
+    const label_request_url = build_label_request_url(current_object_id)
+    fetch(label_request_url)
+    .then(flask_data_json_str => flask_data_json_str.json())
+    .then(label_request_json_data => label_request_json_data["class_label"])
+    .then(update_label_button_styling)
+    .catch(error => console.error("Label button update error:", error))
 }
 
 // .....................................................................................................................
@@ -127,7 +137,7 @@ function cycle_objects_callback(add_to_index){
 
         // Get the current object index (which we'll soon change) & total object count, for handling wrap-around
         const current_object_index = get_current_object_index();
-        const num_objects = global_consts["num_objects"];
+        const num_objects = get_object_count();
 
         // Handle both incrementing & decrementing wrap around
         let new_object_index = (current_object_index + add_to_index) % num_objects;
@@ -145,62 +155,38 @@ function cycle_objects_callback(add_to_index){
 
 // .....................................................................................................................
 
-function set_current_object_index(object_index){
-    global_state["current_object_index"] = object_index;
+function toggle_display_callback(){
+
+    // Get the current display state so we know which one to switch to
+    const current_display_state = get_pixel_display_state();
+
+    // Toggle between image/animation, depending on the whatever the current state is
+    let new_display_state = current_display_state;
+    switch(current_display_state){
+        case "image":
+            new_display_state = "animation";
+            break;
+        case "animation":
+            new_display_state = "image";
+            break;
+        default:
+            console.log("ERROR - Couldn't toggle display state. Unrecognized state:", current_display_state)
+    }
+
+    // Force display update
+    set_pixel_display_state(new_display_state);
 }
 
 // .....................................................................................................................
 
-function get_current_object_index(){
-    return global_state["current_object_index"];
-}
+function update_pixel_display_visuals(){
 
-// .....................................................................................................................
-
-function enable_label_buttons(){
-    global_state["label_buttons_enabled"] = true;
-}
-
-// .....................................................................................................................
-
-function disable_label_buttons(){
-    global_state["label_buttons_enabled"] = false;
-}
-
-// .....................................................................................................................
-
-function get_label_button_enable_state(){
-    return global_state["label_buttons_enabled"];
-}
-
-// .....................................................................................................................
-
-function get_current_object_id(){
-    const current_object_index = get_current_object_index();
-    return global_consts["object_id_list"][current_object_index];
-}
-
-// .....................................................................................................................
-
-function set_object_id_title(){
-
-    // Get current selected object index & total number of objects, for feedback
-    const show_object_index = 1 + get_current_object_index();
-    const num_objects = global_consts["num_objects"];
-
-    // Display the object index (i.e. count)
-    const index_indicator = `Object: ${show_object_index} / ${num_objects}`;
-    const object_index_indicator_div = getelem_objindex_indicator();
-    object_index_indicator_div.innerText = index_indicator;
-}
-
-// .....................................................................................................................
-
-function update_pixel_display(display_state){
-
+    // Get the current state so we set the display properly
+    const current_display_state = get_pixel_display_state();
     const current_object_id = get_current_object_id();
 
-    switch(display_state){
+    // Update visuals based on the current display state & selected object
+    switch(current_display_state){
         case "image":
             const image_url = build_display_image_url(current_object_id);
             set_display_src(image_url)
@@ -210,34 +196,8 @@ function update_pixel_display(display_state){
             set_display_src(animation_url)
             break;
         default:
-            console.log("ERROR - Couldn't set display! Unrecognized display state:", display_state);
+            console.log("ERROR - Couldn't set display! Unrecognized display state:", current_display_state);
     }
-}
-
-// .....................................................................................................................
-
-function update_label_buttons(){
-
-    // Get the current object id so we can request it's current labelling data
-    const current_object_id = get_current_object_id();
-
-    // Make the request for the object labelling data, then highlight the correspond class label button
-    const label_request_url = build_label_request_url(current_object_id)
-    fetch(label_request_url)
-    .then(flask_data_json_str => flask_data_json_str.json())
-    .then(label_request_json_data => label_request_json_data["class_label"])
-    .then(update_label_button_styling)
-    .catch(error => console.error("Label button update error:", error))
-}
-
-// .....................................................................................................................
-
-function update_ui_for_new_object(){
-
-    // Helper function which handles all updates needed when switching to a new object
-    set_object_id_title();
-    update_pixel_display("image");
-    update_label_buttons();
 }
 
 // .....................................................................................................................
@@ -269,6 +229,9 @@ function create_label_buttons(ordered_labels_list){
         // Finally, add the new button (li) to the parent ul-element
         label_block_ul.appendChild(new_label_button);
     };
+
+    // Lastly, make sure these buttons work after creation!
+    enable_label_buttons();
 }
 
 // .....................................................................................................................
@@ -294,7 +257,7 @@ function update_object_label_callback(new_class_label){
                                    new_class_label_string: new_class_label};
 
         // Some debugging feedback
-        console.log(`${current_object_id} label update -> ${new_class_label}`);
+        console.log(`label update -> ${current_object_id} : ${new_class_label}`);
         
         // Build full POST data
         const post_data_json = {method: fetch_method, 
@@ -305,7 +268,7 @@ function update_object_label_callback(new_class_label){
         const label_update_url = build_label_update_url();
         fetch(label_update_url, post_data_json)
         .then(disable_label_buttons)
-        .then(update_label_buttons)
+        .then(update_label_button_highlighting)
         .then(delay_promise_ms(350))
         .then(cycle_objects_callback(+1))
         .then(enable_label_buttons)
@@ -344,6 +307,83 @@ function delay_promise_ms(delay_ms){
 
 // .....................................................................................................................
 // .....................................................................................................................
+
+
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Define global state access functions
+
+// .....................................................................................................................
+
+function set_current_object_index(object_index){
+    _global_state["current_object_index"] = object_index;
+}
+
+// .....................................................................................................................
+
+function get_current_object_index(){
+    return _global_state["current_object_index"];
+}
+
+// .....................................................................................................................
+
+function enable_label_buttons(){
+    _global_state["label_buttons_enabled"] = true;
+}
+
+// .....................................................................................................................
+
+function disable_label_buttons(){
+    _global_state["label_buttons_enabled"] = false;
+}
+
+// .....................................................................................................................
+
+function get_label_button_enable_state(){
+    return _global_state["label_buttons_enabled"];
+}
+
+// .....................................................................................................................
+
+function set_pixel_display_state(new_display_state){
+
+    // Update global record of the display state
+    _global_state["display_state"] = new_display_state;
+
+    // Make sure the UI visuals match the new internal display state
+    update_pixel_display_visuals();
+}
+
+// .....................................................................................................................
+
+function get_pixel_display_state(){
+    return _global_state["display_state"];
+}
+
+// .....................................................................................................................
+// .....................................................................................................................
+
+
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Define global constants access functions
+
+// .....................................................................................................................
+
+function get_current_object_id(){
+    const current_object_index = get_current_object_index();
+    return _global_consts["object_id_list"][current_object_index];
+}
+
+// .....................................................................................................................
+
+function get_object_count(){
+    return _global_consts["object_id_list"].length;
+}
+
+// .....................................................................................................................
+// .....................................................................................................................
+
 
 
 // ---------------------------------------------------------------------------------------------------------------------

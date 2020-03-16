@@ -116,7 +116,8 @@ def delete_existing_summary_data(enable_deletion_prompt,
             return
     
     # If we get here, delete the files!
-    print("", "Deleting files:", "@ {}".format(summary_data_folder), sep="\n")
+    rel_data_folder = os.path.relpath(summary_data_folder, cameras_folder_path)
+    print("", "Deleting files:", "@ {}".format(rel_data_folder), sep="\n")
     rmtree(summary_data_folder)
 
 # .....................................................................................................................
@@ -138,7 +139,7 @@ user_select, _ = selector.user(camera_select, debug_mode=enable_debug_mode)
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Catalog existing data
 
-cam_db, snap_db, obj_db, _, summary_db, _ = \
+cinfo_db, rinfo_db, snap_db, obj_db, _, summary_db, _ = \
 launch_file_db(cameras_folder_path, camera_select, user_select,
                launch_snapshot_db = True,
                launch_object_db = True,
@@ -147,7 +148,8 @@ launch_file_db(cameras_folder_path, camera_select, user_select,
                launch_rule_db = False)
 
 # Catch missing data
-cam_db.close()
+cinfo_db.close()
+rinfo_db.close()
 close_dbs_if_missing_data(snap_db, obj_db)
 
 

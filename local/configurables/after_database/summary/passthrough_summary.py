@@ -49,8 +49,6 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
-import numpy as np
-
 from local.configurables.after_database.summary.reference_summary import Reference_Summary
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -68,57 +66,30 @@ class Summary_Stage(Reference_Summary):
     # .................................................................................................................
     
     def close(self):
-        
         # Passthrough doesn't open any resources, so nothing to close
-        
         return
+    
+    # .................................................................................................................
+    
+    def setup(self, variables_changed_dict):
+        # No variables to setup
+        pass
     
     # .................................................................................................................
     
     def request_object_data(self, object_id, object_database):
         
-        # Passthrough calculates basic start/end parameters and nothing else, but this requires objects trail data!
-        object_metadata = object_database.load_metadata_by_id(object_id)
-        object_trail_data = object_metadata["tracking"]
+        # Passthrough only reports the object id and nothing else!
+        object_data = object_id
         
-        return object_trail_data
+        return object_data
     
     # .................................................................................................................
     
-    # SHOULD OVERRIDE
     def summarize_one_object(self, object_data, snapshot_database):
         
-        '''
-        Function which performs actual summary operation, given some 'object_data' 
-        and access to the snapshot database, if needed.
-        Note that the object data can be in any format, 
-        depending on how it is output from the request_object_data() function.
-        
-        Must return:
-            summary_data_dict (dictionary)
-        '''
-        
-        # Bundle trail x/y values for convenience
-        trail_xy = np.vstack((object_data["x_center"], object_data["y_center"])).T
-        
-        # Calculate starting/end points and distance travelled
-        start_x, start_y = trail_xy[0, :]
-        end_x, end_y = trail_xy[-1, :]
-        
-        # Calculate direct distance between the start/end points
-        round_trip_delta = np.sqrt(np.square(end_x - start_x) + np.square(end_y - start_y))
-        
-        # Calculate the total path travel distance
-        distance_per_frame = np.linalg.norm(np.diff(trail_xy, axis = 0), axis = 1)
-        total_path_distance = np.sum(distance_per_frame)
-        
-        # Reference implementation just hard-codes an empty output
-        summary_data_dict = {"start_x": start_x,
-                             "end_x": end_x,
-                             "start_y": start_y,
-                             "end_y": end_y,
-                             "round_trip_delta": round_trip_delta,
-                             "total_path_distance": total_path_distance}
+        # Passthrough doesn't calculate any summary data!
+        summary_data_dict = {}
         
         return summary_data_dict
 

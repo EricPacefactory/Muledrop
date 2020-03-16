@@ -535,7 +535,7 @@ def jsonify_numpy_data(data):
         json_friendly_data
     '''
 
-    if type(data) in [list, tuple]:
+    if type(data) in {list, tuple}:
         json_friendly_data = [jsonify_numpy_data(each_value) for each_value in data]
         
     elif type(data) is dict:
@@ -544,10 +544,10 @@ def jsonify_numpy_data(data):
     elif type(data) is np.ndarray:
         json_friendly_data = data.tolist()
         
-    elif type(data) in [np.int, np.int32, np.int64]:
+    elif type(data) in {np.int, np.int32, np.int64}:
         json_friendly_data = int(data)
         
-    elif type(data) in [np.float, np.float16, np.float32, np.float64]:
+    elif type(data) in {np.float, np.float16, np.float32, np.float64}:
         json_friendly_data = float(data)
         
     else:

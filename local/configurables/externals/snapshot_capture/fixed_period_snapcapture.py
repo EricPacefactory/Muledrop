@@ -154,6 +154,11 @@ class Snapshot_Capture(Reference_Snapshot_Capture):
         
     # .................................................................................................................
     
+    def get_snapshot_wh(self):
+        return self._downscale_wh
+        
+    # .................................................................................................................
+    
     def setup(self, variables_changed_dict):
         
         # Pre-calculate the total number of seconds to wait between snapshots

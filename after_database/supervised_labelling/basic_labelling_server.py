@@ -111,7 +111,7 @@ def get_middle_image(object_full_id):
     obj_md = obj_db.load_metadata_by_id(object_full_id)
     
     # Reconstruct object from metadata, so we can draw it's data
-    snap_wh = snap_db.get_snap_frame_wh()
+    snap_wh = cinfo_db.get_snap_frame_wh()
     obj_ref = Obj_Recon(obj_md, snap_wh, earliest_datetime, latest_datetime)
     
     # Find 'middle' snapshot for drawing
@@ -119,12 +119,12 @@ def get_middle_image(object_full_id):
     middle_obj_epoch = int((last_epoch_ms + first_epoch_ms) / 2)
     
     # Get middle snapshot image and frame index, so we can draw the object on it
-    lower_closest_middle_snap_epoch, _ = snap_db.get_closest_snapshot_epoch(middle_obj_epoch)
-    snap_image, snap_frame_idx = snap_db.load_snapshot_image(lower_closest_middle_snap_epoch)
+    _, closest_middle_snap_epoch, _ = snap_db.get_closest_snapshot_epoch(middle_obj_epoch)
+    snap_image, snap_frame_idx = snap_db.load_snapshot_image(closest_middle_snap_epoch)
     
     # Draw reconstructed object onto the snapshot
-    snap_image = obj_ref.draw_outline(snap_image, snap_frame_idx, lower_closest_middle_snap_epoch)
-    snap_image = obj_ref.draw_trail(snap_image, snap_frame_idx, lower_closest_middle_snap_epoch)
+    snap_image = obj_ref.draw_outline(snap_image, snap_frame_idx, closest_middle_snap_epoch)
+    snap_image = obj_ref.draw_trail(snap_image, snap_frame_idx, closest_middle_snap_epoch)
     
     return snap_image
 
@@ -136,7 +136,7 @@ def get_animation(object_full_id, start_padded_time_ms = 3000, end_padded_time_m
     obj_md = obj_db.load_metadata_by_id(object_full_id)
     
     # Reconstruct object from metadata, so we can draw it's data
-    snap_wh = snap_db.get_snap_frame_wh()
+    snap_wh = cinfo_db.get_snap_frame_wh()
     obj_ref = Obj_Recon(obj_md, snap_wh, earliest_datetime, latest_datetime)
     first_epoch_ms, last_epoch_ms = obj_ref.get_bounding_epoch_ms()
     
@@ -189,7 +189,7 @@ user_select, _ = selector.user(camera_select, debug_mode=enable_debug_mode)
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Catalog existing data
 
-cam_db, snap_db, obj_db, _, _, _ = \
+cinfo_db, rinfo_db, snap_db, obj_db, _, _, _ = \
 launch_file_db(cameras_folder_path, camera_select, user_select,
                check_same_thread = False,
                launch_snapshot_db = True,
@@ -199,12 +199,12 @@ launch_file_db(cameras_folder_path, camera_select, user_select,
                launch_rule_db = False)
 
 # Catch missing data
-cam_db.close()
+rinfo_db.close()
 close_dbs_if_missing_data(snap_db, obj_db)
 
 # Get the maximum range of the data (based on the snapshots, because that's the most we could show)
 earliest_datetime, latest_datetime = snap_db.get_bounding_datetimes()
-snap_wh = snap_db.get_snap_frame_wh()
+snap_wh = cinfo_db.get_snap_frame_wh()
 
 # Get object metadata from the server
 object_id_list = obj_db.get_object_ids_by_time_range(earliest_datetime, latest_datetime)

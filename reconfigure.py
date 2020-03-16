@@ -58,9 +58,9 @@ from local.lib.ui_utils.script_arguments import script_arg_builder
 
 from local.lib.file_access_utils.externals import build_externals_folder_path
 from local.lib.file_access_utils.core import get_ordered_core_sequence, build_core_folder_path
-from local.lib.file_access_utils.read_write import load_with_error_if_missing
+from local.lib.file_access_utils.read_write import load_config_json
 
-from eolib.utils.files import get_file_list
+from eolib.utils.files import get_file_list, get_folder_list
 from eolib.utils.cli_tools import cli_confirm, cli_select_from_list, clear_terminal, clean_error_quit
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -141,7 +141,7 @@ def load_externals_info(project_root_path):
     utility_parent_folder = os.path.join(project_root_path, "configuration_utilities", "externals")
     
     # Figure out stage ordering for presenting the externals stage options
-    stage_ordering = sorted(os.listdir(utility_parent_folder))
+    stage_ordering = get_folder_list(utility_parent_folder, sort_list = True)
     
     # Get pathing to the corresponding config files for the selected camera & user
     configs_folder_path = build_externals_folder_path(cameras_folder_path, camera_select, user_select)
@@ -250,7 +250,7 @@ def get_default_option(configs_folder_path, stage_select):
         return None
     
     # If a file does exist, try to extract the configuration utility used to construct it
-    config_data = load_with_error_if_missing(existing_config_file_path)
+    config_data = load_config_json(existing_config_file_path)
     file_access_dict = config_data.get("access_info", {})
     previous_config_util_used = file_access_dict.get("configuration_utility", None)
     
@@ -309,7 +309,7 @@ def user_select_stage_option(stage_folder_path, stage_display_name, default_stag
     
     # Present options menu
     try:
-        option_path, option_display_name = _select_stage_option(stage_folder_path, 
+        option_path, option_display_name = _select_stage_option(stage_folder_path,
                                                                 stage_display_name,
                                                                 default_stage_option)
     

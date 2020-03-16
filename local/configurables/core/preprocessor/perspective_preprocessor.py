@@ -54,6 +54,8 @@ import numpy as np
 
 from local.configurables.core.preprocessor.reference_preprocessor import Reference_Preprocessor
 
+from local.configurables.core.preprocessor._helper_functions import unwarp_from_mapping
+
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
     
@@ -422,6 +424,20 @@ class Preprocessor_Stage(Reference_Preprocessor):
         cv2.polylines(display_frame, [ext_quad_px], is_closed, color, thickness, line_type)
         
         return display_frame
+    
+    # .................................................................................................................
+    
+    def unwarp_required(self):
+        # Only need to unwarp if the transform is enabled
+        return self.enable_transform
+    
+    # .................................................................................................................
+
+    def unwarp_xy(self, warped_normalized_xy_npfloat32):
+        # Standard unwarp implementation
+        return unwarp_from_mapping(warped_normalized_xy_npfloat32, 
+                                   self.input_wh, self.output_wh, 
+                                   self.x_mapping, self.y_mapping)
         
     # .................................................................................................................
     # .................................................................................................................

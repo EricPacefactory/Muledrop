@@ -51,7 +51,7 @@ find_path_to_local()
 
 import platform
 
-from local.lib.file_access_utils.read_write import load_or_create_json, load_replace_save
+from local.lib.file_access_utils.read_write import load_or_create_config_json, update_config_json
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define pathing functions
@@ -97,8 +97,8 @@ def load_history(project_root_path, enable = True):
     
     # First create history path, then load the history file
     history_path = build_path_to_selection_history(project_root_path)
-    history_config = load_or_create_json(history_path, default_config,
-                                         creation_printout = "Creating selection history file:")
+    history_config = load_or_create_config_json(history_path, default_config,
+                                                creation_printout = "Creating selection history file:")
     
     return history_config
 
@@ -112,7 +112,7 @@ def save_history(project_root_path, new_config, enable = True):
     
     # Create history path and the load existing history data, replace with new config and re-save
     history_path = build_path_to_selection_history(project_root_path)
-    load_replace_save(history_path, new_config)
+    update_config_json(history_path, new_config)
 
 # .....................................................................................................................
 # .....................................................................................................................
@@ -140,8 +140,8 @@ def load_screen_info(project_root_path, file_name = ".screen_info"):
     
     # First create history path, then load the history file
     file_path = build_path_to_screen_info(project_root_path)
-    screen_info_config = load_or_create_json(file_path, default_config,
-                                             creation_printout = "Creating screen info file:")
+    screen_info_config = load_or_create_config_json(file_path, default_config,
+                                                    creation_printout = "Creating screen info file:")
     
     return screen_info_config
 
@@ -160,8 +160,8 @@ def load_pathing_info(project_root_path):
     
     # Get path to the pathing info file and load/create it as needed
     pathing_info_file_path = build_path_to_pathing_info(project_root_path)
-    pathing_info_dict = load_or_create_json(pathing_info_file_path, default_pathing_info_dict,
-                                            creation_printout = "Creating pathing info file:")
+    pathing_info_dict = load_or_create_config_json(pathing_info_file_path, default_pathing_info_dict,
+                                                   creation_printout = "Creating pathing info file:")
     
     # Determine computer name, and check if we need to add the computer to the pathing info file
     computer_name = platform.uname().node
@@ -169,7 +169,7 @@ def load_pathing_info(project_root_path):
     if need_to_update:
         default_computer_entry_dict = {computer_name: default_empty_path}
         pathing_info_dict.update(default_computer_entry_dict)
-        load_replace_save(pathing_info_file_path, pathing_info_dict)
+        update_config_json(pathing_info_file_path, pathing_info_dict)
     
     # Finally, get the pathing to the camera, for this computer
     saved_camera_pathing = pathing_info_dict.get(computer_name, default_empty_path)

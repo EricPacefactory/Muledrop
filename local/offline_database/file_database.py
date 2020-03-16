@@ -50,15 +50,13 @@ find_path_to_local()
 #%% Imports
 
 import sqlite3
-import json
 import cv2
 import numpy as np
 import datetime as dt
 
 from time import perf_counter
 
-from local.lib.common.timekeeper_utils import datetime_to_epoch_ms
-from local.lib.common.timekeeper_utils import parse_isoformat_string, get_isoformat_string, isoformat_to_epoch_ms
+from local.lib.common.timekeeper_utils import time_to_epoch_ms, parse_isoformat_string, get_isoformat_string
 
 from local.lib.file_access_utils.reporting import build_camera_info_metadata_report_path
 from local.lib.file_access_utils.reporting import build_snapshot_image_report_path
@@ -66,14 +64,21 @@ from local.lib.file_access_utils.reporting import build_snapshot_metadata_report
 from local.lib.file_access_utils.reporting import build_object_metadata_report_path
 
 from local.lib.file_access_utils.classifier import load_label_lut_tuple, save_classifier_data
-from local.lib.file_access_utils.classifier import new_classification_entry
+from local.lib.file_access_utils.classifier import new_classifier_report_entry
 from local.lib.file_access_utils.classifier import build_classifier_adb_metadata_report_path
 
-from local.lib.file_access_utils.summary import save_summary_data, build_summary_adb_metadata_report_path
+from local.lib.file_access_utils.summary import save_summary_report_data, build_summary_adb_metadata_report_path
+
+from local.lib.file_access_utils.rules import save_rule_report_data
+from local.lib.file_access_utils.rules import build_rule_adb_metadata_report_path
+from local.lib.file_access_utils.rules import build_rule_adb_info_report_path
+from local.lib.file_access_utils.rules import new_rule_report_entry
+
+from local.lib.file_access_utils.read_write import load_jgz, fast_json_stringify, fast_json_to_dict
 
 from eolib.utils.cli_tools import cli_prompt_with_defaults
-from eolib.utils.read_write import load_json
-from eolib.utils.files import get_file_list
+from eolib.utils.files import get_file_list, get_folder_list
+from eolib.utils.quitters import ide_quit
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
@@ -134,6 +139,18 @@ class File_DB:
     
     # .................................................................................................................
     
+    def _list_table_columns(self, table_name):
+        
+        cursor = self._cursor()
+        cursor.execute("PRAGMA TABLE_INFO({})".format(table_name))
+        column_info_list = cursor.fetchall()
+        
+        column_names = fetchall_to_1d_list(column_info_list, 1)
+        
+        return column_names
+    
+    # .................................................................................................................
+    
     def _table_name(self):
         
         raise NotImplementedError("Need to specify a table name! ({})".format(self._class_name))
@@ -158,12 +175,12 @@ class File_DB:
 
     # .................................................................................................................
     
-    def head(self, number_to_return = 5):
+    def head(self, target_table_name = None, number_to_return = 5):
         
         ''' Function used to inspect the top few elements of the database '''
         
         # Get table name in more convenient format
-        table_name = self._table_name()
+        table_name = self._table_name() if (target_table_name is None) else self._table_name(target_table_name)
         
         # Add bounding brackets to table name, if needed
         missing_prefix_bracket = (table_name[0] != "[")
@@ -245,7 +262,7 @@ class File_DB:
 # /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
-class Camera_DB(File_DB):
+class Camera_Info_DB(File_DB):
     
     # .................................................................................................................
     
@@ -258,7 +275,7 @@ class Camera_DB(File_DB):
     # .................................................................................................................
     
     def _table_name(self):
-        return "[{}-info]".format(self.camera_select)
+        return "[{}-camerainfo]".format(self.camera_select)
     
     # .................................................................................................................
         
@@ -267,10 +284,17 @@ class Camera_DB(File_DB):
         cursor = self._cursor()
         
         # Define table columns
-        objs_columns = ["camera_name TEXT PRIMARY KEY",
+        objs_columns = ["mongo_id INTEGER", 
                         "ip_address TEXT",
-                        "datetime_isoformat TEXT",
-                        "time_zone TEXT"]
+                        "time_zone TEXT",
+                        "start_datetime_isoformat TEXT",
+                        "start_epoch_ms INTEGER PRIMARY KEY",
+                        "video_select TEXT",
+                        "video_fps REAL",
+                        "video_width INTEGER",
+                        "video_height INTEGER",
+                        "snapshot_width INTEGER",
+                        "snapshot_height INTEGER"]
         objs_column_str = ", ".join(objs_columns)
         
         # Initialize the table 
@@ -282,11 +306,17 @@ class Camera_DB(File_DB):
     
     # .................................................................................................................
     
-    def add_entry(self, ip_address, datetime_isoformat, time_zone):
+    def add_entry(self, mongo_id, ip_address, time_zone, start_datetime_isoformat, start_epoch_ms,
+                  video_select, video_fps, video_width, video_height,
+                  snapshot_width, snapshot_height):
         
         # Bundle data in the correct order for database entry
-        new_entry_var_list = ["camera_name", "ip_address", "datetime_isoformat", "time_zone"]
-        new_entry_value_list = [self.camera_select, ip_address, datetime_isoformat, time_zone]
+        new_entry_var_list = ["mongo_id", "ip_address", "time_zone", "start_datetime_isoformat", "start_epoch_ms",
+                              "video_select", "video_fps", "video_width", "video_height",
+                              "snapshot_width", "snapshot_height"]
+        new_entry_value_list = [mongo_id, ip_address, time_zone, start_datetime_isoformat, start_epoch_ms,
+                                video_select, video_fps, video_width, video_height,
+                                snapshot_width, snapshot_height]
         new_entry_q_list = ["?"] * len(new_entry_var_list)
         
         # Build insert command
@@ -304,25 +334,143 @@ class Camera_DB(File_DB):
     
     def get_camera_info(self):
         
-        # Build string to get total object count
+        # Build string to get all camera info
         select_cmd = "SELECT * FROM {}".format(self._table_name())
         
         # Get data from database!
         cursor = self._cursor()
         cursor.execute(select_cmd)
-        camera_info = cursor.fetchone()
+        camera_info = cursor.fetchall()
         
         # Make up fake camera info if nothing is returned, to avoid crippling errors
         if camera_info is None:
-            camera_info = (self.camera_select, None, None, None)
+            camera_info = [None] * 11
         
         # Break apart return value for clarity
-        camera_name, ip_address, datetime_isoformat, time_zone = camera_info
+        mongo_id, ip_address, time_zone, start_datetime_isoformat, start_epoch_ms, \
+        video_select, video_fps, video_width, video_height, snapshot_width, snapshot_height = camera_info[-1]
         
-        return camera_name, ip_address, datetime_isoformat, time_zone
+        return mongo_id, ip_address, time_zone, start_datetime_isoformat, start_epoch_ms, \
+               video_select, video_fps, video_width, video_height, snapshot_width, snapshot_height
+    
+    # .................................................................................................................
+    
+    def get_video_frame_wh(self):
+        
+        # Build selection commands
+        select_cmd = "SELECT video_width, video_height FROM {} LIMIT 1".format(self._table_name())
+        
+        # Get data from database!
+        cursor = self._cursor()
+        
+        # Get video sizing
+        cursor.execute(select_cmd)
+        video_wh = cursor.fetchall()[0]
+        
+        return video_wh
+    
+    # .................................................................................................................
+    
+    def get_snap_frame_wh(self):
+        
+        # Build selection commands
+        select_cmd = "SELECT snapshot_width, snapshot_height FROM {} LIMIT 1".format(self._table_name())
+        
+        # Get data from database!
+        cursor = self._cursor()
+        
+        # Get snapshot sizing
+        cursor.execute(select_cmd)
+        snap_wh = cursor.fetchall()[0]
+        
+        return snap_wh
     
     # .................................................................................................................
     # .................................................................................................................
+
+
+# /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+# /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+class Rule_Info_DB(File_DB):
+    
+    # .................................................................................................................
+    
+    def __init__(self, cameras_folder_path, camera_select, user_select,
+                 db_path = ":memory:", check_same_thread = True):
+        
+        # Inherit from parent
+        super().__init__(cameras_folder_path, camera_select, user_select, db_path, check_same_thread)
+    
+    # .................................................................................................................
+    
+    def _table_name(self):
+        return "[{}-ruleinfo]".format(self.camera_select)
+    
+    # .................................................................................................................
+        
+    def _initialize_tables(self):
+        
+        cursor = self._cursor()
+        
+        # Define table columns
+        ruleinfo_columns = ["rule_name TEXT PRIMARY KEY",
+                            "rule_type TEXT",
+                            "configuration_json TEXT"]
+        ruleinfo_column_str = ", ".join(ruleinfo_columns)
+        
+        # Initialize the table 
+        ruleinfo_table_name = self._table_name()
+        ruleinfo_cursor_cmd = "CREATE TABLE {}({})".format(ruleinfo_table_name, ruleinfo_column_str)
+        cursor.execute(ruleinfo_cursor_cmd)
+            
+        self.connection.commit()
+    
+    # .................................................................................................................
+    
+    def add_entry(self, rule_name, rule_type, configuration_json):
+        
+        # Bundle data in the correct order for database entry
+        new_entry_var_list = ["rule_name", "rule_type", "configuration_json"]
+        new_entry_value_list = [rule_name, rule_type, configuration_json]
+        new_entry_q_list = ["?"] * len(new_entry_var_list)
+        
+        # Build insert command
+        insert_table = self._table_name()
+        insert_vars = ", ".join(new_entry_var_list)
+        insert_qs = ",".join(new_entry_q_list)
+        insert_cmd = "INSERT INTO {}({}) VALUES({})".format(insert_table, insert_vars, insert_qs)
+        
+        # Update the database!
+        cursor = self._cursor()
+        cursor.execute(insert_cmd, new_entry_value_list)
+        self.connection.commit()
+    
+    # .................................................................................................................
+    
+    def get_rule_info(self):
+        
+        # Build string to get all rule info
+        select_cmd = "SELECT * FROM {}".format(self._table_name())
+        
+        # Get data from database!
+        cursor = self._cursor()
+        cursor.execute(select_cmd)
+        rule_info_list = cursor.fetchall()
+        
+        # Bundle each rule info entry into a dictionary, separated by rule names (keys)
+        rule_info_result_dict = {}
+        for each_rule_name, each_rule_type, each_configuration_json in rule_info_list:
+            configuration_dict = fast_json_to_dict(each_configuration_json)            
+            rule_info_result_dict[each_rule_name] = {"rule_type": each_rule_type, 
+                                                     "configuration": configuration_dict}
+        
+        return rule_info_result_dict
+    
+    # .................................................................................................................
+    # .................................................................................................................
+
 
 # /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 # /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -379,13 +527,10 @@ class Snap_DB(File_DB):
         cursor = self._cursor()
         
         # Initialize table for snapshot metadata
-        snaps_columns = ["name TEXT", 
-                         "count INTEGER",
+        snaps_columns = ["mongo_id INTEGER",
                          "frame_index INTEGER",
                          "datetime_isoformat TEXT",
-                         "epoch_ms INTEGER PRIMARY KEY",
-                         "snap_width INTEGER",
-                         "snap_height INTEGER"]
+                         "epoch_ms INTEGER PRIMARY KEY"]
         snaps_column_str = ", ".join(snaps_columns)
         snaps_cursor_cmd = "CREATE TABLE {}({})".format(self._table_name(), snaps_column_str)
         cursor.execute(snaps_cursor_cmd)
@@ -394,13 +539,11 @@ class Snap_DB(File_DB):
     
     # .................................................................................................................
     
-    def add_entry(self, name, count, frame_index, datetime_isoformat, epoch_ms, snap_width, snap_height):
+    def add_entry(self, mongo_id, frame_index, datetime_isoformat, epoch_ms):
         
         # Bundle data in the correct order for database entry
-        new_entry_var_list = ["name", "count", "frame_index", "datetime_isoformat", "epoch_ms", 
-                              "snap_width", "snap_height"]
-        new_entry_value_list = [name, count, frame_index, datetime_isoformat,  epoch_ms, 
-                                snap_width, snap_height]
+        new_entry_var_list = ["mongo_id", "frame_index", "datetime_isoformat", "epoch_ms"]
+        new_entry_value_list = [mongo_id, frame_index, datetime_isoformat,  epoch_ms]
         new_entry_q_list = ["?"] * len(new_entry_var_list)
         
         # Build insert command
@@ -473,8 +616,8 @@ class Snap_DB(File_DB):
     def get_all_snapshot_times_by_time_range(self, start_time, end_time):
         
         # Convert input times to epoch values
-        start_epoch_ms = _time_to_epoch_ms(start_time)
-        end_epoch_ms = _time_to_epoch_ms(end_time)
+        start_epoch_ms = time_to_epoch_ms(start_time)
+        end_epoch_ms = time_to_epoch_ms(end_time)
         
         # Build command string for getting all snapshot times between start/end
         select_cmd = "SELECT epoch_ms FROM {} WHERE epoch_ms BETWEEN {} and {}".format(self._table_name(), 
@@ -507,8 +650,21 @@ class Snap_DB(File_DB):
     
     def get_closest_snapshot_epoch(self, target_time):
         
+        ''' 
+        Function which takes an input time and returns snapshot epochs that are closest to the input 
+        Inputs:
+            target_time --> Can be of type: epoch value, datetime object, isoformat datetime string,
+        
+        Outputs:
+            floor_closest_epoch_ms, closest_epoch_ms, ceil_closest_epoch_ms
+            
+        *** Note, the floor/ceil outputs are the bounding times around the given target time.
+            The middle output (closest_epoch_ms) is whichever bounding time is closest to the target
+            (favors the floor time if the bounds are equidistant from the target!)
+        '''
+        
         # Convert time input into an epoch_ms value to search database
-        target_epoch_ms = _time_to_epoch_ms(target_time)
+        target_epoch_ms = time_to_epoch_ms(target_time)
         
         # Build selection commands
         ceil_select_cmd = """
@@ -530,12 +686,12 @@ class Snap_DB(File_DB):
         
         # Get lower bound snapshot
         cursor.execute(floor_select_cmd)
-        floor_snapshot_epoch_ms = cursor.fetchone()
+        floor_snapshot_epoch_ms = cursor.fetchone()[0]
         no_floor = (floor_snapshot_epoch_ms is None)
         
         # Get upper bound snapshot
         cursor.execute(ceil_select_cmd)
-        ceil_snapshot_epoch_ms = cursor.fetchone()
+        ceil_snapshot_epoch_ms = cursor.fetchone()[0]
         no_ceil = (ceil_snapshot_epoch_ms is None)
         
         # Deal with missing return values
@@ -546,23 +702,11 @@ class Snap_DB(File_DB):
         if no_floor:
             floor_snapshot_epoch_ms = ceil_snapshot_epoch_ms
         
-        return floor_snapshot_epoch_ms[0], ceil_snapshot_epoch_ms[0]
-    
-    # .................................................................................................................
-    
-    def get_snap_frame_wh(self):
+        # Finally, grab the resulting values and figure out which is actually closest to the input time
+        upper_is_closer = ((ceil_snapshot_epoch_ms - target_epoch_ms) > (target_epoch_ms - floor_snapshot_epoch_ms))
+        closest_snapshot_epoch_ms = ceil_snapshot_epoch_ms if upper_is_closer else floor_snapshot_epoch_ms
         
-        # Build selection commands
-        select_cmd = "SELECT snap_width, snap_height FROM {} LIMIT 1".format(self._table_name())
-        
-        # Get data from database!
-        cursor = self._cursor()
-        
-        # Get lower bound snapshot
-        cursor.execute(select_cmd)
-        snap_wh = cursor.fetchall()[0]
-        
-        return snap_wh
+        return floor_snapshot_epoch_ms, closest_snapshot_epoch_ms, ceil_snapshot_epoch_ms
     
     # .................................................................................................................
     
@@ -591,13 +735,10 @@ class Snap_DB(File_DB):
         target_snapshot_entry = cursor.fetchone()
         
         # Convert output into dictionary for easier use
-        output_dict = {"name": target_snapshot_entry[0],
-                       "count": target_snapshot_entry[1],
-                       "frame_index": target_snapshot_entry[2],
-                       "datetime_isoformat": target_snapshot_entry[3],
-                       "epoch_ms": target_snapshot_entry[4],
-                       "snap_width": target_snapshot_entry[5],
-                       "snap_height": target_snapshot_entry[6]}
+        output_dict = {"mongo_id": target_snapshot_entry[0],
+                       "frame_index": target_snapshot_entry[1],
+                       "datetime_isoformat": target_snapshot_entry[2],
+                       "epoch_ms": target_snapshot_entry[3]}
         
         return output_dict
     
@@ -617,11 +758,11 @@ class Snap_DB(File_DB):
         
         # First get snapshot metadata, so we can look up the correct image by name
         snap_md = self.load_snapshot_metadata(target_epoch_ms)
-        snap_name = snap_md["name"]
+        snap_epoch_ms = snap_md["epoch_ms"]
         snap_frame_index = snap_md["frame_index"]
         
         # Build pathing to the corresponding image
-        snap_image_name = "{}.jpg".format(snap_name)
+        snap_image_name = "{}.jpg".format(snap_epoch_ms)
         snap_image_path = os.path.join(self.snap_images_folder_path, snap_image_name)
         
         # Crash if we can't find the image, since that shouldn't happen offline...
@@ -661,15 +802,16 @@ class Object_DB(File_DB):
         cursor = self._cursor()
         
         # Define table columns
-        objs_columns = ["full_id INTEGER PRIMARY KEY",
+        objs_columns = ["mongo_id INTEGER",
+                        "full_id INTEGER PRIMARY KEY",
                         "nice_id INTEGER", 
                         "ancestor_id INTEGER", 
-                        "decendent_id INTEGER",
+                        "descendant_id INTEGER",
                         "is_final INTEGER",
                         "detection_class TEXT",
                         "classification_score REAL",
                         "first_epoch_ms INTEGER",
-                        "last_epoch_ms INTEGER",
+                        "final_epoch_ms INTEGER",
                         "lifetime_ms INTEGER", 
                         "start_frame_index INTEGER",
                         "end_frame_index INTEGER",
@@ -686,19 +828,19 @@ class Object_DB(File_DB):
         
     # .................................................................................................................
     
-    def add_entry(self, full_id, nice_id, ancestor_id, decendent_id, is_final,
+    def add_entry(self, mongo_id, full_id, nice_id, ancestor_id, descendant_id, is_final,
                   detection_class, classification_score,
-                  first_epoch_ms, last_epoch_ms, lifetime_ms,
+                  first_epoch_ms, final_epoch_ms, lifetime_ms,
                   start_frame_index, end_frame_index, num_samples, metadata_json):
         
         # Bundle data in the correct order for database entry
-        new_entry_var_list = ["full_id", "nice_id", "ancestor_id", "decendent_id", "is_final",
+        new_entry_var_list = ["mongo_id", "full_id", "nice_id", "ancestor_id", "descendant_id", "is_final",
                               "detection_class", "classification_score",
-                              "first_epoch_ms", "last_epoch_ms", "lifetime_ms",
+                              "first_epoch_ms", "final_epoch_ms", "lifetime_ms",
                               "start_frame_index", "end_frame_index", "num_samples", "metadata_json"]
-        new_entry_value_list = [full_id, nice_id, ancestor_id, decendent_id, is_final,
+        new_entry_value_list = [mongo_id, full_id, nice_id, ancestor_id, descendant_id, is_final,
                                 detection_class, classification_score,
-                                first_epoch_ms, last_epoch_ms, lifetime_ms,
+                                first_epoch_ms, final_epoch_ms, lifetime_ms,
                                 start_frame_index, end_frame_index, num_samples,  metadata_json]
         new_entry_q_list = ["?"] * len(new_entry_var_list)
         
@@ -732,8 +874,8 @@ class Object_DB(File_DB):
     def get_object_ids_by_time_range(self, start_time, end_time):
         
         # Convert time values into epoch_ms values for searching
-        start_epoch_ms = _time_to_epoch_ms(start_time)
-        end_epoch_ms = _time_to_epoch_ms(end_time)
+        start_epoch_ms = time_to_epoch_ms(start_time)
+        end_epoch_ms = time_to_epoch_ms(end_time)
         
         # Build selection commands
         table_name = self._table_name()        
@@ -741,7 +883,7 @@ class Object_DB(File_DB):
                      SELECT full_id
                      FROM {}
                      WHERE 
-                     last_epoch_ms >= {} 
+                     final_epoch_ms >= {} 
                      AND 
                      first_epoch_ms <= {}
                      """.format(table_name, start_epoch_ms, end_epoch_ms)
@@ -763,7 +905,7 @@ class Object_DB(File_DB):
     def get_ids_at_target_time(self, target_time):
         
         # Convert time value into epoch_ms value to search database
-        target_epoch_ms = _time_to_epoch_ms(target_time)
+        target_epoch_ms = time_to_epoch_ms(target_time)
         
         # Build selection commands
         table_name = self._table_name()
@@ -772,7 +914,7 @@ class Object_DB(File_DB):
                      FROM {}
                      WHERE {} 
                      BETWEEN 
-                     first_epoch_ms AND last_epoch_ms
+                     first_epoch_ms AND final_epoch_ms
                      """.format(table_name, target_epoch_ms)
                      
         # Get data from database!
@@ -805,7 +947,7 @@ class Object_DB(File_DB):
         metadata_json = cursor.fetchone()[0]
         
         # Convert to python dictionary so we can actually interact with it!
-        metadata_dict = json.loads(metadata_json)
+        metadata_dict = fast_json_to_dict(metadata_json)
         
         return metadata_dict
     
@@ -927,7 +1069,38 @@ class Classification_DB(File_DB):
         outline_color_bgr = outline_color_rgb[::-1]
         
         return trail_color_bgr, outline_color_bgr
+    
+    # .................................................................................................................
+    
+    def get_label_color_luts(self, as_bgr = True):
         
+        ''' 
+        Function which returns two dictionaries which store the color of each class trail/outline by class label
+        
+        Inputs:
+            as_bgr --> Boolean. If true, colors are returned in bgr format, otherwise uses rgb
+            
+        Outputs:
+            trail_color_lut, outline_color_lut
+            
+        Example outputs:
+            trail_color_lut = {"unclassified": (0, 255, 255), "pedestrian": (0, 255, 255), ...}
+            outline_color_lut = {"unclassified": (0, 255, 255), "pedestrian": (0, 255, 0), ...}
+        '''
+        
+        # Loop over all the known class labels and pull out the trail and outline colors separately
+        trail_color_lut = {}
+        outline_color_lut = {}
+        for each_class_label, label_data_dict in self._class_label_lut.items():
+            trail_color_rgb = label_data_dict["trail_color"]
+            outline_color_rgb = label_data_dict["outline_color"]
+            trail_color = trail_color_rgb[::-1] if as_bgr else trail_color_rgb
+            outline_color = outline_color_rgb[::-1] if as_bgr else outline_color_rgb
+            trail_color_lut[each_class_label] = trail_color
+            outline_color_lut[each_class_label] = outline_color
+            
+        return trail_color_lut, outline_color_lut
+    
     # .................................................................................................................
     
     def get_all_object_ids(self):
@@ -962,15 +1135,15 @@ class Classification_DB(File_DB):
             
         except IndexError:
             # If we don't find the object, return a default entry
-            new_class_dict =  new_classification_entry(object_id)
+            new_class_dict = new_classifier_report_entry(object_id)
             class_label = new_class_dict["class_label"]
             score_pct = new_class_dict["score_pct"]
             subclass = new_class_dict["subclass"]
             attributes_dict = new_class_dict["attributes"]            
-            attributes_json = json.dumps(attributes_dict)
+            attributes_json = fast_json_stringify(attributes_dict)
         
         # Convert attributes back to python dictionary for convenience
-        attributes_dict = json.loads(attributes_json)
+        attributes_dict = fast_json_to_dict(attributes_json)
         
         return class_label, score_pct, subclass, attributes_dict
     
@@ -1025,7 +1198,7 @@ class Summary_DB(File_DB):
     # .................................................................................................................
     
     def _table_name(self):        
-        return "[summary-({})]".format(self.camera_select)
+        return "[{}-summary]".format(self.camera_select)
     
     # .................................................................................................................
         
@@ -1033,7 +1206,7 @@ class Summary_DB(File_DB):
         
         cursor = self._cursor()
         
-        # Define object classification table columns
+        # Define object summary table columns
         objs_columns = ["full_id INTEGER PRIMARY KEY",
                         "summary_data_json TEXT"]
         objs_column_str = ", ".join(objs_columns)
@@ -1070,7 +1243,7 @@ class Summary_DB(File_DB):
     def save_entry(self, full_id, new_summary_data_dict):
         
         # Save a file to represent the summary data
-        save_summary_data(self.cameras_folder_path, self.camera_select, self.user_select, 
+        save_summary_report_data(self.cameras_folder_path, self.camera_select, self.user_select, 
                           full_id, new_summary_data_dict)
     
     # .................................................................................................................
@@ -1086,8 +1259,12 @@ class Summary_DB(File_DB):
         cursor.execute(select_cmd)
         summary_data_json = cursor.fetchone()
         
+        # Handle missing data case
+        if summary_data_json is None:
+            summary_data_json = ("{}",)
+        
         # Convert to a dictionary for python usage
-        summary_data_dict = json.loads(summary_data_json)
+        summary_data_dict = fast_json_to_dict(summary_data_json[0])
         
         return summary_data_dict
     
@@ -1103,35 +1280,160 @@ class Rule_DB(File_DB):
     
     # .................................................................................................................
     
-    def __init__(self, rule_name, cameras_folder_path, camera_select, user_select,
+    def __init__(self, cameras_folder_path, camera_select, user_select,
                  db_path = ":memory:", check_same_thread = True):
         
-        # Store additional rule information
-        self.rule_name = rule_name
+        # Allocate storage for known rule names
+        self.rule_name_set = set()
         
         # Inherit from parent
         super().__init__(cameras_folder_path, camera_select, user_select, db_path, check_same_thread)
     
     # .................................................................................................................
     
-    def _table_name(self):        
-        return "[rule-({})]".format(self.rule_name)
+    def _table_name(self, rule_name):
+        return "[{}-rule-{}]".format(self.camera_select, rule_name)
     
     # .................................................................................................................
         
     def _initialize_tables(self):
         
-        raise NotImplementedError("Need to initial table(s)! ({})".format(self._class_name))
+        # Find all known rule names
+        self.rule_name_set = self._get_existing_rule_report_names(self.cameras_folder_path, 
+                                                                  self.camera_select, 
+                                                                  self.user_select)
         
-        return None
+        # Create a table for all known rules
+        for each_rule_name in self.rule_name_set:            
+            self._create_rule_table(each_rule_name)
+        
+    # .................................................................................................................
+    
+    def _create_rule_table(self, rule_name):
+        
+        # Define rule table columns
+        objs_columns = ["full_id INTEGER PRIMARY KEY",
+                        "rule_type TEXT",
+                        "num_violations INTEGER",
+                        "rule_results_dict_json TEXT",
+                        "rule_results_list_json TEXT"]
+        objs_column_str = ", ".join(objs_columns)
+        
+        # Initialize a table for rule data
+        cursor = self._cursor()
+        table_name = self._table_name(rule_name)
+        objs_cursor_cmd = "CREATE TABLE {}({})".format(table_name, objs_column_str)
+        cursor.execute(objs_cursor_cmd)
+        self.connection.commit()
     
     # .................................................................................................................
     
-    def add_entry(self, *args, **kwargs):
+    def register_new_rule(self, rule_name):
         
-        raise NotImplementedError("Add entry function not implemented! ({})".format(self._class_name))
+        # Don't need to do anything if we already know about the given rule name
+        if rule_name in self.rule_name_set:
+            return
         
-        return None
+        # If we don't know about the rule name, create a table for it and record it's name
+        self._create_rule_table(rule_name)
+        self.rule_name_set.add(rule_name)
+    
+    # .................................................................................................................
+    
+    def add_entry(self, rule_name, full_id, rule_type, num_violations, 
+                  rule_results_dict_json = "{}", rule_results_list_json = "[]"):
+        
+        # Bundle data in the correct order for database entry
+        new_entry_var_list = ["full_id", "rule_type", "num_violations", 
+                              "rule_results_dict_json", "rule_results_list_json"]
+        new_entry_value_list = [full_id, rule_type, num_violations, rule_results_dict_json, rule_results_list_json]
+        new_entry_q_list = ["?"] * len(new_entry_var_list)
+        
+        # Build insert command
+        insert_table = self._table_name(rule_name)
+        insert_vars = ", ".join(new_entry_var_list)
+        insert_qs = ",".join(new_entry_q_list)
+        insert_cmd = "INSERT INTO {}({}) VALUES({})".format(insert_table, insert_vars, insert_qs)
+        
+        try:
+            # Update the database!
+            cursor = self._cursor()
+            cursor.execute(insert_cmd, new_entry_value_list)
+            self.connection.commit()
+        except sqlite3.OperationalError as err:
+            
+            print("", "",
+                  "Error adding to table: {}".format(insert_table), 
+                  "Table columns:",
+                  self._list_table_columns(insert_table),
+                  "",
+                  sep = "\n")
+            
+            ide_quit(err)
+        
+        return
+    
+    # .................................................................................................................
+    
+    def save_entry(self, rule_name, rule_type, object_full_id, new_rule_results_dict, new_rule_results_list):
+        
+        # Save a file to represent the rule evalation data
+        save_rule_report_data(self.cameras_folder_path, self.camera_select, self.user_select, 
+                              rule_name, rule_type, object_full_id, new_rule_results_dict, new_rule_results_list)
+    
+    # .................................................................................................................
+    
+    def load_rule_data(self, rule_name, object_id):
+        
+        # Build selection commands
+        table_name = self._table_name(rule_name)
+        select_cmd = """SELECT * FROM {} WHERE full_id = {}""".format(table_name, object_id)
+        
+        # Get data from database!
+        cursor = self._cursor()
+        cursor.execute(select_cmd)
+        rule_data = cursor.fetchall()
+        
+        # Unbundle for clarity
+        try:
+            _, rule_type, num_violations, rule_results_dict_json, rule_results_list_json = rule_data[0]
+            
+        except IndexError:
+            # If we don't find the object/entry, return a default entry
+            new_rule_dict = new_rule_report_entry(object_id, "missing", {}, [])
+            rule_type = new_rule_dict["rule_type"]
+            num_violations = new_rule_dict["num_violations"]
+            rule_results_dict = new_rule_dict["rule_results_dict"]
+            rule_results_list = new_rule_dict["rule_results_list"]
+            
+            # Convert to valid json data to mimic 'normal' database return
+            rule_results_dict_json = fast_json_stringify(rule_results_dict)
+            rule_results_list_json = fast_json_stringify(rule_results_list)
+        
+        # Convert json entries back to python data type for convenience
+        rule_results_dict = fast_json_to_dict(rule_results_dict_json)
+        rule_results_list = fast_json_to_dict(rule_results_list_json)
+        
+        return rule_type, num_violations, rule_results_dict, rule_results_list
+    
+    # .................................................................................................................
+    
+    def _get_existing_rule_report_names(self, cameras_folder_path, camera_select, user_select):
+        
+        # Check reporting folder for rule results
+        rule_report_folder_path = build_rule_adb_metadata_report_path(cameras_folder_path, camera_select, user_select)
+        
+        # Get all reporting folders
+        rule_report_folders_list = get_folder_list(rule_report_folder_path, 
+                                                   show_hidden_folders = False, 
+                                                   create_missing_folder = False, 
+                                                   return_full_path = False, 
+                                                   sort_list = False)
+        
+        # Build a set containing all rule names (based on folder names)
+        rule_name_set = set(rule_report_folders_list)
+        
+        return rule_name_set
     
     # .................................................................................................................
     # .................................................................................................................
@@ -1143,31 +1445,6 @@ class Rule_DB(File_DB):
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define functions
-
-# .................................................................................................................
-
-def _time_to_epoch_ms(time_value):
-    
-    value_type = type(time_value)
-    
-    # If an integer is provided, assume it is already an epoch_ms value
-    if value_type in [int, np.int64]:
-        return time_value
-    
-    # If a float is provided, assume it is an epoch_ms value, so return integer version
-    elif value_type is float:
-        return int(round(time_value))
-    
-    # If a datetime vlaue is provided, use timekeeper library to convert
-    elif value_type is dt.datetime:
-        return datetime_to_epoch_ms(time_value)
-    
-    # If a string is provided, assume it is an isoformat datetime string
-    elif value_type is str:
-        return isoformat_to_epoch_ms(time_value)
-    
-    # If we get here, we could've parse the time!
-    raise TypeError("Unable to parse input time value: {}, type: {}".format(time_value, value_type))
 
 # .....................................................................................................................
 
@@ -1231,17 +1508,59 @@ def _post_camera_info_metadata(camera_info_metadata_folder_path, database):
                                         return_full_path = True, 
                                         sort_list = False)
     
-    # Add each snapshot entry to the database
-    for each_path in info_file_path_list:
+    # Add each camera entry to the database
+    for each_file_path in info_file_path_list:
         
         # Pull data out of the camera info metadata file
-        obj_info_md = load_json(each_path)
-        ip_address = obj_info_md["ip_address"]
-        datetime_isoformat = obj_info_md["datetime_isoformat"]
-        time_zone = obj_info_md["time_zone"]
+        cam_info_md = load_jgz(each_file_path)
+        mongo_id = cam_info_md["_id"]
+        ip_address = cam_info_md["ip_address"]
+        time_zone = cam_info_md["time_zone"]
+        start_datetime_isoformat = cam_info_md["start_datetime_isoformat"]
+        start_epoch_ms = cam_info_md["start_epoch_ms"]
+        video_select = cam_info_md["video_select"]
+        video_fps = cam_info_md["video_fps"]
+        video_width = cam_info_md["video_width"]
+        video_height = cam_info_md["video_height"]
+        snapshot_width = cam_info_md["snapshot_width"]
+        snapshot_height = cam_info_md["snapshot_height"]
         
         # 'POST' to the database
-        database.add_entry(ip_address, datetime_isoformat, time_zone)
+        database.add_entry(mongo_id, ip_address, time_zone, start_datetime_isoformat, start_epoch_ms,
+                           video_select, video_fps, video_width, video_height,
+                           snapshot_width, snapshot_height)
+    
+    # End timing
+    t_end = perf_counter()
+    time_taken_sec = (t_end - t_start)
+    
+    return time_taken_sec
+
+# .....................................................................................................................
+
+def _post_rule_info_metadata(rule_info_metadata_folder_path, database):
+    
+    # Start timing
+    t_start = perf_counter()
+    
+    # Get all files, read the saved data and post appropriately to the database
+    rule_info_file_path_list = get_file_list(rule_info_metadata_folder_path, 
+                                             return_full_path = True, 
+                                             sort_list = False)
+    
+    # Add each rule info entry to the database
+    for each_file_path in rule_info_file_path_list:
+        
+        # Pull data out of the rule info metadata file
+        rule_info_md = load_jgz(each_file_path)
+        rule_name = rule_info_md["rule_name"]
+        rule_type = rule_info_md["rule_type"]
+        configuration_dict = rule_info_md["configuration"]
+        
+        configuration_json = fast_json_stringify(configuration_dict)
+        
+        # 'POST' to the database
+        database.add_entry(rule_name, rule_type, configuration_json)
     
     # End timing
     t_end = perf_counter()
@@ -1262,19 +1581,17 @@ def _post_snapshot_metadata(snapshot_metadata_folder_path, database):
                                        sort_list = False)
     
     # Add each snapshot entry to the database
-    for each_path in snapshot_path_list:
+    for each_file_path in snapshot_path_list:
         
         # Pull data out of the snapshot metadata file
-        snap_md = load_json(each_path)
-        name = snap_md["name"]
-        count = snap_md["count"]
+        snap_md = load_jgz(each_file_path)
+        mongo_id = snap_md["_id"]
         frame_index = snap_md["frame_index"]
         datetime_isoformat = snap_md["datetime_isoformat"]
         epoch_ms = snap_md["epoch_ms"]
-        snap_width, snap_height = snap_md["snap_wh"]
         
         # 'POST' to the database
-        database.add_entry(name, count, frame_index, datetime_isoformat, epoch_ms, snap_width, snap_height)
+        database.add_entry(mongo_id, frame_index, datetime_isoformat, epoch_ms)
     
     # End timing
     t_end = perf_counter()
@@ -1295,34 +1612,35 @@ def _post_object_metadata(object_metadata_folder_path, database):
                                     sort_list = False)
     
     # Add each object entry to the database
-    for each_path in objmd_path_list:
+    for each_file_path in objmd_path_list:
         
         # Pull data out of the object metadata file
-        obj_md = load_json(each_path)
+        obj_md = load_jgz(each_file_path)
+        mongo_id = obj_md["_id"]
         full_id = obj_md["full_id"]
         nice_id = obj_md["nice_id"]
         ancestor_id = obj_md["ancestor_id"]
-        decendent_id = obj_md["decendent_id"]
+        descendant_id = obj_md["descendant_id"]
         is_final = obj_md["is_final"]
         
         detection_class = obj_md["detection_class"]
         classification_score = obj_md["classification_score"]
         
-        first_epoch_ms = obj_md["timing"]["first_epoch_ms"]
-        last_epoch_ms = obj_md["timing"]["last_epoch_ms"]
+        first_epoch_ms = obj_md["first_epoch_ms"]
+        final_epoch_ms = obj_md["final_epoch_ms"]
         lifetime_ms = obj_md["lifetime_ms"]
         
-        first_frame_index = obj_md["timing"]["first_frame_index"]
-        last_frame_index = obj_md["timing"]["last_frame_index"]
+        first_frame_index = obj_md["first_frame_index"]
+        final_frame_index = obj_md["final_frame_index"]
         num_samples = obj_md["num_samples"]
         
-        metadata_json = json.dumps(obj_md)
+        metadata_json = fast_json_stringify(obj_md)
 
         # 'POST' to the database
-        database.add_entry(full_id, nice_id, ancestor_id, decendent_id, is_final,
+        database.add_entry(mongo_id, full_id, nice_id, ancestor_id, descendant_id, is_final,
                            detection_class, classification_score,
-                           first_epoch_ms, last_epoch_ms, lifetime_ms,
-                           first_frame_index, last_frame_index, num_samples, metadata_json)
+                           first_epoch_ms, final_epoch_ms, lifetime_ms,
+                           first_frame_index, final_frame_index, num_samples, metadata_json)
     
     # End timing
     t_end = perf_counter()
@@ -1343,10 +1661,10 @@ def _post_classifier_adb_metadata(classifier_adb_metadata_folder_path, database)
                                          sort_list = False)
     
     # Add each classified object entry to the database
-    for each_path in objclassmd_path_list:
+    for each_file_path in objclassmd_path_list:
         
         # Pull data out of the classifier metadata file
-        class_md = load_json(each_path)
+        class_md = load_jgz(each_file_path)
         full_id = class_md["full_id"]
         class_label = class_md["class_label"]
         score_pct = class_md["score_pct"]
@@ -1354,7 +1672,7 @@ def _post_classifier_adb_metadata(classifier_adb_metadata_folder_path, database)
         attributes = class_md["attributes"]
         
         # Convert attributes dictionary to a json string for the database
-        attributes_json = json.dumps(attributes)
+        attributes_json = fast_json_stringify(attributes)
 
         # 'POST' to the database
         database.add_entry(full_id, class_label, score_pct, subclass, attributes_json)
@@ -1378,15 +1696,49 @@ def _post_summary_adb_metadata(summary_adb_metadata_folder_path, database):
                                         sort_list = False)
     
     # Add each summary object entry to the database
-    for each_path in summarymd_path_list:
+    for each_file_path in summarymd_path_list:
         
         # Pull data out of the summary file and convert to json for the database
-        summary_md = load_json(each_path)
+        summary_md = load_jgz(each_file_path)
         full_id = summary_md["full_id"]
-        summary_data_json = json.dumps(summary_md)
+        summary_data_json = fast_json_stringify(summary_md)
 
         # 'POST' to the database
         database.add_entry(full_id, summary_data_json)
+    
+    # End timing
+    t_end = perf_counter()
+    time_taken_sec = (t_end - t_start)
+    
+    return time_taken_sec
+
+# .....................................................................................................................
+
+def _post_rule_adb_metadata(rule_adb_metadata_folder_path, database):
+    
+    # Start timing
+    t_start = perf_counter()
+    
+    # Loop over all rules (by folder pathing)
+    rule_folder_paths = get_folder_list(rule_adb_metadata_folder_path, return_full_path = True, sort_list = False)
+    for each_rule_path in rule_folder_paths:
+        
+        # Loop over all saved rule files for the given rule
+        each_rule_name = os.path.basename(each_rule_path)
+        rule_file_path_list = get_file_list(each_rule_path, return_full_path = True, sort_list = False)        
+        for each_file_path in rule_file_path_list:
+            
+            # Pull data out of each rule file and convert to json for the database
+            rule_md = load_jgz(each_file_path)
+            full_id = rule_md["full_id"]
+            rule_type = rule_md["rule_type"]
+            num_violations = rule_md["num_violations"]
+            rule_results_dict_json = fast_json_stringify(rule_md["rule_results_dict"])
+            rule_results_list_json = fast_json_stringify(rule_md["rule_results_list"])
+            
+            # 'POST' to the database
+            database.add_entry(each_rule_name, full_id, rule_type, num_violations, 
+                               rule_results_dict_json, rule_results_list_json)
     
     # End timing
     t_end = perf_counter()
@@ -1449,6 +1801,19 @@ def post_summary_report_data(cameras_folder_path, camera_select, user_select, da
 
 # .....................................................................................................................
 
+def post_rule_report_data(cameras_folder_path, camera_select, user_select, database):
+    
+    # Build pathing to rule report data
+    rule_adb_metadata_folder_path = build_rule_adb_metadata_report_path(cameras_folder_path,
+                                                                        camera_select,
+                                                                        user_select)
+    
+    time_taken_sec = _post_rule_adb_metadata(rule_adb_metadata_folder_path, database)
+    
+    return time_taken_sec
+
+# .....................................................................................................................
+
 def post_camera_info_report_metadata(cameras_folder_path, camera_select, user_select, database):
     
     # Build pathing to object report data
@@ -1457,6 +1822,19 @@ def post_camera_info_report_metadata(cameras_folder_path, camera_select, user_se
                                                                               user_select)
     
     time_taken_sec = _post_camera_info_metadata(camera_info_metadata_folder_path, database)
+    
+    return time_taken_sec
+
+# .....................................................................................................................
+
+def post_rule_info_report_metadata(cameras_folder_path, camera_select, user_select, database):
+    
+    # Build pathing to object report data
+    rule_info_metadata_folder_path = build_rule_adb_info_report_path(cameras_folder_path, 
+                                                                     camera_select, 
+                                                                     user_select)
+    
+    time_taken_sec = _post_rule_info_metadata(rule_info_metadata_folder_path, database)
     
     return time_taken_sec
 
@@ -1471,6 +1849,8 @@ def launch_file_db(cameras_folder_path, camera_select, user_select,
                    launch_rule_db = False):
     
     # Initialize outputs
+    cinfo_db = None
+    rinfo_db = None
     snap_db = None
     obj_db = None
     class_db = None
@@ -1485,13 +1865,19 @@ def launch_file_db(cameras_folder_path, camera_select, user_select,
     print("", "Launching FILE DB for {}".format(camera_select), sep = "\n")
     print_launch = lambda launch_name: print("  --> {}".format(launch_name).ljust(24), end = "")
     print_done = lambda time_take_sec: print("... Done! ({:.0f} ms)".format(1000 * time_take_sec))
-    print_missing = lambda err_msg: print("... Missing! {}".format(err_msg))
+    #print_missing = lambda err_msg: print("... Missing! {}".format(err_msg))
     
-    # Always launch camera db
+    # Always launch camera info db
     print_launch("Camera info")
-    cam_db = Camera_DB(*selection_args, **check_thread_arg)
-    cam_time = post_camera_info_report_metadata(*selection_args, cam_db)
+    cinfo_db = Camera_Info_DB(*selection_args, **check_thread_arg)
+    cam_time = post_camera_info_report_metadata(*selection_args, cinfo_db)
     print_done(cam_time)
+    
+    # Always launch rule info db
+    print_launch("Rule info")
+    rinfo_db = Rule_Info_DB(*selection_args, **check_thread_arg)
+    rule_info_time = post_rule_info_report_metadata(*selection_args, rinfo_db)
+    print_done(rule_info_time)
     
     if launch_snapshot_db:
         print_launch("Snapshots")
@@ -1519,9 +1905,11 @@ def launch_file_db(cameras_folder_path, camera_select, user_select,
     
     if launch_rule_db:
         print_launch("Rules")
-        print_missing("(not implemented yet)")    
+        rule_db = Rule_DB(*selection_args, **check_thread_arg)
+        rule_time = post_rule_report_data(*selection_args, rule_db)
+        print_done(rule_time)
     
-    return cam_db, snap_db, obj_db, class_db, summary_db, rule_db
+    return cinfo_db, rinfo_db, snap_db, obj_db, class_db, summary_db, rule_db
 
 # .....................................................................................................................
 

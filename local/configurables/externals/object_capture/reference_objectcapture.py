@@ -49,6 +49,8 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
+import numpy as np
+
 from local.configurables.configurable_template import Externals_Configurable_Base
 
 from local.lib.file_access_utils.reporting import Object_Metadata_Report_Saver
@@ -63,7 +65,9 @@ class Reference_Object_Capture(Externals_Configurable_Base):
     
     # .................................................................................................................
     
-    def __init__(self, cameras_folder_path, camera_select, user_select, video_select, video_wh, *, file_dunder):
+    def __init__(self, cameras_folder_path, camera_select, user_select, video_select, video_wh, 
+                 enable_preprocessor_unwarp, unwarp_function,
+                 *, file_dunder):
         
         # Inherit from base class
         super().__init__(cameras_folder_path, camera_select, user_select, 
@@ -82,6 +86,10 @@ class Reference_Object_Capture(Externals_Configurable_Base):
         # Set default behaviour states
         self.toggle_metadata_saving(True)
         self.toggle_threaded_saving(True)
+        
+        # Store unwarping info
+        self.enable_unwarp = enable_preprocessor_unwarp
+        self.unwarp_function = unwarp_function
         
     # .................................................................................................................
     
@@ -230,9 +238,7 @@ class Reference_Object_Capture(Externals_Configurable_Base):
             
             # If we get here, generate the save name & save the data!
             if need_to_save_object:
-                save_name = self._create_save_name(each_id)
-                self._save_object_metadata(save_name, obj_metadata,
-                                           current_frame_index, current_epoch_ms, current_datetime)
+                self._save_object_metadata(obj_metadata, current_frame_index, current_epoch_ms, current_datetime)
                 
             # Store data in configuration mode, if needed
             if self.configure_mode:
@@ -248,24 +254,35 @@ class Reference_Object_Capture(Externals_Configurable_Base):
         
         ''' 
         Function which maps object metadata back into the original frame orientation.
-        This is important to ensure object data matches up with snapshot data, which is itself not-warped!
+        This is important to ensure object data matches up with snapshot data, which itself is not-warped!
         '''
         
-        # Haven't figured out a good way to handle this yet... So do nothing
+        orig_xy = np.float32((obj_metadata["tracking"]["x_center"], obj_metadata["tracking"]["y_center"])).T
+        new_xy = self.unwarp_function(orig_xy)
+        obj_metadata["tracking"]["x_center"] = new_xy[:,0].tolist()
+        obj_metadata["tracking"]["y_center"] = new_xy[:,1].tolist()
+        
+        orig_hull = obj_metadata["tracking"]["hull"]
+        obj_metadata["tracking"]["hull"] = [self.unwarp_function(np.float32(each_hull)).tolist() for each_hull in orig_hull]
         
         return obj_metadata
     
     # .................................................................................................................
     
     # SHOULDN'T OVERRIDE
-    def _save_object_metadata(self, save_name, object_metadata,
-                              current_frame_index, current_epoch_ms, current_datetime):
+    def _save_object_metadata(self, object_metadata, current_frame_index, current_epoch_ms, current_datetime):
         
         ''' Function which handles the actual saving of object metadata '''
         
+        # Get the save name
+        save_name = self._create_save_name(object_metadata)
+        
+        # Unwarp the object metadata, if needed
+        if self.enable_unwarp:
+            object_metadata = self._unwarp_metadata(object_metadata)
+        
         # Make any final modifications to the object metadata before saving
-        final_object_metadata = self._unwarp_metadata(object_metadata)
-        final_object_metadata = self.modify_metadata(final_object_metadata,
+        final_object_metadata = self.modify_metadata(object_metadata,
                                                      current_frame_index, current_epoch_ms, current_datetime)
         
         # Have the metadata saver handle the actual (possibly threaded) file i/o
@@ -278,12 +295,12 @@ class Reference_Object_Capture(Externals_Configurable_Base):
         
         ''' Function which grabs object metadata for convenience '''
         
-        return object_ref.get_save_data()
+        return object_ref.get_object_save_data()
     
     # .................................................................................................................
     
     # SHOULDN'T OVERRIDE
-    def _create_save_name(self, object_id):
+    def _create_save_name(self, object_metadata):
         
         '''
         Function for generating object metadata file names. Needs to follow a standard format so other scripts
@@ -291,7 +308,8 @@ class Reference_Object_Capture(Externals_Configurable_Base):
         '''
         
         # Build the final save name (with no file ext)
-        save_name = "obj-{}".format(object_id)
+        obj_id = object_metadata["_id"]
+        save_name = "obj-{}".format(obj_id)
         
         return save_name
     

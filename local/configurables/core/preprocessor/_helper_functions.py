@@ -61,42 +61,6 @@ import numpy as np
 
 # .....................................................................................................................
 
-def avoid_missing_output_wh(input_wh, output_w, output_h, max_side_length = 800):
-    
-    # Prevent output from being too large
-    largest_side_input = max(input_wh)
-    largest_side_display = min(max_side_length, largest_side_input) 
-    output_scale = largest_side_display / largest_side_input
-    
-    # Set output based on 'suggested' output size
-    suggested_out_w = int(round(input_wh[0] * output_scale))
-    suggested_out_h = int(round(input_wh[1] * output_scale))
-    
-    fixed_output_w = suggested_out_w if output_w is None else output_w
-    fixed_output_h = suggested_out_h if output_h is None else output_h
-    
-    return fixed_output_w, fixed_output_h
-
-# .....................................................................................................................
-
-def constrain_property(obj_ref, property_name, min_value, max_value, 
-                       error_if_none = True):
-    
-    # Get the current value of the property
-    var_value = getattr(obj_ref, property_name)
-    
-    # Handle non-values
-    if var_value is None:
-        if error_if_none:
-            raise ValueError("Variable {} cannot be clipped, because it has no value!".format(property_name))
-        return
-    
-    # Apply min/maxing depending one which boundaries are present ('None' is valid for min/max)
-    clipped_val = np.clip(var_value, min_value, max_value)
-    setattr(obj_ref, property_name, clipped_val)
-
-# .....................................................................................................................
-
 def adjust_aspect_ratio(input_wh, ar_adjustment_factor):
     
     '''
@@ -163,6 +127,32 @@ def max_dimension_downscale(input_wh, max_dimension_px):
     needs_downscaling = (shared_rescale_factor < 1.0)
     
     return needs_downscaling, downscale_wh
+
+# .....................................................................................................................
+
+def unwarp_from_mapping(warped_input_xy, input_wh, output_wh, x_mapping, y_mapping):
+    
+    '''
+    Function which implements unwarping for cases where the preprocessor relies on an x/y mapping
+    (i.e. using cv2.remap(...))
+    '''
+    
+    # Get input sizing
+    input_width, input_height = input_wh
+    output_width, output_height = output_wh
+
+    # Convert the normalized warped xy co-ords to pixel indices for the x/y mappings
+    max_out_width = (output_width - 1)
+    max_out_height = (output_height - 1)
+    unmap_x = np.clip(np.int32(np.round(warped_input_xy[:, 0] * max_out_width)), 0, max_out_width)
+    unmap_y = np.clip(np.int32(np.round(warped_input_xy[:, 1] * max_out_height)), 0, max_out_height)
+    
+    # Each pixel in the x/y mappings represents a corresponding pixel location in the original (unwarped) image
+    # So looking up the object xy co-ords in these mappings corresponds to the object xy in the original image
+    new_x = x_mapping[unmap_y, unmap_x] / (input_width - 1)
+    new_y = y_mapping[unmap_y, unmap_x] / (input_height - 1)
+
+    return np.vstack((new_x, new_y)).T
 
 # .....................................................................................................................
 # .....................................................................................................................

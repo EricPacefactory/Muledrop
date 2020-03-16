@@ -422,7 +422,12 @@ class Reconfigurable_Video_Loop(Video_Processing_Loop):
                 # Read video frames & get timing info
                 req_break, frame, read_time_sec, *fed_time_args = self.read_frames()
                 if req_break:
-                    break
+                    self.loader.vreader.reset_videocapture()
+                    req_break, frame, read_time_sec, *fed_time_args = self.read_frames()
+                    if req_break:
+                        print("", "ERROR RESETTING VIDEO CAPTURE!", sep = "\n")
+                        break
+                
                 prev_fed_time_args = fed_time_args
                 
                 # Check for control updates

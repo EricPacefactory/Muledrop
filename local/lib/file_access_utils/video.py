@@ -52,11 +52,10 @@ find_path_to_local()
 from shutil import copy2 as copy_with_metadata
 
 from local.lib.file_access_utils.shared import build_resources_folder_path
-from local.lib.file_access_utils.read_write import load_or_create_json, load_replace_save
+from local.lib.file_access_utils.read_write import load_or_create_config_json, update_config_json, save_config_json
 
 from eolib.utils.network import build_rtsp_string, check_valid_ip
 from eolib.utils.files import replace_user_home_pathing
-from eolib.utils.read_write import save_json
 from eolib.utils.quitters import ide_quit
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -83,9 +82,9 @@ class Playback_Access:
     def load_settings(self):
         
         # Load from the playback settings file
-        playback_settings_dict = load_or_create_json(self.settings_file_path,
-                                                     default_content = {},
-                                                     creation_printout = "Creating playback settings file:")
+        playback_settings_dict = load_or_create_config_json(self.settings_file_path,
+                                                            default_content = {},
+                                                            creation_printout = "Creating playback settings file:")
         
         # Initialize output results
         frame_index = start_loop_index = end_loop_index = frame_delay_ms = None
@@ -130,7 +129,7 @@ class Playback_Access:
                   "  Frame Delay (ms): {}".format(frame_delay_ms),
                   "", sep="\n")
         
-        return load_replace_save(self.settings_file_path, new_video_settings)
+        return update_config_json(self.settings_file_path, new_video_settings)
     
     # .................................................................................................................
     # .................................................................................................................
@@ -236,8 +235,8 @@ def load_video_files_dict(cameras_folder, camera_select):
     
     # Build pathing to the video file, then load it
     video_files_dict_path = build_video_files_dict_path(cameras_folder, camera_select)
-    video_files_dict = load_or_create_json(video_files_dict_path, default_files_dict,
-                                           creation_printout = "Creating video file record:")    
+    video_files_dict = load_or_create_config_json(video_files_dict_path, default_files_dict,
+                                                  creation_printout = "Creating video file record:")    
     
     return video_files_dict
 
@@ -254,11 +253,7 @@ def save_video_files_dict(cameras_folder, camera_select, new_video_files_dict):
     video_files_dict_path = build_video_files_dict_path(cameras_folder, camera_select)
     
     # Save the file, but make sure it's valid, so we don't mangle it if something goes wrong!
-    save_path = save_json(video_files_dict_path, new_video_files_dict, 
-                          indent = 2, 
-                          sort_keys = True,
-                          check_validity = True,
-                          use_gzip = False)
+    save_path = save_config_json(video_files_dict_path, new_video_files_dict)
     
     return save_path
 
@@ -483,8 +478,8 @@ def load_rtsp_config(cameras_folder, camera_select, rtsp_filename = "rtsp.json")
     
     # Build pathing to the rtsp file, then load it
     rtsp_file_path = build_videos_folder_path(cameras_folder, camera_select, rtsp_filename)
-    rtsp_config = load_or_create_json(rtsp_file_path, default_rtsp_file,
-                                      creation_printout = "Creating rtsp file:")
+    rtsp_config = load_or_create_config_json(rtsp_file_path, default_rtsp_file,
+                                             creation_printout = "Creating rtsp file:")
     
     # Create rtsp string for convenience
     rtsp_string = build_rtsp_string(**rtsp_config)
@@ -497,7 +492,7 @@ def save_rtsp_config(cameras_folder, camera_select, new_rtsp_config, rtsp_filena
     
     # Replace the existing rtsp file with the new config and re-save
     rtsp_file_path = build_videos_folder_path(cameras_folder, camera_select, rtsp_filename)
-    return load_replace_save(rtsp_file_path, new_rtsp_config)
+    return update_config_json(rtsp_file_path, new_rtsp_config)
 
 # .....................................................................................................................
 
@@ -539,8 +534,8 @@ def load_playback_settings(cameras_folder, camera_select, video_select,
     default_content = {}
     
     # Load the playback settings file (or create it if missing)
-    playback_settings_dict = load_or_create_json(load_path, default_content,
-                                                 creation_printout = "Creating playback settings file:")
+    playback_settings_dict = load_or_create_config_json(load_path, default_content,
+                                                        creation_printout = "Creating playback settings file:")
     
     # Check if settings exist for the target video, and if so, grab the settings in a tuple for ease of use
     settings_tuple = (None, None, None, None)
@@ -576,7 +571,7 @@ def save_playback_settings(cameras_folder, camera_select, video_select,
                      "start_loop_index": start_loop_index, "end_loop_index": end_loop_index}
     new_playback_settings = {video_name: settings_dict}
     
-    return load_replace_save(save_path, new_playback_settings)
+    return update_config_json(save_path, new_playback_settings)
 
 # .....................................................................................................................
 # .....................................................................................................................

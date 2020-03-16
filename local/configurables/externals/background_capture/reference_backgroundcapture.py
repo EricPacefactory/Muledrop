@@ -1020,11 +1020,15 @@ class Reference_Background_Creator:
     # .................................................................................................................
     
     # MAY OVERRIDE, but shouldn't be necessary unless using some special naming lookup
-    def _create_reporting_save_name(self, ms_since_epoch):
+    def _create_reporting_save_names(self, bgcap_metadata):
         
-        ''' Function for naming generated background images for reporting '''
+        ''' Function for naming generated background images/metadata for reporting '''
         
-        return "bggen-{}".format(ms_since_epoch)
+        bg_id = bgcap_metadata["_id"]
+        background_image_name = str(bg_id)
+        background_metadata_name = "bggen-{}".format(bg_id)
+        
+        return background_image_name, background_metadata_name
     
     # .................................................................................................................
     
@@ -1051,27 +1055,22 @@ class Reference_Background_Creator:
         # Get time as a string for reporting
         bgcap_time_isoformat = get_isoformat_string(current_datetime)
         
-        # Get background image sizing, so we can save it with the metadata
-        bggen_height, bggen_width = background_image.shape[0:2]
-        bggen_wh = (bggen_width, bggen_height)
-        
-        # Build reporting file name & metadata
-        bgcap_name = self._create_reporting_save_name(current_epoch_ms)
-        bgcap_metadata = {"name": bgcap_name,
+        # Build reporting metadata
+        bgcap_metadata = {"_id": current_epoch_ms,
                           "datetime_isoformat": bgcap_time_isoformat,
                           "frame_index": current_frame_index,
-                          "epoch_ms": current_epoch_ms,
-                          "video_select": self.video_select,
-                          "video_wh": self.video_wh,
-                          "bggen_wh": bggen_wh}
+                          "epoch_ms": current_epoch_ms}
+        
+        # Build saving names
+        bggen_image_name, bggen_metadata_name = self._create_reporting_save_names(bgcap_metadata)
         
         # Have reporting object handle image saving
-        self.report_image_saver.save_jpg(file_save_name_no_ext = bgcap_name,
+        self.report_image_saver.save_jpg(file_save_name_no_ext = bggen_image_name,
                                          image_data = background_image,
                                          save_quality_0_to_100 = self.generated_report_quality_0_to_100)
         
         # Also have reporting object handle the metadata saving
-        self.report_meta_saver.save_json_gz(file_save_name_no_ext = bgcap_name,
+        self.report_meta_saver.save_json_gz(file_save_name_no_ext = bggen_metadata_name,
                                             json_data = bgcap_metadata)        
     
     # .................................................................................................................

@@ -54,24 +54,22 @@ import numpy as np
 
 from time import perf_counter
 
+from local.lib.common.timekeeper_utils import datetime_to_epoch_ms
+
 from local.lib.ui_utils.cli_selections import Resource_Selector
 
 from local.lib.ui_utils.local_ui.windows_base import Simple_Window
 from local.lib.ui_utils.local_ui.drawing import Entity_Drawer, waitKey_ex, keycode_quit
 
-from local.lib.file_access_utils.after_database import build_after_database_configs_folder_path
-from local.lib.file_access_utils.rules import load_all_rule_configs
+from local.lib.file_access_utils.rules import select_rule_to_load, cli_save_rule
 
 from local.offline_database.file_database import user_input_datetime_range, launch_file_db, close_dbs_if_missing_data
-from local.offline_database.object_reconstruction import Smoothed_Object_Reconstruction as Obj_Recon
 from local.offline_database.object_reconstruction import create_trail_frame_from_object_reconstruction
+from local.offline_database.object_reconstruction import object_data_dict_to_list_generator
 from local.offline_database.snapshot_reconstruction import median_background_from_snapshots
 from local.offline_database.classification_reconstruction import create_object_class_dict
 
 from local.configurables.after_database.rules.linecross_rule import Linecross_Rule
-
-from eolib.utils.cli_tools import cli_confirm, cli_select_from_list
-from eolib.utils.read_write import load_json, save_json
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
@@ -83,31 +81,59 @@ from eolib.utils.read_write import load_json, save_json
 
 # .....................................................................................................................
 
+def process_all_object_data(rule_ref, object_database, frame_wh, start_time, end_time):
+    
+    ''' Helper function which has the rule pre-process all the object data, so we can continually re-use it '''
+    
+    obj_id_list = object_database.get_object_ids_by_time_range(start_dt, end_dt)
+    obj_metadata_list = [object_database.load_metadata_by_id(each_id) for each_id in obj_id_list]
+    obj_data_dict = rule_ref.process_all_object_metadata(obj_id_list, obj_metadata_list, frame_wh)
+    
+    return obj_data_dict
+
+# .....................................................................................................................
+
 def update_rule_results(rule_ref, objclass_dict, snap_db, frame_wh):
     
     # Start timing, so we have an idea of how fast the rule is + avoid overly fast updates if slow!
     t_start = perf_counter()
     
     # Evaluate rule for each class separately, for easier results management
-    rule_results_per_class = {each_class_label: {} for each_class_label in objclass_dict.keys()}
+    rule_results_per_class_dict = {each_class_label: {} for each_class_label in objclass_dict.keys()}
     for each_class_label, each_obj_dict in objclass_dict.items():
-        rule_results_per_class[each_class_label] = rule_ref.evaluate_all_objects(each_obj_dict, snap_db, frame_wh)
+        rule_results_per_class_dict[each_class_label] = rule_ref.evaluate_all_objects(each_obj_dict, snap_db, frame_wh)
     
     # Get time required to evaluate the rule
     t_end = perf_counter()
     update_time_ms = int(1000 * (t_end - t_start))
 
-    return rule_results_per_class, update_time_ms
+    return rule_results_per_class_dict, update_time_ms
 
 # .....................................................................................................................
 
-def update_event_frame(display_frame, rule_ref, rule_results_dict,
-                       line_color = (255, 0, 255), line_thickness = 1, line_type = cv2.LINE_AA):
+def update_event_frame(display_frame, rule_ref, rule_results_per_class_dict, outline_colors_lut, 
+                       start_epoch_ms, end_epoch_ms,
+                       line_color = (255, 0, 255), line_thickness = 1, line_type = cv2.LINE_AA,
+                       event_bar_height = 24, 
+                       event_bar_dark_bg_color = (30, 30, 30), 
+                       event_bar_light_bg_color = (40, 40, 40)):
     
     # Create copy of the display frame so we don't mess with the original
     new_event_frame = display_frame.copy()
     frame_height, frame_width = new_event_frame.shape[0:2]
     frame_scaling = np.float32((frame_width - 1, frame_height - 1))
+    
+    # Generate some positioning info for the event bar
+    half_bar_height = int(event_bar_height / 2)
+    start_bar_height = 2
+    end_bar_height = event_bar_height - 3
+    calculate_relative_timing = lambda snap_ems: (snap_ems - start_epoch_ms) / (end_epoch_ms - start_epoch_ms)
+    
+    # Create blank event bar for displaying timing info
+    dark_event_bar = np.full((half_bar_height, frame_width, 3), event_bar_dark_bg_color, dtype = np.uint8)
+    light_event_bar = np.full_like(dark_event_bar, event_bar_light_bg_color)
+    blank_event_bar = np.vstack((dark_event_bar, light_event_bar))
+    calculate_relative_timing = lambda snap_ems: (snap_ems - start_epoch_ms) / (end_epoch_ms - start_epoch_ms)
     
     # Get line points
     line_pt1, line_pt2 = rule_ref.line_entity_list[0]
@@ -119,80 +145,54 @@ def update_event_frame(display_frame, rule_ref, rule_results_dict,
     pt2_px = tuple(np.int32(np.round(line_pt2 * frame_scaling)))
     cv2.line(new_event_frame, pt1_px, pt2_px, line_color, line_thickness, line_type)
     
+    # Also draw the line normal/direction for reference (MESSY!)
+    line_vector = np.float32(pt2_px) - np.float32(pt1_px)
+    line_unit_normal = np.float32((-1 * line_vector[1], line_vector[0])) / np.linalg.norm(line_vector)
+    line_center_pt = np.float32(pt1_px) + (0.5 * line_vector)
+    vec1_px = tuple(np.int32(np.round(line_center_pt - line_unit_normal * 10)))
+    vec2_px = tuple(np.int32(np.round(line_center_pt + line_unit_normal * 35)))
+    cv2.arrowedLine(new_event_frame, vec1_px, vec2_px, line_color, 1, line_type, tipLength = 0.1)
+    
     # Draw all intersection points, colors by cross direction
-    for each_class_label, each_results_dict in rule_results_dict.items():
-        for each_obj_id, each_obj_results_list in each_results_dict.items():
-            for each_intersection_result in each_obj_results_list:
-                cross_direction = each_intersection_result["cross_direction"]
-                fg_col = (0,0,0) if cross_direction == "forward" else (255,255,255)
-                bg_col = (255,255,255) if cross_direction == "forward" else (0,0,0)
-                intersection_point = each_intersection_result["intersection_point"]
-                circle_pt_px = tuple(np.int32(np.round(intersection_point * frame_scaling)))
-                cv2.circle(new_event_frame, circle_pt_px, 5, bg_col, -1, cv2.LINE_AA)
-                cv2.circle(new_event_frame, circle_pt_px, 4, fg_col, 1, cv2.LINE_AA)
+    event_bar_frame_list = []
+    for each_class_label, each_rule_results_per_obj in rule_results_per_class_dict.items():
+        
+        # Create new (blank) event bar for each class, so we can indicate event timing
+        new_event_bar = blank_event_bar.copy()
+        bar_color = outline_colors_lut[each_class_label]
+        
+        for each_obj_id, (each_results_dict, each_results_list) in each_rule_results_per_obj.items():
+            for each_intersection_result in each_results_list:
                 
-            pass
-        pass
+                # Pull out event info
+                cross_direction = each_intersection_result["cross_direction"]
+                intersection_point = each_intersection_result["intersection_point"]
+                snapshot_epoch_ms = each_intersection_result["snapshot_epoch_ms"]
+                crossed_forward = (cross_direction == "forward")
+                
+                # Draw intersection points
+                fg_color = (0,0,0) if crossed_forward else (255,255,255)
+                bg_color = (255,255,255) if crossed_forward else (0,0,0)
+                circle_pt_px = tuple(np.int32(np.round(intersection_point * frame_scaling)))
+                cv2.circle(new_event_frame, circle_pt_px, 5, bg_color, -1, cv2.LINE_AA)
+                cv2.circle(new_event_frame, circle_pt_px, 4, fg_color, 1, cv2.LINE_AA)
+                
+                # Draw event indicators for every intersection
+                event_timing_frac = calculate_relative_timing(snapshot_epoch_ms)
+                event_timing_px = int(round(event_timing_frac * (frame_width - 1)))
+                if crossed_forward:
+                    line_pos = ((event_timing_px, half_bar_height), (event_timing_px, end_bar_height))
+                else:
+                    line_pos = ((event_timing_px, start_bar_height), (event_timing_px, half_bar_height - 1))
+                cv2.line(new_event_bar, *line_pos, bar_color, 1)
+                
+        # Store the 'finished' event bar image, so we can stack it onto the bottom of the displayed frame later
+        event_bar_frame_list.append(new_event_bar)
     
-    return new_event_frame
-
-# .....................................................................................................................
-
-def path_to_configuration_file(configurable_ref):
+    # Finally, combine all the frame data for output
+    output_event_frame = np.vstack([new_event_frame, *event_bar_frame_list])
     
-    # Get major pathing info from the configurable
-    cameras_folder_path = configurable_ref.cameras_folder_path
-    camera_select = configurable_ref.camera_select
-    user_select = configurable_ref.user_select
-    
-    # Get additional pathing info so we can find the config file
-    component_name = configurable_ref.component_name
-    save_name = configurable_ref.save_filename
-    
-    return build_after_database_configs_folder_path(cameras_folder_path, camera_select, user_select, 
-                                                    component_name, save_name)
-
-# .....................................................................................................................
-
-def load_matching_config(configurable_ref):
-    
-    # Build pathing to existing configuration file
-    load_path = path_to_configuration_file(configurable_ref)
-    
-    # Load existing config
-    config_data = load_json(load_path)
-    file_access_dict = config_data["access_info"]
-    setup_data_dict = config_data["setup_data"]
-    
-    # Get target script/class from the configurable, to see if the saved config matches
-    target_script_name = configurable_ref.script_name
-    target_class_name = configurable_ref.class_name
-    
-    # Check if file access matches
-    script_match = (target_script_name == file_access_dict["script_name"])
-    class_match = (target_class_name == file_access_dict["class_name"])
-    if script_match and class_match:
-        return setup_data_dict
-    
-    # If file acces doesn't match, return an empty setup dictionary
-    no_match_setup_data_dict = {}
-    return no_match_setup_data_dict
-
-# .....................................................................................................................
-
-def save_config(configurable_ref, file_dunder = __file__):
-    
-    # Figure out the name of this configuration script
-    config_utility_script_name, _ = os.path.splitext(os.path.basename(file_dunder))
-    
-    # Get file access info & current configuration data for saving
-    file_access_dict, setup_data_dict = configurable_ref.get_data_to_save()
-    file_access_dict.update({"configuration_utility": config_utility_script_name})
-    save_data = {"access_info": file_access_dict, "setup_data": setup_data_dict}
-    
-    # Build pathing to existing configuration file
-    save_path = path_to_configuration_file(configurable_ref)    
-    save_json(save_path, save_data)
+    return output_event_frame
 
 # .....................................................................................................................
 # .....................................................................................................................
@@ -214,7 +214,7 @@ user_select, _ = selector.user(camera_select, debug_mode=enable_debug_mode)
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Catalog existing data
 
-cam_db, snap_db, obj_db, class_db, _, rule_db = \
+cinfo_db, rinfo_db, snap_db, obj_db, class_db, _, rule_db = \
 launch_file_db(cameras_folder_path, camera_select, user_select,
                launch_snapshot_db = True,
                launch_object_db = True,
@@ -223,11 +223,11 @@ launch_file_db(cameras_folder_path, camera_select, user_select,
                launch_rule_db = True)
 
 # Catch missing data
-cam_db.close()
-close_dbs_if_missing_data(snap_db, obj_db)
+rinfo_db.close()
+close_dbs_if_missing_data(snap_db)
 
-# Get frame sizing, for the rule
-frame_wh = snap_db.get_snap_frame_wh()
+# Get frame sizing, for rule sizing/drawing
+frame_wh = cinfo_db.get_snap_frame_wh()
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -241,20 +241,15 @@ start_dt, end_dt, start_dt_isoformat, end_dt_isoformat = user_input_datetime_ran
                                                                                    latest_datetime, 
                                                                                    enable_debug_mode)
 
-'''
-STOPPED HERE
-- NEED TO FIGURE OUT SAVING/LOADING SYSTEM FOR ALL RULES
-'''
-
-# ---------------------------------------------------------------------------------------------------------------------
-#%% Configure the rule
-
+# Calculate start/end times as epoch ms values for relative event timing
+start_ems = datetime_to_epoch_ms(start_dt)
+end_ems = datetime_to_epoch_ms(end_dt)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Create background frame
 
-# Ask databse for several snapshot images, so we can 'average' them to make a background frame for display
+# Ask database for several snapshot images, so we can 'average' them to make a background frame for display
 bg_frame = median_background_from_snapshots(snap_db, start_dt, end_dt, 10)
 frame_height, frame_width = bg_frame.shape[0:2]
 frame_wh = (frame_width, frame_height)
@@ -262,69 +257,39 @@ frame_scaling = np.float32((frame_width - 1, frame_height - 1))
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-#%% Load object data
-
-# Get object metadata from the server
-obj_metadata_generator = obj_db.load_metadata_by_time_range(start_dt, end_dt)
-
-# Create list of 'reconstructed' objects based on object metadata, so we can work/interact with the object data
-obj_list = Obj_Recon.create_reconstruction_list(obj_metadata_generator,
-                                                frame_wh,
-                                                start_dt, 
-                                                end_dt,
-                                                smoothing_factor = 0.005)
-
-# Load in classification data, if any
-objclass_dict = create_object_class_dict(class_db, obj_list)
-
-# Get object count so we can calculate per-object statistics
-num_objects = len(obj_list)
-
-# ---------------------------------------------------------------------------------------------------------------------
 #%% Select rule to load
 
 # Load configurable class for this config utility
-rule_ref = Linecross_Rule(cameras_folder_path, camera_select, user_select, frame_wh, "unspecified_rule_name")
+rule_ref = Linecross_Rule(cameras_folder_path, camera_select, user_select, frame_wh)
 
-# Get list of all rule configs
-all_rule_configs = load_all_rule_configs(cameras_folder_path, camera_select, user_select,
-                                         target_rule_type = rule_ref.rule_type)
-
-# Provide prompt to load existing rule, or create a new one
-rule_load_list = ["Create new rule", *all_rule_configs.keys()]
-select_idx, select_entry = cli_select_from_list(rule_load_list, "Select rule to load:", 
-                                                default_selection = rule_load_list[0],
-                                                zero_indexed = True)
-
-load_from_existing_config = (select_idx > 0)
-initial_setup_data_dict = {}
-loading_rule_name = None
-if load_from_existing_config:
-    initial_setup_data_dict = all_rule_configs[select_entry]["setup_data"]
-    loading_rule_name = select_entry
-
-# Load initial configuration
+# Ask user to load an existing rule config, or create a new one & configure the rule accordingly
+load_from_existing_config, loaded_rule_name, initial_setup_data_dict = select_rule_to_load(rule_ref)
 rule_ref.reconfigure(initial_setup_data_dict)
-rule_ref.update_rule_name(loading_rule_name)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-#%% Draw trails
+#%% Load object data
 
-# Draw all object trails onto the background frame 
-trail_frame = create_trail_frame_from_object_reconstruction(bg_frame, obj_list)
+# Load all object data, as needed by the rule
+obj_dict = process_all_object_data(rule_ref, obj_db, frame_wh, start_dt, end_dt)
+
+# Load in classification data, if any
+obj_list_gen = object_data_dict_to_list_generator(obj_dict)
+objclass_dict = create_object_class_dict(class_db, obj_list_gen)
+_, outline_colors_lut = class_db.get_label_color_luts()
 
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Set up drawing
 
+# Create a line drawer, by restricting drawing to 2 points only
 line_drawer = Entity_Drawer(frame_wh,
-                            minimum_entities=1,
-                            maximum_entities=1,
-                            minimum_points=2,
-                            maximum_points=2)
+                            minimum_entities = 1,
+                            maximum_entities = 1,
+                            minimum_points = 2,
+                            maximum_points = 2)
 
-
+# Initialize the drawing with the rule line definition & change the drawing colors (just for aesthetics)
 line_drawer.initialize_entities(rule_ref.line_entity_list)
 line_drawer.aesthetics(finished_color = (255, 0, 255), finished_thickness = 2)
 
@@ -345,36 +310,49 @@ event_window.move_corner_pixels(event_window_x_offset, 50)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-#%% *** DRAW LOOP ***
+#%% Create background frames
 
+# Draw all object trails onto the background frame
+obj_list_gen = object_data_dict_to_list_generator(obj_dict)
+trail_frame = create_trail_frame_from_object_reconstruction(bg_frame, obj_list_gen)
+
+# Create initial display frames (which may be modified by user interactions)
 draw_frame = trail_frame.copy()
 event_frame = trail_frame.copy()
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+#%% *** DRAW LOOP ***
+
+# Create variables to control whether the linecross results run continuously or wait for the user to mouse-up
 wait_for_mouse_up = False
+max_update_delay_ms = 200
 
 while True:
     
     # Handle updates to the line drawing
     if line_drawer.on_change(wait_for_mouse_up):
         
-        # Update the rule
+        # Update the rule with the new line drawing
         new_line_entity_list = line_drawer.get_entities_list(normalize = True)
         rule_ref.reconfigure({"line_entity_list": new_line_entity_list})
         
         # Get new results for all objects (with timing info!)
         rule_results_per_class, update_time_ms = update_rule_results(rule_ref, objclass_dict, snap_db, frame_wh)
         
-        # Use update timing to decide if we should try to update the rule UI constantly (heavy cpu usage)
+        # Use update timing to decide if we should try to update the rule UI constantly ('heavy' cpu usage)
         # or if we should wait for the user to let go of the mouse before updating (much lighter!)
-        wait_for_mouse_up = (update_time_ms > 200)
+        wait_for_mouse_up = (update_time_ms > max_update_delay_ms)
         
-        # Draw intersection results
-        event_frame = update_event_frame(trail_frame, rule_ref, rule_results_per_class)
+        # Draw new intersection results
+        event_frame = update_event_frame(trail_frame, rule_ref, rule_results_per_class,
+                                         outline_colors_lut, start_ems, end_ems)
     
-    # Draw rule line onto the frame
+    # Draw rule line indicator onto the frame
     draw_frame = line_drawer.annotate(trail_frame)
     
     # Update displays
-    draw_window.imshow(draw_frame)    
+    draw_window.imshow(draw_frame)
     event_window.imshow(event_frame)
     
     # Get keypresses
@@ -382,32 +360,35 @@ while True:
     if keycode_quit(keycode):
         break
     
+    # Handle arrow key nudging
     line_drawer.keypress_callback(keycode, modifier)
 
+# Clean up
 cv2.destroyAllWindows()
 
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Save rule configuration
 
-'''
-user_confirm_save = cli_confirm("Save linecross rule config?", default_response = False)
-if user_confirm_save:
-    save_config(rule_ref, __file__)
-'''
+saved_rule_name = cli_save_rule(rule_ref, load_from_existing_config, loaded_rule_name, file_dunder = __file__)
 
-'''
-STOPPED HERE
-- NEED TO MAKE LINECROSS RULE CONFIGURABLE
-- AND FIGURE OUT SAVING/LOADING
-- THEN GET RUN_RULE SCRIPT WORKING!
-'''
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Scrap
 
+'''
+# View rule results, per class
 print("", "DEBUG: Line cross output", sep = "\n")
 for each_class_label, each_obj_results_dict in rule_results_per_class.items():
     print("", "Class: {}".format(each_class_label), sep = "\n")
-    for each_obj_id, each_results_list in each_obj_results_dict.items():
-        print("  Obj", each_obj_id, "results:", each_results_list)
+    for each_obj_id, (each_rule_dict, each_rule_list) in each_obj_results_dict.items():
+        print("  Obj", each_obj_id, "results:")
+        print("   ", each_rule_dict)
+        print("   ", each_rule_list)
+pass
+'''
+
+# TODO:
+# - Add ability to hover intersection points and/or timing indicators and click for playback of intersection event
+# - Clean up 'update_event_frame' implementation. Way too much re-calculating of state (could be handle by an object)
+

@@ -79,7 +79,12 @@ class Reference_Preprocessor(Core_Configurable_Base):
     
     # .................................................................................................................
     
+    # MUST OVERRIDE
     def reset(self):
+        ''' 
+        Function which gets called everytime the system is reset, typically during configuration.
+        For example, due to rewinding/looping the video playback
+        '''
         raise NotImplementedError("Must implement a preprocessor reset()")
     
     # .................................................................................................................
@@ -132,6 +137,53 @@ class Reference_Preprocessor(Core_Configurable_Base):
             print("PREPROCESSOR: ERROR TRANSFORMING")
             return frame
     
+    # .................................................................................................................
+    
+    # SHOULD OVERRIDE
+    def unwarp_required(self):
+        
+        '''
+        Function which will be used by the object capture stage to decide whether 
+        object positioning data needs to be 'unwarped' prior to saving.
+        
+        The function should return True if the preprocessor alters the input image
+        in such a way that the output is anything other than a scaled copy of the input
+        If no warping is performed (or the preprocessor is disabled), then it can output False
+        '''
+        
+        # Raise error to make sure preprocessors deal with this properly
+        err_msg = "Must implement unwarp_required() function on preprocessor! ({})".format(self.script_name)
+        raise NotImplementedError(err_msg)
+        
+        # Should return True or False, depending on whether the preprocessor warps the original image at all
+        return True
+    
+    # .................................................................................................................
+    
+    # MUST OVERRIDE
+    def unwarp_xy(self, warped_normalized_xy_npfloat32):
+        
+        '''
+        Function which handles unwarping of x/y co-ordinate data for the object metadata saving stage.
+        
+        If the preprocessor warped the frame data in some way (aside from simple scaling), this function needs
+        to provide the inverse warping, so that co-ordinate data from a preprocessed frame can be mapped back
+        into the original frame data. The output should still be a normalized xy float32 array!
+        
+        If the preprocessor does not warp the frame data (or simply scales it), then this function
+        can return 'None' to indicate that no warping is needed
+        (this may be more efficient than copying the input to the output!)
+        '''
+        
+        # Raise error to make sure preprocessors deal with this properly
+        err_msg = "Must implement an 'unwarp_xy(...)' function on preprocessor! ({})".format(self.script_name)
+        raise NotImplementedError(err_msg)
+        
+        # Should return the unwarped x/y array data as a float32 array
+        # -> However, 'None' can be returned if the preprocessor does not require unwarping!
+        return None
+    
+    # .................................................................................................................
     # .................................................................................................................
 
 # ---------------------------------------------------------------------------------------------------------------------

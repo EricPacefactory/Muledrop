@@ -49,12 +49,10 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
-import json
-
 from time import sleep
 
 from local.lib.common.timekeeper_utils import get_human_readable_timestamp, get_human_readable_timezone
-from local.lib.common.timekeeper_utils import get_local_datetime, get_isoformat_string
+from local.lib.common.timekeeper_utils import get_local_datetime, get_isoformat_string, datetime_to_epoch_ms
 
 from local.lib.ui_utils.cli_selections import Resource_Selector
 from local.lib.ui_utils.script_arguments import script_arg_builder
@@ -64,15 +62,17 @@ from local.lib.launcher_utils.core_bundle_loader import Core_Bundle
 
 from local.configurables.configurable_template import configurable_dot_path
 
+from local.lib.file_access_utils.pid_files import save_pid_file, clear_all_pid_files, clear_one_pid_file
 from local.lib.file_access_utils.externals import build_externals_folder_path
 from local.lib.file_access_utils.reporting import build_camera_info_metadata_report_path
 from local.lib.file_access_utils.video import Playback_Access, load_rtsp_config
 from local.lib.file_access_utils.screen_info import Screen_Info
-from local.lib.file_access_utils.read_write import full_replace_save
+from local.lib.file_access_utils.read_write import load_config_json, save_config_json, save_jgz
+from local.lib.file_access_utils.read_write import dict_to_human_readable_output
 
 from eolib.utils.cli_tools import cli_confirm
 from eolib.utils.function_helpers import dynamic_import_from_module
-from eolib.utils.read_write import load_json, save_json
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define base classes
@@ -102,6 +102,10 @@ class File_Configuration_Loader:
         # Allocate storage for core processing bundle
         self.core_bundle = None
         
+        # Allocate storage for preprocessor unwarping settings
+        self.enable_unwarp = None
+        self.unwarp_function = None
+        
         # Allocate storage for externals
         self.bgcap = None
         self.snapcap = None
@@ -111,10 +115,14 @@ class File_Configuration_Loader:
         self.saving_enabled = False
         self.threading_enabled = False
         
+        # Storage for pid & script tracking
+        self.calling_script_name = None
+        self.pid = os.getpid()
+        
         # Allocate storage for display/screen information
         self.display_enabled = False
         self.screen_info = None
-            
+    
     # .................................................................................................................
     
     def __repr__(self):
@@ -157,6 +165,11 @@ class File_Configuration_Loader:
     
     # .................................................................................................................
     
+    def set_script_name(self, dunder_file):
+        self.calling_script_name = os.path.basename(dunder_file)
+    
+    # .................................................................................................................
+    
     def toggle_saving(self, enable_saving):
         self.saving_enabled = enable_saving
         
@@ -181,26 +194,40 @@ class File_Configuration_Loader:
         rtsp_config, _ = load_rtsp_config(self.cameras_folder_path, self.camera_select)
         start_datetime = get_local_datetime()
         start_dt_str = get_isoformat_string(start_datetime)
+        start_epoch_ms = datetime_to_epoch_ms(start_datetime)
+        
+        # Split snapshot sizing info for reporting
+        video_width, video_height = self.video_wh
+        snap_width, snap_height = self.snapcap.get_snapshot_wh()
         
         # Bundle info for saving
-        camera_info_dict = {"ip_address": rtsp_config.get("ip_address", "unknown"),
-                            "datetime_isoformat": start_dt_str,
-                            "time_zone": get_human_readable_timezone()}
+        caminfo_id = start_epoch_ms
+        camera_info_dict = {"_id": caminfo_id,
+                            "ip_address": rtsp_config.get("ip_address", "unknown"),
+                            "time_zone": get_human_readable_timezone(),
+                            "start_datetime_isoformat": start_dt_str,
+                            "start_epoch_ms": start_epoch_ms,
+                            "video_select": self.video_select,
+                            "video_fps": self.video_fps,
+                            "video_width": video_width,
+                            "video_height": video_height,
+                            "snapshot_width": snap_width,
+                            "snapshot_height": snap_height}
         
         # Build pathing to the camera reporting folder & save
         if self.saving_enabled:
-            camera_info_file_name = "camera_info.json.gz"
+            camera_info_file_name = "caminfo-{}.json.gz".format(caminfo_id)
             camera_info_file_path = build_camera_info_metadata_report_path(self.cameras_folder_path,
                                                                            self.camera_select,
                                                                            self.user_select,
                                                                            camera_info_file_name)
-            save_json(camera_info_file_path, camera_info_dict, use_gzip = True, create_missing_folder_path = True)
+            save_jgz(camera_info_file_path, camera_info_dict, create_missing_folder_path = True)
         
         return
         
     # .................................................................................................................
     
-    def get_screen_info(self):        
+    def get_screen_info(self):
         self.screen_info = Screen_Info(self.project_root_path)
         
     # .................................................................................................................
@@ -275,15 +302,19 @@ class File_Configuration_Loader:
         # Programmatically import the target object capture class
         Imported_Object_Capture_Class, setup_data_dict = self._import_externals_class("object_capture")
         shared_config = self._get_shared_config()
-            
+        
+        # Retreive unwarping settings
+        unwarp_config = {"enable_preprocessor_unwarp": self.enable_unwarp, 
+                         "unwarp_function": self.unwarp_function}
+        
         # Load & configure the object capturer
-        new_objcap = Imported_Object_Capture_Class(**shared_config)
+        new_objcap = Imported_Object_Capture_Class(**shared_config, **unwarp_config)
         new_objcap.reconfigure(setup_data_dict)
         
         # Enable/disable saving behaviors
         new_objcap.toggle_metadata_saving(self.saving_enabled)
         new_objcap.toggle_threaded_saving(self.threading_enabled)
-            
+        
         # Finally, store object capture for re-use
         self.objcap = new_objcap
         
@@ -308,6 +339,11 @@ class File_Configuration_Loader:
         new_core_bundle = Core_Bundle(**shared_config)
         new_core_bundle.setup_all()
         
+        # Pull out the preprocessor unwarping data and store it
+        enable_preprocessor_unwarp, unwarp_function = new_core_bundle.get_preprocessor_unwarping()
+        self.enable_unwarp = enable_preprocessor_unwarp
+        self.unwarp_function = unwarp_function
+        
         # Store the bundle for re-use
         self.core_bundle = new_core_bundle
         
@@ -317,19 +353,38 @@ class File_Configuration_Loader:
     
     def setup_all(self):
         
-        # Save camera info on start-up, if needed
-        self.save_camera_info()
-        
-        # Setup all main processing components
-        self.setup_video_reader()
-        self.setup_externals()
-        self.setup_core_bundle()
-        self.get_screen_info()
-        
         # Get human readable timestamp for feedback
         start_timestamp = get_human_readable_timestamp()
         
+        # Check/Record PID files to guarantee single file execution
+        self._save_pid_file(start_timestamp)
+        
+        # Setup all main processing components
+        self.setup_video_reader()
+        self.setup_core_bundle()
+        self.setup_externals()
+        self.get_screen_info()
+        
+        # Save camera info on start-up, if needed
+        self.save_camera_info()
+        
         return start_timestamp
+    
+    # .................................................................................................................
+    
+    def clean_up(self):
+        
+        # Clean up video capture
+        # ... handled by video loop for now
+        
+        # Clean up core system
+        # ... handled by video loop for now
+        
+        # Clean up externals
+        # ... handled by video loop for now
+        
+        # Clear PID tracking
+        self._clear_pid_file()
         
     # .................................................................................................................
     
@@ -365,7 +420,7 @@ class File_Configuration_Loader:
                                                      load_file_with_ext)
         
         # Load json data and split into file access info & setup configuration data
-        config_dict = load_json(path_to_config)
+        config_dict = load_config_json(path_to_config)
         access_info_dict = config_dict["access_info"]
         setup_data_dict = config_dict["setup_data"]
         
@@ -380,6 +435,27 @@ class File_Configuration_Loader:
                 "user_select": self.user_select,
                 "video_select": self.video_select,
                 "video_wh": self.video_wh}
+        
+    # .................................................................................................................
+    
+    def _save_pid_file(self, start_timestamp_str):
+        
+        ''' Helper function for setting up initial PID file '''
+        
+        # Get rid of any existing PIDs, so we don't run parallel copies of the camera collection
+        clear_all_pid_files(self.cameras_folder_path, self.camera_select, max_retrys = 5)
+        
+        # Save a new PID file to represent the system
+        save_pid_file(self.cameras_folder_path, self.camera_select,
+                      self.pid, self.calling_script_name, start_timestamp_str)
+    
+    # .................................................................................................................
+    
+    def _clear_pid_file(self):
+        
+        ''' Helper function for clearing out the PID file associated with this loader '''
+        
+        clear_one_pid_file(self.cameras_folder_path, self.camera_select, self.pid)
 
     # .................................................................................................................
     # .................................................................................................................
@@ -537,8 +613,8 @@ class Reconfigurable_Loader(File_Configuration_Loader):
         # Setup all main processing components
         self.setup_video_reader()
         self.setup_playback_access()
-        self.setup_externals()
         self.setup_core_bundle()
+        self.setup_externals()
         self.get_screen_info()
         
         return self.configurable_ref
@@ -616,13 +692,13 @@ class Reconfigurable_Loader(File_Configuration_Loader):
                       "@ {}".format(relative_save_path),
                       "",
                       "Save data:",
-                      json.dumps(save_data, indent = 2),
+                      dict_to_human_readable_output(save_data),
                       "", sep = "\n")
             
             return relative_save_path
         
         # If we get here, we're saving!
-        full_replace_save(save_path, save_data, indent_data=True)
+        save_config_json(save_path, save_data)
         if print_feedback:
             print("", "Saved configuration:", "@ {}".format(relative_save_path), "", sep = "\n")
         
@@ -697,6 +773,11 @@ class Reconfigurable_Core_Stage_Loader(Reconfigurable_Loader):
         ^^^ THIS CONFIGURABLE STUFF IS A BIT UGLY, BUT NOT THE END OF THE WORLD FOR NOW...
             - WOULD BE BETTER FOR THE LOADER OBJECT TO GRAB THE FILE PATHING STUFF AND HAND TO CORE BUNDLE TO SETUP
         '''
+        
+        # Pull out the preprocessor unwarping data and store it
+        enable_preprocessor_unwarp, unwarp_function = new_core_bundle.get_preprocessor_unwarping()
+        self.enable_unwarp = enable_preprocessor_unwarp
+        self.unwarp_function = unwarp_function
         
         # Finally, store the bundle for re-use
         self.core_bundle = new_core_bundle
@@ -835,8 +916,12 @@ class Reconfigurable_Object_Capture_Loader(Reconfigurable_Loader):
         Imported_Object_Capture_Class, setup_data_dict = self._import_externals_class_with_override()
         shared_config = self._get_shared_config()
         
+        # Retreive unwarping settings
+        unwarp_config = {"enable_preprocessor_unwarp": self.enable_unwarp, 
+                         "unwarp_function": self.unwarp_function}
+        
         # Load & configure the object capturer
-        new_objcap = Imported_Object_Capture_Class(**shared_config)
+        new_objcap = Imported_Object_Capture_Class(**shared_config, **unwarp_config)
         new_objcap.set_configure_mode()
         new_objcap.reconfigure(setup_data_dict)
         

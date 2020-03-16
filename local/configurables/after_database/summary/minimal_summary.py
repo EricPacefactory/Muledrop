@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Thu Oct 31 14:53:44 2019
+Created on Wed Jan 22 15:58:26 2020
 
 @author: eo
 """
@@ -49,46 +49,84 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
-from local.configurables.after_database.classifier.reference_classifier import Reference_Classifier
+import numpy as np
+
+from local.configurables.after_database.summary.reference_summary import Reference_Summary
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
 
-class Classifier_Stage(Reference_Classifier):
+class Summary_Stage(Reference_Summary):
     
     # .................................................................................................................
     
     def __init__(self, cameras_folder_path, camera_select, user_select):
         
-        # Inherit from base class
+        # Inherit from reference class
         super().__init__(cameras_folder_path, camera_select, user_select, file_dunder = __file__)
-        
+    
     # .................................................................................................................
     
-    def setup(self, variables_changed_dict):        
-        # No configuration, so don't do anything
+    def close(self):
+        # Minimal doesn't open any resources, so nothing to close
+        return
+    
+    # .................................................................................................................
+    
+    def setup(self, variables_changed_dict):
+        # No variables to setup
         pass
     
     # .................................................................................................................
-
+    
     def request_object_data(self, object_id, object_database):
         
-        # Get object metadata from the server
+        # Will calculate simple positional parameters & speed, so we need the trail data + timing
         object_metadata = object_database.load_metadata_by_id(object_id)
+        object_trail_data = object_metadata["tracking"]
+        object_lifetime_ms = object_metadata["lifetime_ms"]
         
-        return object_metadata
+        return object_trail_data, object_lifetime_ms
     
     # .................................................................................................................
     
-    def classify_one_object(self, object_data, snapshot_database):
+    def summarize_one_object(self, object_data, snapshot_database):
         
-        # Get class label & score from detection data, leave everything else blank
-        class_label = object_data.get("detection_class", "unclassified")
-        score_pct = int(round(object_data.get("classification_score", 0.0)))
-        subclass = ""
-        attributes_dict = {}
+        # Unpack object data for clarity
+        object_trail_data, object_lifetime_ms = object_data
         
-        return class_label, score_pct, subclass, attributes_dict
+        # Bundle trail x/y values for convenience
+        trail_xy = np.vstack((object_trail_data["x_center"], object_trail_data["y_center"])).T
+        
+        # Calculate starting/end points and distance travelled
+        start_x, start_y = trail_xy[0, :]
+        end_x, end_y = trail_xy[-1, :]
+        
+        # Calculate direct distance between the start/end points
+        round_trip_delta = np.sqrt(np.square(end_x - start_x) + np.square(end_y - start_y))
+        
+        # Calculate the total path travel distance
+        distance_per_frame = np.linalg.norm(np.diff(trail_xy, axis = 0), axis = 1)
+        total_path_distance = np.sum(distance_per_frame)
+        
+        # Calculate speed values (WARNING: NOT CORRECTING FOR ASPECT RATIO!!!)
+        obj_lifetime_sec = object_lifetime_ms / 1000.0
+        delta_xy_over_delta_t = np.diff(trail_xy, axis = 0) / obj_lifetime_sec
+        obj_speed = np.linalg.norm(delta_xy_over_delta_t, axis = 1)
+        max_speed = np.max(obj_speed)
+        avg_speed = np.mean(obj_speed)
+        
+        # Bundle calculated results
+        summary_data_dict = {"start_x": start_x,
+                             "end_x": end_x,
+                             "start_y": start_y,
+                             "end_y": end_y,
+                             "round_trip_delta": round_trip_delta,
+                             "total_path_distance": total_path_distance,
+                             "max_speed": max_speed,
+                             "avg_speed": avg_speed}
+        
+        return summary_data_dict
 
     # .................................................................................................................
     # .................................................................................................................

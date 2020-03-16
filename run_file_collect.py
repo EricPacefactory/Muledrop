@@ -75,7 +75,8 @@ def parse_run_args(debug_print = False):
                  "display", 
                  {"threaded_video": {"default": True}}, 
                  "save_and_keep", 
-                 "save_and_delete"]
+                 "save_and_delete",
+                 "skip_save"]
     
     # Provide some extra information when accessing help text
     script_description = "Capture snapshot & tracking data from a recorded video file"
@@ -93,7 +94,11 @@ def parse_run_args(debug_print = False):
 
 # .....................................................................................................................
 
-def save_data_prompt(enable_save_prompt = True):
+def save_data_prompt(enable_save_prompt = True, skip_save = False):
+    
+    # If saving is being skipped, we ignore prompt settings entirely
+    if skip_save:
+        return False
     
     # If we don't prompt the user to save, assume saving is enabled
     if not enable_save_prompt:
@@ -142,20 +147,25 @@ def delete_existing_report_data(enable_deletion_prompt, configuration_loader, sa
 # .....................................................................................................................
 
 # ---------------------------------------------------------------------------------------------------------------------
-#%% Main
+#%% Parse Arguments
 
 # Parse script arguments in case we're running automated
 ap_result = parse_run_args()
 save_and_keep = ap_result.get("save_keep", False)
 save_and_delete = ap_result.get("save_delete", False)
+skip_save = ap_result.get("skip_save", False)
 provide_prompts = (not (save_and_keep or save_and_delete))
+
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Setup
 
 # Make all required selections and setup/configure everything
 loader = File_Configuration_Loader()
 loader.selections(ap_result)
+loader.set_script_name(__file__)
 
 # Ask user about saved data and delete existing data (if enabled)
-save_data = save_data_prompt(provide_prompts)
+save_data = save_data_prompt(provide_prompts, skip_save)
 if save_data:
     delete_existing_report_data(provide_prompts, loader, save_and_keep)
 
@@ -169,6 +179,9 @@ start_timestamp = loader.setup_all()
 # Set up object to handle all video processing
 main_process = Video_Processing_Loop(loader)
 
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Main
+
 # Feedback on launch
 enable_disable_txt = ("enabled" if save_data else "disabled")
 print("", "{}  |  Saving {}".format(start_timestamp, enable_disable_txt), sep = "\n")
@@ -177,6 +190,11 @@ print("", "{}  |  Saving {}".format(start_timestamp, enable_disable_txt), sep = 
 total_processing_time_sec = main_process.loop(enable_progress_bar = True)
 print("", "Finished! Took {:.1f} seconds".format(total_processing_time_sec), sep = "\n")
 
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Clean up
+
+# Run any cleanup needed by configured system
+loader.clean_up()
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Scrap

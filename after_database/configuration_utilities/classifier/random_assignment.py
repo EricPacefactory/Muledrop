@@ -51,11 +51,12 @@ find_path_to_local()
 
 from local.lib.ui_utils.cli_selections import Resource_Selector
 
-from local.lib.file_access_utils.after_database import build_after_database_configs_folder_path
+from local.lib.file_access_utils.classifier import build_classifier_config_path
+from local.lib.file_access_utils.read_write import load_config_json, save_config_json
+
 from local.configurables.after_database.classifier.random_classifier import Classifier_Stage
 
 from eolib.utils.cli_tools import cli_confirm
-from eolib.utils.read_write import load_json, save_json
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define functions
@@ -69,12 +70,7 @@ def path_to_configuration_file(configurable_ref):
     camera_select = configurable_ref.camera_select
     user_select = configurable_ref.user_select
     
-    # Get additional pathing info so we can find the config file
-    component_name = configurable_ref.component_name
-    save_name = configurable_ref.save_filename
-    
-    return build_after_database_configs_folder_path(cameras_folder_path, camera_select, user_select, 
-                                                    component_name, save_name)
+    return build_classifier_config_path(cameras_folder_path, camera_select, user_select)
 
 # .....................................................................................................................
 
@@ -84,7 +80,7 @@ def load_matching_config(configurable_ref):
     load_path = path_to_configuration_file(configurable_ref)
     
     # Load existing config
-    config_data = load_json(load_path)
+    config_data = load_config_json(load_path)
     file_access_dict = config_data["access_info"]
     setup_data_dict = config_data["setup_data"]
     
@@ -116,7 +112,7 @@ def save_config(configurable_ref, file_dunder = __file__):
     
     # Build pathing to existing configuration file
     save_path = path_to_configuration_file(configurable_ref)    
-    save_json(save_path, save_data)
+    save_config_json(save_path, save_data)
 
 # .....................................................................................................................
 # .....................................................................................................................

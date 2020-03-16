@@ -127,7 +127,7 @@ def redraw_timebar_base(blank_timebar, start_idx, end_idx, max_idx, highlight_co
     
     # Bundle x/y values for clarity
     pt1 = (x_start_px, 0 - 10)
-    pt2 = (x_end_px, frame_height + 10)    
+    pt2 = (x_end_px, frame_height + 10)
     return cv2.rectangle(blank_timebar.copy(), pt1, pt2, highlight_color, -1)
 
 # .....................................................................................................................
@@ -150,7 +150,7 @@ user_select, _ = selector.user(camera_select, debug_mode=enable_debug_mode)
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Catalog existing data
 
-cam_db, snap_db, obj_db, class_db, _, _ = \
+cinfo_db, rinfo_db, snap_db, obj_db, class_db, _, _ = \
 launch_file_db(cameras_folder_path, camera_select, user_select,
                launch_snapshot_db = True,
                launch_object_db = True,
@@ -159,12 +159,12 @@ launch_file_db(cameras_folder_path, camera_select, user_select,
                launch_rule_db = False)
 
 # Catch missing data
-cam_db.close()
+rinfo_db.close()
 close_dbs_if_missing_data(snap_db, obj_db)
 
 # Get the maximum range of the data (based on the snapshots, because that's the most we could show)
 earliest_datetime, latest_datetime = snap_db.get_bounding_datetimes()
-snap_wh = snap_db.get_snap_frame_wh()
+snap_wh = cinfo_db.get_snap_frame_wh()
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -207,10 +207,10 @@ set_object_classification_and_colors(class_db, obj_list)
 
 # Create timebar to show playback location
 snap_width, snap_height = snap_wh
-timebar_height = 20
+timebar_height = 18
 blank_timebar = np.full((timebar_height, snap_width, 3), (40, 40, 40), dtype=np.uint8)
-tb_pt1 = lambda playback_pos: (playback_pos, -10)
-tb_pt2 = lambda playback_pos: (playback_pos, timebar_height + 10)
+tb_pt1 = lambda playback_pos: (playback_pos, -5)
+tb_pt2 = lambda playback_pos: (playback_pos, timebar_height + 5)
 
 # Get full frame sizing
 full_frame_height = snap_height + timebar_height
@@ -279,6 +279,7 @@ while True:
     playback_px = int(round(playback_progress(current_snap_time_ms) * (snap_width - 1)))
     timebar_image = timebar_base.copy()
     timebar_image = cv2.rectangle(timebar_image, tb_pt1(playback_px), tb_pt2(playback_px), (255, 255, 255), 1)
+    timebar_image = cv2.line(timebar_image, (0, 0), (snap_width, 0), (40,40,40), 2)
     
     # Display the snapshot image, but stop if the window is closed
     combined_image = np.vstack((snap_image, timebar_image))

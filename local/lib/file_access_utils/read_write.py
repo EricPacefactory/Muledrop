@@ -50,101 +50,272 @@ find_path_to_local()
 #%% Imports
 
 import json
+import ujson
+import gzip
+
 
 # ---------------------------------------------------------------------------------------------------------------------
-#%% File i/o
+#%% Define general functions
 
 # .....................................................................................................................
+
+def create_missing_folder_for_file(file_path):
     
-def create_json(file_path, json_data, creation_printout = "Creating JSON:", overwrite_existing = False,
-                create_missing_folder = True):
+    ''' 
+    Helper function which creates the missing parent folder(s) for a given file path, if needed. 
+    Returns nothing
+    '''
     
-    # Create the folder path, if needed
-    if create_missing_folder:
-        folder_path = os.path.dirname(file_path)
-        os.makedirs(folder_path, exist_ok = True)
-    
-    # If the file doesn't exist, create it
-    file_doesnt_exist = (not os.path.exists(file_path))
-    if file_doesnt_exist or overwrite_existing:
+    parent_folder = os.path.dirname(file_path)
+    os.makedirs(parent_folder, exist_ok = True)
         
-        if creation_printout:
-            print("")
-            print(creation_printout)
-            print(" ", file_path)
-        
-        # Write the default to file
-        with open(file_path, "w") as out_file:
-            json.dump(json_data, out_file, indent = 2, sort_keys = True)
-            
+    return
+
 # .....................................................................................................................
-            
-def load_with_error_if_missing(file_path):
+
+def dict_to_human_readable_output(data_dict, sort_keys = True):
+    
+    ''' Helper function which can be used to avoid importing json in places that don't need file i/o '''
+    
+    return json.dumps(data_dict, indent = 2, sort_keys = sort_keys)
+
+# .....................................................................................................................
+
+def fast_json_stringify(data_dict):
+    
+    ''' 
+    Helper function which can be used to avoid importing json in places that don't need file i/o,
+    same as 'dict_to_human_readable_output' but intended for internal use. Should be faster
+    '''
+    
+    return ujson.dumps(data_dict)
+
+# .....................................................................................................................
+
+def fast_json_to_dict(json_string_data):
+    
+    ''' 
+    Helper function which can be used to avoid importing json in places that don't need file i/o.
+    Converts python data to json strings. Does not perform data type conversions!
+    '''
+    
+    return ujson.loads(json_string_data)
+
+# .....................................................................................................................
+# .....................................................................................................................
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Define config i/o functions
+
+# .....................................................................................................................
+
+def load_config_json(load_path, error_if_missing = True):
+    
+    ''' 
+    Helper function for loading config style json data 
+    By default, will throw a FileNotFound error if the file is missing.
+    If this is disabled, the function will return None for missing files
+    '''
     
     # Check that the file path exists
-    if not os.path.exists(file_path):
-        print("", "",
-              "!" * 42,
-              "Error reading data:",
-              "@ {}".format(file_path),
-              "!" * 42,
-              "", "", sep="\n")
-        raise FileNotFoundError("Couldn't find file for loading!")
+    file_exists = os.path.exists(load_path)
+    
+    # If we don't find the file, either raise an error or return nothing
+    if (not file_exists):        
+        if error_if_missing:
+            print("", "",
+                  "!" * 42,
+                  "Error loading data:",
+                  "@ {}".format(load_path),
+                  "!" * 42,
+                  "", "", sep="\n")
+            raise FileNotFoundError("Couldn't find file for loading!")
+        return None
     
     # Assuming the file does exist, load it's contents
-    with open(file_path, "r") as in_file:
-        load_content = json.load(in_file)
+    with open(load_path, "r") as in_file:
+        loaded_data = json.load(in_file)
+    
+    return loaded_data
+
+# .....................................................................................................................
+
+def save_config_json(save_path, json_data, create_missing_folder_path = False):
+    
+    '''
+    Helper function which saves (and overwrites!) json files, in a human-readable format (i.e. indented)
+    Returns nothing
+    '''
+    
+    # Always try converting to json string to watch for errors
+    try:
+        _ = json.dumps(json_data)
+    except TypeError as err:
+        print("", 
+              "Error saving json data:",
+              "@ {}".format(save_path),
+              "",
+              "Got invalid data?:",
+              json_data, 
+              "", "", sep = "\n")
+        raise err
         
-    return load_content
+    # Create the parent folder, if needed
+    create_missing_folder_for_file(save_path)
+    
+    with open(save_path, "w") as out_file:
+        json.dump(json_data, out_file, indent = 2, sort_keys = True)
+    
+    return
 
 # .....................................................................................................................
-
-def load_or_create_json(file_path, default_content, creation_printout = "Creating JSON:"):
     
-    # If the file doesn't exist, create it, then load
-    create_json(file_path, default_content, creation_printout, overwrite_existing = False)
-    return load_with_error_if_missing(file_path)
-
-# .....................................................................................................................
-
-def load_replace_save(file_path, new_dict_data, indent_data = True, create_if_missing = True):
+def create_missing_config_json(save_path, default_json_data, creation_printout = "Creating JSON:", 
+                               create_missing_folder_path = True):
     
     '''
-    Loads an existing file, assumed to hold a dictionary of data,
-    then updates the dictionary with the newly provided data,
-    and re-saves the file
+    Function which takes a file path and will create a file at that path, if one doesn't already exist.
+    Otherwise, the function does nothing.
+    
+    Inputs:
+        save_path (string) -> Path to create/save a new file
+        
+        default_json_data (dict/list) -> Data saved into the file if created
+        
+        creation_printout (string or None) -> Feedback that is printed if a file is created (will also print path)
+        
+        create_missing_folder_path (boolean) -> If true, the parent folder(s) path will be created if missing
+        
+    Outputs:
+        Nothing
     '''
     
-    # Check if the file exists. If it doesn't and we're not allowed to create it if missing, give an error
-    file_exists = os.path.exists(file_path)
-    if (not file_exists) and (not create_if_missing):
-        raise FileNotFoundError("Couldn't replace file, it doesn't exists: {}".format(file_path))
+    # Create the folder path, if needed
+    if create_missing_folder_path:
+        create_missing_folder_for_file(save_path)
     
-    # Load the target data set or assume it's blank if the path isn't valid
-    load_data = load_with_error_if_missing(file_path) if file_exists else {}
+    # If the file doesn't exist, create it
+    file_exists = (os.path.exists(save_path))
+    if (not file_exists):
+        
+        # Only print feedback if we were given something to print!
+        if creation_printout:
+            print("",
+                  creation_printout,
+                  "@ {}".format(save_path),
+                  sep = "\n")
+        
+        # Write the default to file
+        save_config_json(save_path, default_json_data, create_missing_folder_path)
             
-    # Update with any new data
-    load_data.update(new_dict_data)
-    
-    # Now re-save the (updated) data
-    full_replace_save(file_path, load_data, indent_data)
-    
-    return load_data
+    return
 
 # .....................................................................................................................
 
-def full_replace_save(file_path, save_data, indent_data = True):
+def load_or_create_config_json(load_path, default_content, creation_printout = "Creating JSON:"):
     
-    # Save the data
-    indent_amount = 2 if indent_data else None
-    with open(file_path, "w") as out_file:
-        json.dump(save_data, out_file, indent = indent_amount)
+    '''
+    Helper function which will try to load a json config file is possible,
+    or otherwise will create a file (along with some printed feedback) if it is missing
+    '''
     
-    return save_data
+    # If the file doesn't exist, create it
+    create_missing_config_json(load_path, default_content, creation_printout)
+    
+    return load_config_json(load_path)
+
+# .....................................................................................................................
+
+def update_config_json(save_path, update_json_entry):
+    
+    '''
+    Function which loads an existing json file, assumed to be holding a dictionary
+    The function will update the dictionary based on the 'update_json_entry' input argument,
+    then re-save the file back in place (preserving any other data!)
+    Returns the updated dictionary data
+    '''
+    
+    # Try to load an existing config file or otherwise create an empty one
+    load_dict = load_or_create_config_json(save_path, {}, creation_printout = None)
+        
+    # Update the loaded data with new dictionary data
+    load_dict.update(update_json_entry)
+    
+    # Now re-save the updated data
+    save_config_json(save_path, load_dict)
+    
+    return load_dict
 
 # .....................................................................................................................
 # .....................................................................................................................
     
+
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Define gzip i/o functions
+
+# .....................................................................................................................
+
+def save_jgz(save_path, json_data, double_precision = 3,
+             sort_keys = False, check_validity = False, create_missing_folder_path = False):
+    
+    '''
+    Function which saves json files. File pathing should have a .json.gz extension!
+    Inputs:
+        save_path -> String. Path to where the json file should be saved.
+                     
+        json_data -> Dictionary. Data to be saved, must be valid json (e.g. use .tolist() on numpy arrays)
+                  
+        sort_keys -> Boolean. If true, json_data keys will be sorted in storage.
+        
+        check_validity -> Boolean. If true, will first attempt to convert data to a string (within python)
+                          This may fail (as a TypeError for example). This prevents the creation of an
+                          invalid/incomplete json file, which would cause errors on loading otherwise.
+                          However, this will have a detrimental effect on performance!
+        
+        create_missing_folder_path -> Boolean. If true, the folder pathing to the given file will be checked,
+                                      and if missing, will be created
+    Outputs:
+        Nothing
+    '''
+    
+    # Try converting to json to watch for errors, if needed
+    if check_validity:
+        _ = ujson.dumps(json_data)
+    
+    # Create the parent folder, if needed
+    if create_missing_folder_path:
+        create_missing_folder_for_file(save_path)
+        
+    # Use gzip compression if needed
+    with gzip.open(save_path, "wt", encoding = "ascii") as out_file:
+        ujson.dump(json_data, out_file, sort_keys = sort_keys, double_precision = double_precision)
+    
+    return
+
+# .....................................................................................................................
+
+def load_jgz(load_path):
+    
+    '''
+    Function which loads a gzipped json file from a specified loading path.
+    Inputs:
+        load_path -> String. Path to file to be loaded. Expects gzipped files (i.e. ending with .json.gz!)
+        
+    Outputs:
+        json_data
+    '''
+    
+    # Use gzip to unzip the json data before loading
+    with gzip.open(load_path, 'rt') as in_file:
+        json_data = ujson.load(in_file)
+    
+    return json_data
+
+# .....................................................................................................................
+# .....................................................................................................................
+
+
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Scrap
 

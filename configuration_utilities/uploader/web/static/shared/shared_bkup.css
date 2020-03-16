@@ -1,0 +1,93 @@
+
+/* ----------------------------------------------------------------- */
+/* Global styling */
+/* ----------------------------------------------------------------- */
+
+:root {
+
+  --light_text: rgb(170, 170, 170);
+  --bright_text: rgb(255,255,255);
+
+  --dark_background: rgb(48, 43, 47);
+  --dark_foreground: rgb(50, 41, 49);
+  --dark_foreground_hl: rgb(55, 44, 53);
+
+  --light_shadow: rgba(0, 0, 0, 0.1);
+  --medium_shadow: rgba(0, 0, 0, 0.2);
+  --heavy_shadow: rgba(0, 0, 0, 0.3);
+
+  --accent_1: rgb(221, 70, 76);
+  --accent_2: rgb(18, 144, 179);
+  --accent_3: rgb(143, 192, 62);
+
+  --page_accent: rgb(83, 83, 83);
+  --page_background: linear-gradient(180deg, 
+                                     var(--page_accent) 5%, 
+                                     var(--dark_background) 100%);
+}
+
+
+/* ----------------------------------------------------------------- */
+/* Global page styling */
+
+html {
+  box-sizing: border-box;
+  font-family: Arial, Helvetica, sans-serif;
+  color: var(--light);
+  min-width: 100%;
+  min-height: 100%;
+  box-shadow: inset 0 0 24px 12px var(--medium_shadow);
+}
+
+body{
+  margin: 40px auto;
+  line-height: 1.4;
+  user-select: none;
+  background: var(--page_background);
+}
+
+.page_content {
+  display: grid;
+  grid-gap: 20px;
+}
+
+.page_title_div {
+  width: fit-content;
+  margin: auto;
+  text-align: center;
+  font-weight: bolder;
+  font-size: 2.5em;
+  font-variant: small-caps;
+  padding: 0.5em 0 0 0;
+  color: var(--bright_text);
+  text-shadow: -2px -2px 0 #000, 2px -2px 0 #000, 
+               -2px 2px 0 #000, 2px 2px 0 #000;
+}
+
+.column_container {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  width: 80vw;
+  padding: 2em;
+  margin: auto;
+
+  animation-name: shared_load_animation;
+  animation-delay: 0;
+  animation-duration: 350ms;
+  animation-fill-mode: backwards;
+}
+
+/* ----------------------------------------------------------------- */
+/* Shared content loading animation */
+
+@keyframes shared_load_animation {
+  from {
+    opacity: 0%;
+    transform: translateY(-40px);
+  }
+  to {
+    opacity: 100%;
+    transform: translateY(0%);
+  }
+}

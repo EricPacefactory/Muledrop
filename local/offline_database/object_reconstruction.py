@@ -57,7 +57,7 @@ from time import perf_counter
 from scipy.interpolate import UnivariateSpline
 from scipy.spatial import cKDTree
 
-from local.offline_database.file_database import _time_to_epoch_ms
+from local.lib.common.timekeeper_utils import time_to_epoch_ms
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
@@ -84,14 +84,14 @@ class Object_Reconstruction:
         self.trail_xy = self._create_trail_xy()
         
         # Store object start/end time in terms of video frame indice, used for syncing with snapshots
-        self.start_idx = self.metadata["timing"]["first_frame_index"]
-        self.end_idx = self.metadata["timing"]["last_frame_index"]
-        self.start_ems = self.metadata["timing"]["first_epoch_ms"]
-        self.end_ems = self.metadata["timing"]["last_epoch_ms"]
+        self.start_idx = self.metadata["first_frame_index"]
+        self.end_idx = self.metadata["final_frame_index"]
+        self.start_ems = self.metadata["first_epoch_ms"]
+        self.end_ems = self.metadata["final_epoch_ms"]
         
         # Store global start/end times, used for relative timing calculations
-        self.global_start_ems = _time_to_epoch_ms(global_start_time)
-        self.global_end_ems = _time_to_epoch_ms(global_end_time)
+        self.global_start_ems = time_to_epoch_ms(global_start_time)
+        self.global_end_ems = time_to_epoch_ms(global_end_time)
         self.global_length_ems = self.global_end_ems - self.global_start_ems
         
         # Store relative timing (normalized values, based on global time range)
@@ -601,7 +601,20 @@ class Hover_Mapping:
 
 # .....................................................................................................................
 
-def create_trail_frame_from_object_reconstruction(background_frame, object_list, use_outline_color = True):
+def object_data_dict_to_list_generator(object_data_dict):
+    
+    '''
+    Helper function which converts a dictionary of object ids/data to a list,
+    for use in functions that expect a list input
+    '''
+    
+    object_list_generator = (each_obj_data for each_obj_data in object_data_dict.values())
+    
+    return object_list_generator
+
+# .....................................................................................................................
+
+def create_trail_frame_from_object_reconstruction(background_frame, object_list, use_outline_color = True):        
     
     trail_frame = background_frame.copy()
     for each_obj in object_list:

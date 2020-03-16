@@ -53,7 +53,8 @@ import cv2
 import numpy as np
 
 from local.configurables.core.preprocessor.reference_preprocessor import Reference_Preprocessor
-from local.configurables.core.preprocessor._helper_functions import avoid_missing_output_wh, constrain_property
+
+from local.configurables.core.preprocessor._helper_functions import unwarp_from_mapping
 
 from eolib.math.linear_algebra import rotation_matrix_2D, rotate_around_center
 
@@ -106,6 +107,7 @@ class Preprocessor_Stage(Reference_Preprocessor):
                 label = "Rotation", 
                 default_value = 0.0,
                 min_value = -180.0, max_value = 180.0, step_size = 1/10,
+                zero_referenced = False,
                 return_type = float,
                 units = "degrees",
                 tooltip = "Rotate the output image")
@@ -115,7 +117,8 @@ class Preprocessor_Stage(Reference_Preprocessor):
                 "x_circle_scale", 
                 label = "X Circle", 
                 default_value = 1.0,
-                min_value = 0.0, max_value = 1.0, step_size = 1/100,
+                min_value = 0.01, max_value = 1.0, step_size = 1/100,
+                zero_referenced = True,
                 return_type = float,
                 units = "normalized",
                 tooltip = "Selects the outer point of the circular mapping, relative to the input image (in x)")
@@ -125,7 +128,8 @@ class Preprocessor_Stage(Reference_Preprocessor):
                 "y_circle_scale", 
                 label = "Y Circle", 
                 default_value = 1.0,
-                min_value = 0.0, max_value = 1.0, step_size = 1/100,
+                min_value = 0.01, max_value = 1.0, step_size = 1/100,
+                zero_referenced = True,
                 return_type = float,
                 units = "normalized",
                 tooltip = "Selects the outer point of the circular mapping, relative to the input image (in y)")
@@ -135,7 +139,8 @@ class Preprocessor_Stage(Reference_Preprocessor):
                 "x_length_scale", 
                 label = "X Scale", 
                 default_value = 1.0,
-                min_value = 0.0, max_value = 1.41, step_size = 1/100,
+                min_value = 0.01, max_value = 1.41, step_size = 1/100,
+                zero_referenced = True,
                 return_type = float,
                 units = "normalized",
                 tooltip = "")
@@ -145,7 +150,8 @@ class Preprocessor_Stage(Reference_Preprocessor):
                 "y_length_scale", 
                 label = "Y Scale", 
                 default_value = 1.0,
-                min_value = 0.0, max_value = 1.41, step_size = 1/100,
+                min_value = 0.01, max_value = 1.41, step_size = 1/100,
+                zero_referenced = True,
                 return_type = float,
                 units = "normalized",
                 tooltip = "")
@@ -203,22 +209,7 @@ class Preprocessor_Stage(Reference_Preprocessor):
     # .................................................................................................................
     
     def setup(self, variables_changed_dict):
-
-        # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-        # Clean up input data
         
-        self.output_w, self.output_h = avoid_missing_output_wh(self.input_wh, self.output_w, self.output_h,
-                                                               max_side_length = 800)
-        
-        # Force good values
-        constrain_property(self, "output_w", 50, 1280)
-        constrain_property(self, "output_h", 50, 1280)
-        constrain_property(self, "x_circle_scale", 0.01, None)
-        constrain_property(self, "y_circle_scale", 0.01, None)
-        constrain_property(self, "x_length_scale", 0.01, 1.41)
-        constrain_property(self, "y_length_scale", 0.01, 1.41)
-        constrain_property(self, "rotation_deg", -180.0, 180.0)
-
         # Rebuild the x/y transformation mappings
         self.build_mapping()
         
@@ -285,6 +276,20 @@ class Preprocessor_Stage(Reference_Preprocessor):
         # Convert normalized circular co-ordinates back into pixel co-ords
         self.x_mapping = mid_x * (rot_x_recenter + rot_circ_x)
         self.y_mapping = mid_y * (rot_y_recenter + rot_circ_y) 
+    
+    # .................................................................................................................
+    
+    def unwarp_required(self):
+        # Only need to unwarp if the transform is enabled
+        return self.enable_transform
+    
+    # .................................................................................................................
+
+    def unwarp_xy(self, warped_normalized_xy_npfloat32):
+        # Standard unwarp implementation
+        return unwarp_from_mapping(warped_normalized_xy_npfloat32, 
+                                   self.input_wh, self.output_wh, 
+                                   self.x_mapping, self.y_mapping)
         
     # .................................................................................................................
     # .................................................................................................................

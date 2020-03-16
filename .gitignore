@@ -3,7 +3,6 @@
 cameras/
 specifications/
 settings/
-.txt
 
 # Cache files
 *.pyc

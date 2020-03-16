@@ -82,6 +82,9 @@ class Reference_Tracker(Core_Configurable_Base):
         self.vobj_id_manager = ID_Manager()
         self.tobj_id_manager = ID_Manager()
         
+        # Store frame sizing into the reference object for saving
+        Reference_Trackable_Object.set_frame_wh(*input_wh)
+        
         # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         #   Inherited classes must have __init__(input_wh) as arguments!
         # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -169,7 +172,7 @@ class Reference_Tracker(Core_Configurable_Base):
         
         # Add long-lived objects to dead list so that they get saved (protect RAM usage) and replace with new objects 
         tobj_dict, dead_tobj_id_list =  \
-        self.generate_new_decendent_objects(tobj_dict, dead_tobj_id_list, *fed_time_args)
+        self.generate_new_descendant_objects(tobj_dict, dead_tobj_id_list, *fed_time_args)
         
         # If needed, generate new tracked/validation objects
         tobj_dict, vobj_dict = self.generate_new_tracked_objects(tobj_dict, vobj_dict, *fed_time_args)
@@ -288,7 +291,7 @@ class Reference_Tracker(Core_Configurable_Base):
     # .................................................................................................................
     
     # MAY OVERRIDE. Maintain i/o structure
-    def generate_new_decendent_objects(self, tracked_object_dict, dead_tracked_id_list, 
+    def generate_new_descendant_objects(self, tracked_object_dict, dead_tracked_id_list, 
                                        current_frame_index, current_epoch_ms, current_datetime):
         
         '''
@@ -301,29 +304,29 @@ class Reference_Tracker(Core_Configurable_Base):
         
         # Initialize output results
         ancestor_id_list = []
-        decendent_object_dict = {}
+        descendant_object_dict = {}
         
         # Find all objects that are running out of storage and need to be decended
         for each_tobj_id, each_tobj in tracked_object_dict.items():
             
             # Get tracked object sample count, to see if we need to force it to save
-            needs_decendent = each_tobj.is_out_of_storage_space()
-            if not needs_decendent:
+            needs_descendant = each_tobj.is_out_of_storage_space()
+            if not needs_descendant:
                 continue
             
-            # If we get here, we're creating a decendent object, so record the id
+            # If we get here, we're creating a descendant object, so record the id
             ancestor_id_list.append(each_tobj_id)
             
-            # Get new tracked id for each decendent object
+            # Get new tracked id for each descendant object
             new_nice_id, new_full_id = self.tobj_id_manager.new_id(current_datetime)
-            new_decendent = each_tobj.create_decendent(new_nice_id, new_full_id, 
-                                                       current_frame_index, current_epoch_ms, current_datetime)
+            new_descendant = each_tobj.create_descendant(new_nice_id, new_full_id, 
+                                                        current_frame_index, current_epoch_ms, current_datetime)
             
-            # Move decendent into the tracked object dictionary
-            decendent_object_dict[new_full_id] = new_decendent
+            # Move descendant into the tracked object dictionary
+            descendant_object_dict[new_full_id] = new_descendant
         
-        # Add new decendents to the tracked object dictionary
-        tracked_object_dict.update(decendent_object_dict)
+        # Add new descendants to the tracked object dictionary
+        tracked_object_dict.update(descendant_object_dict)
         
         # Add ancestor ids to the existing dead list so they are remove on the next iteration
         updated_dead_tracked_id_list = dead_tracked_id_list + ancestor_id_list
@@ -396,6 +399,8 @@ class Reference_Tracker(Core_Configurable_Base):
 
 class Reference_Trackable_Object:
     
+    frame_width = 1
+    frame_height = 1
     match_with_speed = False
     max_samples = 55000
     
@@ -414,13 +419,13 @@ class Reference_Trackable_Object:
         self.first_datetime = current_datetime
         
         # Allotcate storage for timing info as of the last detection match
-        self.last_match_frame_index = current_frame_index
-        self.last_match_epoch_ms = current_epoch_ms
-        self.last_match_datetime = current_datetime
+        self.final_match_frame_index = current_frame_index
+        self.final_match_epoch_ms = current_epoch_ms
+        self.final_match_datetime = current_datetime
         
         # Allocate storage for ancestry tracking (i.e. RAM protection for objects that last 'too long')
         self.ancestor_id = 0
-        self.decendent_id = 0
+        self.descendant_id = 0
         
         # Allocate storage for single-value variables (i.e. no history)
         self.detection_classification = detection_object.detection_classification
@@ -457,6 +462,13 @@ class Reference_Trackable_Object:
         cls.match_with_speed = match_with_speed
     
     # .................................................................................................................
+    
+    @classmethod
+    def set_frame_wh(cls, width, height):
+        cls.frame_width = int(round(width))
+        cls.frame_height = int(round(height))
+    
+    # .................................................................................................................
     #%% Updating functions
     
     def get_lifetime_ms(self, current_epoch_ms):
@@ -467,7 +479,7 @@ class Reference_Trackable_Object:
     
     def get_match_decay_time_ms(self, current_epoch_ms):
         ''' Function which returns the object's match decay time (in milliseconds) given the current epoch time '''
-        return current_epoch_ms - self.last_match_epoch_ms
+        return current_epoch_ms - self.final_match_epoch_ms
     
     # .................................................................................................................
     
@@ -477,7 +489,7 @@ class Reference_Trackable_Object:
     
     # .................................................................................................................
     
-    def create_decendent(self, new_nice_id, new_full_id, 
+    def create_descendant(self, new_nice_id, new_full_id, 
                          current_frame_index, current_epoch_ms, current_datetime):
         
         ''' 
@@ -486,14 +498,14 @@ class Reference_Trackable_Object:
         '''
         
         # Create new object of the same class
-        new_decendent = self.__class__(new_nice_id, new_full_id, self,
-                                       current_frame_index, current_epoch_ms, current_datetime)
+        new_descendant = self.__class__(new_nice_id, new_full_id, self,
+                                        current_frame_index, current_epoch_ms, current_datetime)
         
-        # Assign the existing object id as the ancestor to the new object and vice versa as a decendent
-        new_decendent.set_ancestor_id(self.full_id)
-        self.set_decendent_id(new_full_id)
+        # Assign the existing object id as the ancestor to the new object and vice versa as a descendant
+        new_descendant.set_ancestor_id(self.full_id)
+        self.set_descendant_id(new_full_id)
         
-        return new_decendent
+        return new_descendant
         
     # .................................................................................................................
     
@@ -522,14 +534,14 @@ class Reference_Trackable_Object:
         
     # .................................................................................................................
     
-    def set_decendent_id(self, decendent_id):
+    def set_descendant_id(self, descendant_id):
         
         ''' 
         Sister function to the ancestor id assignment. 
         This function is used to record the id of a new object created from 'this' object
         '''
         
-        self.decendent_id = decendent_id
+        self.descendant_id = descendant_id
     
     # .................................................................................................................
     
@@ -541,7 +553,7 @@ class Reference_Trackable_Object:
         '''
         
         # Record match timing data, in case this is the last time we match up with something
-        self._update_last_match_data(current_frame_index, current_epoch_ms, current_datetime)
+        self._update_final_match_data(current_frame_index, current_epoch_ms, current_datetime)
         
         # Get detection data
         new_track_status = 1
@@ -629,28 +641,33 @@ class Reference_Trackable_Object:
     
     # .................................................................................................................
     
-    def get_save_data(self):
+    def get_object_save_data(self):
         
         # Calculate helpful additional metadata
-        lifetime_ms = self.get_lifetime_ms(self.last_match_epoch_ms)
-        is_final = (self.decendent_id == 0)
+        lifetime_ms = self.get_lifetime_ms(self.final_match_epoch_ms)
+        is_final = (self.descendant_id == 0)
         
         # Bundle tracking data together for clarity
         tracking_data_dict, final_num_samples = self._get_tracking_data(is_final)
-        timing_data_dict = self._get_timing_data()
         
         # Generate json-friendly data to save
-        save_data_dict = {"full_id": self.full_id,
+        save_data_dict = {"_id": self.full_id,
+                          "full_id": self.full_id,
                           "nice_id": self.nice_id,
                           "ancestor_id": self.ancestor_id,
-                          "decendent_id": self.decendent_id,
+                          "descendant_id": self.descendant_id,
                           "is_final": is_final,
-                          "lifetime_ms": lifetime_ms,
                           "num_samples": final_num_samples,
                           "max_samples": self.max_samples,
+                          "first_frame_index": self.first_frame_index,
+                          "first_epoch_ms": self.first_epoch_ms,
+                          "first_datetime_isoformat": get_isoformat_string(self.first_datetime),
+                          "final_frame_index": self.final_match_frame_index,
+                          "final_epoch_ms": self.final_match_epoch_ms,
+                          "final_datetime_isoformat": get_isoformat_string(self.final_match_datetime),
+                          "lifetime_ms": lifetime_ms,
                           "detection_class": self.detection_classification,
                           "classification_score": self.classification_score,
-                          "timing": timing_data_dict,
                           "tracking": tracking_data_dict}
         
         return save_data_dict
@@ -668,8 +685,8 @@ class Reference_Trackable_Object:
             except IndexError:
                 # Should be a rare event to not find a last good index (implies all tracking data is bad)
                 # This normally won't happen, since only tracked objects should be saved!
-                # However, it is possible that a decendent object could have tracking lost during/after splitting,
-                # which would cause the decendent to contain only 'bad' data, causing this error!
+                # However, it is possible that a descendant object could have tracking lost during/after splitting,
+                # which would cause the descendant to contain only 'bad' data, causing this error!
                 # In this case, just accept all bad data...
                 last_good_rel_idx = -1
         
@@ -678,39 +695,25 @@ class Reference_Trackable_Object:
         num_decay_samples_removed = abs(last_good_rel_idx) - 1
         
         # Bundle tracking data together for clarity
-        tracking_data_dict = {"sample_order": "oldest_first",
-                              "num_validation_samples": self.num_validation_samples,
+        tracking_data_dict = {"num_validation_samples": self.num_validation_samples,
                               "num_decay_samples_removed": num_decay_samples_removed,
-                              "warped": True,
+                              "frame_width": self.frame_width,
+                              "frame_height": self.frame_height,
                               "track_status": list(self.track_status_history)[:final_num_samples],
                               "x_center": list(self.x_center_history)[:final_num_samples],
                               "y_center": list(self.y_center_history)[:final_num_samples],
                               "hull": [each_hull.tolist() for each_hull in self.hull_history][:final_num_samples]}
         
         return tracking_data_dict, final_num_samples
-    
-    # .................................................................................................................
-    
-    def _get_timing_data(self):
-        
-        # Bundle timing data together, for clarity
-        timing_data_dict = {"first_frame_index": self.first_frame_index,
-                            "first_epoch_ms": self.first_epoch_ms,
-                            "first_datetime_isoformat": get_isoformat_string(self.first_datetime),
-                            "last_frame_index": self.last_match_frame_index,
-                            "last_epoch_ms": self.last_match_epoch_ms,
-                            "last_datetime_isoformat": get_isoformat_string(self.last_match_datetime)}
-        
-        return timing_data_dict
         
     # .................................................................................................................
         
-    def _update_last_match_data(self, current_frame_index, current_epoch_ms, current_datetime):
+    def _update_final_match_data(self, current_frame_index, current_epoch_ms, current_datetime):
         
         # Update the last match timing, since we've matched with a new detection
-        self.last_match_frame_index = current_frame_index
-        self.last_match_epoch_ms = current_epoch_ms
-        self.last_match_datetime = current_datetime
+        self.final_match_frame_index = current_frame_index
+        self.final_match_epoch_ms = current_epoch_ms
+        self.final_match_datetime = current_datetime
         
     # .................................................................................................................
     #%% Postioning functions
@@ -887,7 +890,7 @@ class Smoothed_Trackable_Object(Reference_Trackable_Object):
         '''
         
         # Record match timing data, in case this is the last time we match up with something
-        self._update_last_match_data(current_frame_index, current_epoch_ms, current_datetime)
+        self._update_final_match_data(current_frame_index, current_epoch_ms, current_datetime)
         
         # Get detection data
         new_hull, new_x_cen, new_y_cen = self.get_detection_parameters(detection_object)
@@ -953,6 +956,7 @@ class ID_Manager:
         self.year = None
         self.day_of_year = None
         self.hour_of_day = None
+        self.minute_of_hour = None
         self.next_id_bank = None
         self.date_id = None
         
@@ -965,22 +969,27 @@ class ID_Manager:
         '''
         Function for returning object IDs with a date_id component to make them unique over time!
         IDs have the format:
-            yyyydddhh****
+            yyyydddhhmm***
             
-        Where **** is the ID, yyyy is the current year, ddd is the current day-of-the-year and hh is the current hour
+        Where *** is the ID, 
+              yyyy is the current year, 
+              ddd is the current day-of-the-year,
+              hh is the current hour,
+              mm is the current minute
         '''
         
         # Record the year & day-of-year from the given datetime
         time_data = current_datetime.timetuple()
-        prev_hour_of_day = self.hour_of_day
-        new_hour_of_day = time_data.tm_hour
+        prev_minute_of_hour = self.minute_of_hour
+        new_minute_of_hour = time_data.tm_min
         
-        # If we reach a new hour, reset the id bank and update the date id value for new objects
-        if new_hour_of_day != prev_hour_of_day:
+        # Update the date id every minute
+        if new_minute_of_hour != prev_minute_of_hour:
             self.reset()
             year_id = time_data.tm_year
             day_of_year_id = time_data.tm_yday
-            self.date_id = self._get_date_id(year_id, day_of_year_id, new_hour_of_day)
+            hour_of_day_id = time_data.tm_hour
+            self.date_id = self._get_date_id(year_id, day_of_year_id, hour_of_day_id, new_minute_of_hour)
         
         # Get the 'nice' id based on the current id bank setting, then update the bank
         nice_id = self.next_id_bank
@@ -998,32 +1007,35 @@ class ID_Manager:
     
     # .................................................................................................................
     
-    def _get_date_id(self, current_year, day_of_year, hour_of_day):
+    def _get_date_id(self, current_year, day_of_year, hour_of_day, minute_of_hour):
         
         '''
         Function for creating a 'date id' to append to object ids, in order to make them unique
         Takes on the format of: 
             
-            yyyydddhh0000
+            yyyydddhhmm000
             
         where
           yyyy is the year (ex. 2019)
           ddd is the day-of-the-year (a number between 001 and 365)
           hh is the hour-of-the-day (a number between 00 and 23)
-          0000 is reserved space for object ids in the given year/day/hour
+          mm is the minute-of-the-hour (a number between 00 and 60)
+          000 is reserved space for object ids in the given year/day/hour/minute
         '''
         
         # Record new date information
+        self.minute_of_hour = minute_of_hour
         self.hour_of_day = hour_of_day
         self.day_of_year = day_of_year
         self.year = current_year
         
         # Calculate offset numbers
-        offset_year = current_year * 1000000000
-        offset_doy =  day_of_year  * 1000000
-        offset_hour = hour_of_day  * 10000
+        offset_year = current_year * 10000000000
+        offset_doy =  day_of_year  * 10000000
+        offset_hour = hour_of_day  * 100000
+        offset_minute = minute_of_hour * 1000
         
-        return offset_year + offset_doy + offset_hour
+        return offset_year + offset_doy + offset_hour + offset_minute
         
     # .................................................................................................................
     # .................................................................................................................

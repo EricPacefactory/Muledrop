@@ -52,10 +52,10 @@ find_path_to_local()
 import queue
 import threading
 import cv2
-import json
-import gzip
 
 from time import perf_counter
+
+from local.lib.file_access_utils.read_write import save_config_json, save_jgz
 
 from eolib.utils.files import get_file_list, get_file_list_by_age
 
@@ -630,7 +630,7 @@ class Metadata_Saver(Data_Access):
         save_file_path = os.path.join(self._data_folder_path, save_file_name)
         
         # Save json data
-        self.launch_as_thread(self._write_json, save_file_path, json_data)
+        self.launch_as_thread(save_config_json, save_file_path, json_data)
         
         return save_file_path
     
@@ -647,26 +647,10 @@ class Metadata_Saver(Data_Access):
         save_file_path = os.path.join(self._data_folder_path, save_file_name)
         
         # Save json data with gzip compression
-        self.launch_as_thread(self._write_json_gz, save_file_path, json_data)
+        self.launch_as_thread(save_jgz, save_file_path, json_data)
         
         return save_file_path
     
-    # .................................................................................................................
-    
-    @staticmethod
-    def _write_json(save_file_path, json_data):
-        # Save json data (with human-readable spacing)
-        with open(save_file_path, "w") as out_file:
-            json.dump(json_data, out_file, indent = 2)
-    
-    # .................................................................................................................
-    
-    @staticmethod
-    def _write_json_gz(save_file_path, json_data):
-        # Save json data with gzip compression and very human-un-readable settings for small file sizes
-        with gzip.open(save_file_path, "wt", encoding = "ascii") as out_file:
-            json.dump(json_data, out_file, separators = (",", ":"), indent = None)
-            
     # .................................................................................................................
     # .................................................................................................................
 

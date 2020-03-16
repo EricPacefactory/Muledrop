@@ -172,7 +172,10 @@ class Reference_Detection_Object:
         self.bot_right = np.float32((bot_right_x_px, bot_right_y_px)) * self._xy_loc_scaling
         
         # Store width/height in format that allows reconstruction of tl/br using x/y center coords
-        self.width, self.height = np.float64(self.bot_right - self.top_left)
+        self.width, self.height = np.float32(self.bot_right - self.top_left)
+        
+        # Store x/y center points (careful to store them as python floats, not numpy floats)
+        self.x_center, self.y_center = ((self.top_left + self.bot_right) / 2.0).tolist()
         
         # Store a property for assigning classifications during detection
         self.detection_classification = detection_classification
@@ -187,7 +190,7 @@ class Reference_Detection_Object:
     
     @classmethod
     def set_frame_scaling(cls, frame_width_px, frame_height_px):
-        cls._xy_loc_scaling = 1 / np.float32((frame_width_px - 1, frame_height_px - 1))
+        cls._xy_loc_scaling = 1.0 / np.float32((frame_width_px - 1, frame_height_px - 1))
     
     # .................................................................................................................
     #%% Properties
@@ -195,28 +198,6 @@ class Reference_Detection_Object:
     @property
     def tl_br(self):
         return np.float32((self.top_left, self.bot_right))
-    
-    # .................................................................................................................
-    
-    @property
-    def x_center(self):
-        
-        half_width = self.width / 2
-        left_x = self.top_left[0]
-        x_center = left_x + half_width
-        
-        return x_center
-    
-    # .................................................................................................................
-    
-    @property
-    def y_center(self):
-        
-        half_height = self.height / 2
-        top_y = self.top_left[1]
-        y_center = top_y + half_height
-        
-        return y_center
     
     # .................................................................................................................
     

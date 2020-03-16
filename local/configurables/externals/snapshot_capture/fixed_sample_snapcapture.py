@@ -126,6 +126,11 @@ class Snapshot_Capture(Reference_Snapshot_Capture):
     def reset(self):
         # No storage, so nothing to reset!
         pass
+    
+    # .................................................................................................................
+    
+    def get_snapshot_wh(self):
+        return self._downscale_wh
         
     # .................................................................................................................
     

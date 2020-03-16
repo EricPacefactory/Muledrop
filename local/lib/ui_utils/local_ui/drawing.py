@@ -135,7 +135,7 @@ class Entity_Drawer:
     
     # .................................................................................................................
     
-    def __call__(self, *args, **kwargs):        
+    def __call__(self, *args, **kwargs):
         self.mouse_callback(*args, **kwargs)
         
     # .................................................................................................................
@@ -314,6 +314,9 @@ class Entity_Drawer:
         
         # Set boundaries
         self._set_entity_boundaries()
+        
+        # Force a change when initialized
+        self._entity_change = True
     
     # .................................................................................................................
     
@@ -639,7 +642,7 @@ class Entity_Drawer:
         up_arrow = 65362
         right_arrow = 65363
         down_arrow = 65364
-        arrow_key_pressed = (keycode in [left_arrow, up_arrow, right_arrow, down_arrow])
+        arrow_key_pressed = (keycode in {left_arrow, up_arrow, right_arrow, down_arrow})
         
         # Only check for nearby points if an arrow key is actually pressed
         if arrow_key_pressed:
@@ -664,7 +667,7 @@ class Entity_Drawer:
         # List out key values for convenience
         lower_z = 122
         upper_z = 90
-        undo_pressed = (keycode in [lower_z, upper_z] and mod_ctrl)
+        undo_pressed = (keycode in {lower_z, upper_z} and mod_ctrl)
         
         # Revert changes to the entity list if ctrl + z is pressed
         if undo_pressed:
@@ -681,7 +684,7 @@ class Entity_Drawer:
         # List out key values for convenience
         lower_b = 98
         upper_b = 66
-        b_pressed = (keycode in [lower_b, upper_b])
+        b_pressed = (keycode in {lower_b, upper_b})
         
         # Check if we're near enough to a point, and if that point is near enough to the frame borders to snap
         if b_pressed:        

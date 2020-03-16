@@ -94,8 +94,8 @@ user_select, _ = selector.user(camera_select, debug_mode=enable_debug_mode)
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Catalog existing data
 
-_, snap_db, obj_db, _, _, _ = launch_file_db(cameras_folder_path, camera_select, user_select, 
-                                             launch_classification_db = False)
+cinfo_db, snap_db, obj_db, _, _, _ = launch_file_db(cameras_folder_path, camera_select, user_select, 
+                                                    launch_classification_db = False)
 
 # Check if curated data exists
 # ...
@@ -159,7 +159,7 @@ classifier_ref.reconfigure(setup_data_dict)
 
 # Get the maximum range of the data (based on the snapshots, because that's the most we could show)
 earliest_datetime, latest_datetime = snap_db.get_bounding_datetimes()
-snap_wh = snap_db.get_snap_frame_wh()
+snap_wh = cinfo_db.get_snap_frame_wh()
 
 '''
 # Create a list of objects, according to the classifier's requirements

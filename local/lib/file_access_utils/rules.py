@@ -51,9 +51,10 @@ find_path_to_local()
 
 from local.lib.file_access_utils.after_database import build_after_database_configs_folder_path
 from local.lib.file_access_utils.reporting import build_after_database_report_path
+from local.lib.file_access_utils.read_write import load_config_json, save_jgz
 
-from eolib.utils.read_write import load_json, save_json
 from eolib.utils.files import get_file_list
+from eolib.utils.cli_tools import cli_confirm, cli_select_from_list, cli_prompt_with_defaults
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% General Pathing functions
@@ -66,15 +67,21 @@ def build_rule_config_folder_path(cameras_folder_path, camera_select, user_selec
     
 # .....................................................................................................................
 
-def build_rule_config_file_path(cameras_folder_path, camera_select, user_select, rule_name, *path_joins):
-    rule_save_name = create_rule_save_name(rule_name, ".json")
-    return build_rule_config_folder_path(cameras_folder_path, camera_select, user_select, rule_save_name)
+def build_rule_config_file_path(cameras_folder_path, camera_select, user_select, rule_name):
+    save_name = create_rule_config_file_name(rule_name)
+    return build_rule_config_folder_path(cameras_folder_path, camera_select, user_select, save_name)
 
 # .....................................................................................................................
 
-def build_rule_adb_metadata_report_path(cameras_folder_path, camera_select, user_select, rule_name, *path_joins):
-    rule_name_no_spaces = create_rule_save_name(rule_name)
-    return build_after_database_report_path(cameras_folder_path, camera_select, user_select, rule_name_no_spaces)
+def build_rule_adb_info_report_path(cameras_folder_path, camera_select, user_select, *path_joins):
+    return build_after_database_report_path(cameras_folder_path, camera_select, user_select, 
+                                            "rule_info", *path_joins)
+
+# .....................................................................................................................
+
+def build_rule_adb_metadata_report_path(cameras_folder_path, camera_select, user_select, *path_joins):
+    return build_after_database_report_path(cameras_folder_path, camera_select, user_select, 
+                                            "rules", *path_joins)
 
 # .....................................................................................................................
 # .....................................................................................................................
@@ -85,52 +92,50 @@ def build_rule_adb_metadata_report_path(cameras_folder_path, camera_select, user
 
 # .....................................................................................................................
 
+def create_rule_config_file_name(rule_name):
+    return "{}.json".format(create_safe_rule_name(rule_name))
+
+# .....................................................................................................................
+
+def create_safe_rule_name(rule_name):
+    return rule_name.strip().replace(" ", "_")
+
+# .....................................................................................................................
+
 def create_rule_report_file_name(object_full_id):
     return "rule-{}.json.gz".format(object_full_id)
 
 # .....................................................................................................................
 
-def create_rule_save_name(rule_name, save_extension = None):
-    
-    ''' Helper function for generating (consistent) save names for a given rule name '''
-    
-    # Create proper extension add-on, if needed
-    add_ext = ""
-    if save_extension is not None:
-        has_leading_dot = (save_extension[0] == ".")
-        add_ext = save_extension if has_leading_dot else ("." + save_extension)
-    
-    # Build save name by removing spaces and prepending 'rule-' to the rule name. Also add an extension if provided
-    rule_name_no_spaces = rule_name.replace(" ", "_")
-    name_missing_rule_prepend = (rule_name_no_spaces[0:4] != "rule")
-    name_prepend = "rule-" if name_missing_rule_prepend else ""
-    rule_save_name = "{}{}{}".format(name_prepend, rule_name_no_spaces, add_ext)
-    
-    return rule_save_name
-
-# .....................................................................................................................
-
-def extract_name_from_rule_save_name(rule_save_name):
-    
-    ''' Helper function which restores the proper rule name from a rule_save_name format '''
-    
-    # Remove any directory pathing and file extensions, if present
-    file_name = os.path.basename(rule_save_name)
-    file_name_only, _ = os.path.splitext(file_name)
-    
-    # Remove prepended 'rule-' component, if present
-    cleaned_rule_name = file_name_only
-    has_prepended_rule = (file_name_only[0:5] == "rule-")
-    if has_prepended_rule:
-        cleaned_rule_name = cleaned_rule_name[5:]
-    
-    return cleaned_rule_name
+def create_rule_info_file_name(rule_name):
+    return "{}.json.gz".format(rule_name)
 
 # .....................................................................................................................
 # .....................................................................................................................
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Data access functions
+
+# .....................................................................................................................
+    
+def save_rule_info(cameras_folder_path, camera_select, user_select, rule_refs_dict, saving_enabled):
+    
+    # Don't do anything if saving isn't enabled
+    if not saving_enabled:
+        return
+    
+    # Save the rule info for every rule
+    for each_rule_name, each_rule_ref in rule_refs_dict.items():
+        
+        # Get rule info to save
+        rule_info_dict = each_rule_ref.get_rule_info(each_rule_name)
+        
+        # Get pathing to where to save each rule's info file & save it!
+        save_file_name = create_rule_info_file_name(each_rule_name)
+        save_path = build_rule_adb_info_report_path(cameras_folder_path, camera_select, user_select, save_file_name)
+        save_jgz(save_path, rule_info_dict, create_missing_folder_path = True)
+    
+    return
 
 # .....................................................................................................................
 
@@ -147,42 +152,52 @@ def get_rule_type(access_info_dict):
 # .....................................................................................................................
 
 def save_rule_report_data(cameras_folder_path, camera_select, user_select, rule_name, 
-                          rule_type, object_full_id, rule_data_dict):
+                          rule_type, object_full_id, rule_results_dict, rule_results_list):
     
     ''' Function which saves rule reporting data (as opposed to config data!) '''
     
     # Build pathing to save
     save_file_name = create_rule_report_file_name(object_full_id)
-    save_folder_path = build_rule_adb_metadata_report_path(cameras_folder_path, camera_select, user_select, rule_name)
-    save_file_path = os.path.join(save_folder_path, save_file_name)
+    save_file_path = build_rule_adb_metadata_report_path(cameras_folder_path, camera_select, user_select, 
+                                                         rule_name, save_file_name)
     
     # Bundle data and save
-    save_data = new_rule_report_entry(object_full_id, rule_type, rule_data_dict)
-    save_json(save_file_path, save_data, use_gzip = True, create_missing_folder_path = True)
+    save_data = new_rule_report_entry(object_full_id, rule_type, rule_results_dict, rule_results_list)
+    save_jgz(save_file_path, save_data, create_missing_folder_path = True)
     
 # .....................................................................................................................
     
-def new_rule_report_entry(object_full_id, rule_type, rule_data_dict):
+def new_rule_report_entry(object_full_id, rule_type, rule_results_dict, rule_results_list):
     
     ''' Helper function for creating properly formatted evalutaed rule entries '''
     
-    return {"full_id": object_full_id, "rule_type": rule_type, **rule_data_dict}
+    return {"full_id": object_full_id, 
+            "rule_type": rule_type, 
+            "num_violations": len(rule_results_list),
+            "rule_results_dict": rule_results_dict,
+            "rule_results_list": rule_results_list}
 
-# .................................................................................................................
+# .....................................................................................................................
+# .....................................................................................................................
+
+# .....................................................................................................................
+#%% Configuration Access functions
+
+# .....................................................................................................................
+
+def path_to_configuration_file(rule_name, configurable_ref):
     
-def load_rule_config(cameras_folder_path, camera_select, user_select, rule_name):
+    ''' 
+    Function which generates the path to a configuration path, 
+    given a rule name and configurable object as an input 
+    '''
     
-    '''  Function which loads configuration files for individual rules '''
+    # Get major pathing info from the configurable
+    cameras_folder_path = configurable_ref.cameras_folder_path
+    camera_select = configurable_ref.camera_select
+    user_select = configurable_ref.user_select
     
-    # Get path to the config file
-    config_file_path = build_rule_config_file_path(cameras_folder_path, camera_select, user_select, rule_name)
-    
-    # Load json data and split into file access info & setup configuration data
-    config_dict = load_json(config_file_path)
-    access_info_dict = config_dict["access_info"]
-    setup_data_dict = config_dict["setup_data"]
-    
-    return config_file_path, access_info_dict, setup_data_dict
+    return build_rule_config_file_path(cameras_folder_path, camera_select, user_select, rule_name)
 
 # .....................................................................................................................
 
@@ -203,7 +218,7 @@ def load_all_rule_configs(cameras_folder_path, camera_select, user_select, targe
     for each_file_name in all_rule_config_file_names:
         
         # Get the rule name from the file, and load it's data
-        rule_name = extract_name_from_rule_save_name(each_file_name)
+        rule_name, _ = os.path.splitext(each_file_name)
         config_file_path, access_info_dict, setup_data_dict = load_rule_config(cameras_folder_path, 
                                                                                camera_select, 
                                                                                user_select, 
@@ -223,8 +238,127 @@ def load_all_rule_configs(cameras_folder_path, camera_select, user_select, targe
     
     return rule_configs_dict
 
+# .................................................................................................................
+    
+def load_rule_config(cameras_folder_path, camera_select, user_select, rule_name):
+    
+    '''  Function which loads configuration files for individual rules '''
+    
+    # Get path to the config file
+    config_file_path = build_rule_config_file_path(cameras_folder_path, camera_select, user_select, rule_name)
+    
+    # Load json data and split into file access info & setup configuration data
+    config_dict = load_config_json(config_file_path)
+    access_info_dict = config_dict["access_info"]
+    setup_data_dict = config_dict["setup_data"]
+    
+    return config_file_path, access_info_dict, setup_data_dict
+
+# .....................................................................................................................
+
+def save_rule_config(rule_name, configurable_ref, file_dunder = __file__):
+    
+    # Figure out the name of this configuration script
+    config_utility_script_name, _ = os.path.splitext(os.path.basename(file_dunder))
+    
+    # Get file access info & current configuration data for saving
+    file_access_dict, setup_data_dict = configurable_ref.get_data_to_save()
+    file_access_dict.update({"configuration_utility": config_utility_script_name})
+    save_data = {"access_info": file_access_dict, "setup_data": setup_data_dict}
+    
+    # Build pathing to existing configuration file
+    save_path = path_to_configuration_file(rule_name, configurable_ref)    
+    save_jgz(save_path, save_data)
+    relative_save_path = os.path.relpath(save_path, configurable_ref.cameras_folder_path)
+    
+    return save_path, relative_save_path
+
 # .....................................................................................................................
 # .....................................................................................................................
 
+
+# .....................................................................................................................
+#%% CLI Functions
+
+# .....................................................................................................................
+
+def select_rule_to_load(rule_ref):
+    
+    # Get major pathing info from the configurable
+    cameras_folder_path = rule_ref.cameras_folder_path
+    camera_select = rule_ref.camera_select
+    user_select = rule_ref.user_select
+    
+    # Get the rule type, so we only try to load matching types
+    rule_type = rule_ref.get_rule_type()
+    
+    # Get list of all rule configs
+    all_rule_configs = load_all_rule_configs(cameras_folder_path, camera_select, user_select,
+                                             target_rule_type = rule_type)
+    
+    # Provide prompt to load existing rule, or create a new one
+    creation_option = "Create new rule"
+    rule_load_list = [creation_option, *all_rule_configs.keys()]
+    select_idx, loaded_rule_name = cli_select_from_list(rule_load_list, 
+                                                        "Select rule to load:", 
+                                                        default_selection = creation_option,
+                                                        zero_indexed = True)
+    
+    # Grab the correct setup data, based on the user config selection
+    load_from_existing_config = (select_idx > 0)
+    loaded_setup_data = {}
+    if load_from_existing_config:
+        loaded_setup_data = all_rule_configs[loaded_rule_name]["setup_data"]
+    
+    return load_from_existing_config, loaded_rule_name, loaded_setup_data
+
+# .....................................................................................................................
+
+def prompt_for_rule_name(load_from_existing, loaded_rule_name):
+    
+    ''' 
+    Function which provides a cli prompt to have a user enter a rule name for a new rule.
+    The prompt will only occur if a new rule is being created, 
+    as opposed to loading a rule which already has a name
+    '''
+    
+    # Decide if we need to ask the user for the rule name, or use the loading selection
+    creating_new_rule = (not load_from_existing)
+    save_rule_name = loaded_rule_name
+    if creating_new_rule:
+        save_rule_name = cli_prompt_with_defaults("Enter rule name: ", return_type = str)
+    
+    return save_rule_name
+
+# .....................................................................................................................
+
+def cli_save_rule(rule_ref, load_from_existing_config, loaded_rule_name, *, file_dunder):
+    
+    '''
+    Function which provides a prompt to have a user confirm saving a rule configuration.
+    Handles rule name input (if needed)
+    Also handles the actual saving I/O
+    '''
+    
+    # Allocate output
+    save_rule_name = None
+    
+    # Ask user if they would like to save
+    user_confirm_save = cli_confirm("Save rule config?", default_response = False)
+    if user_confirm_save:
+        save_rule_name = prompt_for_rule_name(load_from_existing_config, loaded_rule_name)
+        _, rel_save_path = save_rule_config(save_rule_name, rule_ref, __file__)
+        
+        # Print out additional indicator if the rule was saved for the first time
+        if (not load_from_existing_config):
+            print("", "Saved!", "@ {}".format(rel_save_path), sep = "\n")
+        
+    return save_rule_name
+
+# .....................................................................................................................
+# .....................................................................................................................
+
+
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Scrap
+

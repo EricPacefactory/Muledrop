@@ -69,7 +69,12 @@ class Snapshot_Capture(Reference_Snapshot_Capture):
     def reset(self):
         # No storage, so nothing to reset!
         pass
-        
+    
+    # .................................................................................................................
+    
+    def get_snapshot_wh(self):
+        return self.video_wh
+    
     # .................................................................................................................
     
     def setup(self, variables_changed_dict):

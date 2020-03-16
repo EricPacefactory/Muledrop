@@ -1,0 +1,119 @@
+
+/* ----------------------------------------------------------------- */
+/* Global styling */
+/* ----------------------------------------------------------------- */
+
+:root {
+
+  --light_text: rgb(170, 170, 170);
+  --bright_text: rgb(255,255,255);
+
+  --dark_background: rgb(48, 43, 47);
+  --dark_foreground: rgb(50, 41, 49);
+  --dark_foreground_hl: rgb(55, 44, 53);
+
+  --light_shadow: rgba(0, 0, 0, 0.1);
+  --medium_shadow: rgba(0, 0, 0, 0.2);
+  --heavy_shadow: rgba(0, 0, 0, 0.3);
+
+  --accent_1: rgb(221, 70, 76);
+  --accent_2: rgb(18, 144, 179);
+  --accent_3: rgb(143, 192, 62);
+
+  --page_accent: rgb(83, 83, 83);
+  --page_background: linear-gradient(180deg, 
+                                     var(--page_accent) 5%, 
+                                     var(--dark_background) 100%);
+}
+
+
+/* ----------------------------------------------------------------- */
+/* Global page styling */
+
+html {
+  box-sizing: border-box;
+  font-family: Arial, Helvetica, sans-serif;
+  color: var(--light);
+  box-shadow: inset 0 0 24px 12px var(--medium_shadow);
+
+  min-width: 100vw;
+  min-height: 100vh;
+}
+
+body{
+  margin: 0;
+  min-height: 100vh;
+  line-height: 1.4;
+  user-select: none;
+  background: var(--page_background);
+}
+
+
+/* ----------------------------------------------------------------- */
+/* Default page layout styling */
+
+/* Styling for wrapper that holds all page content */
+.layout_wrapper_div {
+  display: grid;
+  grid-template-rows: 120px auto 120px;
+  grid-gap: 20px;
+  min-height: 100vh;
+
+  align-items: center;
+  justify-items: center;
+}
+
+/* Styling for title text */
+header {
+  width: 80%;
+  text-align: center;
+  font-weight: bolder;
+  font-size: 2.5em;
+  font-variant: small-caps;
+  color: var(--bright_text);
+  text-shadow: -2px -2px 0 #000, 2px -2px 0 #000, 
+               -2px  2px 0 #000, 2px  2px 0 #000;
+
+  align-self: end;
+  padding: 0.25em;
+  border-bottom: 2px solid rgba(255,255,255,0.35)
+}
+
+/* Styling for back text/button */
+footer {
+  color: var(--page_accent);
+  font-size: 1.25em;
+  font-variant: uppercase;
+  font-weight: bold;
+  text-align: center;
+  padding: 1.5em;
+}
+
+footer:hover {
+  filter: brightness(125%);
+}
+
+/* Styling for main page content */
+.content_container_div {
+  justify-self: stretch;
+
+  animation-name: shared_load_animation;
+  animation-delay: 0;
+  animation-duration: 350ms;
+  animation-fill-mode: backwards;
+}
+
+
+/* ----------------------------------------------------------------- */
+/* Shared content loading animation */
+
+@keyframes shared_load_animation {
+  from {
+    opacity: 0%;
+    transform: translateY(-40px);
+  }
+  to {
+    opacity: 100%;
+    transform: translateY(0%);
+  }
+}

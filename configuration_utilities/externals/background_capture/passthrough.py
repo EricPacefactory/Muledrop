@@ -79,11 +79,11 @@ main_process.loop()
 #%% For debugging
 
 # Access results for debugging
-last_frame = main_process.debug_frame
+final_frame = main_process.debug_frame
 stage_outputs = main_process.debug_stage_outputs
 stage_timing = main_process.debug_stage_timing
 snapshot_metadata = main_process.debug_current_snapshot_metadata
-last_frame_index, last_epoch_ms, last_datetime = main_process.debug_fed_time_args
+final_frame_index, final_epoch_ms, final_datetime = main_process.debug_fed_time_args
 
 
 # ---------------------------------------------------------------------------------------------------------------------

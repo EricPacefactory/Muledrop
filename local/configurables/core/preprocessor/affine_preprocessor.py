@@ -54,6 +54,8 @@ import numpy as np
 
 from local.configurables.core.preprocessor.reference_preprocessor import Reference_Preprocessor
 
+from local.configurables.core.preprocessor._helper_functions import unwarp_from_mapping
+
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
     
@@ -403,6 +405,20 @@ class Preprocessor_Stage(Reference_Preprocessor):
                                      (0, 0, 1)])
             
         return scaling_matrix
+    
+    # .................................................................................................................
+    
+    def unwarp_required(self):
+        # Only need to unwarp if the transform is enabled
+        return self._enable_transform
+    
+    # .................................................................................................................
+
+    def unwarp_xy(self, warped_normalized_xy_npfloat32):
+        # Standard unwarp implementation
+        return unwarp_from_mapping(warped_normalized_xy_npfloat32, 
+                                   self.input_wh, self.output_wh, 
+                                   self._x_mapping, self._y_mapping)
         
     # .................................................................................................................
     # .................................................................................................................

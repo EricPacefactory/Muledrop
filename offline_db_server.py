@@ -54,7 +54,7 @@ import cv2
 from itertools import cycle
 from time import sleep
 
-from local.lib.common.timekeeper_utils import get_isoformat_string
+from local.lib.common.timekeeper_utils import get_isoformat_string, get_local_datetime, datetime_to_epoch_ms
 from local.lib.ui_utils.cli_selections import Resource_Selector
 from local.lib.ui_utils.script_arguments import script_arg_builder
 
@@ -102,7 +102,8 @@ def image_to_jpg_bytearray(image):
 def initialize_databases(selector_ref, cameras_folder_path, camera_name_list, user_select):
     
     # Initialize outputs
-    cam_dbs_dict = {}
+    cinfo_dbs_dict = {}
+    rinfo_dbs_dict = {}
     snap_dbs_dict = {}
     obj_dbs_dict = {}
     class_dbs_dict = {}
@@ -112,14 +113,29 @@ def initialize_databases(selector_ref, cameras_folder_path, camera_name_list, us
     for each_camera in camera_name_list:
         
         # Launch all the dbs
-        cam_db, snap_db, obj_db, class_db, summary_db, rule_db = \
-        launch_file_db(cameras_folder_path, each_camera, user_select,
-                       check_same_thread = False,
-                       launch_snapshot_db = True,
-                       launch_object_db = True,
-                       launch_classification_db = True,
-                       launch_summary_db = True,
-                       launch_rule_db = True)
+        try:
+            cinfo_db, rinfo_db, snap_db, obj_db, class_db, summary_db, rule_db = \
+            launch_file_db(cameras_folder_path, each_camera, user_select,
+                           check_same_thread = False,
+                           launch_snapshot_db = True,
+                           launch_object_db = True,
+                           launch_classification_db = True,
+                           launch_summary_db = True,
+                           launch_rule_db = True)
+        except Exception as err:
+            print("",  "", 
+                  "Error loading data for camera: {}".format(each_camera),
+                  "  Dataset is likely out of date?",
+                  "  Search for this error message and raise error for further debugging!",
+                  "", sep = "\n")
+            
+            # For debugging
+            raise_error_message = True
+            if raise_error_message:
+                raise err
+            
+            sleep(2.0)
+            continue
         
         # Skip any cameras that don't contain snapshot/object data
         missing_data = close_dbs_if_missing_data(snap_db, obj_db, error_if_missing_data = False)
@@ -133,14 +149,15 @@ def initialize_databases(selector_ref, cameras_folder_path, camera_name_list, us
             continue
         
         # Add dbs to the dictionaries
-        cam_dbs_dict[each_camera] = cam_db
+        cinfo_dbs_dict[each_camera] = cinfo_db
+        rinfo_dbs_dict[each_camera] = rinfo_db
         snap_dbs_dict[each_camera] = snap_db
         obj_dbs_dict[each_camera] = obj_db
         class_dbs_dict[each_camera] = class_db
         summary_dbs_dict[each_camera] = summary_db
         rule_dbs_dict[each_camera] = rule_db
         
-    return cam_dbs_dict, snap_dbs_dict, obj_dbs_dict, class_dbs_dict, summary_dbs_dict, rule_dbs_dict
+    return cinfo_dbs_dict, rinfo_dbs_dict, snap_dbs_dict, obj_dbs_dict, class_dbs_dict, summary_dbs_dict, rule_dbs_dict
 
 # .....................................................................................................................
 
@@ -179,7 +196,7 @@ no_camera_select = (arg_camera_select is None)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-#%% Get camera/user selection
+#%% Get camera names for loading
 
 # Create selector so we can access existing report data
 selector = Resource_Selector()
@@ -205,11 +222,11 @@ user_select = arg_user_select
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Catalog existing snapshot data
 
-cam_dbs_dict, snap_dbs_dict, obj_dbs_dict, class_dbs_dict, summary_dbs_dict, rule_dbs_dict = \
+cinfo_dbs_dict, rinfo_dbs_dict, snap_dbs_dict, obj_dbs_dict, class_dbs_dict, summary_dbs_dict, rule_dbs_dict = \
 initialize_databases(selector, cameras_folder_path, camera_name_list, user_select)
 
 # Update camera name list to account for any missing datasets
-camera_name_list = list(cam_dbs_dict.keys())
+camera_name_list = list(cinfo_dbs_dict.keys())
 if len(camera_name_list) == 0:
     raise RuntimeError("No valid camera data!")
 
@@ -286,10 +303,16 @@ def server_help():
     html_strs += sorted_html_entries
     
     # Add some additional info to html
+    local_dt = get_local_datetime()
+    example_dt_str = get_isoformat_string(local_dt)
+    example_ems = datetime_to_epoch_ms(local_dt)
     html_strs += ["<br>",
                   "<p><b>Note:</b> If not specified, 'time' values can be provided in string or integer format</p>",
-                  "<p>&nbsp;&nbsp;--> String format times must follow isoformat (e.g. yyyy-mm-ddTHH:MM:SS.fZ)</p>",
-                  "<p>&nbsp;&nbsp;--> Integer format times must be epoch millisecond values!</p>"]
+                  "<p>&nbsp;&nbsp;--> String format times must follow isoformat</p>",
+                  "<p>&nbsp;&nbsp;--> Integer format times must be epoch millisecond values</p>",
+                  "<p>Example times:</p>",
+                  "<p>&nbsp;&nbsp; {} (string format)</p>".format(example_dt_str),
+                  "<p>&nbsp;&nbsp; {} (integer format)</p>".format(example_ems)]
     
     return "\n".join(html_strs)
 
@@ -299,13 +322,33 @@ def server_help():
 def get_camera_info():
     
     camera_info_dict = {}
-    for each_camera, each_cam_db in cam_dbs_dict.items():        
-        _, ip_address, datetime_isoformat, time_zone = each_cam_db.get_camera_info()
-        camera_info_dict[each_camera] = {"ip_address": ip_address,
-                                         "datetime_isoformat": datetime_isoformat,
-                                         "time_zone": time_zone}
+    for each_camera, each_cinfo_db in cinfo_dbs_dict.items():
+        mongo_id, ip_address, time_zone, start_datetime_isoformat, start_epoch_ms, \
+        video_select, video_fps, video_width, video_height, snap_width, snap_height = each_cinfo_db.get_camera_info()
+        camera_info_dict[each_camera] = {"_id": mongo_id,
+                                         "ip_address": ip_address,
+                                         "time_zone": time_zone,
+                                         "start_datetime_isoformat": start_datetime_isoformat,
+                                         "start_epoch_ms": start_epoch_ms,
+                                         "video_select": video_select,
+                                         "video_fps": video_fps,
+                                         "video_width": video_width,
+                                         "video_height": video_height,
+                                         "snapshot_width": snap_width,
+                                         "snapshot_height": snap_height}
     
     return jsonify(camera_info_dict)
+
+# .....................................................................................................................
+
+@server.route("/get-rule-info")
+def get_rule_info():
+    
+    all_rule_info_dict = {}
+    for each_camera, each_rinfo_db in rinfo_dbs_dict.items():
+        all_rule_info_dict[each_camera] = each_rinfo_db.get_rule_info()
+    
+    return jsonify(all_rule_info_dict)
 
 # .....................................................................................................................
 
@@ -318,30 +361,16 @@ def snapshots_replay(camera_select):
 
 # .....................................................................................................................
 
-@server.route("/<string:camera_select>/snapshots/get-width-height")
-def snapshots_get_width_height(camera_select):
-    
-    snap_db = snap_dbs_dict[camera_select]
-    width, height = snap_db.get_snap_frame_wh()
-    snap_wh_dict = {"width": width, "height": height}
-    
-    return jsonify(snap_wh_dict)
-
-# .....................................................................................................................
-
 @server.route("/<string:camera_select>/snapshots/get-bounding-times")
 def snapshots_get_bounding_times(camera_select):
     
     snap_db = snap_dbs_dict[camera_select]
     min_epoch_ms, max_epoch_ms = snap_db.get_bounding_epoch_ms()
     min_dt, max_dt = snap_db.get_bounding_datetimes()
-    bounding_times_dict = {"min_epoch_ms": min_epoch_ms, 
+    bounding_times_dict = {"min_epoch_ms": min_epoch_ms,
                            "max_epoch_ms": max_epoch_ms,
-                           "min_dt_str": get_isoformat_string(min_dt), 
-                           "max_dt_str": get_isoformat_string(max_dt)}
-    
-    print("SENDING TIMES:",
-          bounding_times_dict)
+                           "min_datetime_isoformat": get_isoformat_string(min_dt),
+                           "max_datetime_isoformat": get_isoformat_string(max_dt)}
     
     return jsonify(bounding_times_dict)
 
@@ -364,8 +393,11 @@ def snapshots_get_epochs_by_time_range(camera_select, start_time, end_time):
 @server.route("/<string:camera_select>/snapshots/get-metadata/by-epoch-ms/<int:epoch_ms>")
 def snapshots_get_metadata(camera_select, epoch_ms):
     
-    snap_db = snap_dbs_dict[camera_select]
-    snapshot_metadata_dict = snap_db.load_snapshot_metadata(epoch_ms)
+    try:
+        snap_db = snap_dbs_dict[camera_select]
+        snapshot_metadata_dict = snap_db.load_snapshot_metadata(epoch_ms)
+    except Exception as err:
+        return ("Error: {}".format(err), 404)
     
     return jsonify(snapshot_metadata_dict)
 
@@ -412,8 +444,11 @@ def objects_get_ids_by_time_range(camera_select, start_time, end_time):
 @server.route("/<string:camera_select>/objects/get-metadata/by-id/<int:object_full_id>")
 def objects_get_metadata(camera_select, object_full_id):
     
-    obj_db = obj_dbs_dict[camera_select]
-    obj_metadata = obj_db.load_metadata_by_id(object_full_id)
+    try:
+        obj_db = obj_dbs_dict[camera_select]
+        obj_metadata = obj_db.load_metadata_by_id(object_full_id)
+    except Exception as err:
+        return ("Error: {}".format(err), 404)
     
     return jsonify(obj_metadata)
 
@@ -422,12 +457,47 @@ def objects_get_metadata(camera_select, object_full_id):
 @server.route("/<string:camera_select>/objects/get-classification/by-id/<int:object_full_id>")
 def objects_get_classification(camera_select, object_full_id):
     
-    class_db = class_dbs_dict[camera_select]
-    class_label, score_pct, subclass, attributes_dict = class_db.load_classification_data(object_full_id)
-    output_dict = {"class_label": class_label,
-                   "score_pct": score_pct,
-                   "subclass": subclass,
-                   "attributes": attributes_dict}
+    try:
+        class_db = class_dbs_dict[camera_select]
+        class_label, score_pct, subclass, attributes_dict = class_db.load_classification_data(object_full_id)
+        output_dict = {"class_label": class_label,
+                       "score_pct": score_pct,
+                       "subclass": subclass,
+                       "attributes": attributes_dict}
+    except Exception as err:
+        return ("Error: {}".format(err), 404)
+    
+    return jsonify(output_dict)
+
+# .....................................................................................................................
+
+@server.route("/<string:camera_select>/objects/get-summary/by-id/<int:object_full_id>")
+def objects_get_summary_results(camera_select, object_full_id):
+    
+    try:
+        summary_db = summary_dbs_dict[camera_select]
+        summary_data_dict = summary_db.load_summary_data(object_full_id)
+    except Exception as err:
+        return ("Error: {}".format(err), 404)
+    
+    return jsonify(summary_data_dict)
+
+# .....................................................................................................................
+
+@server.route("/<string:camera_select>/objects/get-rule-results/<string:rule_name>/by-id/<int:object_full_id>")
+def objects_get_rule_results(camera_select, rule_name, object_full_id):
+    
+    try:
+        rule_db = rule_dbs_dict[camera_select]
+        rule_type, num_violations, rule_results_dict, rule_results_list = \
+        rule_db.load_rule_data(rule_name, object_full_id)        
+        output_dict = {"rule_type": rule_type,
+                       "num_violations": num_violations,
+                       "rule_results_dict": rule_results_dict,
+                       "rule_results_list": rule_results_list}
+        
+    except Exception as err:
+        return ("Error: {}".format(err), 404)
     
     return jsonify(output_dict)
 
@@ -443,9 +513,15 @@ if __name__ == "__main__":
     # Crash spyder IDE if it's being used, since it doesn't play nicely with flask!
     ide_catcher("Can't run flask from IDE! Try using a terminal...")
     
+    # Set server access parameters
+    server_protocol = "http"
+    server_host = "localhost"
+    server_port = 6123
+    server_url = "{}://{}:{}".format(server_protocol, server_host, server_port)
+    
     # Launch server
-    print("", "-" * 60, "", sep = "\n")
-    server.run(debug=enable_debug_mode, port = 6123)
+    print("")
+    server.run(server_host, port = server_port, debug=False)
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Scrap

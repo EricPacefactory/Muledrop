@@ -53,7 +53,8 @@ import cv2
 import numpy as np
 
 from local.configurables.core.preprocessor.reference_preprocessor import Reference_Preprocessor
-from local.configurables.core.preprocessor._helper_functions import avoid_missing_output_wh, constrain_property
+
+from local.configurables.core.preprocessor._helper_functions import unwarp_from_mapping
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
@@ -92,6 +93,7 @@ class Preprocessor_Stage(Reference_Preprocessor):
                 label = "Rotation", 
                 default_value = 0.0,
                 min_value = -180.0, max_value = 180.0, step_size = 1/10,
+                zero_referenced = False,
                 return_type = float,
                 units = "degrees",
                 tooltip = "Rotate the display of the image")
@@ -111,7 +113,8 @@ class Preprocessor_Stage(Reference_Preprocessor):
                 "out_apert", 
                 label = "Output Aperture", 
                 default_value = 1.0,
-                min_value = 0.0, max_value = 1.0, step_size = 1/100,
+                min_value = 0.01, max_value = 1.0, step_size = 1/100,
+                zero_referenced = True,
                 return_type = float,
                 units = "normalized",
                 tooltip = "Set the amount of the input image to display in the output")
@@ -215,19 +218,6 @@ class Preprocessor_Stage(Reference_Preprocessor):
     # .................................................................................................................
     
     def setup(self, variable_update_dictionary):
-        
-        # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-        # Clean up input data
-        
-        self.output_w, self.output_h = avoid_missing_output_wh(self.input_wh, self.output_w, self.output_h,
-                                                               max_side_length = 800)
-        
-        # Force good values
-        constrain_property(self, "output_w", 50, 1280)
-        constrain_property(self, "output_h", 50, 1280)
-        constrain_property(self, "fov_deg", 0.0, 179.99)
-        constrain_property(self, "out_apert", 0.01, 1.0)
-        constrain_property(self, "rotation_deg", -180.0, 180.0)
 
         # Rebuild the x/y transformation mappings
         self.build_mapping()
@@ -345,7 +335,7 @@ class Preprocessor_Stage(Reference_Preprocessor):
         input_ar_balance = self.in_ar_balance
         
         # Find effective FOV (i.e. FOV at the output aperture)
-        fov_rad = np.radians(self.fov_deg)
+        fov_rad = np.radians(min(self.fov_deg, 179.99))
         effective_fov_rad = max_corner * fov_rad * out_apt_orig / in_apt_orig
         
         '''
@@ -419,7 +409,21 @@ class Preprocessor_Stage(Reference_Preprocessor):
         # Warning if output dimensions weren't set properly
         if self.output_w is None or self.output_h is None:
             raise ValueError("Output width height are not set: ({} x {})".format(self.output_w, self.output_h))
-        
+    
+    # .................................................................................................................
+    
+    def unwarp_required(self):
+        # Only need to unwarp if the transform is enabled
+        return self.enable_transform
+    
+    # .................................................................................................................
+
+    def unwarp_xy(self, warped_normalized_xy_npfloat32):
+        # Standard unwarp implementation      
+        return unwarp_from_mapping(warped_normalized_xy_npfloat32, 
+                                   self.input_wh, self.output_wh, 
+                                   self.x_mapping, self.y_mapping)
+    
     # .................................................................................................................
     # .................................................................................................................
 

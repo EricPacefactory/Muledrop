@@ -54,7 +54,7 @@ from collections import OrderedDict
 
 from local.configurables.configurable_template import configurable_dot_path
 
-from local.lib.file_access_utils.read_write import load_with_error_if_missing
+from local.lib.file_access_utils.read_write import load_config_json
 from local.lib.file_access_utils.core import build_core_folder_path, get_ordered_config_paths
 
 from eolib.utils.function_helpers import dynamic_import_from_module
@@ -139,6 +139,23 @@ class Core_Bundle:
         print("Done!")
         
         return final_stage_outputs
+    
+    # .................................................................................................................
+    
+    def get_preprocessor_unwarping(self):
+        
+        '''
+        Helper function which returns info regarding the unwarping of data, due to the effects of the
+        preprocessor stage.
+        Outputs:
+            enable_preprocessor_unwarp (boolean), unwarp_function (function)
+        '''
+        
+        # Pull out desired data (see reference preprocessor for more details)
+        enable_preprocessor_unwarp = self.core_ref_dict["preprocessor"].unwarp_required()
+        unwarp_function = self.core_ref_dict["preprocessor"].unwarp_xy
+        
+        return enable_preprocessor_unwarp, unwarp_function
     
     # .................................................................................................................
     
@@ -383,7 +400,7 @@ class Core_Bundle:
         for each_config_file_path, each_stage_name in zip(core_config_path_list, core_stage_name_list):
             
             # Load the core config data
-            core_config = load_with_error_if_missing(each_config_file_path)
+            core_config = load_config_json(each_config_file_path)
             
             # Store core config in an ordered dictionary using the stage name as a key
             configs_dict.update({each_stage_name: core_config})

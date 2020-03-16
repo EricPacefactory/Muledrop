@@ -215,7 +215,7 @@ user_select, _ = selector.user(camera_select, debug_mode=enable_debug_mode)
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Catalog existing data
 
-cam_db, snap_db, obj_db, class_db, _, _ = \
+cinfo_db, rinfo_db, snap_db, obj_db, class_db, _, _ = \
 launch_file_db(cameras_folder_path, camera_select, user_select,
                launch_snapshot_db = True,
                launch_object_db = True,
@@ -224,7 +224,7 @@ launch_file_db(cameras_folder_path, camera_select, user_select,
                launch_rule_db = False)
 
 # Catch missing data
-cam_db.close()
+rinfo_db.close()
 close_dbs_if_missing_data(snap_db, obj_db)
 
 
@@ -233,7 +233,7 @@ close_dbs_if_missing_data(snap_db, obj_db)
 
 # Get the maximum range of the data (based on the snapshots, because that's the most we could show)
 earliest_datetime, latest_datetime = snap_db.get_bounding_datetimes()
-snap_wh = snap_db.get_snap_frame_wh()
+snap_wh = cinfo_db.get_snap_frame_wh()
 
 # Ask the user for the range of datetimes to use for selecting data
 start_dt, end_dt, start_dt_isoformat, end_dt_isoformat = user_input_datetime_range(earliest_datetime, 

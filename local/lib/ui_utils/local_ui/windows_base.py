@@ -331,7 +331,7 @@ class Control_Window(Simple_Window):
                 continue
             elif control_tooltip == "":
                 tooltip_str = "  No tooltip!"
-            elif type(control_tooltip) in [tuple, list]:
+            elif type(control_tooltip) in {tuple, list}:
                 tooltip_str = "\n".join(["  {}".format(each_line) for each_line in control_tooltip])
             else:
                 tooltip_str = "  {}".format(control_tooltip)

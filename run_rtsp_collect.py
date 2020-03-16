@@ -58,6 +58,8 @@ from local.lib.launcher_utils.video_processing_loops import Video_Processing_Loo
 
 from local.lib.file_access_utils.reporting import build_user_report_path
 
+from local.online_database.auto_post import create_parallel_scheduled_post
+
 from eolib.utils.files import get_total_folder_size
 from eolib.utils.cli_tools import cli_confirm
 
@@ -68,13 +70,19 @@ from eolib.utils.cli_tools import cli_confirm
 
 def parse_run_args(debug_print = False):
     
+    # Set default database url
+    default_url = "http://localhost:8000"
+    
     # Set script arguments for running on streams
     args_list = ["camera",
                  {"user": {"default": "live"}}, 
                  "display",
                  {"threaded_video": {"default": True}}, 
                  "save_and_keep", 
-                 "save_and_delete"]
+                 "save_and_delete",
+                 "skip_save",
+                 {"url": {"default": default_url, 
+                          "help_text": "Specify the url of the upload server\n(Default: {})".format(default_url)}}]
     
     # Provide some extra information when accessing help text
     script_description = "Capture snapshot & tracking data from an RTSP stream. Requires RTSP configuration!"
@@ -92,7 +100,11 @@ def parse_run_args(debug_print = False):
 
 # .....................................................................................................................
 
-def save_data_prompt(enable_save_prompt = True):
+def save_data_prompt(enable_save_prompt = True, skip_save = False):
+    
+    # If saving is being skipped, we ignore prompt settings entirely
+    if skip_save:
+        return False
     
     # If we don't prompt the user to save, assume saving is enabled
     if not enable_save_prompt:
@@ -141,20 +153,26 @@ def delete_existing_report_data(enable_deletion_prompt, configuration_loader, sa
 # .....................................................................................................................
 
 # ---------------------------------------------------------------------------------------------------------------------
-#%% Main
+#%% Parse Arguments
 
-# Parse script arguments in case we're running automated
+# Parse script arguments and decide if we need to provide any prompts
 ap_result = parse_run_args()
+upload_server_url = ap_result.get("url", None)
 save_and_keep = ap_result.get("save_keep", False)
 save_and_delete = ap_result.get("save_delete", False)
+skip_save = ap_result.get("skip_save", False)
 provide_prompts = (not (save_and_keep or save_and_delete))
+
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Setup
 
 # Make all required selections and setup/configure everything
 loader = RTSP_Configuration_Loader()
 loader.selections(ap_result)
+loader.set_script_name(__file__)
 
 # Ask user about saved data and delete existing data (if enabled)
-save_data = save_data_prompt(provide_prompts)
+save_data = save_data_prompt(provide_prompts, skip_save)
 if save_data:
     delete_existing_report_data(provide_prompts, loader, save_and_keep)
 
@@ -168,6 +186,12 @@ start_timestamp = loader.setup_all()
 # Set up object to handle all video processing
 main_process = Video_Processing_Loop(loader)
 
+# Start auto-data posting
+parallel_post = create_parallel_scheduled_post(upload_server_url, loader.cameras_folder_path, loader.camera_select)
+
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Main
+
 # Feedback on launch
 enable_disable_txt = ("enabled" if save_data else "disabled")
 print("", "{}  |  Saving {}".format(start_timestamp, enable_disable_txt), sep = "\n")
@@ -175,6 +199,18 @@ print("", "{}  |  Saving {}".format(start_timestamp, enable_disable_txt), sep = 
 # Most of the work is done here!
 total_processing_time_sec = main_process.loop(enable_progress_bar = False)
 print("", "Finished!", "Ran for {:.0f} minutes".format(total_processing_time_sec / 60), sep = "\n")
+
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Clean up
+
+# Run any cleanup needed by configured system
+loader.clean_up()
+
+# Clean up parallel post, just in case
+print("", "Closing auto-post background task...", sep = "\n")
+parallel_post.terminate()
+parallel_post.join(10)
+print("Finished!")
 
 
 # ---------------------------------------------------------------------------------------------------------------------

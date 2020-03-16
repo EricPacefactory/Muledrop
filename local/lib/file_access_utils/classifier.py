@@ -52,8 +52,8 @@ find_path_to_local()
 from local.lib.file_access_utils.after_database import build_after_database_configs_folder_path
 from local.lib.file_access_utils.reporting import build_after_database_report_path
 from local.lib.file_access_utils.resources import build_base_resources_path
+from local.lib.file_access_utils.read_write import load_config_json, save_jgz, load_jgz
 
-from eolib.utils.read_write import load_json, save_json
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% General Pathing functions
@@ -61,8 +61,7 @@ from eolib.utils.read_write import load_json, save_json
 # .....................................................................................................................
 
 def build_classifier_config_path(cameras_folder_path, camera_select, user_select, *path_joins):
-    return build_after_database_configs_folder_path(cameras_folder_path, camera_select, user_select, 
-                                                    "classifier", "classifier.json")
+    return build_after_database_configs_folder_path(cameras_folder_path, camera_select, user_select, "classifier.json")
 
 # .....................................................................................................................
 
@@ -100,7 +99,7 @@ def build_supervised_labels_folder_path(cameras_folder_path, camera_select, user
 
 # .....................................................................................................................
 
-def create_classifier_file_name(object_full_id):
+def create_classifier_report_file_name(object_full_id):
     return "class-{}.json.gz".format(object_full_id)
 
 # .....................................................................................................................
@@ -130,21 +129,21 @@ def save_classifier_data(cameras_folder_path, camera_select, user_select,
                          object_full_id, class_label, score_pct, subclass, attributes_dict):
     
     # Build pathing to save
-    save_file_name = create_classifier_file_name(object_full_id)
+    save_file_name = create_classifier_report_file_name(object_full_id)
     save_folder_path = build_classifier_adb_metadata_report_path(cameras_folder_path, camera_select, user_select)
     save_file_path = os.path.join(save_folder_path, save_file_name)
     
     # Bundle data and save
-    save_data = new_classification_entry(object_full_id, class_label, score_pct, subclass, attributes_dict)
-    save_json(save_file_path, save_data, use_gzip = True, create_missing_folder_path = True)
+    save_data = new_classifier_report_entry(object_full_id, class_label, score_pct, subclass, attributes_dict)
+    save_jgz(save_file_path, save_data, create_missing_folder_path = True)
 
 # .....................................................................................................................
     
-def new_classification_entry(object_full_id, 
-                             class_label = "unclassified", 
-                             score_pct = 0, 
-                             subclass = "", 
-                             attributes_dict = None):
+def new_classifier_report_entry(object_full_id, 
+                                class_label = "unclassified", 
+                                score_pct = 0, 
+                                subclass = "", 
+                                attributes_dict = None):
     
     ''' Helper function for creating properly formatted classification entries '''
     
@@ -189,7 +188,7 @@ def load_classifier_config(cameras_folder_path, camera_select, user_select):
     config_file_path = build_classifier_config_path(cameras_folder_path, camera_select, user_select)
     
     # Load json data and split into file access info & setup configuration data
-    config_dict = load_json(config_file_path)
+    config_dict = load_config_json(config_file_path)
     access_info_dict = config_dict["access_info"]
     setup_data_dict = config_dict["setup_data"]
     
@@ -210,7 +209,7 @@ def load_label_lut_tuple(cameras_folder_path, camera_select):
     
     # Build the pathing to the labelling lut file & load it
     label_lut_file_path = build_labels_lut_path(cameras_folder_path, camera_select)
-    label_lut_dict = load_json(label_lut_file_path, convert_integer_keys = True)
+    label_lut_dict = load_config_json(label_lut_file_path)
     
     # Create handy alternative versions of the data for convenience
     get_idx = lambda label: label_lut_dict[label]["class_index"]
@@ -226,7 +225,7 @@ def save_supervised_label(supervised_labels_folder_path, object_full_id, supervi
     save_name = create_supervised_label_file_name(object_full_id)
     save_path = os.path.join(supervised_labels_folder_path, save_name)
     
-    return save_json(save_path, supervised_label_dict, use_gzip = True, check_validity = True)
+    return save_jgz(save_path, supervised_label_dict, check_validity = True)
 
 # .....................................................................................................................
     
@@ -252,7 +251,7 @@ def load_supervised_labels(supervised_labels_folder_path, object_id_list, defaul
         object_entry = default_object_entry.copy()
         file_exists = (os.path.exists(load_file_path))
         if file_exists:
-            supervised_labelling_data = load_json(load_file_path)
+            supervised_labelling_data = load_jgz(load_file_path)
             object_entry = supervised_labelling_data
         labelling_results_dict.update({each_full_id: object_entry})
     

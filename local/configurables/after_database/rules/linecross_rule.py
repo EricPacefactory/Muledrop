@@ -51,7 +51,7 @@ find_path_to_local()
 
 from local.configurables.after_database.rules.reference_rule import Reference_Rule
 
-from local.offline_database.object_reconstruction import Smoothed_Object_Reconstruction as Obj_Recon
+from local.offline_database.object_reconstruction import Smoothed_Object_Reconstruction
 
 from eolib.math.geometry import Fixed_Line_Cross
 
@@ -63,14 +63,14 @@ class Linecross_Rule(Reference_Rule):
     
     # .................................................................................................................
     
-    def __init__(self, cameras_folder_path, camera_select, user_select, input_wh, rule_name):
+    def __init__(self, cameras_folder_path, camera_select, user_select, input_wh):
         
         # Inherit from base class
-        super().__init__(cameras_folder_path, camera_select, user_select, input_wh, rule_name,
-                         file_dunder = __file__)
+        super().__init__(cameras_folder_path, camera_select, user_select, input_wh, file_dunder = __file__)
         
         # Allocate storage for the fixed-line object
-        self.fixed_line = Fixed_Line_Cross((0,0), (1,0), flip_orientation = False, is_normalized = True)
+        self.fixed_line = None
+        
         
         # .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . Drawing Controls  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
         
@@ -94,7 +94,15 @@ class Linecross_Rule(Reference_Rule):
                 default_value = False,
                 tooltip = "Flips the orientation of the line. Equivalent to swapping the end points of the line.")
         
-        pass
+        self.trail_smoothing_factor = \
+        self.ctrl_spec.attach_slider(
+                "trail_smoothing_factor", 
+                label = "Trail Smoothing Factor", 
+                default_value = 0.015,
+                min_value = 0.000, max_value = 0.100, step_size = 0.005,
+                return_type = float,
+                units = "weighting",
+                tooltip = "Controls trail smoothing before evaluating pathing intersections.")
     
     # .................................................................................................................
     
@@ -108,7 +116,6 @@ class Linecross_Rule(Reference_Rule):
         self.fixed_line = Fixed_Line_Cross(line_pt1, line_pt2, 
                                            flip_orientation = self.flip_line_orientation, 
                                            is_normalized = True)
-        
     
     # .................................................................................................................
     
@@ -118,18 +125,54 @@ class Linecross_Rule(Reference_Rule):
         global_start_time = 0.0
         global_end_time = 1.0
         
-        # Reconstruct object, so we can get access to existing data manipulation functions
-        object_data = Obj_Recon(object_metadata, frame_wh, global_start_time, global_end_time)
+        # Use object reconstruction, so we can get access to existing data manipulation functions
+        object_data = Smoothed_Object_Reconstruction(object_metadata, frame_wh, global_start_time, global_end_time,
+                                                     smoothing_factor = self.trail_smoothing_factor)
         
         return object_data
     
     # .................................................................................................................
     
-    
     def evaluate_one_object(self, object_data, snapshot_database, frame_wh):
         
         # Check if the trail of the object intersects at all with the fixed line
-        rule_results_list = self.fixed_line.path_intersection(object_data.trail_xy)
+        raw_results_list = self.fixed_line.path_intersection(object_data.trail_xy)
+        
+        # Convert intersection results to output values
+        rule_results_list = self._convert_raw_results_to_rule_results(raw_results_list, object_data, snapshot_database)
+        
+        # No dictionary result for linecrossing
+        rule_results_dict = {}
+        
+        return rule_results_dict, rule_results_list
+
+    # .................................................................................................................
+    
+    def _convert_raw_results_to_rule_results(self, raw_results_list, object_data, snapshot_database):
+        
+        # Pull out some important object info for timing
+        first_epoch_ms = object_data.start_ems
+        lifetime_ms = object_data.lifetime_ms
+        trail_index_to_epoch_ms = lifetime_ms / (object_data.num_samples - 1)
+        
+        rule_results_list = []
+        for each_result_dict in raw_results_list:
+            
+            # Pull entries from the raw results & convert to final entries
+            cross_direction = each_result_dict["cross_direction"]
+            intersection_point_list = each_result_dict["intersection_point"].tolist()
+            trail_index = int(each_result_dict["path_index"])
+            
+            # Find the best snapshot timing for displaying each intersection event
+            approximate_epoch_ms = first_epoch_ms + int(trail_index * trail_index_to_epoch_ms)
+            _, closest_snap_ms, _ = snapshot_database.get_closest_snapshot_epoch(approximate_epoch_ms)
+            
+            # Build output entry and add to output list
+            new_result_dict = {"trail_index": trail_index,
+                               "snapshot_epoch_ms": closest_snap_ms,
+                               "intersection_point": intersection_point_list,
+                               "cross_direction": cross_direction}
+            rule_results_list.append(new_result_dict)
         
         return rule_results_list
 

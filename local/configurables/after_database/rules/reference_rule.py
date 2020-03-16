@@ -51,6 +51,8 @@ find_path_to_local()
 
 from local.configurables.configurable_template import After_Database_Configurable_Base
 
+from local.lib.common.timekeeper_utils import get_isoformat_string, datetime_to_epoch_ms
+
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
 
@@ -58,15 +60,13 @@ class Reference_Rule(After_Database_Configurable_Base):
     
     # .................................................................................................................
     
-    def __init__(self, cameras_folder_path, camera_select, user_select, input_wh, rule_name, *, file_dunder):
+    def __init__(self, cameras_folder_path, camera_select, user_select, input_wh, *, file_dunder):
         
         # Inherit from base class
         super().__init__(cameras_folder_path, camera_select, user_select, "rules", file_dunder = file_dunder)
         
         # Store rule-specific info
         self.input_wh = input_wh
-        self.rule_type, _ = os.path.splitext(self.script_name)
-        self.rule_name = rule_name
         
     # .................................................................................................................
     
@@ -88,24 +88,34 @@ class Reference_Rule(After_Database_Configurable_Base):
     
     # .................................................................................................................
     
-    def update_rule_name(self, new_rule_name = None):
-        
-        ''' Function used to update the rule name, after loading, to accommodate initial configuration of rules '''
-        
-        self.rule_name = new_rule_name
+    # SHOULDN'T OVERRIDE
+    def get_rule_type(self):
+        return os.path.splitext(self.script_name)[0]
     
     # .................................................................................................................
     
-    def get_rule_info(self):
+    # SHOULDN'T OVERRIDE
+    def get_rule_info(self, rule_name):
         
-        output_dict = {"rule_name": self.rule_name,
-                       "rule_type": self.script_name}
+        '''
+        Function which generates data describing each configured rule, for reference on the database
+        Intended to provide info about the rule configuration, which can be used for drawing/presenting the
+        rule in other UIs (e.g. on the web)
+        '''
         
-        return output_dict
+        # Grab setup data for saving into rule info output
+        access_info_dict, setup_data_dict = self.get_data_to_save()
+        
+        # Bundle output data, which will be saved into a json file
+        output_info_dict = {"rule_type": self.get_rule_type(),
+                            "rule_name": rule_name,
+                            "configuration": setup_data_dict}
+        
+        return output_info_dict
     
     # .................................................................................................................
         
-    # MAY OVERRIDE, BUT BETTER TO OVERRIDE process_object_metadata() & classifiy_one_object()!
+    # MAY OVERRIDE, BUT BETTER TO OVERRIDE process_object_metadata() & evaluate_one_object()!
     def run(self, object_id, object_metadata, snapshot_database):
         
         ''' 
@@ -115,9 +125,9 @@ class Reference_Rule(After_Database_Configurable_Base):
         
         # First get object data (in a customizable format) then classify that object!
         object_data = self.process_object_metadata(object_id, object_metadata, self.input_wh)
-        rule_results_list = self.evaluate_one_object(object_data, snapshot_database, self.input_wh)
+        rule_results_dict, rule_results_list =  self.evaluate_one_object(object_data, snapshot_database, self.input_wh)
         
-        return rule_results_list
+        return rule_results_dict, rule_results_list
     
     # .................................................................................................................
 
@@ -146,18 +156,19 @@ class Reference_Rule(After_Database_Configurable_Base):
         depending on how it is output from the process_object_metadata() function.
         
         Must return:
-            rule_results_list
+            rule_results_dict, rule_results_list
             
-        *** Note 1: If an object does not break/trigger a rule, it should return an empty list, as opposed to nothing
+        *** Note 1: If an object does not break/trigger a rule, it should return an empty dict/list
                     -> This helps indicate that the object WAS evaluated, and just returned no result
-        *** Note 2: The rule list should contain dictionary entries holding metadata describing rule events
-                    -> Even if only a single event triggers, it should still be placed in a list for consistency
+        *** Note 2: The rule dict can contain any shared data from evaluation. It may also be empty
+        *** Note 3: The rule list should contain dictionary entries holding metadata describing rule events
         '''
         
         # Reference implementation returns empty rule results
+        rule_results_dict = {}
         rule_results_list = []
         
-        return rule_results_list
+        return rule_results_dict, rule_results_list
 
     # .................................................................................................................
     
@@ -177,6 +188,7 @@ class Reference_Rule(After_Database_Configurable_Base):
     
     # .................................................................................................................
     
+    # MAY OVERRIDE. Only used during configuration
     def evaluate_all_objects(self, object_data_dict, snapshot_database, frame_wh):
         
         '''

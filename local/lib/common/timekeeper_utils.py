@@ -51,7 +51,7 @@ find_path_to_local()
 
 import time
 import datetime as dt
-
+import numpy as np
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
@@ -66,11 +66,10 @@ class Timekeeper:
         self._timelapse_factor = 1 if (timelapse_factor is None) else timelapse_factor
         self._file_tzinfo = get_utc_tzinfo()
         
-        # Get local start date, for use with files
-        raw_start_dt_local = get_local_datetime()
-        self._start_dt_local = dt.datetime(year = raw_start_dt_local.year, 
-                                           month = raw_start_dt_local.month, 
-                                           day = raw_start_dt_local.day)
+        # Use an arbitrary start time by default (only affects file-based reporting) 
+        # --> Guarantees helps ensure file-reported data is clearly distinguished from other results
+        arbitrary_start_dt = dt.datetime(2000, 1, 1)
+        self._start_dt_local = arbitrary_start_dt
         
         # Modify start times if an explicit start time is given (for files only)
         provided_start_dt = (start_datetime_isoformat is not None)
@@ -180,6 +179,12 @@ def get_local_datetime():
     ''' Returns a datetime object based on the local time, with timezone information included '''
 
     return dt.datetime.now(tz = get_local_tzinfo())
+
+# .....................................................................................................................
+
+def get_utc_epoch_ms():
+    
+    return datetime_to_epoch_ms(get_utc_datetime())
 
 # .....................................................................................................................
 
@@ -298,7 +303,7 @@ def epoch_ms_to_utc_datetime(epoch_ms):
     
     ''' Function which converts a millisecond epoch value into a utc datetime object '''
     
-    epoch_sec = epoch_ms / 1000.0    
+    epoch_sec = epoch_ms / 1000.0
     return dt.datetime.utcfromtimestamp(epoch_sec).replace(tzinfo = dt.timezone.utc)
 
 # .....................................................................................................................
@@ -319,6 +324,32 @@ def local_datetime_to_utc_datetime(local_datetime):
     ''' Convenience function for converting datetime objects from local timezones to utc '''
     
     return (local_datetime - local_datetime.utcoffset()).replace(tzinfo = get_utc_tzinfo())
+
+# .................................................................................................................
+
+def time_to_epoch_ms(time_value):
+    
+    # Decide how to handle the input time value based on it's type
+    value_type = type(time_value)
+    
+    # If an integer is provided, assume it is already an epoch_ms value
+    if value_type in {int, np.int64}:
+        return time_value
+    
+    # If a float is provided, assume it is an epoch_ms value, so return integer version
+    elif value_type is float:
+        return int(round(time_value))
+    
+    # If a datetime vlaue is provided, use timekeeper library to convert
+    elif value_type is dt.datetime:
+        return datetime_to_epoch_ms(time_value)
+    
+    # If a string is provided, assume it is an isoformat datetime string
+    elif value_type is str:
+        return isoformat_to_epoch_ms(time_value)
+    
+    # If we get here, we couldn't parse the time!
+    raise TypeError("Unable to parse input time value: {}, type: {}".format(time_value, value_type))
 
 # .....................................................................................................................
 # .....................................................................................................................

@@ -50,7 +50,7 @@ find_path_to_local()
 #%% Imports
 
 from local.lib.file_access_utils.shared import build_user_folder_path
-from local.lib.file_access_utils.read_write import full_replace_save
+from local.lib.file_access_utils.read_write import save_config_json
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Pathing functions
@@ -151,7 +151,7 @@ def save_core_config(cameras_folder, camera_select, user_select,
     
     # Fully overwrite the existing config
     if confirm_save:
-        full_replace_save(save_file_path, save_data)
+        save_config_json(save_file_path, save_data)
     
     return save_file_path, save_data
 

@@ -142,13 +142,19 @@ def _script_arg_function_lut(key_name):
     
     ''' Helper function for selecting the appropriate key script argument generating function '''
     
-    func_lut = {"camera": _camera_arg,
+    func_lut = {"debug": _debug_arg,
+                "camera": _camera_arg,
                 "user": _user_arg,
                 "video": _video_arg,
                 "display": _display_arg,
                 "threaded_video": _threaded_video_arg,
                 "save_and_keep": _save_and_keep_arg,
-                "save_and_delete": _save_and_delete_arg}
+                "save_and_delete": _save_and_delete_arg,
+                "skip_save": _skip_save_arg,
+                "protocol": _protocol_arg,
+                "host": _host_arg,
+                "port": _port_arg,
+                "url": _url_arg}
     
     # Handle bad key names
     if key_name not in func_lut.keys():
@@ -156,6 +162,15 @@ def _script_arg_function_lut(key_name):
         raise NameError("Unrecognized script key name ({}). Must be one of: {}".format(key_name, valid_keys))
         
     return func_lut[key_name]
+
+# .....................................................................................................................
+    
+def _debug_arg(default = False, help_text = "Enable debug mode"):
+    
+    on_by_default = (default == True)
+    action = "store_false" if on_by_default else "store_true"    
+    
+    return ("-debug", "--debug"), {"default": default, "action": action, "help": help_text}
 
 # .....................................................................................................................
     
@@ -190,10 +205,17 @@ def _save_and_delete_arg(default = False):
 
 # .....................................................................................................................
 
-def _display_arg(default = False):
+def _skip_save_arg(default = False):
+    
+    help_text = "Disable saving. Skip save prompt."
+    
+    return ("-ss", "--skip_save"), {"default": default, "action": "store_true", "help": help_text}
+
+# .....................................................................................................................
+
+def _display_arg(default = False, help_text = "Enable display (slower)"):
     
     on_by_default = (default == True)
-    help_text = "Disable display (faster)" if on_by_default else "Enable display (slower)"
     action = "store_false" if on_by_default else "store_true"
     
     return ("-d", "--display"), {"default": default, "action": action, "help": help_text}
@@ -209,6 +231,26 @@ def _threaded_video_arg(default = False):
     action = "store_false" if on_by_default else "store_true"
     
     return ("-f", "--threaded_video"), {"default": default, "action": action, "help": help_text}
+
+# .....................................................................................................................
+
+def _protocol_arg(default = "http", help_text = "Specify a web protocol"):
+    return ("-proto", "--protocol"), {"default": default, "type": str, "help": help_text}    
+
+# .....................................................................................................................
+
+def _host_arg(default = "localhost", help_text = "Specify host/ip address"):
+    return ("-host", "--host"), {"default": default, "type": str, "help": help_text}    
+
+# .....................................................................................................................
+
+def _port_arg(default = None, help_text = "Specify a port"):
+    return ("-port", "--port"), {"default": default, "help": help_text}
+
+# .....................................................................................................................
+
+def _url_arg(default = None, help_text = "Specify a url"):
+    return ("-url", "--url"), {"default": default, "help": help_text}
 
 # .....................................................................................................................
 # .....................................................................................................................

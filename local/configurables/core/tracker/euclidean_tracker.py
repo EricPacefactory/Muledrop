@@ -440,6 +440,8 @@ class Tracker_Stage(Reference_Tracker):
     
     def _decay_objs(self, object_dict, unmatched_obj_ids_list, decay_timeout_ms, current_epoch_ms):
         
+        # Loop over all unmatched object ids and check how long they've been unmatched
+        # Add them to dead list if they've been unmatched 'too long' or if they're are in a decay zone
         dead_obj_ids_list = []
         for each_obj_id in unmatched_obj_ids_list:
             
