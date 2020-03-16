@@ -53,8 +53,8 @@ from local.lib.file_access_utils.after_database import build_after_database_conf
 from local.lib.file_access_utils.reporting import build_after_database_report_path
 from local.lib.file_access_utils.read_write import load_config_json, save_jgz
 
-from eolib.utils.files import get_file_list
-from eolib.utils.cli_tools import cli_confirm, cli_select_from_list, cli_prompt_with_defaults
+from local.eolib.utils.files import get_file_list
+from local.eolib.utils.cli_tools import cli_confirm, cli_select_from_list, cli_prompt_with_defaults
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% General Pathing functions

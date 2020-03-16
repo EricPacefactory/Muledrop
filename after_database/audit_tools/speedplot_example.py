@@ -65,7 +65,7 @@ from local.offline_database.classification_reconstruction import create_object_c
 
 from local.lib.ui_utils.local_ui.windows_base import Simple_Window
 
-from eolib.video.text_rendering import simple_text, relative_text
+from local.eolib.video.text_rendering import simple_text, relative_text
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes

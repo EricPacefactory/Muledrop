@@ -60,8 +60,8 @@ from local.lib.file_access_utils.reporting import build_user_report_path
 
 from local.online_database.auto_post import create_parallel_scheduled_post
 
-from eolib.utils.files import get_total_folder_size
-from eolib.utils.cli_tools import cli_confirm
+from local.eolib.utils.files import get_total_folder_size
+from local.eolib.utils.cli_tools import cli_confirm
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define functions

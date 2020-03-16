@@ -53,7 +53,7 @@ from local.configurables.after_database.rules.reference_rule import Reference_Ru
 
 from local.offline_database.object_reconstruction import Smoothed_Object_Reconstruction
 
-from eolib.math.geometry import Fixed_Line_Cross
+from local.eolib.math.geometry import Fixed_Line_Cross
 
 
 # ---------------------------------------------------------------------------------------------------------------------

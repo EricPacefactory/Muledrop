@@ -66,7 +66,7 @@ from local.offline_database.object_reconstruction import Smoothed_Object_Reconst
 from local.lib.file_access_utils.classifier import build_supervised_labels_folder_path
 from local.lib.file_access_utils.classifier import load_label_lut_tuple, load_supervised_labels, save_supervised_label
 
-from eolib.utils.quitters import ide_catcher, ide_quit
+from local.eolib.utils.quitters import ide_catcher, ide_quit
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes

@@ -56,9 +56,9 @@ from local.lib.ui_utils.editor_lib import Edit_Selector, parse_editor_args
 
 from local.lib.file_access_utils.video import load_rtsp_config, save_rtsp_config
 
-from eolib.utils.cli_tools import cli_select_from_list, cli_prompt_with_defaults
-from eolib.utils.network import build_rtsp_string, parse_rtsp_string, check_connection
-from eolib.utils.quitters import ide_quit
+from local.eolib.utils.cli_tools import cli_select_from_list, cli_prompt_with_defaults
+from local.eolib.utils.network import build_rtsp_string, parse_rtsp_string, check_connection
+from local.eolib.utils.quitters import ide_quit
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes

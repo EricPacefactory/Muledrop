@@ -76,9 +76,9 @@ from local.lib.file_access_utils.rules import new_rule_report_entry
 
 from local.lib.file_access_utils.read_write import load_jgz, fast_json_stringify, fast_json_to_dict
 
-from eolib.utils.cli_tools import cli_prompt_with_defaults
-from eolib.utils.files import get_file_list, get_folder_list
-from eolib.utils.quitters import ide_quit
+from local.eolib.utils.cli_tools import cli_prompt_with_defaults
+from local.eolib.utils.files import get_file_list, get_folder_list
+from local.eolib.utils.quitters import ide_quit
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes

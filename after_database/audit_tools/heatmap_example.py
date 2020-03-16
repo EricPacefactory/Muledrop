@@ -64,7 +64,7 @@ from local.offline_database.classification_reconstruction import set_object_clas
 
 from local.lib.ui_utils.local_ui.windows_base import Simple_Window
 
-from eolib.utils.colormaps import apply_colormap, inferno_colormap
+from local.eolib.utils.colormaps import apply_colormap, inferno_colormap
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes

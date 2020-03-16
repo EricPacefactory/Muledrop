@@ -70,8 +70,8 @@ from local.lib.file_access_utils.screen_info import Screen_Info
 from local.lib.file_access_utils.read_write import load_config_json, save_config_json, save_jgz
 from local.lib.file_access_utils.read_write import dict_to_human_readable_output
 
-from eolib.utils.cli_tools import cli_confirm
-from eolib.utils.function_helpers import dynamic_import_from_module
+from local.eolib.utils.cli_tools import cli_confirm
+from local.eolib.utils.function_helpers import dynamic_import_from_module
 
 
 # ---------------------------------------------------------------------------------------------------------------------

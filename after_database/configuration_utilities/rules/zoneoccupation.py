@@ -69,7 +69,7 @@ from local.offline_database.classification_reconstruction import create_object_c
 
 from local.configurables.after_database.rules.zoneoccupation_rule import Zoneoccupation_Rule
 
-from eolib.video.text_rendering import simple_text
+from local.eolib.video.text_rendering import simple_text
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes

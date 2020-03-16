@@ -53,7 +53,7 @@ import numpy as np
 
 from local.lib.ui_utils.display_specification import Display_Window_Specification
 
-from eolib.video.text_rendering import simple_text
+from local.eolib.video.text_rendering import simple_text
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define shared displays

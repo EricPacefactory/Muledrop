@@ -58,7 +58,7 @@ from local.lib.ui_utils.display_specification import Display_Window_Specificatio
 from local.lib.ui_utils.display_specification import Input_Display
 from local.lib.ui_utils.display_specification import Preprocessed_Display
 
-from eolib.video.text_rendering import simple_text
+from local.eolib.video.text_rendering import simple_text
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define displays

@@ -63,10 +63,10 @@ from local.offline_database.file_database import launch_file_db, close_dbs_if_mi
 
 from local.configurables.configurable_template import configurable_dot_path
 
-from eolib.utils.files import get_total_folder_size
-from eolib.utils.function_helpers import dynamic_import_from_module
-from eolib.utils.cli_tools import cli_confirm
-from eolib.utils.quitters import ide_quit
+from local.eolib.utils.files import get_total_folder_size
+from local.eolib.utils.function_helpers import dynamic_import_from_module
+from local.eolib.utils.cli_tools import cli_confirm
+from local.eolib.utils.quitters import ide_quit
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define functions

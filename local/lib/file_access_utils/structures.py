@@ -53,7 +53,7 @@ from local.lib.file_access_utils.shared import build_camera_path, build_user_fol
 from local.lib.file_access_utils.externals import build_externals_folder_path
 from local.lib.file_access_utils.video import get_video_names_and_paths_lists, check_valid_rtsp_ip
 
-from eolib.utils.files import get_folder_list, get_file_list
+from local.eolib.utils.files import get_folder_list, get_file_list
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Folder structures

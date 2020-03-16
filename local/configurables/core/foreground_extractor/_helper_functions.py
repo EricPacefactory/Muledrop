@@ -57,7 +57,7 @@ from functools import partial
 
 from local.lib.ui_utils.display_specification import Display_Window_Specification
 
-from eolib.math.signal_processing import odd_tuplify
+from local.eolib.math.signal_processing import odd_tuplify
 
 
 # ---------------------------------------------------------------------------------------------------------------------

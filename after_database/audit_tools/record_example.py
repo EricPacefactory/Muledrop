@@ -62,10 +62,10 @@ from local.offline_database.object_reconstruction import Smoothed_Object_Reconst
 from local.offline_database.classification_reconstruction import set_object_classification_and_colors
 
 
-from eolib.video.read_write import Video_Recorder
+from local.eolib.video.read_write import Video_Recorder
 
-from eolib.utils.cli_tools import cli_prompt_with_defaults, cli_confirm
-from eolib.utils.quitters import ide_quit
+from local.eolib.utils.cli_tools import cli_prompt_with_defaults, cli_confirm
+from local.eolib.utils.quitters import ide_quit
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes

@@ -54,8 +54,8 @@ from local.lib.ui_utils.editor_lib import Edit_Selector, parse_editor_args
 
 from local.lib.file_access_utils.video import rename_video_in_files_dict
 
-from eolib.utils.cli_tools import cli_prompt_with_defaults
-from eolib.utils.quitters import ide_quit
+from local.eolib.utils.cli_tools import cli_prompt_with_defaults
+from local.eolib.utils.quitters import ide_quit
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes

@@ -57,7 +57,7 @@ from local.configurables.configurable_template import configurable_dot_path
 from local.lib.file_access_utils.read_write import load_config_json
 from local.lib.file_access_utils.core import build_core_folder_path, get_ordered_config_paths
 
-from eolib.utils.function_helpers import dynamic_import_from_module
+from local.eolib.utils.function_helpers import dynamic_import_from_module
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes

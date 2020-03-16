@@ -60,7 +60,7 @@ from local.lib.launcher_utils.video_setup import File_Video_Reader
 from local.configurables.externals.snapshot_capture.fixed_sample_snapcapture import Snapshot_Capture
 #from local.configurables.externals.snapshot_capture.fixed_period_snapcapture import Snapshot_Capture
 
-from eolib.utils.cli_tools import cli_confirm
+from local.eolib.utils.cli_tools import cli_confirm
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes

@@ -56,7 +56,7 @@ from collections import deque
 
 from local.lib.ui_utils.local_ui.drawing import Entity_Drawer
 
-from eolib.utils.cli_tools import Color
+from local.eolib.utils.cli_tools import Color
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define Classes

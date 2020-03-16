@@ -54,9 +54,9 @@ from shutil import copy2 as copy_with_metadata
 from local.lib.file_access_utils.shared import build_resources_folder_path
 from local.lib.file_access_utils.read_write import load_or_create_config_json, update_config_json, save_config_json
 
-from eolib.utils.network import build_rtsp_string, check_valid_ip
-from eolib.utils.files import replace_user_home_pathing
-from eolib.utils.quitters import ide_quit
+from local.eolib.utils.network import build_rtsp_string, check_valid_ip
+from local.eolib.utils.files import replace_user_home_pathing
+from local.eolib.utils.quitters import ide_quit
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes 

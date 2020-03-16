@@ -58,8 +58,8 @@ from local.lib.launcher_utils.video_processing_loops import Video_Processing_Loo
 
 from local.lib.file_access_utils.reporting import build_user_report_path
 
-from eolib.utils.files import get_total_folder_size
-from eolib.utils.cli_tools import cli_confirm
+from local.eolib.utils.files import get_total_folder_size
+from local.eolib.utils.cli_tools import cli_confirm
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define functions

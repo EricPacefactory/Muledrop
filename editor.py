@@ -55,8 +55,8 @@ from time import sleep
 
 from local.lib.ui_utils.cli_selections import Resource_Selector
 
-from eolib.utils.files import get_file_list
-from eolib.utils.cli_tools import cli_confirm, cli_select_from_list, clear_terminal, clean_error_quit
+from local.eolib.utils.files import get_file_list
+from local.eolib.utils.cli_tools import cli_confirm, cli_select_from_list, clear_terminal, clean_error_quit
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes

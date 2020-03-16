@@ -54,7 +54,7 @@ import numpy as np
 
 from local.lib.ui_utils.local_ui.windows_base import Simple_Window
 
-from eolib.video.text_rendering import cv2_font_config, getTextSize_wrapper
+from local.eolib.video.text_rendering import cv2_font_config, getTextSize_wrapper
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define Classes

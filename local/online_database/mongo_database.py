@@ -73,7 +73,7 @@ from local.lib.file_access_utils.rules import build_rule_adb_metadata_report_pat
 
 from local.lib.file_access_utils.read_write import load_jgz
 
-from eolib.utils.files import get_file_list_by_age
+from local.eolib.utils.files import get_file_list_by_age
 
 
 # ---------------------------------------------------------------------------------------------------------------------

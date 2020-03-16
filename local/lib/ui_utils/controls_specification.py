@@ -51,7 +51,7 @@ find_path_to_local()
 
 from collections import OrderedDict
 
-from eolib.utils.function_helpers import get_function_arg_dict
+from local.eolib.utils.function_helpers import get_function_arg_dict
 
 
 # ---------------------------------------------------------------------------------------------------------------------

@@ -69,7 +69,7 @@ from flask import Flask, jsonify, redirect
 from flask import request as flask_request
 from flask_cors import CORS
 
-from eolib.utils.quitters import ide_catcher
+from local.eolib.utils.quitters import ide_catcher
 
 from time import sleep
 

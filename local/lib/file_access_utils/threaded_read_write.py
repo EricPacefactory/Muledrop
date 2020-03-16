@@ -57,7 +57,7 @@ from time import perf_counter
 
 from local.lib.file_access_utils.read_write import save_config_json, save_jgz
 
-from eolib.utils.files import get_file_list, get_file_list_by_age
+from local.eolib.utils.files import get_file_list, get_file_list_by_age
 
 
 # ---------------------------------------------------------------------------------------------------------------------

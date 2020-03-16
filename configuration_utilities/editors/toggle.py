@@ -52,8 +52,8 @@ find_path_to_local()
 from local.lib.ui_utils.cli_selections import Resource_Selector
 from local.lib.ui_utils.editor_lib import Edit_Selector, parse_editor_args
 
-from eolib.utils.cli_tools import cli_select_from_list
-from eolib.utils.quitters import ide_quit
+from local.eolib.utils.cli_tools import cli_select_from_list
+from local.eolib.utils.quitters import ide_quit
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes

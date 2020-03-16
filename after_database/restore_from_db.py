@@ -73,8 +73,8 @@ from local.lib.file_access_utils.rules import build_rule_adb_metadata_report_pat
 
 from local.lib.file_access_utils.read_write import save_jgz
 
-from eolib.utils.quitters import ide_quit
-from eolib.utils.cli_tools import cli_select_from_list
+from local.eolib.utils.quitters import ide_quit
+from local.eolib.utils.cli_tools import cli_select_from_list
 
 
 # ---------------------------------------------------------------------------------------------------------------------

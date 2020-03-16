@@ -51,7 +51,7 @@ find_path_to_local()
 
 from local.lib.ui_utils.local_ui.windows_base import Control_Window
 
-from eolib.utils.cli_tools import Color
+from local.eolib.utils.cli_tools import Color
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define Classes

@@ -54,7 +54,7 @@ from local.lib.file_access_utils.settings import load_history, save_history
 from local.lib.file_access_utils.video import get_video_names_and_paths_lists
 from local.lib.file_access_utils.structures import build_cameras_tree, build_camera_list, build_user_list
 
-from eolib.utils.cli_tools import cli_select_from_list, keyboard_quit, clean_error_quit
+from local.eolib.utils.cli_tools import cli_select_from_list, keyboard_quit, clean_error_quit
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes

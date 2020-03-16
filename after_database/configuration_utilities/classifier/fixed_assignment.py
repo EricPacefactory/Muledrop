@@ -56,7 +56,7 @@ from local.lib.file_access_utils.read_write import load_config_json, save_config
 
 from local.configurables.after_database.classifier.fixed_classifier import Classifier_Stage
 
-from eolib.utils.cli_tools import cli_confirm, cli_select_from_list
+from local.eolib.utils.cli_tools import cli_confirm, cli_select_from_list
 
 
 # ---------------------------------------------------------------------------------------------------------------------

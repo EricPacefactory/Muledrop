@@ -59,7 +59,7 @@ from local.lib.launcher_utils.video_setup import File_Video_Reader
 #from local.configurables.externals.background_capture.averaging_backgroundcapture import Background_Capture
 from local.configurables.externals.background_capture.median_backgroundcapture import Background_Capture
 
-from eolib.utils.cli_tools import cli_confirm
+from local.eolib.utils.cli_tools import cli_confirm
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes

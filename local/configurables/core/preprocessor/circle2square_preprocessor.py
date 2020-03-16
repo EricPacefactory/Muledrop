@@ -56,7 +56,7 @@ from local.configurables.core.preprocessor.reference_preprocessor import Referen
 
 from local.configurables.core.preprocessor._helper_functions import unwarp_from_mapping
 
-from eolib.math.linear_algebra import rotation_matrix_2D, rotate_around_center
+from local.eolib.math.linear_algebra import rotation_matrix_2D, rotate_around_center
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes

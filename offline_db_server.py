@@ -63,7 +63,7 @@ from local.offline_database.file_database import launch_file_db, close_dbs_if_mi
 from flask import Flask, jsonify, Response
 from flask_cors import CORS
 
-from eolib.utils.quitters import ide_catcher
+from local.eolib.utils.quitters import ide_catcher
 
 
 # ---------------------------------------------------------------------------------------------------------------------
