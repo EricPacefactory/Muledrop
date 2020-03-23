@@ -1,0 +1,85 @@
+
+/* ----------------------------------------------------------------- */
+/* Override shared styling */
+/* ----------------------------------------------------------------- */
+
+:root {
+    --page_accent: rgb(98, 90, 65);
+    --page_accent_hl: rgb(122, 110, 73);
+    --camera_bg: rgb(42, 126, 56);
+  }
+
+
+/* ----------------------------------------------------------------- */
+/* Container styling */
+
+/* Div which wraps around all camera entries */
+.content_container_div {
+    display: grid;
+    grid-gap: 40px;
+    grid-template-columns: 1fr;
+    width: 60%;
+    margin: auto;
+}
+
+/* Div which contains a single camera entry (name + file count + file listing) */
+.camera_container_div {
+    background-color: var(--dark_gray);
+    border: 1px solid black;
+}
+
+/* Div which holds the camera name + file count info */
+.camera_title_div {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    background-color: var(--page_accent_hl);
+    color: var(--bright_text);
+    padding: 0.5em;
+}
+
+
+/* ----------------------------------------------------------------- */
+/* Camera entry styling */
+
+.camera_name_div {
+    font-variant: small-caps;
+    font-size: 2em;
+    text-align: start;
+}
+
+.file_count_div {
+    text-align: end;
+    font-size: 1.5em;
+}
+
+.file_list_ul {
+    margin: 0;
+    padding: 0.5em;
+}
+
+.file_entry_li {
+    list-style-type: square;
+    color: var(--light_text);
+    margin: 0;
+    margin-left: 3em;
+}
+
+/* ----------------------------------------------------------------- */
+/* No changes styling */
+
+.no_change_warning_div {
+    margin: 0 auto;
+    padding: 2em;
+    background-color: var(--dark_gray);
+    width: 25%;
+    align-self: center;
+    justify-self: center;
+}
+
+.no_change_p {
+    color: var(--light_text);
+    text-align: center;
+    font-size: 1.5em;
+}

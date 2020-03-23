@@ -51,7 +51,12 @@ find_path_to_local()
 
 from shutil import copyfile
 
+from time import sleep
+
+from local.lib.common.environment import get_env_cameras_folder
+
 from local.lib.file_access_utils.settings import load_pathing_info
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Pathing functions
@@ -118,10 +123,15 @@ def find_root_path(dunder_file = None, target_folder = "local"):
 
 def find_cameras_folder():
     
-    # First find the root folder path, which stores the pathing info file
-    project_root_path = find_root_path()
+    # Check if the camera path is available through the environment, in which case, make/use that path
+    env_cameras_folder_path = get_env_cameras_folder()
+    if env_cameras_folder_path is not None:
+        cameras_folder_path = os.path.expanduser(env_cameras_folder_path)
+        os.makedirs(cameras_folder_path, exist_ok = True)
+        return cameras_folder_path
     
-    # Load camera folder path from the pathing info file (or use a default, if the file isn't available)
+    # If we don't find an environment path, then find the root folder path and load from the pathing info file
+    project_root_path = find_root_path()
     cameras_folder_path = load_pathing_info(project_root_path)
     
     # Quick warning to hopefully avoid accidently syncing outputs to dropbox
@@ -133,10 +143,11 @@ def find_cameras_folder():
         print("  Dropbox found in camera folder path!")
         print("  {}".format(cameras_folder_path))
         print("!" * 36)
+        sleep(2.5)
         
     # Create the folder if it doesn't exist yet (and give feedback about it)
     if not os.path.exists(cameras_folder_path):
-        os.makedirs(cameras_folder_path)
+        os.makedirs(cameras_folder_path, exist_ok = True)
         print("")
         print("*" * 36)
         print("Camera folder not found. folder will be created:")

@@ -1,13 +1,5 @@
 
 /* ----------------------------------------------------------------- */
-/* Global styling */
-/* ----------------------------------------------------------------- */
-
-:root {
-}
-
-
-/* ----------------------------------------------------------------- */
 /* Upload page styling */
 
 .explanation_div {
@@ -15,8 +7,8 @@
   margin: auto;
   padding: 1em;
   border: 1px solid black;
-  background-color: #333;
-  color: #BBB;
+  background-color: var(--dark_gray);
+  color: var(--light_text);
   width: 60%;
 }
 

@@ -12,7 +12,7 @@
 }
 
 header {
-  border: 1px solid transparent;
+  border: 2px solid transparent;
 }
 
 /* ----------------------------------------------------------------- */
@@ -60,6 +60,7 @@ a:hover {
 
 a:hover img {
   filter: brightness(135%);
+  transform: scale(1.02);
 }
 
 /* ----------------------------------------------------------------- */

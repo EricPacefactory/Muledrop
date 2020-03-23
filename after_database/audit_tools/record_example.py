@@ -57,13 +57,13 @@ from tqdm import tqdm
 
 from local.lib.ui_utils.cli_selections import Resource_Selector
 
-from local.offline_database.file_database import user_input_datetime_range, launch_file_db, close_dbs_if_missing_data
+from local.offline_database.file_database import launch_file_db, close_dbs_if_missing_data
 from local.offline_database.object_reconstruction import Smoothed_Object_Reconstruction as Obj_Recon
 from local.offline_database.classification_reconstruction import set_object_classification_and_colors
 
-
 from local.eolib.video.read_write import Video_Recorder
 
+from local.eolib.utils.cli_tools import Datetime_Input_Parser as DTIP
 from local.eolib.utils.cli_tools import cli_prompt_with_defaults, cli_confirm
 from local.eolib.utils.quitters import ide_quit
 
@@ -225,7 +225,7 @@ launch_file_db(cameras_folder_path, camera_select, user_select,
 
 # Catch missing data
 rinfo_db.close()
-close_dbs_if_missing_data(snap_db, obj_db)
+close_dbs_if_missing_data(snap_db)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -236,22 +236,22 @@ earliest_datetime, latest_datetime = snap_db.get_bounding_datetimes()
 snap_wh = cinfo_db.get_snap_frame_wh()
 
 # Ask the user for the range of datetimes to use for selecting data
-start_dt, end_dt, start_dt_isoformat, end_dt_isoformat = user_input_datetime_range(earliest_datetime, 
-                                                                                   latest_datetime, 
-                                                                                   enable_debug_mode)
+user_start_dt, user_end_dt = DTIP.cli_prompt_start_end_datetimes(earliest_datetime, latest_datetime,
+                                                                 print_help_before_prompt = False,
+                                                                 debug_mode = enable_debug_mode)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Load object data
 
 # Get object metadata from the server
-obj_metadata_generator = obj_db.load_metadata_by_time_range(start_dt_isoformat, end_dt_isoformat)
+obj_metadata_generator = obj_db.load_metadata_by_time_range(user_start_dt, user_end_dt)
 
 # Create list of 'reconstructed' objects based on object metadata, so we can work/interact with the object data
 obj_list = Obj_Recon.create_reconstruction_list(obj_metadata_generator,
                                                 snap_wh,
-                                                start_dt_isoformat, 
-                                                end_dt_isoformat)
+                                                user_start_dt, 
+                                                user_end_dt)
 
 # Load in classification data, if any
 set_object_classification_and_colors(class_db, obj_list)
@@ -261,7 +261,7 @@ set_object_classification_and_colors(class_db, obj_list)
 #%% Determine playback speed
 
 # Get all the snapshot times we'll need for animation
-snap_times_ms_list = snap_db.get_all_snapshot_times_by_time_range(start_dt, end_dt)
+snap_times_ms_list = snap_db.get_all_snapshot_times_by_time_range(user_start_dt, user_end_dt)
 
 # Estimate the 'framerate' of the snapshots, based on the average time difference between them
 average_snap_timedelta_ms = np.round(np.mean(np.diff(snap_times_ms_list)))

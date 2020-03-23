@@ -55,17 +55,20 @@ import zipfile
 import shutil
 import subprocess
 
-from local.lib.common.timekeeper_utils import get_utc_epoch_ms
+from local.lib.common.timekeeper_utils import get_utc_epoch_ms, get_human_readable_timestamp
+from local.lib.common.environment import get_upserver_protocol, get_upserver_host, get_upserver_port
 
 from local.lib.ui_utils.cli_selections import Resource_Selector
 from local.lib.ui_utils.script_arguments import script_arg_builder
 
 from local.lib.file_access_utils.shared import build_camera_path
 from local.lib.file_access_utils.reporting import build_base_report_path
+from local.lib.file_access_utils.logging import make_log_folder
 from local.lib.file_access_utils.logging import build_base_log_path, build_stdout_log_path, build_stderr_log_path
+from local.lib.file_access_utils.logging import build_upload_new_log_file_path, build_upload_update_log_file_path
 from local.lib.file_access_utils.pid_files import check_running_camera, clear_all_pid_files
 
-from flask import Flask, jsonify, redirect
+from flask import Flask, jsonify, redirect, render_template
 from flask import request as flask_request
 from flask_cors import CORS
 
@@ -80,11 +83,22 @@ from time import sleep
 
 def parse_upload_args(debug_print = False):
     
+    # Set defaults
+    default_protocol = get_upserver_protocol()
+    default_host = get_upserver_host()
+    default_port = get_upserver_port()
+    
+    # Set arg help text
+    protocol_help_text = "Specify the protocol of the upload server\n(Default: {})".format(default_protocol)
+    host_help_text = "Specify the host of the upload server\n(Default: {})".format(default_host)
+    port_help_text = "Specify the port of the upload server\n(Default: {})".format(default_port)
+    
     # Set script arguments for running files
     args_list = [{"display": {"default": False, "help_text": "Enable display during data collection"}},
                  {"debug": {"default": False}},
-                 {"host": {"default": "0.0.0.0"}},
-                 {"port": {"default": 8181}}]
+                 {"protocol": {"default": default_protocol, "help_text": protocol_help_text}},
+                 {"host": {"default": default_host, "help_text": host_help_text}},
+                 {"port": {"default": default_port, "help_text": port_help_text}}]
     
     # Provide some extra information when accessing help text
     script_description = "Launch a server for handling configuration file uploads."
@@ -107,6 +121,48 @@ def get_existing_camera_names_list():
 def get_cameras_folder_path():
     _, cameras_folder_path = g_selector.get_project_pathing()
     return cameras_folder_path
+
+# .....................................................................................................................
+
+def save_update_log(camera_select, files_changed_list):
+    
+    # Get pathing to the log file
+    cameras_folder_path = get_cameras_folder_path()
+    update_log_file_path = build_upload_update_log_file_path(cameras_folder_path, camera_select)
+    make_log_folder(update_log_file_path)
+    
+    # Handle 'no file' case
+    no_files = (len(files_changed_list) == 0)
+    if no_files:
+        files_changed_list = ["  No files changed!"]
+    
+    # Save data to the log file
+    with open(update_log_file_path, "a") as log_file:
+        log_file.write("\n".join(["", "", get_human_readable_timestamp(), ""]))
+        log_file.write("\n".join(files_changed_list))
+    
+    return
+
+# .....................................................................................................................
+
+def save_new_log(camera_select, files_changed_list):
+    
+    # Get pathing to the log file
+    cameras_folder_path = get_cameras_folder_path()
+    new_log_file_path = build_upload_new_log_file_path(cameras_folder_path, camera_select)
+    make_log_folder(new_log_file_path)
+    
+    # Handle 'no file' case
+    no_files = (len(files_changed_list) == 0)
+    if no_files:
+        files_changed_list = ["  No files changed!"]
+    
+    # Save data to the log file
+    with open(new_log_file_path, "a") as log_file:
+        log_file.write("\n".join(["", "", get_human_readable_timestamp(), ""]))
+        log_file.write("\n".join(files_changed_list))
+    
+    return
 
 # .....................................................................................................................
 
@@ -470,8 +526,12 @@ def upload_new_file_route():
         # Unzip the uploaded data, and use it to create new cameras or fully replace existing camera configs
         unzipped_folder_path = unzip_cameras_file(temp_save_path, "new")
         files_changed_dict = new_camera_configs(unzipped_folder_path)
+        
+    # Log changes to each camera
+    for each_camera, each_file_list in files_changed_dict.items():
+        save_new_log(each_camera, each_file_list)
     
-    return (jsonify(files_changed_dict), 200)
+    return render_template("fileschanged/fileschanged.html", files_changed_dict = files_changed_dict)
 
 # .....................................................................................................................
 
@@ -496,8 +556,36 @@ def upload_update_file_route():
         # Unzip the uploaded data, and use it to update existing cameras
         unzipped_folder_path = unzip_cameras_file(temp_save_path, "update")
         files_changed_dict = update_camera_configs(unzipped_folder_path)
+        
+    # Log changes to each camera
+    for each_camera, each_file_list in files_changed_dict.items():
+        save_update_log(each_camera, each_file_list)
     
-    return (jsonify(files_changed_dict), 200)
+    return render_template("fileschanged/fileschanged.html", files_changed_dict = files_changed_dict)
+
+# .....................................................................................................................
+
+@server.route("/debug/filechange")
+def debug_filechange_route():
+    
+    files_changed_dict = {
+            "Camera_1": ["/path/to/file/1/point/0.txt",
+                         "/path/to/file/1/point/1.txt",
+                         "/path/to/file/1/point/2.txt",
+                         "/path/to/file/2/point/0.txt",
+                         "/path/to/file/2/pojnt/1.txt",
+                         "/path/to/file/2/point/2.txt",
+                         "/path/to/file/3.txt"],
+            "camera_2": ["/p/1/2",
+                         "/p/1/4",
+                         "/p/1/6",
+                         "/p/1/7",
+                         "/p/2/3",
+                         "/p/2/5"]}
+    
+    #files_changed_dict = {}
+    
+    return render_template("fileschanged/fileschanged.html", files_changed_dict = files_changed_dict)
 
 # .....................................................................................................................
 # .....................................................................................................................
@@ -512,20 +600,19 @@ if __name__ == "__main__":
     ide_catcher("Can't run flask from IDE! Try using a terminal...")
     
     # Set server access parameters
+    server_protocol = ap_result["protocol"]
     server_host = ap_result["host"]
     server_port = ap_result["port"]
-    server_url = "http://{}:{}".format(server_host, server_port)
+    server_url = "{}://{}:{}".format(server_protocol, server_host, server_port)
     
     # Launch server
     print("")
     enable_debug_mode = ap_result.get("debug")
     server.run(server_host, port = server_port, debug = enable_debug_mode)
 
+
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Scrap
 
-
 # TODO
 # - Handle Popen 'defunct' calls better (periodically clean up finished calls?)
-# - add script args, mainly for controlling debug mode (and enabling display flag of camera controls!)
-# - add new/update 'files changed' page    

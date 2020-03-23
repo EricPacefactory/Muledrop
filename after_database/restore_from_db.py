@@ -53,10 +53,16 @@ import requests
 
 from tqdm import tqdm
 
+from local.lib.common.timekeeper_utils import parse_isoformat_string, datetime_to_epoch_ms
+from local.lib.common.launch_helpers import delete_existing_report_data
+from local.lib.common.environment import get_dbserver_protocol, get_dbserver_host, get_dbserver_port
+
 from local.lib.ui_utils.cli_selections import Resource_Selector
+from local.lib.ui_utils.script_arguments import script_arg_builder
 
-from local.online_database.auto_post import check_server_connection
+from local.online_database.post_to_dbserver import check_server_connection
 
+from local.lib.file_access_utils.structures import create_camera_folder_structure
 from local.lib.file_access_utils.reporting import build_camera_info_metadata_report_path
 from local.lib.file_access_utils.reporting import build_snapshot_metadata_report_path
 from local.lib.file_access_utils.reporting import build_object_metadata_report_path
@@ -64,17 +70,11 @@ from local.lib.file_access_utils.reporting import build_background_metadata_repo
 from local.lib.file_access_utils.reporting import build_snapshot_image_report_path
 from local.lib.file_access_utils.reporting import build_background_image_report_path
 
-'''
-from local.lib.file_access_utils.classifier import build_classifier_adb_metadata_report_path
-from local.lib.file_access_utils.summary import build_summary_adb_metadata_report_path
-from local.lib.file_access_utils.rules import build_rule_adb_info_report_path
-from local.lib.file_access_utils.rules import build_rule_adb_metadata_report_path
-'''
-
 from local.lib.file_access_utils.read_write import save_jgz
 
 from local.eolib.utils.quitters import ide_quit
-from local.eolib.utils.cli_tools import cli_select_from_list
+from local.eolib.utils.cli_tools import Datetime_Input_Parser as DTIP
+from local.eolib.utils.cli_tools import cli_select_from_list, cli_prompt_with_defaults
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -85,26 +85,32 @@ from local.eolib.utils.cli_tools import cli_select_from_list
 # .....................................................................................................................
 # .....................................................................................................................
 
-
-# ---------------------------------------------------------------------------------------------------------------------
-#%% Define posting functions
-
-# .....................................................................................................................
-
-# request snapshot md
-# request snapshot images
-
-# request background md
-# request background images
-
-# request camerainfo md
-# request object md
-
-# .....................................................................................................................
-# .....................................................................................................................
-
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define shared functions
+
+# .....................................................................................................................
+
+def parse_restore_args(debug_print = False):
+    
+    # Set defaults
+    default_protocol = get_dbserver_protocol()
+    
+    # Set arg help text
+    protocol_help_text = "Specify the access protocol of the db server\n(Default: {})".format(default_protocol)
+    
+    # Set script arguments for running files
+    args_list = [{"protocol": {"default": default_protocol, "help_text": protocol_help_text}}]
+    
+    # Provide some extra information when accessing help text
+    script_description = "Download report data from the database server, for a single camera."
+    
+    # Build & evaluate script arguments!
+    ap_result = script_arg_builder(args_list,
+                                   description = script_description,
+                                   parse_on_call = True,
+                                   debug_print = debug_print)
+    
+    return ap_result
 
 # .....................................................................................................................
 
@@ -122,13 +128,29 @@ def get_json(request_url, message_on_error = "Error requesting data!"):
 
 # .....................................................................................................................
 
-def save_network_jpg(request_url, save_path):
+def get_jpg(request_url, message_on_error = "Error requesting image data!"):
     
-    image_data = requests.get(request_url)
+    # Request data from the server
+    post_response = requests.get(request_url)
+    if post_response.status_code != 200:
+        raise SystemError("{}\n@ {}".format(message_on_error, request_url))
+    
+    # Pull image data out of response
+    return_data = post_response.content
+    
+    return return_data
+
+# .....................................................................................................................
+
+def save_jpg(save_path, image_data):
+    
+    # Save image data directly to file
     with open(save_path, 'wb') as out_file:
-        out_file.write(image_data.content)
-    del image_data
+        out_file.write(image_data)
     
+    # Force clearing of memory... might help garbage collector?
+    del image_data
+
     return
 
 # .....................................................................................................................
@@ -165,6 +187,22 @@ def request_bounding_times(server_url, camera_select):
     snapshot_bounding_times_dict = get_json(request_url)
     
     return snapshot_bounding_times_dict
+
+# .....................................................................................................................
+
+def create_new_camera_entry(selector, camera_select):
+    
+    # Check if the camera we're restoring already exists on the system
+    camera_already_exists = (camera_select in selector.get_cameras_tree().keys())
+    if camera_already_exists:
+        return
+    
+    # If the camera doesn't exist, create a blank folder structure for it (so other tools can read it properly)
+    project_root_path, cameras_folder_path = selector.get_project_pathing()
+    create_camera_folder_structure(project_root_path, cameras_folder_path, camera_select)
+
+# .....................................................................................................................
+# .....................................................................................................................
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Camera info functions
@@ -215,7 +253,7 @@ def request_background_metadata(server_url, camera_select, start_epoch_ms, end_e
                                     "get-many-metadata", "by-time-range", 
                                     start_epoch_ms, end_epoch_ms)
     
-    print("", "Downloading snapshot metadata...", sep = "\n", end = " ")
+    print("", "Downloading background metadata...", sep = "\n", end = " ")
     many_background_metadata_list = get_json(request_url)
     
     return many_background_metadata_list
@@ -259,8 +297,9 @@ def save_background_images(server_url, cameras_folder_path, camera_select, user_
         image_request_url = build_request_url(server_url, camera_select, "backgrounds",
                                               "get-one-image", "by-ems", bg_epoch_ms)
         
-        # Save request data to disk
-        save_network_jpg(image_request_url, save_path)
+        # Request image data and save to disk
+        image_data = get_jpg(image_request_url)
+        save_jpg(save_path, image_data)
         
     return
 
@@ -324,8 +363,9 @@ def save_snapshot_images(server_url, cameras_folder_path, camera_select, user_se
         image_request_url = build_request_url(server_url, camera_select, "snapshots", 
                                               "get-one-image", "by-ems", snap_epoch_ms)
         
-        # Save request data to disk
-        save_network_jpg(image_request_url, save_path)
+        # Request image data and save to disk
+        image_data = get_jpg(image_request_url)
+        save_jpg(save_path, image_data)
         
     return
 
@@ -383,9 +423,14 @@ user_select = "live"
 #%% Set up access to data server
 
 # Set server connection parameters
-server_protocol = "http"
-server_host = "localhost"
-server_port = 8000
+ap_result = parse_restore_args()
+server_protocol = ap_result["protocol"]
+default_server_host = get_dbserver_host()
+default_server_port = get_dbserver_port()
+
+# Get user to enter server address
+server_host = cli_prompt_with_defaults("  Enter server ip: ", default_value = default_server_host, return_type = str)
+server_port = cli_prompt_with_defaults("Enter server port: ", default_value = default_server_port, return_type = int)
 
 # Build server url
 server_url = "{}://{}:{}".format(server_protocol, server_host, server_port)
@@ -409,12 +454,26 @@ select_idx, camera_select = cli_select_from_list(camera_names_list, "Select came
 
 # Request info about the time range from the database
 snap_bounding_times_dict = request_bounding_times(server_url, camera_select)
+bounding_start_dt = parse_isoformat_string(snap_bounding_times_dict["min_datetime_isoformat"])
+bounding_end_dt = parse_isoformat_string(snap_bounding_times_dict["max_datetime_isoformat"])
+
+# Restrict the time range if we get a ton of data
+bounding_start_dt, bounding_end_dt = \
+DTIP.limit_start_end_range(bounding_start_dt, bounding_end_dt, max_timedelta_hours = 10/60)
 
 # Prompt user to select time range to download
-# ...
-# HARD-CODE FOR NOW
-start_epoch_ms = snap_bounding_times_dict["min_epoch_ms"]
-end_epoch_ms = snap_bounding_times_dict["max_epoch_ms"]
+user_start_dt, user_end_dt = DTIP.cli_prompt_start_end_datetimes(bounding_start_dt, bounding_end_dt)
+
+# Convert user input times to epoch values
+start_epoch_ms = datetime_to_epoch_ms(user_start_dt)
+end_epoch_ms = datetime_to_epoch_ms(user_end_dt)
+
+# Create the camera folder, if needed
+create_new_camera_entry(selector, camera_select)
+
+# Remove existing data, if needed
+delete_existing_report_data(cameras_folder_path, camera_select, user_select, 
+                            enable_deletion = True, enable_deletion_prompt = True)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -423,6 +482,7 @@ end_epoch_ms = snap_bounding_times_dict["max_epoch_ms"]
 # Request all camera info metadata & save it
 many_caminfo_metadata_list = request_caminfo_metadata(server_url, camera_select)
 save_caminfo_metadata(cameras_folder_path, camera_select, user_select, many_caminfo_metadata_list)
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Get background info
@@ -452,6 +512,7 @@ save_snapshot_images(server_url, cameras_folder_path, camera_select, user_select
 # Request all object metadata & save it
 many_object_metadata_dict = request_object_metadata(server_url, camera_select, start_epoch_ms, end_epoch_ms)
 save_object_metadata(cameras_folder_path, camera_select, user_select, many_object_metadata_dict)
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Scrap

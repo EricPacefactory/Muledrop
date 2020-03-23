@@ -1459,45 +1459,6 @@ def fetchall_to_1d_list(fetchall_result, return_index = 0):
 
 # .....................................................................................................................
 
-def user_input_datetime_range(earliest_datetime, latest_datetime, debug_mode = False):
-    
-    # Error if the start/end dates are not the same (don't have UI to deal with that yet!)
-    same_dates = (earliest_datetime.date() == latest_datetime.date())
-    #same_hour = (earliest_datetime.hour == latest_datetime.hour)
-    #same_min = (earliest_datetime.min == latest_datetime.min)
-    '''
-    if not same_dates:
-        raise NotImplementedError("Start/end snapshot dates are not the same! Can't deal with this yet...")
-    '''
-
-    # Create default strings
-    time_format_str = "%Y/%m/%d %H:%M:%S" if (not same_dates) else "%H:%M:%S"
-    default_start_str = earliest_datetime.strftime(time_format_str) #"%H:%M:%S")
-    default_end_str = latest_datetime.strftime(time_format_str) #"%H:%M:%S")
-    replace_bundle_dict = {"tzinfo": earliest_datetime.tzinfo}
-    if same_dates:
-        replace_bundle_dict.update({"year": earliest_datetime.year,
-                                    "month": earliest_datetime.month, 
-                                    "day": earliest_datetime.day,})
-    
-    # Get user to enter start/end datetimes when configuring the rule
-    user_start_str = cli_prompt_with_defaults("Enter start of time range:", default_start_str, debug_mode=debug_mode)
-    user_end_str = cli_prompt_with_defaults("  Enter end of time range:", default_end_str, debug_mode=debug_mode)
-    
-    # Convert user inputs back into datetimes
-    start_dt = dt.datetime.strptime(user_start_str, time_format_str).replace(**replace_bundle_dict)
-    end_dt = dt.datetime.strptime(user_end_str, time_format_str).replace(**replace_bundle_dict)
-    
-    # Force earliest/latest boundary timing
-    start_dt = max(earliest_datetime, start_dt)
-    end_dt = min(latest_datetime, end_dt)
-    start_dt_isoformat = get_isoformat_string(start_dt)
-    end_dt_isoformat = get_isoformat_string(end_dt)
-    
-    return start_dt, end_dt, start_dt_isoformat, end_dt_isoformat
-
-# .....................................................................................................................
-
 def _post_camera_info_metadata(camera_info_metadata_folder_path, database):
     
     # Start timing

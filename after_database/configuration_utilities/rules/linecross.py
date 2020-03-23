@@ -63,13 +63,15 @@ from local.lib.ui_utils.local_ui.drawing import Entity_Drawer, waitKey_ex, keyco
 
 from local.lib.file_access_utils.rules import select_rule_to_load, cli_save_rule
 
-from local.offline_database.file_database import user_input_datetime_range, launch_file_db, close_dbs_if_missing_data
+from local.offline_database.file_database import launch_file_db, close_dbs_if_missing_data
 from local.offline_database.object_reconstruction import create_trail_frame_from_object_reconstruction
 from local.offline_database.object_reconstruction import object_data_dict_to_list_generator
 from local.offline_database.snapshot_reconstruction import median_background_from_snapshots
 from local.offline_database.classification_reconstruction import create_object_class_dict
 
 from local.configurables.after_database.rules.linecross_rule import Linecross_Rule
+
+from local.eolib.utils.cli_tools import Datetime_Input_Parser as DTIP
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
@@ -85,7 +87,7 @@ def process_all_object_data(rule_ref, object_database, frame_wh, start_time, end
     
     ''' Helper function which has the rule pre-process all the object data, so we can continually re-use it '''
     
-    obj_id_list = object_database.get_object_ids_by_time_range(start_dt, end_dt)
+    obj_id_list = object_database.get_object_ids_by_time_range(start_time, end_time)
     obj_metadata_list = [object_database.load_metadata_by_id(each_id) for each_id in obj_id_list]
     obj_data_dict = rule_ref.process_all_object_metadata(obj_id_list, obj_metadata_list, frame_wh)
     
@@ -237,20 +239,20 @@ frame_wh = cinfo_db.get_snap_frame_wh()
 earliest_datetime, latest_datetime = snap_db.get_bounding_datetimes()
 
 # Ask the user for the range of datetimes to use for selecting data
-start_dt, end_dt, start_dt_isoformat, end_dt_isoformat = user_input_datetime_range(earliest_datetime, 
-                                                                                   latest_datetime, 
-                                                                                   enable_debug_mode)
+user_start_dt, user_end_dt = DTIP.cli_prompt_start_end_datetimes(earliest_datetime, latest_datetime,
+                                                                 print_help_before_prompt = False,
+                                                                 debug_mode = enable_debug_mode)
 
 # Calculate start/end times as epoch ms values for relative event timing
-start_ems = datetime_to_epoch_ms(start_dt)
-end_ems = datetime_to_epoch_ms(end_dt)
+start_ems = datetime_to_epoch_ms(user_start_dt)
+end_ems = datetime_to_epoch_ms(user_end_dt)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Create background frame
 
 # Ask database for several snapshot images, so we can 'average' them to make a background frame for display
-bg_frame = median_background_from_snapshots(snap_db, start_dt, end_dt, 10)
+bg_frame = median_background_from_snapshots(snap_db, user_start_dt, user_end_dt, 10)
 frame_height, frame_width = bg_frame.shape[0:2]
 frame_wh = (frame_width, frame_height)
 frame_scaling = np.float32((frame_width - 1, frame_height - 1))
@@ -271,7 +273,7 @@ rule_ref.reconfigure(initial_setup_data_dict)
 #%% Load object data
 
 # Load all object data, as needed by the rule
-obj_dict = process_all_object_data(rule_ref, obj_db, frame_wh, start_dt, end_dt)
+obj_dict = process_all_object_data(rule_ref, obj_db, frame_wh, user_start_dt, user_end_dt)
 
 # Load in classification data, if any
 obj_list_gen = object_data_dict_to_list_generator(obj_dict)

@@ -24,10 +24,11 @@ const build_stop_icon_url = () => `/status/icons/stop_icon.svg`;
 // Initial setup
 
 // Global variable used to disable controls after clicking one
-let global_controls_enabled = true;
+const glb = {"controls_enabled": true};
 
 // Make initial request for data needed to generate UI
 update_camera_status_ui();
+
 
 // ---------------------------------------------------------------------------------------------------------------------
 // Define functions
@@ -37,15 +38,14 @@ update_camera_status_ui();
 function update_camera_status_ui() {
 
     // Set the repeat frequency for updating the camera status UI elements
-    const repeat_every_sec = 30;
+    const repeat_every_n_sec = 30;
 
-    //console.log("FUNC", this)
     // Make requests to the flask server for camera status
     fetch(build_camera_status_request_url())
     .then(flask_data_json_str => flask_data_json_str.json())
     .then(debug_response)
     .then(generate_ui)
-    .then(delay_function_call(update_camera_status_ui, repeat_every_sec))
+    .then(delay_function_call(update_camera_status_ui, repeat_every_n_sec))
     .catch(error => console.error("Setup error:", error))
 }
 
@@ -77,6 +77,13 @@ function generate_ui(status_json_data) {
         const {is_online, start_timestamp_str} = each_camera_status;
         const new_elem = create_one_camera_ui(each_camera_name, is_online, start_timestamp_str)
         container_ref.appendChild(new_elem)
+    }
+
+    // If there aren't any camera entries, add a special indicator for better user feedback
+    const no_cameras = (status_items.length == 0);
+    if (no_cameras) {
+        const no_cameras_elem = create_no_cameras_ui();
+        container_ref.appendChild(no_cameras_elem);
     }
 
     return status_json_data
@@ -161,18 +168,35 @@ function create_one_camera_ui(camera_name, is_online, start_timestamp_str) {
 
 // .....................................................................................................................
 
+function create_no_cameras_ui() {
+
+    // Create parent container to hold the 'no cameras' ui elements
+    const new_warning_container = document.createElement("div");
+    new_warning_container.className = "no_cameras_warning_div";
+
+    // Create warning messages
+    const new_text_row_1 = document.createElement("p");
+    new_text_row_1.className = "no_cameras_p";
+    new_text_row_1.innerText = "No cameras!";
+
+    // Add warning text to the warning container
+    new_warning_container.appendChild(new_text_row_1);
+
+    return new_warning_container
+}
+
+// .....................................................................................................................
+
 function callback_restart_camera(camera_name) {
 
     function inner_callback_restart_camera() {
 
         // Prevent multiple control commands being queued up
-        if (global_controls_enabled){
+        if (glb.controls_enabled){
 
-            // Disable future control button clicks
-            global_controls_enabled = false;
-
-            // Set the cursor to a loading indicator
+            // Set the cursor to a loading indicator & disable the buttons while waiting
             set_loading_cursor()
+            disable_control_buttons();
 
             // Handle controls by sending the page to a specifc url so the server can figure out what to do
             redirect_to_url(build_camera_restart_url(camera_name));
@@ -189,9 +213,9 @@ function callback_stop_camera(camera_name) {
     function inner_callback_stop_camera() {
 
         // Prevent multiple control commands being queued up
-        if (global_controls_enabled){
+        if (glb.controls_enabled){
 
-            // Set the cursor to a loading indicator
+            // Set the cursor to a loading indicator & disable the buttons while waiting
             set_loading_cursor();
             disable_control_buttons();
 
@@ -209,7 +233,7 @@ function callback_stop_camera(camera_name) {
 function disable_control_buttons() {
 
     // Disable future control button clicks
-    global_controls_enabled = false;
+    glb.controls_enabled = false;
 
     // Change button aesthetics to show buttons are disabled
     const img_button_array = getelems_img_buttons();
@@ -243,4 +267,4 @@ function delay_function_call(function_to_call, seconds_to_wait) {
 // Scrap
 
 // TODOs
-// - Add launch/stop buttons for each camera
+// - Add auto-restart controls for each camera

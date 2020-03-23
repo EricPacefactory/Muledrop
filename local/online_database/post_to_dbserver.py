@@ -60,12 +60,12 @@ from time import perf_counter, sleep
 from random import random as unit_random
 
 from local.lib.common.timekeeper_utils import get_human_readable_timestamp
+from local.lib.common.environment import get_dbserver_protocol, get_dbserver_host, get_dbserver_port
 
 from local.lib.ui_utils.cli_selections import Resource_Selector
 from local.lib.ui_utils.script_arguments import script_arg_builder
 
 from local.lib.file_access_utils.logging import build_post_db_log_path
-
 from local.lib.file_access_utils.reporting import build_camera_info_metadata_report_path
 from local.lib.file_access_utils.reporting import build_snapshot_metadata_report_path
 from local.lib.file_access_utils.reporting import build_object_metadata_report_path
@@ -101,8 +101,13 @@ from local.eolib.utils.logging import Daily_Logger
 
 def parse_post_args(debug_print = False):
     
+    # Get default values
+    default_dbserver_protocol = get_dbserver_protocol()
+    default_dbserver_host = get_dbserver_host()
+    default_dbserver_port = get_dbserver_port()
+    default_url = "{}://{}:{}".format(default_dbserver_protocol, default_dbserver_host, default_dbserver_port)
+    
     # Set script arguments for posting camera data (manually)
-    default_url = "http://localhost:8000"
     args_list = ["camera",
                  {"url": {"default": default_url, 
                           "help_text": "Specify the url of the upload server\n(Default: {})".format(default_url)}}]
@@ -163,7 +168,7 @@ def build_image_post_url(server_url, camera_select, collection_name, image_epoch
 
 def build_response_string_list(server_url, *messages):
     
-    ''' Helper function for generating (timestamped!) error response strings for printing/logging '''
+    ''' Helper function for generating (timestamped!) response strings for printing/logging '''
     
     # Get timestamp
     post_datetime_str = get_human_readable_timestamp()
@@ -242,7 +247,8 @@ def post_many_metadata_to_server(server_url, camera_select, collection_name, met
     no_report_data = (num_files == 0)
     if no_report_data:
         response_msg = "No {} metadata to post!".format(collection_name)
-        return response_msg
+        error_msg = ""
+        return response_msg, error_msg
     
     # Figure out which files are 'old enough' to be safe for reading/deleting (i.e. not being actively written)
     current_timestamp = dt.datetime.now().timestamp()
@@ -253,8 +259,18 @@ def post_many_metadata_to_server(server_url, camera_select, collection_name, met
     last_valid_entry_index = (num_files - each_reversed_idx)
     
     # Now build up all data into one list for one big insert!
-    load_path_list = sorted_paths_list[:last_valid_entry_index]
-    data_insert_list = [load_jgz(each_metadata_path) for each_metadata_path in load_path_list]
+    valid_path_list = []
+    error_message_list = []
+    data_insert_list = []
+    for each_metadata_path in sorted_paths_list[:last_valid_entry_index]:
+        try:
+            data_insert_list.append(load_jgz(each_metadata_path))
+            valid_path_list.append(each_metadata_path)
+            
+        except Exception as err:
+            # In case something goes wrong, just delete the file... Will need better debugging/logging
+            remove_if_possible(each_metadata_path)
+            error_message_list.append("Metadata loading error:\n{}\n{}".format(each_metadata_path, str(err)))
     
     # For clarity
     post_kwargs = {"headers": {"Content-Type": "application/json"},
@@ -270,10 +286,15 @@ def post_many_metadata_to_server(server_url, camera_select, collection_name, met
     metadata_posted_successfully = (post_response.status_code == 201)
     metadata_already_exists = (post_response.status_code == 405)
     if metadata_posted_successfully or metadata_already_exists:
-        for each_metadata_path in load_path_list:
-            os.remove(each_metadata_path)
+        for each_metadata_path in valid_path_list:
+            remove_if_possible(each_metadata_path)
             num_success += int(metadata_posted_successfully)
             num_duplicate += int(metadata_already_exists)
+            
+    # Log bad url pathing
+    bad_url = (post_response.status_code == 404)
+    if bad_url:
+        error_message_list.append("Metadata posting to bad url:\n{}".format(post_url))
     
     # End timing
     t2 = perf_counter()
@@ -292,7 +313,10 @@ def post_many_metadata_to_server(server_url, camera_select, collection_name, met
                                                num_files, 
                                                total_time_ms)
     
-    return response_msg
+    # Build error message (if present)
+    error_msg = "\n".join(error_message_list)
+    
+    return response_msg, error_msg
 
 # .....................................................................................................................
 
@@ -321,7 +345,8 @@ def post_many_images_to_server(server_url, camera_select, collection_name, image
     no_report_data = (num_files == 0)
     if no_report_data:
         response_msg = "No {} images to post!".format(collection_name)
-        return response_msg
+        error_msg = ""
+        return response_msg, error_msg
     
     # Figure out which images are 'old enough' to be safe for reading/deleting (i.e. not being actively written)
     current_timestamp = dt.datetime.now().timestamp()
@@ -338,6 +363,7 @@ def post_many_images_to_server(server_url, camera_select, collection_name, image
                    "timeout": 10.0}    
     
     # Only post the newest images
+    error_message_list = []
     load_path_list = islice(sorted_paths_list, last_valid_entry_index)
     for each_image_path in load_path_list:
         
@@ -347,16 +373,31 @@ def post_many_images_to_server(server_url, camera_select, collection_name, image
         
         # Build the posting url and send the image
         image_post_url = build_image_post_url(server_url, camera_select, collection_name, image_epoch_ms_str)
-        with open(each_image_path, "rb") as image_file:
-            post_response = requests.post(image_post_url, data = image_file, **post_kwargs)
+        
+        try:
+            with open(each_image_path, "rb") as image_file:
+                post_response = requests.post(image_post_url, data = image_file, **post_kwargs)
+                
+        except Exception as err:
+            
+            # In case something goes wrong, just delete the image data... Will need better debugging/logging
+            remove_if_possible(each_image_path)
+            error_message_list.append("Image posting error:\n{}\n{}".format(each_image_path, str(err)))
+            continue
             
         # Delete images that successfully post or already exist on the server
         image_posted_successfully = (post_response.status_code == 201)
         image_already_exists = (post_response.status_code == 405)
         if image_posted_successfully or image_already_exists:
-            os.remove(each_image_path)
+            remove_if_possible(each_image_path)
             num_success += int(image_posted_successfully)
             num_duplicate += int(image_already_exists)
+        
+        # Handle bad url pathing
+        bad_url = (post_response.status_code == 404)
+        if bad_url:
+            remove_if_possible(each_image_path)
+            error_message_list.append("Image posting to bad url:\n{}\n{}".format(each_image_path, image_post_url))
     
     # End timing
     t2 = perf_counter()
@@ -375,7 +416,10 @@ def post_many_images_to_server(server_url, camera_select, collection_name, image
                                                num_files, 
                                                total_time_ms)
     
-    return response_msg
+    # Build error message (if present)
+    error_msg = "\n".join(error_message_list)
+    
+    return response_msg, error_msg
 
 # .....................................................................................................................
 
@@ -395,10 +439,11 @@ def post_data_to_server(server_url, cameras_folder_path, camera_select, log_to_f
     obj_metadata_path = build_object_metadata_report_path(*camera_pathing_args)
     
     # Post report metadata
-    caminfo_md_log = post_many_metadata_to_server(server_url, camera_select, "camerainfo", caminfo_metadata_path)
-    bg_md_log = post_many_metadata_to_server(server_url, camera_select, "backgrounds", bg_metadata_path)
-    snap_md_log = post_many_metadata_to_server(server_url, camera_select, "snapshots", snap_metadata_path)
-    obj_md_log = post_many_metadata_to_server(server_url, camera_select, "objects", obj_metadata_path)
+    url_args = (server_url, camera_select)
+    caminfo_md_log, caminfo_md_err = post_many_metadata_to_server(*url_args, "camerainfo", caminfo_metadata_path)
+    bg_md_log, bg_mg_err = post_many_metadata_to_server(*url_args, "backgrounds", bg_metadata_path)
+    snap_md_log, snap_md_err = post_many_metadata_to_server(*url_args, "snapshots", snap_metadata_path)
+    obj_md_log, obj_md_err = post_many_metadata_to_server(*url_args, "objects", obj_metadata_path)
     
     # Finish metadata timing
     t2 = perf_counter()
@@ -412,8 +457,8 @@ def post_data_to_server(server_url, cameras_folder_path, camera_select, log_to_f
     # *** to ensure available metadata is always 'behind' available image data on the database
     # *** this avoids the situation where metadata is available that points to a non-existent image
     # Post image data
-    bg_img_log = post_many_images_to_server(server_url, camera_select, "backgrounds", bg_image_path)
-    snap_img_log = post_many_images_to_server(server_url, camera_select, "snapshots", snap_image_path)
+    bg_img_log, bg_img_err = post_many_images_to_server(*url_args, "backgrounds", bg_image_path)
+    snap_img_log, snap_img_err = post_many_images_to_server(*url_args, "snapshots", snap_image_path)
     
     # Finish image timing
     t3 = perf_counter()
@@ -425,10 +470,13 @@ def post_data_to_server(server_url, cameras_folder_path, camera_select, log_to_f
                                                                                   image_time_taken_ms)
     
     # Build complete response string for feedback/logging
+    full_error_msg_list = [caminfo_md_err, bg_mg_err, snap_md_err, obj_md_err, bg_img_err, snap_img_err]
+    reduced_error_msg_list = [each_msg for each_msg in full_error_msg_list if each_msg != ""]
     response_list = build_response_string_list(server_url,
                                                caminfo_md_log, bg_md_log, snap_md_log, obj_md_log,
                                                bg_img_log, snap_img_log,
-                                               timing_response_str)
+                                               timing_response_str,
+                                               *reduced_error_msg_list)
     
     return response_list
 
@@ -437,6 +485,21 @@ def post_data_to_server(server_url, cameras_folder_path, camera_select, log_to_f
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Automation functions
+
+# .....................................................................................................................
+
+def remove_if_possible(file_path_to_remove):
+    
+    ''' Helper function used to delete files that may have already been deleted '''
+    
+    file_existed = False
+    try:
+        os.remove(file_path_to_remove)
+        file_existed = True
+    except FileNotFoundError:
+        pass
+    
+    return file_existed
 
 # .....................................................................................................................
 
@@ -460,7 +523,7 @@ def check_server_connection(server_url):
     
     # Request status check from the server
     try:
-        server_response = requests.get(status_check_url)
+        server_response = requests.get(status_check_url, timeout = 10)
         server_is_alive = (server_response.status_code == 200)
     except requests.ConnectionError:
         server_is_alive = False
@@ -509,10 +572,6 @@ def scheduled_post(server_url, cameras_folder_path, camera_select,
             sleep(sleep_time_sec)
             
     except SystemExit:
-        
-        # Try to make one final post in case there is any remaining data
-        response_list = single_post(server_url, cameras_folder_path, camera_select)
-        logger.log_list(response_list)
         
         # Catch SIGTERM signals, in case this is running as parallel process that may be terminated
         response_list = build_response_string_list(server_url, "Kill signal received. Posting has been halted!!")

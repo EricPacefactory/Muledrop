@@ -1,13 +1,16 @@
-<!DOCTYPE html>
+
+<!DOCTYPE <!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <title>Status</title>
+    <title>Files Changed</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="icon" href="data:;base64,iVBORw0KGgo=">
-    <link rel="stylesheet" type="text/css" href="/shared/shared.css">
-    <link rel="stylesheet" type="text/css" href="/status/status.css">
+    <style>
+        {% include "shared/shared.css" %}
+        {% include "fileschanged/fileschanged.css" %}
+    </style>
 </head>
 
 <body>
@@ -15,20 +18,29 @@
     <!-- Generic div to hold page content. CSS for this element is stored in shared file -->
     <div class="layout_wrapper_div">
 
-        <header>Status</header>
+        <header>Files Changed</header>
 
         <!-- Container div to help arrange main elements of this page -->
         <div class="content_container_div" id="main_container">
 
-            <!-- Camera status UI elements are dynamically loaded here! -->
-            <p class="no_cameras_p">Loading</p>
+            <!-- File change info will be loaded here dynamically! -->
 
         </div>
 
         <footer onclick="window.location.href='/'">BACK</footer>
     </div>
 
-    <script src="/status/status.js"></script>
 
+
+    
+    <script>
+
+        // Hacky method to get data passed in to javascript from flask
+        const files_changed_json = {{files_changed_dict|tojson}};
+        console.log("Flask Data:", files_changed_json);
+
+        {% include "fileschanged/fileschanged.js" %}
+        
+    </script>
 </body>
 </html>

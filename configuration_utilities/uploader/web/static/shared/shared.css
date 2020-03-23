@@ -12,6 +12,8 @@
   --dark_foreground: rgb(50, 41, 49);
   --dark_foreground_hl: rgb(55, 44, 53);
 
+  --dark_gray: rgb(50,50,50);
+
   --light_shadow: rgba(0, 0, 0, 0.1);
   --medium_shadow: rgba(0, 0, 0, 0.2);
   --heavy_shadow: rgba(0, 0, 0, 0.3);
@@ -36,7 +38,7 @@ html {
   color: var(--light);
   box-shadow: inset 0 0 24px 12px var(--medium_shadow);
 
-  min-width: 100vw;
+  /* min-width: 100vw; */
   min-height: 100vh;
 }
 

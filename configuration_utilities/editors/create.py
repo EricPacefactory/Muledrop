@@ -57,7 +57,7 @@ from local.lib.file_access_utils.shared import build_camera_path, build_user_fol
 from local.lib.file_access_utils.video import copy_video_file_local, add_video_to_files_dict
 
 from local.eolib.utils.cli_tools import cli_confirm, cli_select_from_list, cli_prompt_with_defaults
-from local.eolib.utils.cli_tools import ranger_file_select, ranger_exists
+from local.eolib.utils.ranger_tools import ranger_file_select, ranger_exists
 from local.eolib.utils.gui_tools import gui_file_select
 from local.eolib.utils.quitters import ide_quit
 

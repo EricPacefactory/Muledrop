@@ -12,6 +12,8 @@
   --dark_foreground: rgb(50, 41, 49);
   --dark_foreground_hl: rgb(55, 44, 53);
 
+  --dark_gray: rgb(50,50,50);
+
   --light_shadow: rgba(0, 0, 0, 0.1);
   --medium_shadow: rgba(0, 0, 0, 0.2);
   --heavy_shadow: rgba(0, 0, 0, 0.3);
@@ -34,49 +36,77 @@ html {
   box-sizing: border-box;
   font-family: Arial, Helvetica, sans-serif;
   color: var(--light);
-  min-width: 100%;
-  min-height: 100%;
   box-shadow: inset 0 0 24px 12px var(--medium_shadow);
+
+  /* min-width: 100vw; */
+  min-height: 100vh;
 }
 
 body{
-  margin: 40px auto;
+  margin: 0;
+  min-height: 100vh;
   line-height: 1.4;
   user-select: none;
   background: var(--page_background);
 }
 
-.page_content {
+
+/* ----------------------------------------------------------------- */
+/* Default page layout styling */
+
+/* Styling for wrapper that holds all page content */
+.layout_wrapper_div {
   display: grid;
+  grid-template-rows: 120px auto 120px;
   grid-gap: 20px;
+  min-height: 100vh;
+
+  align-items: center;
+  justify-items: center;
 }
 
-.page_title_div {
-  width: fit-content;
-  margin: auto;
+/* Styling for title text */
+header {
+  width: 80%;
   text-align: center;
   font-weight: bolder;
   font-size: 2.5em;
   font-variant: small-caps;
-  padding: 0.5em 0 0 0;
   color: var(--bright_text);
   text-shadow: -2px -2px 0 #000, 2px -2px 0 #000, 
-               -2px 2px 0 #000, 2px 2px 0 #000;
+               -2px  2px 0 #000, 2px  2px 0 #000;
+
+  align-self: end;
+  padding: 0.25em;
+  
+  border: 2px solid transparent;
+  border-bottom: 2px solid rgba(255,255,255,0.35)
 }
 
-.column_container {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  width: 80vw;
-  padding: 2em;
-  margin: auto;
+/* Styling for back text/button */
+footer {
+  color: var(--page_accent);
+  font-size: 1.25em;
+  font-variant: uppercase;
+  font-weight: bold;
+  text-align: center;
+  padding: 1.5em;
+}
+
+footer:hover {
+  filter: brightness(125%);
+}
+
+/* Styling for main page content */
+.content_container_div {
+  justify-self: stretch;
 
   animation-name: shared_load_animation;
   animation-delay: 0;
   animation-duration: 350ms;
   animation-fill-mode: backwards;
 }
+
 
 /* ----------------------------------------------------------------- */
 /* Shared content loading animation */

@@ -56,9 +56,11 @@ from local.lib.ui_utils.script_arguments import script_arg_builder
 from local.lib.launcher_utils.configuration_loaders import RTSP_Configuration_Loader
 from local.lib.launcher_utils.video_processing_loops import Video_Processing_Loop
 
+from local.lib.common.environment import get_dbserver_host, get_dbserver_port
+
 from local.lib.file_access_utils.reporting import build_user_report_path
 
-from local.online_database.auto_post import create_parallel_scheduled_post
+from local.online_database.post_to_dbserver import create_parallel_scheduled_post
 
 from local.eolib.utils.files import get_total_folder_size
 from local.eolib.utils.cli_tools import cli_confirm
@@ -71,7 +73,10 @@ from local.eolib.utils.cli_tools import cli_confirm
 def parse_run_args(debug_print = False):
     
     # Set default database url
-    default_url = "http://localhost:8000"
+    db_server_host = get_dbserver_host()
+    db_server_port = get_dbserver_port()
+    default_dbserver_url = "http://{}:{}".format(db_server_host, db_server_port)
+    url_help_text = "Specify the url of the db server\n(Default: {})".format(default_dbserver_url)
     
     # Set script arguments for running on streams
     args_list = ["camera",
@@ -81,8 +86,8 @@ def parse_run_args(debug_print = False):
                  "save_and_keep", 
                  "save_and_delete",
                  "skip_save",
-                 {"url": {"default": default_url, 
-                          "help_text": "Specify the url of the upload server\n(Default: {})".format(default_url)}}]
+                 {"url": {"default": default_dbserver_url, 
+                          "help_text": url_help_text}}]
     
     # Provide some extra information when accessing help text
     script_description = "Capture snapshot & tracking data from an RTSP stream. Requires RTSP configuration!"
@@ -139,15 +144,19 @@ def delete_existing_report_data(enable_deletion_prompt, configuration_loader, sa
     saved_data_exists = (existing_file_count > 0)
     
     # Provide prompt (if enabled) to allow user to avoid deleting existing data
-    if saved_data_exists and enable_deletion_prompt:
-        confirm_msg = "Saved data already exists! Delete? ({:.1f} MB)".format(total_file_size_mb)
-        confirm_data_delete = cli_confirm(confirm_msg, default_response = True)
-        if not confirm_data_delete:
-            return
+    if saved_data_exists:        
+        
+        if enable_deletion_prompt:
+            confirm_msg = "Saved data already exists! Delete? ({:.1f} MB)".format(total_file_size_mb)
+            confirm_data_delete = cli_confirm(confirm_msg, default_response = True)
+            if not confirm_data_delete:
+                return
     
-    # If we get here, delete the files!
-    print("", "Deleting files:", "@ {}".format(report_data_folder), sep="\n")
-    rmtree(report_data_folder)
+        # If we get here, delete the files!
+        print("", "Deleting files:", "@ {}".format(report_data_folder), sep="\n")
+        rmtree(report_data_folder)
+    
+    return
 
 # .....................................................................................................................
 # .....................................................................................................................

@@ -56,15 +56,16 @@ from local.lib.ui_utils.cli_selections import Resource_Selector
 
 from local.lib.file_access_utils.screen_info import Screen_Info
 
-from local.offline_database.file_database import user_input_datetime_range, launch_file_db, close_dbs_if_missing_data
+from local.offline_database.file_database import launch_file_db, close_dbs_if_missing_data
 from local.offline_database.object_reconstruction import Smoothed_Object_Reconstruction as Obj_Recon
 from local.offline_database.object_reconstruction import create_trail_frame_from_object_reconstruction
 from local.offline_database.snapshot_reconstruction import median_background_from_snapshots
-from local.offline_database.classification_reconstruction import set_object_classification_and_colors
+from local.offline_database.classification_reconstruction import create_object_class_dict
 
 from local.lib.ui_utils.local_ui.windows_base import Simple_Window
 
 from local.eolib.utils.colormaps import apply_colormap, inferno_colormap
+from local.eolib.utils.cli_tools import Datetime_Input_Parser as DTIP
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
@@ -111,8 +112,7 @@ class Hover_Callback:
 
 # .....................................................................................................................
 
-def build_trail_dwell_heatmaps(final_frame_wh, class_label_list, downscale_factor = 2,
-                               trail_thickness = 5, dwell_scale = 1.08):
+def build_trail_heatmaps(objclass_dict, final_frame_wh, downscale_factor = 2, trail_thickness = 5):
     
     # Hard-code scaling
     frame_width, frame_height = final_frame_wh
@@ -120,69 +120,56 @@ def build_trail_dwell_heatmaps(final_frame_wh, class_label_list, downscale_facto
     trailscale_height = int(round(frame_height / downscale_factor))
     frame_scaling = np.float32((trailscale_width - 1, trailscale_height - 1))
     
-    # Create empty frames to start
-    trail_heat_frame = np.zeros((trailscale_height, trailscale_width), dtype = np.float32)
-    dwell_heat_frame = np.ones((trailscale_height, trailscale_width), dtype = np.float32)
+    # Create empty frame to use as a starting point for the heatmap of each class label
+    blank_frame = np.zeros((trailscale_height, trailscale_width), dtype = np.float32)
 
-    # Create copies of blank heatmaps for each class label
-    class_heat_frame_dict = {}
-    for each_class_label in class_label_list:
-        class_heat_frame_dict[each_class_label] = (trail_heat_frame.copy(), dwell_heat_frame.copy())
-    
-    # Add all trail/position data into heatmaps
-    blank_trail_frame = np.zeros_like(trail_heat_frame)
-    for each_obj in obj_list:
+    # Create heatmaps for each class separately
+    class_heat_frame_dict = {}    
+    for each_class_label, each_obj_dict in objclass_dict.items():
         
-        # Get the frames associated with each object class
-        obj_class_label = each_obj._classification_label
-        obj_trail_heat, obj_dwell_heat = class_heat_frame_dict[obj_class_label]
+        # Create a new blank frame to store heatmap, per class
+        class_heat_frame = blank_frame.copy()
         
-        # Get object trail in pixel co-ords so we can 'paint' it onto the heatmap
-        trail_xy_px = np.int32(np.round(frame_scaling * each_obj.trail_xy))
+        # Draw trail data of each object into the class frame
+        for each_obj_id, each_obj_ref in each_obj_dict.items():
+            
+            # Get object trail in pixel co-ords so we can 'paint' it onto the heatmap
+            trail_xy_px = np.int32(np.round(frame_scaling * each_obj_ref.trail_xy))
+            
+            # 'Add' object trail to existing trail heatmap data, so overlapping trails accumulate heat
+            new_blank_trail = blank_frame.copy()
+            new_blank_trail = cv2.polylines(new_blank_trail, [trail_xy_px], False, 1, trail_thickness, cv2.LINE_AA)
+            class_heat_frame += new_blank_trail
         
-        # Add object trail to existing trail heatmap data
-        new_blank_trail = blank_trail_frame.copy()
-        new_blank_trail = cv2.polylines(new_blank_trail, [trail_xy_px], False, 1, trail_thickness, cv2.LINE_AA)
-        obj_trail_heat += new_blank_trail
-        
-        # Add object positioning to dwelling heatmap
-        obj_dwell_heat[trail_xy_px[:,1], trail_xy_px[:,0]] *= dwell_scale
+        # Store finished heat map, per class
+        class_heat_frame_dict[each_class_label] = class_heat_frame
     
     return class_heat_frame_dict
 
 # .....................................................................................................................
 
-def create_final_heatmaps_dict(final_frame_wh, class_heat_frame_dict, dwell_morph_size = 3):
+def create_colored_heatmaps_dict(class_heat_frame_dict, final_frame_wh, minimum_heat_scale = 15):
     
-    # Expand the dwelling spots, since they will otherwise be very small
-    kernel_size = (dwell_morph_size, dwell_morph_size)
-    morph_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, kernel_size)
+    colored_heat_frame_dict = {}
+    for each_class_label, trail_heat in class_heat_frame_dict.items():
     
-    final_heat_frames_dict = {}
-    for each_class_label, (trail_heat, dwell_heat) in class_heat_frame_dict.items():
+        # Scale to get a valid uint8 image (grayscale)
+        max_trail_heat = np.max(trail_heat)
+        max_trail_heat = max(max_trail_heat, minimum_heat_scale)    # Avoid silly results when little data is present
+        scaled_heat_frame = np.uint8(255 * trail_heat / max_trail_heat)
         
-        # Expand dwell map (so it isn't just single pixels)
-        dwell_heat = dwell_heat - 1.0
-        dwell_heat = cv2.morphologyEx(dwell_heat, cv2.MORPH_DILATE, morph_kernel)
-    
-        # Combine trail heat & dwell heat maps, then scale to get a valid uint8 image (grayscale)
-        combined_heat_frame = (trail_heat + dwell_heat)
-        max_combined_heat = np.max(combined_heat_frame)
-        max_combined_heat = max(max_combined_heat, 15)  # Avoid silly results when little data is present
-        combined_heat_frame = np.uint8(255 * combined_heat_frame / max_combined_heat)
-        
-        # Apply a colormap to the combine heatmap for visualization
+        # Apply a colormap to the heatmap for visualization
         cmap = inferno_colormap()
-        colored_heat = apply_colormap(combined_heat_frame, cmap)
+        colored_heat = apply_colormap(scaled_heat_frame, cmap)
         resized_heat = cv2.resize(colored_heat, dsize = final_frame_wh, interpolation = cv2.INTER_NEAREST)
         
-        final_heat_frames_dict[each_class_label] = resized_heat
+        colored_heat_frame_dict[each_class_label] = resized_heat
         
-    return final_heat_frames_dict
+    return colored_heat_frame_dict
 
 # .....................................................................................................................
 
-def create_heatmap_windows_dict(screen_wh, final_frame_wh, class_label_list, mouse_callback,
+def create_heatmap_windows_dict(screen_wh, final_frame_wh, objclass_dict, mouse_callback,
                                 x_spacing = 50, y_spacing = 50):
     
     # Get screen & frame dimensions for convenience
@@ -196,7 +183,7 @@ def create_heatmap_windows_dict(screen_wh, final_frame_wh, class_label_list, mou
     
     # Create heatmap windows
     heatmap_window_dict = {}
-    for each_idx, each_class_label in enumerate(class_label_list):
+    for each_idx, each_class_label in enumerate(objclass_dict.keys()):
         
         # Calculate y position of each heatmap, so they 'stack' on each other
         y_offset = y_spacing + (2 * y_spacing * each_idx)
@@ -267,16 +254,16 @@ close_dbs_if_missing_data(snap_db, obj_db)
 earliest_datetime, latest_datetime = snap_db.get_bounding_datetimes()
 
 # Ask the user for the range of datetimes to use for selecting data
-start_dt, end_dt, _, _ = user_input_datetime_range(earliest_datetime, 
-                                                   latest_datetime, 
-                                                   enable_debug_mode)
+user_start_dt, user_end_dt = DTIP.cli_prompt_start_end_datetimes(earliest_datetime, latest_datetime,
+                                                                 print_help_before_prompt = False,
+                                                                 debug_mode = enable_debug_mode)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Create background frame
 
 # Ask database for several snapshot images, so we can 'average' them to make a background frame for display
-bg_frame = median_background_from_snapshots(snap_db, start_dt, end_dt, 10)
+bg_frame = median_background_from_snapshots(snap_db, user_start_dt, user_end_dt, 10)
 frame_height, frame_width = bg_frame.shape[0:2]
 frame_wh = (frame_width, frame_height)
 
@@ -285,20 +272,17 @@ frame_wh = (frame_width, frame_height)
 #%% Load object data
 
 # Get object metadata from the server
-obj_metadata_generator = obj_db.load_metadata_by_time_range(start_dt, end_dt)
+obj_metadata_generator = obj_db.load_metadata_by_time_range(user_start_dt, user_end_dt)
 
 # Create list of 'reconstructed' objects based on object metadata, so we can work/interact with the object data
 obj_list = Obj_Recon.create_reconstruction_list(obj_metadata_generator,
                                                 frame_wh,
-                                                start_dt, 
-                                                end_dt)
+                                                user_start_dt, 
+                                                user_end_dt)
 
-# Load in classification data, if any
-class_count_dict = set_object_classification_and_colors(class_db, obj_list)
+# Organize objects by class label -> then by object id (nested dictionaries)
+objclass_dict = create_object_class_dict(class_db, obj_list)
 
-# Tell each object which class row index it is (for timebar)
-class_label_list = list(class_count_dict.keys())
-num_classes = len(class_label_list)
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Create initial images
@@ -307,8 +291,8 @@ num_classes = len(class_label_list)
 trails_background = create_trail_frame_from_object_reconstruction(bg_frame, obj_list)
 
 # Generate heatmaps
-class_heat_frame_dict = build_trail_dwell_heatmaps(frame_wh, class_label_list)
-final_heat_frames_dict = create_final_heatmaps_dict(frame_wh, class_heat_frame_dict)
+class_heat_frame_dict = build_trail_heatmaps(objclass_dict, frame_wh)
+colored_heat_frame_dict = create_colored_heatmaps_dict(class_heat_frame_dict, frame_wh)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -320,7 +304,7 @@ mouse_hover = Hover_Callback()
 # Create displays
 bg_window = Simple_Window("Background").move_corner_pixels(50, 50)
 bg_window.attach_callback(mouse_hover)
-heatmap_window_dict = create_heatmap_windows_dict(screen_wh, frame_wh, class_label_list, mouse_hover)
+heatmap_window_dict = create_heatmap_windows_dict(screen_wh, frame_wh, objclass_dict, mouse_hover)
 
 # Some control feedback (hacky/hard-coded for now)
 print("", "Press Esc to close", "", sep="\n")
@@ -340,7 +324,7 @@ try:
         
         # Display each class-specific heatmap, with mouse positioning indicator
         heat_winexists = False
-        for each_class_label, each_heatmap in final_heat_frames_dict.items():
+        for each_class_label, each_heatmap in colored_heat_frame_dict.items():
             heat_window = heatmap_window_dict[each_class_label]            
             display_frame = draw_mouse_location(each_heatmap, mouse_xy)
             display_frame = cv2.addWeighted(display_frame, 1.25, bg_frame, 0.25, 0.0)
@@ -369,8 +353,9 @@ cv2.destroyAllWindows()
 #%% Scrap
 
 # TODO:
+# - Add masking, so overly active areas can be ignored!
 # - Provide control over heatmap generation
 # - Need to improve visualization of dwell time vs. overlapping trails
-# - Better window placeent/sizing, especially when there are lots of classes or large snapshot images
+# - Better window placement/sizing, especially when there are lots of classes or large snapshot images
 # - Add a way to save images?
 

@@ -56,10 +56,11 @@ from local.lib.ui_utils.cli_selections import Resource_Selector
 
 from local.lib.ui_utils.local_ui.windows_base import Simple_Window
 
-from local.offline_database.file_database import user_input_datetime_range, launch_file_db, close_dbs_if_missing_data
+from local.offline_database.file_database import launch_file_db, close_dbs_if_missing_data
 from local.offline_database.object_reconstruction import Smoothed_Object_Reconstruction as Obj_Recon
 from local.offline_database.classification_reconstruction import set_object_classification_and_colors
 
+from local.eolib.utils.cli_tools import Datetime_Input_Parser as DTIP
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
@@ -160,7 +161,7 @@ launch_file_db(cameras_folder_path, camera_select, user_select,
 
 # Catch missing data
 rinfo_db.close()
-close_dbs_if_missing_data(snap_db, obj_db)
+close_dbs_if_missing_data(snap_db)
 
 # Get the maximum range of the data (based on the snapshots, because that's the most we could show)
 earliest_datetime, latest_datetime = snap_db.get_bounding_datetimes()
@@ -171,12 +172,12 @@ snap_wh = cinfo_db.get_snap_frame_wh()
 #%% Ask user for time window
 
 # Ask the user for the range of datetimes to use for selecting data
-start_dt, end_dt, _, _ = user_input_datetime_range(earliest_datetime, 
-                                                   latest_datetime, 
-                                                   enable_debug_mode)
+user_start_dt, user_end_dt = DTIP.cli_prompt_start_end_datetimes(earliest_datetime, latest_datetime,
+                                                                 print_help_before_prompt = False,
+                                                                 debug_mode = enable_debug_mode)
 
 # Get all the snapshot times we'll need for animation
-snap_time_ms_list = snap_db.get_all_snapshot_times_by_time_range(start_dt, end_dt)
+snap_time_ms_list = snap_db.get_all_snapshot_times_by_time_range(user_start_dt, user_end_dt)
 num_snaps = len(snap_time_ms_list)
 
 # Get playback timing information
@@ -190,13 +191,13 @@ playback_progress = lambda current_time_ms: (current_snap_time_ms - start_snap_t
 #%% Load object data
 
 # Get object metadata from the server
-obj_metadata_generator = obj_db.load_metadata_by_time_range(start_dt, end_dt)
+obj_metadata_generator = obj_db.load_metadata_by_time_range(user_start_dt, user_end_dt)
 
 # Create list of 'reconstructed' objects based on object metadata, so we can work/interact with the object data
 obj_list = Obj_Recon.create_reconstruction_list(obj_metadata_generator,
                                                 snap_wh,
-                                                start_dt, 
-                                                end_dt)
+                                                user_start_dt, 
+                                                user_end_dt)
 
 # Load in classification data, if any
 set_object_classification_and_colors(class_db, obj_list)
@@ -233,6 +234,7 @@ print("",
       "  Press spacebar to pause/unpause",
       "  Use left/right arrow keys to step forward backward",
       "  Use up/down arrow keys to change playback speed",
+      "  (can alternatively use 'WASD' keys)",
       "",
       "  While playing, click on the timebar to change playback position",
       "",
@@ -241,14 +243,17 @@ print("",
 # Label keycodes for convenience
 esc_key = 27
 spacebar = 32
-left_arrow, up_arrow, right_arrow, down_arrow = 81, 82, 83, 84
+up_arrow_keys = {82, 119}    # Up or 'w' key
+left_arrow_keys = {81, 97}   # Left or 'a' key
+down_arrow_keys = {84, 115}  # Down or 's' key
+right_arrow_keys = {83, 100} # Right or "d' key
 zero_key, one_key, two_key = 48, 49, 50
 
 # Set up simple playback controls
 pause_mode = False
 pause_frame_delay = 150
 play_frame_delay = 50
-use_frame_delay_ms = lambda pause_mode: pause_frame_delay if pause_mode else play_frame_delay
+use_frame_delay_ms = lambda pause_frame_delay, pause_mode: pause_frame_delay if pause_mode else play_frame_delay
 start_idx = 0
 end_idx = num_snaps
 
@@ -288,23 +293,23 @@ while True:
         break
     
     # Awkwardly handle keypresses
-    keypress = cv2.waitKey(use_frame_delay_ms(pause_mode))
+    keypress = cv2.waitKey(use_frame_delay_ms(play_frame_delay, pause_mode))
     if keypress == esc_key:
         break
     
     elif keypress == spacebar:
         pause_mode = not pause_mode
         
-    elif keypress == left_arrow:
+    elif keypress in left_arrow_keys:
         pause_mode = True
         snap_idx = snap_idx - 1
-    elif keypress == right_arrow:
+    elif keypress in right_arrow_keys:
         pause_mode = True
         snap_idx = snap_idx + 1
         
-    elif keypress == up_arrow:
+    elif keypress in up_arrow_keys:
         play_frame_delay = max(1, play_frame_delay - 5)
-    elif keypress == down_arrow:
+    elif keypress in down_arrow_keys:
         play_frame_delay = min(1000, play_frame_delay + 5)
         
     elif keypress == one_key:
@@ -321,8 +326,10 @@ while True:
     # Update the snapshot index with looping
     if not pause_mode:
         snap_idx += 1
-    if snap_idx >= end_idx or snap_idx < start_idx:
+    if snap_idx >= end_idx:
         snap_idx = start_idx
+    elif snap_idx < start_idx:
+        snap_idx = end_idx - 1
 
 # Clean up
 cv2.destroyAllWindows()

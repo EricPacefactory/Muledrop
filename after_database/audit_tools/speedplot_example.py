@@ -56,16 +56,16 @@ from itertools import cycle
 
 from local.lib.ui_utils.cli_selections import Resource_Selector
 
-from local.offline_database.file_database import user_input_datetime_range, launch_file_db, close_dbs_if_missing_data
+from local.offline_database.file_database import launch_file_db, close_dbs_if_missing_data
 from local.offline_database.object_reconstruction import Smooth_Hover_Object_Reconstruction, Hover_Mapping
 from local.offline_database.object_reconstruction import create_trail_frame_from_object_reconstruction
 from local.offline_database.snapshot_reconstruction import median_background_from_snapshots
-from local.offline_database.classification_reconstruction import set_object_classification_and_colors
 from local.offline_database.classification_reconstruction import create_object_class_dict
 
 from local.lib.ui_utils.local_ui.windows_base import Simple_Window
 
 from local.eolib.video.text_rendering import simple_text, relative_text
+from local.eolib.utils.cli_tools import Datetime_Input_Parser as DTIP
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
@@ -427,16 +427,16 @@ close_dbs_if_missing_data(snap_db, obj_db)
 earliest_datetime, latest_datetime = snap_db.get_bounding_datetimes()
 
 # Ask the user for the range of datetimes to use for selecting data
-start_dt, end_dt, _, _ = user_input_datetime_range(earliest_datetime, 
-                                                   latest_datetime, 
-                                                   enable_debug_mode)
+user_start_dt, user_end_dt = DTIP.cli_prompt_start_end_datetimes(earliest_datetime, latest_datetime,
+                                                                 print_help_before_prompt = False,
+                                                                 debug_mode = enable_debug_mode)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Create background frame
 
 # Ask database for several snapshot images, so we can 'average' them to make a background frame for display
-bg_frame = median_background_from_snapshots(snap_db, start_dt, end_dt, 10)
+bg_frame = median_background_from_snapshots(snap_db, user_start_dt, user_end_dt, 10)
 frame_height, frame_width = bg_frame.shape[0:2]
 frame_wh = (frame_width, frame_height)
 
@@ -445,16 +445,16 @@ frame_wh = (frame_width, frame_height)
 #%% Load object data
 
 # Get object metadata from the server
-obj_metadata_generator = obj_db.load_metadata_by_time_range(start_dt, end_dt)
+obj_metadata_generator = obj_db.load_metadata_by_time_range(user_start_dt, user_end_dt)
 
 # Create list of 'reconstructed' objects based on object metadata, so we can work/interact with the object data
 obj_list = Hover_Object.create_reconstruction_list(obj_metadata_generator,
                                                    frame_wh,
-                                                   start_dt, 
-                                                   end_dt,
+                                                   user_start_dt, 
+                                                   user_end_dt,
                                                    smoothing_factor = 0.015)
 
-# Organzie objects by class label -> then by object id (nested dictionaries)
+# Organize objects by class label -> then by object id (nested dictionaries)
 objclass_dict = create_object_class_dict(class_db, obj_list)
 
 # Generate trail hover mapping, for quicker mouse-to-trail lookup

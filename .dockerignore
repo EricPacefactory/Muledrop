@@ -1,0 +1,24 @@
+
+# Project files
+cameras/
+specifications/
+settings/
+debugging/
+Dockerfile*
+
+# Git files
+.git
+.gitignore
+
+# Large files (ex. videos and images)
+**.avi
+**.mp4
+**.mov
+**.jpg
+**.jpeg
+**.png
+
+# Cache files
+**.pyc
+__pycache__
+

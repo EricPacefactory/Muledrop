@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Wed Jul  3 10:43:54 2019
+Created on Fri Mar 20 15:40:55 2020
 
 @author: eo
 """
@@ -51,104 +51,78 @@ find_path_to_local()
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-#%% Classes
+#%% Pathing functions
 
 # .....................................................................................................................
 
-# .....................................................................................................................
-# .....................................................................................................................
-
-# ---------------------------------------------------------------------------------------------------------------------
-#%% General pathing functions
-
-# .....................................................................................................................
-
-def make_log_folder(log_path, make_parent_folder = True):
-    
-    '''
-    Helper function which creates the folder pathing to a log file.
-    By default assumes a file path is given, and will try to create the parent folder for the file.
-    To create the given path itself, set the 'make_parent_folder' arg to False
-    '''
-    
-    
-    folder_path_to_make = log_path
-    if make_parent_folder:
-        folder_path_to_make = os.path.dirname(log_path)
-    
-    os.makedirs(folder_path_to_make, exist_ok = True)
-    
-    return
+def get_env_cameras_folder():
+    return os.environ.get("CAMERAS_FOLDER_PATH", None)
 
 # .....................................................................................................................
 # .....................................................................................................................
 
 # ---------------------------------------------------------------------------------------------------------------------
-#%% General pathing functions
+#%% MongoDB functions
 
 # .....................................................................................................................
 
-def build_base_log_path(cameras_folder_path, camera_select, *path_joins):
-    ''' Build pathing to logging folder for a given camera '''    
-    return os.path.join(cameras_folder_path, camera_select, "logs", *path_joins)
+def get_mongo_protocol():
+    return os.environ.get("MONGO_PROTOCOL", "mongodb")
 
 # .....................................................................................................................
 
-def build_configurables_log_path(cameras_folder_path, camera_select, *path_joins):
-    ''' Build pathing to the configurables logging folder for a given camera '''
-    return build_base_log_path(cameras_folder_path, camera_select, "configurables", *path_joins)
-
-# .....................................................................................................................
-
-def build_system_log_path(cameras_folder_path, camera_select, *path_joins):
-    ''' Build pathing to the system logging folder for a given camera '''
-    return build_base_log_path(cameras_folder_path, camera_select, "system", *path_joins)
-
-# .....................................................................................................................
-
-def build_post_db_log_path(cameras_folder_path, camera_select, *path_joins):
-    ''' Build path to the folder containing logging info for posting to a database, for a given camera '''    
-    return build_system_log_path(cameras_folder_path, camera_select, "post_to_db", *path_joins)
+def get_mongo_host():
+    return os.environ.get("MONGO_HOST", "localhost")
 
 # .....................................................................................................................
     
-def build_pid_folder_path(cameras_folder_path, camera_select, *path_joins):
-    ''' Build pathing to the folder used to store PID information for running processes '''
-    return build_system_log_path(cameras_folder_path, camera_select, "pid", *path_joins)
-
-# .....................................................................................................................
-
-def build_stdout_log_path(cameras_folder_path, camera_select, *path_joins):
-    ''' Build pathing to the folder used to store stdout logs for running cameras '''
-    return build_system_log_path(cameras_folder_path, camera_select, "stdout", *path_joins)
-
-# .....................................................................................................................
-
-def build_stderr_log_path(cameras_folder_path, camera_select, *path_joins):
-    ''' Build pathing to the folder used to store stderr logs for running cameras '''
-    return build_system_log_path(cameras_folder_path, camera_select, "stderr", *path_joins)
-
-# .....................................................................................................................
-
-def build_upload_folder_path(cameras_folder_path, camera_select, *path_joins):
-    ''' Build pathing to the folder used to store logs from the upload/configuration server '''
-    return build_system_log_path(cameras_folder_path, camera_select, "upload_server", *path_joins)
-
-# .....................................................................................................................
-
-def build_upload_new_log_file_path(cameras_folder_path, camera_select):
-    ''' Build pathing to the upload server new log file '''
-    return build_upload_folder_path(cameras_folder_path, camera_select, "new.log")
-
-# .....................................................................................................................
-
-def build_upload_update_log_file_path(cameras_folder_path, camera_select):
-    ''' Build pathing to the upload server update log file '''
-    return build_upload_folder_path(cameras_folder_path, camera_select, "update.log")
+def get_mongo_port():
+    return int(os.environ.get("MONGO_PORT", 27017))
 
 # .....................................................................................................................
 # .....................................................................................................................
 
+# ---------------------------------------------------------------------------------------------------------------------
+#%% DB server functions
+
+# .....................................................................................................................
+
+def get_dbserver_protocol():
+    return os.environ.get("DBSERVER_PROTOCOL", "http")
+
+# .....................................................................................................................
+
+def get_dbserver_host():
+    return os.environ.get("DBSERVER_HOST", "localhost")
+
+# .....................................................................................................................
+
+def get_dbserver_port():
+    return int(os.environ.get("DBSERVER_PORT", 8050))
+
+# .....................................................................................................................
+# .....................................................................................................................
+
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Upload server functions
+
+# .....................................................................................................................
+
+def get_upserver_protocol():
+    return os.environ.get("UPSERVER_PROTOCOL", "http")
+
+# .....................................................................................................................
+
+def get_upserver_host():
+    return os.environ.get("UPSERVER_HOST", "0.0.0.0")
+
+# .....................................................................................................................
+
+def get_upserver_port():
+    return int(os.environ.get("UPSERVER_PORT", 8181))
+
+# .....................................................................................................................
+# .....................................................................................................................
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Demo

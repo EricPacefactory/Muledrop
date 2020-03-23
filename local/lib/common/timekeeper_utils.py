@@ -216,10 +216,8 @@ def get_human_readable_timestamp(input_datetime = None):
     if input_datetime is None:
         input_datetime = get_local_datetime()
     
-    # Determine timezone, so that we can include it with the timestamp
-    in_utc_timezone = (input_datetime.tzinfo == get_utc_tzinfo())
-    tzinfo_str = "UTC" if in_utc_timezone else "Local"
-    human_readable_str = input_datetime.strftime("%Y/%m/%d %I:%M:%S%p ({})".format(tzinfo_str))
+    # Format timestamp in a more human readable way, without leaving out info
+    human_readable_str = input_datetime.strftime("%Y/%m/%d %I:%M:%S%p (%Z)")
     # --> Note: '%P' (which writes am/pm) is not supported on Windows! Must use '%p" (which writes AM/PM)
         
     return human_readable_str
