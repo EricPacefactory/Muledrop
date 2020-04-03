@@ -76,9 +76,7 @@ class Object_Reconstruction:
         self.lifetime_ms = self.metadata["lifetime_ms"]
         
         # Store object trail separately, since we'll want to use that a lot
-        obj_x_array = np.float32(object_metadata["tracking"]["x_center"])
-        obj_y_array = np.float32(object_metadata["tracking"]["y_center"])
-        self._real_trail_xy = np.vstack((obj_x_array, obj_y_array)).T
+        self._real_trail_xy = np.float32(object_metadata["tracking"]["xy_center"])
         
         # Store smoothed trail
         self.trail_xy = self._create_trail_xy()

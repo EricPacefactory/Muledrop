@@ -17,3 +17,5 @@ requests==2.*
 Flask==1.*
 Flask-Cors==3.*
 
+# Simple web server for flask
+waitress==1.*

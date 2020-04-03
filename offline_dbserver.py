@@ -99,7 +99,8 @@ def image_to_jpg_bytearray(image):
 
 # .....................................................................................................................
 
-def initialize_databases(selector_ref, cameras_folder_path, camera_name_list, user_select):
+def initialize_databases(selector_ref, cameras_folder_path, camera_name_list, user_select,
+                         raise_error_message = False):
     
     # Initialize outputs
     cinfo_dbs_dict = {}
@@ -130,7 +131,6 @@ def initialize_databases(selector_ref, cameras_folder_path, camera_name_list, us
                   "", sep = "\n")
             
             # For debugging
-            raise_error_message = True
             if raise_error_message:
                 raise err
             
@@ -138,8 +138,9 @@ def initialize_databases(selector_ref, cameras_folder_path, camera_name_list, us
             continue
         
         # Skip any cameras that don't contain snapshot/object data
-        missing_data = close_dbs_if_missing_data(snap_db, obj_db, error_if_missing_data = False)
-        if missing_data:
+        missing_snap_data = close_dbs_if_missing_data(snap_db, error_message_if_missing = None)
+        missing_obj_data = close_dbs_if_missing_data(obj_db, error_message_if_missing = None)
+        if missing_snap_data or missing_obj_data:
             msg_spacer = 3
             close_msg = "Closed due to missing snapshot/object data!"
             spaced_msg = "{}{}{}".format(" " * msg_spacer, close_msg, " " * msg_spacer)

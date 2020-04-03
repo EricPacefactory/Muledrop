@@ -1,0 +1,25 @@
+{
+  "access_info": {
+    "class_name": "FG_Extractor_Stage",
+    "configuration_utility": "background_subtraction",
+    "script_name": "bgs_fgextractor"
+  },
+  "setup_data": {
+    "_show_outlines": true,
+    "downscale_factor": 0.25,
+    "downscale_interpolation": 0,
+    "enable_masking": true,
+    "mask_zone_list": [],
+    "post_blur_size": 2,
+    "post_morph_op": 3,
+    "post_morph_shape": 0,
+    "post_morph_size": 3,
+    "pre_blur_size": 2,
+    "pre_morph_op": 1,
+    "pre_morph_shape": 0,
+    "pre_morph_size": 1,
+    "summation_depth": 2,
+    "threshold": 40,
+    "use_norm_diff": true
+  }
+}

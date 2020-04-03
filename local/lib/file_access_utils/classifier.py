@@ -86,9 +86,8 @@ def build_labels_lut_path(cameras_folder_path, camera_select):
 
 # .....................................................................................................................
 
-def build_supervised_labels_folder_path(cameras_folder_path, camera_select, user_select, start_datetime):
-    target_folder = create_supervised_labels_folder_name(user_select, start_datetime)
-    return build_classifier_resources_path(cameras_folder_path, camera_select, "supervised_labels", target_folder)
+def build_supervised_labels_folder_path(cameras_folder_path, camera_select, user_select):
+    return build_after_database_report_path(cameras_folder_path, camera_select, user_select, "supervised_labels")
 
 # .....................................................................................................................
 # .....................................................................................................................
@@ -103,22 +102,8 @@ def create_classifier_report_file_name(object_full_id):
     return "class-{}.json.gz".format(object_full_id)
 
 # .....................................................................................................................
-
-def create_supervised_labels_folder_name(user_select, data_start_datetime):
-    
-    # Build standard folder path name based on dataset start timing & user
-    datetime_name = data_start_datetime.strftime("%Y%m%d_%H%M%S")
-    supervised_labels_folder_name = "{}-{}".format(user_select, datetime_name)
-    
-    return supervised_labels_folder_name
-
 # .....................................................................................................................
 
-def create_supervised_label_file_name(object_full_id):
-    return "supervlabel-{}.json.gz".format(object_full_id)
-
-# .....................................................................................................................
-# .....................................................................................................................
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Data access functions
@@ -219,46 +204,6 @@ def load_label_lut_tuple(cameras_folder_path, camera_select):
 
 # .....................................................................................................................
 
-def save_supervised_label(supervised_labels_folder_path, object_full_id, supervised_label_dict):
-    
-    # Build path to save target object data
-    save_name = create_supervised_label_file_name(object_full_id)
-    save_path = os.path.join(supervised_labels_folder_path, save_name)
-    
-    return save_jgz(save_path, supervised_label_dict, check_validity = True)
-
-# .....................................................................................................................
-    
-def load_supervised_labels(supervised_labels_folder_path, object_id_list, default_if_missing = None):
-    
-    # Make sure the folder path exists
-    os.makedirs(supervised_labels_folder_path, exist_ok = True)
-    
-    # Set up default entry, if nothing was provided
-    default_object_entry = {"class_label": "unclassified"}
-    if default_if_missing is not None:
-        default_object_entry = default_if_missing
-    
-    # Load all of target object ID labelling data into a dictionary
-    labelling_results_dict = {}
-    for each_full_id in object_id_list:
-        
-        # Build pathing to target object data
-        load_file_name = create_supervised_label_file_name(each_full_id)
-        load_file_path = os.path.join(supervised_labels_folder_path, load_file_name)
-        
-        # Load the supervised labelling data, if present, otherwise use the default
-        object_entry = default_object_entry.copy()
-        file_exists = (os.path.exists(load_file_path))
-        if file_exists:
-            supervised_labelling_data = load_jgz(load_file_path)
-            object_entry = supervised_labelling_data
-        labelling_results_dict.update({each_full_id: object_entry})
-    
-    return labelling_results_dict
-
-# .....................................................................................................................
-
 def filter_labelling_results(supervised_labels_dict, remove_labels_list):
     
     # Don't do anything if the removal list is empty
@@ -282,6 +227,71 @@ def filter_labelling_results(supervised_labels_dict, remove_labels_list):
 
 # .....................................................................................................................
 # .....................................................................................................................
+
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Supervised labelling helpers
+
+# .....................................................................................................................
+
+def create_supervised_labels_folder_name(user_select, data_start_datetime):
+    
+    # Build standard folder path name based on dataset start timing & user
+    datetime_name = data_start_datetime.strftime("%Y%m%d_%H%M%S")
+    supervised_labels_folder_name = "{}-{}".format(user_select, datetime_name)
+    
+    return supervised_labels_folder_name
+
+# .....................................................................................................................
+
+def create_supervised_label_file_name(object_full_id):
+    return "supervlabel-{}.json.gz".format(object_full_id)
+
+# .....................................................................................................................
+
+def create_supervised_label_data(object_id, class_label):
+    
+    ''' Helper function used to ensure consistent formatting of supervised label data '''
+    
+    return {"full_id": object_id, "class_label": class_label}
+
+# .....................................................................................................................
+
+def save_supervised_label(supervised_labels_folder_path, object_full_id, supervised_label_dict):
+    
+    # Build path to save target object data
+    save_name = create_supervised_label_file_name(object_full_id)
+    save_path = os.path.join(supervised_labels_folder_path, save_name)
+    
+    return save_jgz(save_path, supervised_label_dict, check_validity = True)
+
+# .....................................................................................................................
+    
+def load_supervised_labels(supervised_labels_folder_path, object_id_list, default_label_if_missing = "unclassified"):
+    
+    # Make sure the folder path exists
+    os.makedirs(supervised_labels_folder_path, exist_ok = True)
+    
+    # Load all of target object ID labelling data into a dictionary
+    labelling_results_dict = {}
+    for each_full_id in object_id_list:
+        
+        # Build pathing to target object data
+        load_file_name = create_supervised_label_file_name(each_full_id)
+        load_file_path = os.path.join(supervised_labels_folder_path, load_file_name)
+        
+        # Load the supervised labelling data, if present, otherwise use the default
+        object_entry = create_supervised_label_data(each_full_id, default_label_if_missing)
+        file_exists = (os.path.exists(load_file_path))
+        if file_exists:
+            supervised_labelling_data = load_jgz(load_file_path)
+            object_entry = supervised_labelling_data
+        labelling_results_dict.update({each_full_id: object_entry})
+    
+    return labelling_results_dict
+
+# .....................................................................................................................
+# .....................................................................................................................
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Scrap

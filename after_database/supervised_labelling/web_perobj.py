@@ -55,6 +55,8 @@ import base64
 from itertools import cycle
 from time import sleep
 
+from waitress import serve as wsgi_serve
+
 from flask import Flask, jsonify, Response
 from flask import request as flask_request
 
@@ -65,6 +67,7 @@ from local.offline_database.object_reconstruction import Smoothed_Object_Reconst
 
 from local.lib.file_access_utils.classifier import build_supervised_labels_folder_path
 from local.lib.file_access_utils.classifier import load_label_lut_tuple, load_supervised_labels, save_supervised_label
+from local.lib.file_access_utils.classifier import create_supervised_label_data
 
 from local.eolib.utils.quitters import ide_catcher, ide_quit
 
@@ -74,14 +77,6 @@ from local.eolib.utils.quitters import ide_catcher, ide_quit
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define functions
-
-# .....................................................................................................................
-
-def create_supervised_label_data(class_label):
-    
-    ''' Helper function used to ensure consistent formatting of supervised label data '''
-    
-    return {"class_label": class_label}
 
 # .....................................................................................................................
     
@@ -226,36 +221,30 @@ label_lut_dict, label_to_index_dict = load_label_lut_tuple(cameras_folder_path, 
 _, ordered_labels_list = zip(*sorted([(each_idx, each_label) for each_label, each_idx in label_to_index_dict.items()]))
 
 # Get pathing to the supervised label data
-supervised_labels_folder_path = build_supervised_labels_folder_path(cameras_folder_path, 
-                                                                    camera_select,
-                                                                    user_select,
-                                                                    earliest_datetime)
+supervised_labels_folder_path = build_supervised_labels_folder_path(cameras_folder_path, camera_select, user_select)
 
 # Load existing labelling data
-default_label_if_missing = create_supervised_label_data(class_label = "unclassified")
-supervised_class_labels_dict = load_supervised_labels(supervised_labels_folder_path,
-                                                      object_id_list, 
-                                                      default_if_missing = default_label_if_missing)
+supervised_class_labels_dict = load_supervised_labels(supervised_labels_folder_path, object_id_list)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define routes
 
 # Create server so we can start adding routes
-server = Flask(__name__,
-               static_url_path = '', 
-               static_folder = "web/static",
-               template_folder = "web/templates")
+wsgi_app = Flask(__name__,
+                 static_url_path = '', 
+                 static_folder = "web/static",
+                 template_folder = "web/templates")
 
 # .....................................................................................................................
 
-@server.route("/")
+@wsgi_app.route("/")
 def home_route():
-    return server.send_static_file("labeller/labeller.html")
+    return wsgi_app.send_static_file("labeller/labeller.html")
 
 # .....................................................................................................................
 
-@server.route("/setuprequest")
+@wsgi_app.route("/setuprequest")
 def setup_data_route():
     
     '''
@@ -273,7 +262,7 @@ def setup_data_route():
 
 # .....................................................................................................................
 
-@server.route("/labelrequest/<int:object_id>")
+@wsgi_app.route("/labelrequest/<int:object_id>")
 def object_label_request(object_id):
     
     ''' Route which returns the current class label for a given object '''
@@ -295,7 +284,7 @@ def object_label_request(object_id):
 
 # .....................................................................................................................
 
-@server.route("/imagerequest/<int:object_id>")
+@wsgi_app.route("/imagerequest/<int:object_id>")
 def object_image_request(object_id):
     
     ''' Route which returns a representative image of the object (taken from the 'middle' of it's time range) '''
@@ -311,7 +300,7 @@ def object_image_request(object_id):
 
 # .....................................................................................................................
 
-@server.route("/animationrequest/<int:object_id>")
+@wsgi_app.route("/animationrequest/<int:object_id>")
 def object_animation_request(object_id):
     
     ''' Route which returns a repeatingly updating image of an object, throughout it's lifetime '''
@@ -326,7 +315,7 @@ def object_animation_request(object_id):
     
 # .....................................................................................................................
 
-@server.route("/labelupdate", methods=["POST"])
+@wsgi_app.route("/labelupdate", methods=["POST"])
 def object_label_update():
     
     ''' 
@@ -344,7 +333,7 @@ def object_label_update():
     new_class_label = update_json_data["new_class_label_string"]
     
     # Create save data & save it!
-    new_label_data = create_supervised_label_data(new_class_label)
+    new_label_data = create_supervised_label_data(object_id, new_class_label)
     save_supervised_label(supervised_labels_folder_path, object_id, new_label_data)
     
     # Update the internal label records, so future label requests are consistent with updates!
@@ -375,11 +364,22 @@ if __name__ == "__main__":
     server_port = 5000
     server_url = "{}://{}:{}".format(server_protocol, server_host, server_port)
     
-    # Unleash the server
+    # Unleash the wsgi server
     print("")
-    server.run(server_host, port = server_port, debug=False)
+    enable_debug_mode = False
+    if enable_debug_mode:
+        wsgi_app.run(server_host, port = server_port, debug = True)
+    else:
+        wsgi_serve(wsgi_app, host = server_host, port = server_port, url_scheme = server_protocol)
+    
+    # Feedback in case we get here
+    print("Done!")
+    
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Scrap
     
-
+# TODOs:
+# - Add script arg to control debug mode
+# - Add script arg to control animation playback speed?
+#   - Or should this be controllable on the web page itself???        

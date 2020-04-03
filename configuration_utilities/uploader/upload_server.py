@@ -55,6 +55,8 @@ import zipfile
 import shutil
 import subprocess
 
+from waitress import serve as wsgi_serve
+
 from local.lib.common.timekeeper_utils import get_utc_epoch_ms, get_human_readable_timestamp
 from local.lib.common.environment import get_upserver_protocol, get_upserver_host, get_upserver_port
 
@@ -435,39 +437,39 @@ enable_displays = ap_result.get("display")
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-#%% Create server routes
+#%% Create routes
 
-# Create server so we can start adding routes
-server = Flask(__name__, static_url_path = '', static_folder = "web/static", template_folder = "web/templates")
-CORS(server)
+# Create wsgi app so we can start adding routes
+wsgi_app = Flask(__name__, static_url_path = '', static_folder = "web/static", template_folder = "web/templates")
+CORS(wsgi_app)
 
 # .....................................................................................................................
 
-@server.route("/")
+@wsgi_app.route("/")
 def home_route():
-    return server.send_static_file("home/home.html")
+    return wsgi_app.send_static_file("home/home.html")
 
 # .....................................................................................................................
 
-@server.route("/new")
+@wsgi_app.route("/new")
 def replace_route():
-    return server.send_static_file("new/new.html")
+    return wsgi_app.send_static_file("new/new.html")
 
 # .....................................................................................................................
 
-@server.route("/update")
+@wsgi_app.route("/update")
 def update_route():
-    return server.send_static_file("update/update.html")
+    return wsgi_app.send_static_file("update/update.html")
 
 # .....................................................................................................................
 
-@server.route("/status")
+@wsgi_app.route("/status")
 def status_route():
-    return server.send_static_file("status/status.html")
+    return wsgi_app.send_static_file("status/status.html")
 
 # .....................................................................................................................
 
-@server.route("/status/cameras")
+@wsgi_app.route("/status/cameras")
 def status_cameras_route():
     
     # Get pathing to cameras and a list of available cameras
@@ -484,7 +486,7 @@ def status_cameras_route():
 
 # .....................................................................................................................
 
-@server.route("/control/restart/<string:camera_select>")
+@wsgi_app.route("/control/restart/<string:camera_select>")
 def control_restart_camera_route(camera_select):
     
     launch_rtsp_collect(camera_select, enable_display = enable_displays)
@@ -494,7 +496,7 @@ def control_restart_camera_route(camera_select):
 
 # .....................................................................................................................
 
-@server.route("/control/stop/<string:camera_select>")
+@wsgi_app.route("/control/stop/<string:camera_select>")
 def control_stop_camera_route(camera_select):
     
     # Get pathing to cameras folder so we can clear PIDs for the selected camera
@@ -505,7 +507,7 @@ def control_stop_camera_route(camera_select):
 
 # .....................................................................................................................
 
-@server.route("/new/upload", methods = ["POST"])
+@wsgi_app.route("/new/upload", methods = ["POST"])
 def upload_new_file_route():
     
     # Grab the uploaded file
@@ -535,7 +537,7 @@ def upload_new_file_route():
 
 # .....................................................................................................................
 
-@server.route("/update/upload", methods = ["POST"])
+@wsgi_app.route("/update/upload", methods = ["POST"])
 def upload_update_file_route():
     
     # Grab the uploaded file
@@ -565,7 +567,7 @@ def upload_update_file_route():
 
 # .....................................................................................................................
 
-@server.route("/debug/filechange")
+@wsgi_app.route("/debug/filechange")
 def debug_filechange_route():
     
     files_changed_dict = {
@@ -605,10 +607,16 @@ if __name__ == "__main__":
     server_port = ap_result["port"]
     server_url = "{}://{}:{}".format(server_protocol, server_host, server_port)
     
-    # Launch server
+    # Launch wsgi server
     print("")
     enable_debug_mode = ap_result.get("debug")
-    server.run(server_host, port = server_port, debug = enable_debug_mode)
+    if enable_debug_mode:
+        wsgi_app.run(server_host, port = server_port, debug = True)
+    else:
+        wsgi_serve(wsgi_app, host = server_host, port = server_port, url_scheme = server_protocol)
+    
+    # Feedback in case we get here
+    print("Done!")
 
 
 # ---------------------------------------------------------------------------------------------------------------------

@@ -464,6 +464,10 @@ DTIP.limit_start_end_range(bounding_start_dt, bounding_end_dt, max_timedelta_hou
 # Prompt user to select time range to download
 user_start_dt, user_end_dt = DTIP.cli_prompt_start_end_datetimes(bounding_start_dt, bounding_end_dt)
 
+# Prompt user to sub-sample the snapshot data
+snap_subsample_factor = cli_prompt_with_defaults("Subsample factor: ",
+                                                 default_value = 1, return_type = int)
+
 # Convert user input times to epoch values
 start_epoch_ms = datetime_to_epoch_ms(user_start_dt)
 end_epoch_ms = datetime_to_epoch_ms(user_end_dt)
@@ -501,6 +505,10 @@ save_background_images(server_url, cameras_folder_path, camera_select, user_sele
 # Request all snapshot metadata
 many_snapshot_metadata_list = request_snapshot_metadata(server_url, camera_select, start_epoch_ms, end_epoch_ms)
 
+# Sub-sample the snapshots, if needed
+if snap_subsample_factor > 1:
+    many_snapshot_metadata_list = many_snapshot_metadata_list[::snap_subsample_factor]
+
 # Save snapshot metadata & request corresponding image data
 save_snapshot_metadata(cameras_folder_path, camera_select, user_select, many_snapshot_metadata_list)
 save_snapshot_images(server_url, cameras_folder_path, camera_select, user_select, many_snapshot_metadata_list)
@@ -516,4 +524,14 @@ save_object_metadata(cameras_folder_path, camera_select, user_select, many_objec
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Scrap
+
+# TODO
+# - Add host selection with saving/history
+#   - idea would be to avoid having to input ip address every time
+#   - instead select from know set of hosts (including 'local')
+#   -> a bit complicated, because this would require a 'create new host' option + ability to edit?
+# - improve snapshot subsampling
+#   - would be better to not download all data, if subsampling
+#   - instead either download all epoch_ms data and subsample that,
+#   ... or implement subsampling on the db server itself (seems better!)
 

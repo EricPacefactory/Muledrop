@@ -1,0 +1,10 @@
+{
+  "access_info": {
+    "script_name": "minimum_lifetime_objectcapture",
+    "class_name": "Object_Capture",
+    "configuration_utility": "minimum_lifetime"
+  },
+  "setup_data": {
+    "minimum_object_lifetime_ms": 3250
+  }
+}

@@ -367,7 +367,7 @@ class Tracker_Stage(Reference_Tracker):
             # Check if there is more than 1 object contained in the detection box
             contains_obj_ids = []
             for each_tobj_id in unmatched_tobj_id_set:
-                obj_xcen, obj_ycen = tracked_object_dict[each_tobj_id].xy_center
+                obj_xcen, obj_ycen = tracked_object_dict[each_tobj_id].xy_center_tuple
                 if (det_x1 < obj_xcen < det_x2) and (det_y1 < obj_ycen < det_y2):
                     contains_obj_ids.append(each_tobj_id)
             
@@ -455,7 +455,7 @@ class Tracker_Stage(Reference_Tracker):
                 continue
             
             # Any object in a decay zone is immediately dead (since it was unmatched)
-            if self.enabled_edge_decay_zones and each_obj.in_zones_list(self.edge_zones_list):
+            if self.enabled_edge_decay_zones and each_obj.in_zones(self.edge_zones_list):
                 dead_obj_ids_list.append(each_obj_id)
         
         return object_dict, dead_obj_ids_list
@@ -604,8 +604,8 @@ def pair_objects_to_detections(object_ref_dict, pairable_obj_ids_list,
     y_scale = 1 / max_match_y_dist if max_match_y_dist > 0 else 1E10
     
     # Get object/detection positioning for matching
-    obj_xys = [each_obj.xy_match() for each_obj in pobj_ref_list]
-    det_xys = [each_detection.xy_center for each_detection in pdet_ref_list]
+    obj_xys = [each_obj.xy_match_array() for each_obj in pobj_ref_list]
+    det_xys = [each_detection.xy_center_array for each_detection in pdet_ref_list]
     obj_det_sqdist_matrix = calculate_squared_distance_pairing_matrix(obj_xys, det_xys, x_scale, y_scale)
     
     # Try to find a unique mapping from (previous) objects to (current) detections

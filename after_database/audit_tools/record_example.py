@@ -225,7 +225,7 @@ launch_file_db(cameras_folder_path, camera_select, user_select,
 
 # Catch missing data
 rinfo_db.close()
-close_dbs_if_missing_data(snap_db)
+close_dbs_if_missing_data(snap_db, error_message_if_missing = "No snapshot data in the database!")
 
 
 # ---------------------------------------------------------------------------------------------------------------------

@@ -17,7 +17,7 @@ ranger unzip zip
 
 # Install open-cv compatibility libraries
 RUN apt-get install --quiet --assume-yes \
-libsm6 libxrender-dev
+libsm6 libxext6 libxrender-dev
 
 
 # -----------------------------------------------------------------------------
@@ -59,5 +59,5 @@ CMD ["python3", "configuration_utilities/uploader/upload_server.py"]
 
 # From outside realtime project directory:
 # sudo docker build -t realtime_image -f ./realtime/build/docker/Dockerfile ./realtime
-# sudo docker run -d --network="host" -v /tmp/realtime:/scv2_cameras --name realtime_container realtime_image
+# sudo docker run -d --network="host" -v /tmp/realtime:/home/scv2/cameras --name realtime_container realtime_image
 

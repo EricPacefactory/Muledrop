@@ -217,9 +217,9 @@ function create_label_buttons(ordered_labels_list){
     // Create each of the class label buttons at the bottom of the UI. These won't change after initial setup
     const label_block_ul = getelem_label_block();
     for(const each_label_string of ordered_labels_list){
-        
+
         // Create label buttons with attribute we can use to check label string (instead of relying on innerText)
-        let new_label_button = document.createElement("li");
+        const new_label_button = document.createElement("li");
         new_label_button.innerText = each_label_string;
         new_label_button.setAttribute("class_label_string", each_label_string);
 

@@ -159,7 +159,7 @@ class Reference_Detection_Object:
             hull_px[1, null_axes] = hull_px[1, null_axes] + 1
             
         # Scale outline into normalized co-ords
-        self.hull = np.float32(hull_px) * self._xy_loc_scaling
+        self.hull_array = np.float32(hull_px) * self._xy_loc_scaling
                 
         # Get bounding box data. Note: cv2.boundingRect width/height are calculated as 'zero-inclusive'
         # e.g. The width between points [5, 15] would be 11 (= 15 - 5 + 1)
@@ -175,7 +175,7 @@ class Reference_Detection_Object:
         self.width, self.height = np.float32(self.bot_right - self.top_left)
         
         # Store x/y center points (careful to store them as python floats, not numpy floats)
-        self.x_center, self.y_center = ((self.top_left + self.bot_right) / 2.0).tolist()
+        self.xy_center_array = ((self.top_left + self.bot_right) / 2.0)
         
         # Store a property for assigning classifications during detection
         self.detection_classification = detection_classification
@@ -184,7 +184,7 @@ class Reference_Detection_Object:
     # .................................................................................................................
     
     def __repr__(self):
-        return "Detection @ ({:.3f}, {:.3f})".format(*self.xy_center)
+        return "Detection @ ({:.3f}, {:.3f})".format(*self.xy_center_array)
     
     # .................................................................................................................
     
@@ -202,9 +202,10 @@ class Reference_Detection_Object:
     # .................................................................................................................
     
     @property
-    def xy_center(self):        
-        return np.float32((self.x_center, self.y_center))
+    def xy_center_tuple(self):
+        return tuple(self.xy_center)
 
+    # .................................................................................................................
     # .................................................................................................................
 
 # /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -435,8 +435,7 @@ class Reference_Trackable_Object:
         
         # Allocate storage for historical variables
         self.hull_history = deque([], maxlen = self.max_samples)
-        self.x_center_history = deque([], maxlen = self.max_samples)
-        self.y_center_history = deque([], maxlen = self.max_samples)
+        self.xy_center_history = deque([], maxlen = self.max_samples)
         self.track_status_history = deque([], maxlen = self.max_samples)
         
         # Initialize history data
@@ -446,7 +445,7 @@ class Reference_Trackable_Object:
     # .................................................................................................................
     
     def __repr__(self):        
-        return "{:.0f} samples @ ({:.3f}, {:.3f})".format(self.num_samples, self.x_center, self.y_center)
+        return "{:.0f} samples @ ({:.3f}, {:.3f})".format(self.num_samples, *self.xy_center_tuple)
     
     # .................................................................................................................
     #%% Class functions
@@ -557,10 +556,10 @@ class Reference_Trackable_Object:
         
         # Get detection data
         new_track_status = 1
-        new_hull, new_x_cen, new_y_cen = self.get_detection_parameters(detection_object)
+        new_hull_array, new_xy_cen_array = self.get_detection_parameters(detection_object)
         
         # Copy new data into object
-        self.verbatim_update(new_hull, new_x_cen, new_y_cen, new_track_status)
+        self.verbatim_update(new_hull_array, new_xy_cen_array, new_track_status)
         
     # .................................................................................................................
         
@@ -580,16 +579,11 @@ class Reference_Trackable_Object:
         See the reference_detector.py for the reference detection object and it's available properties
         '''
         
-        # Grab parameters out of the detection object
-        new_hull = detection_object.hull
-        new_x_cen = detection_object.x_center
-        new_y_cen = detection_object.y_center
-        
-        return new_hull, new_x_cen, new_y_cen
+        return detection_object.hull_array, detection_object.xy_center_array
        
     # .................................................................................................................
 
-    def verbatim_update(self, new_hull, new_x_cen, new_y_cen, new_track_status = 1):
+    def verbatim_update(self, new_hull_array, new_xy_center_array, new_track_status = 1):
         
         '''
         Update object properties verbatim (i.e. take input data as final, no other processing)
@@ -599,11 +593,10 @@ class Reference_Trackable_Object:
         self.num_samples += 1
         
         # Update object outline
-        self.hull_history.append(new_hull)
+        self.hull_history.append(new_hull_array)
         
         # Update centering position
-        self.x_center_history.append(new_x_cen)
-        self.y_center_history.append(new_y_cen)
+        self.xy_center_history.append(new_xy_center_array)
         
         # Update tracking status (should be True/1 if we're matched to something, otherwise False/0)
         self.track_status_history.append(new_track_status)
@@ -613,13 +606,12 @@ class Reference_Trackable_Object:
     def duplicate_from_self(self):
         
         # Generate 'new' update values, which are just copies of existing data, since we have no other data source
-        new_hull = self.hull
-        new_x_cen = self.x_center
-        new_y_cen = self.y_center
+        new_hull_array = self.hull_array
+        new_xy_cen_array = self.xy_center_array
         new_track_status = 0
         
         # Use existing update function to avoid duplicating tracking logic...
-        self.verbatim_update(new_hull, new_x_cen, new_y_cen, new_track_status)
+        self.verbatim_update(new_hull_array, new_xy_cen_array, new_track_status)
         
     # .................................................................................................................
         
@@ -628,16 +620,14 @@ class Reference_Trackable_Object:
         ''' Function which propagates an objects trajectory, using it's own history '''
         
         # Get simple 'velocity' using previous two positions (better to look over a longer period...)
-        vx = self.x_delta(weighting)
-        vy = self.y_delta(weighting)
+        vxy_array = self.xy_delta_array(weighting)
         
         # Generate 'new' update values, which are just copies of existing data, since we have no other data source
-        new_hull = self.hull + np.float32((vx, vy))
-        new_x_cen = self.x_center + vx
-        new_y_cen = self.y_center + vy
+        new_hull_array = self.hull_array + vxy_array
+        new_xy_cen_array = self.xy_center_array + vxy_array
         
         # Use existing update function to avoid duplicating tracking logic...
-        self.verbatim_update(new_hull, new_x_cen, new_y_cen, new_track_status)
+        self.verbatim_update(new_hull_array, new_xy_cen_array, new_track_status)
     
     # .................................................................................................................
     
@@ -700,9 +690,8 @@ class Reference_Trackable_Object:
                               "frame_width": self.frame_width,
                               "frame_height": self.frame_height,
                               "track_status": list(self.track_status_history)[:final_num_samples],
-                              "x_center": list(self.x_center_history)[:final_num_samples],
-                              "y_center": list(self.y_center_history)[:final_num_samples],
-                              "hull": [each_hull.tolist() for each_hull in self.hull_history][:final_num_samples]}
+                              "xy_center": self._deque_of_arrays_to_list(self.xy_center_history, final_num_samples),
+                              "hull": self._deque_of_arrays_to_list(self.hull_history, final_num_samples)}
         
         return tracking_data_dict, final_num_samples
         
@@ -714,65 +703,54 @@ class Reference_Trackable_Object:
         self.final_match_frame_index = current_frame_index
         self.final_match_epoch_ms = current_epoch_ms
         self.final_match_datetime = current_datetime
+    
+    # .................................................................................................................
+    
+    @staticmethod
+    def _deque_of_arrays_to_list(deque_of_arrays, final_sample_index):
+        return [each_array.tolist() for each_array in deque_of_arrays][:final_sample_index]
         
     # .................................................................................................................
     #%% Postioning functions
     
-    def x_delta(self, delta_weight = 1.0):
+    def xy_delta_array(self, delta_weight = 1.0):
         
-        ''' Calculate the change in x using the 2 most recent x-positions '''
-        
-        try:
-            return (self.x_center_history[-1] - self.x_center_history[-2]) * delta_weight
-        except IndexError:
-            return 0
-        
-    # .................................................................................................................
-    
-    def y_delta(self, delta_weight = 1.0):
-        
-        ''' Calculate the change in y using the 2 most recent y-positions '''
+        ''' Calculate the change in x/y using the 2 most recent xy-positions '''
         
         try:
-            return (self.y_center_history[-1] - self.y_center_history[-2]) * delta_weight
+            prev_xy_array = self.xy_center_history[-2]
+            curr_xy_array = self.xy_center_history[-1]
+            return curr_xy_array - prev_xy_array
+        
         except IndexError:
-            return 0
+            # Occurs on first run, when there is no 'previous' sample to use
+            pass
+        
+        return np.float32((0.0, 0.0))
     
     # .................................................................................................................
     
-    def x_match(self):
+    def xy_match_array(self):
         
         ''' 
-        Function for generating an x co-ordinate used to match objects to detections 
-        Position will either by object x-center point or the x-center point plus the change in x-position,
+        Function for generating a x/y co-ordinates used to match objects to detections 
+        Position will either be the object center point 
+        or the center point plus the change in position from the previous frame to the current one,
         depending on whether match_with_speed is enabled
         '''
         
-        return self.x_center + self.x_delta() if self.match_with_speed else self.x_center
-    
-    # .................................................................................................................
-    
-    def y_match(self):
+        if self.match_with_speed:
+            return self.xy_center_array + self.xy_delta_array()
         
-        ''' 
-        Function for generating a y co-ordinate used to match objects to detections 
-        Position will either by object y-center point or the y-center point plus the change in y-position,
-        depending on whether match_with_speed is enabled
-        '''
-        
-        return self.y_center + self.y_delta() if self.match_with_speed else self.y_center
+        return self.xy_center_array 
     
     # .................................................................................................................
     
-    def xy_match(self):
-        return np.float32((self.x_match(), self.y_match()))
-    
-    # .................................................................................................................
-    
-    def in_zones_list(self, zones_list):
+    def in_zones(self, zones_list):
         
         ''' Function which checks if this object is within a list of zones '''
         
+        xy_center_tuple = self.xy_center_tuple
         for each_zone in zones_list:
             
             # If no zone data is present, then we aren't in the zone!
@@ -781,7 +759,7 @@ class Reference_Trackable_Object:
             
             # Otherwise, check if the x/y tracking location is inside any of the zones
             zone_array = np.float32(each_zone)
-            in_zone = (cv2.pointPolygonTest(zone_array, (self.x_center, self.y_center), measureDist = False) > 0)
+            in_zone = (cv2.pointPolygonTest(zone_array, xy_center_tuple, measureDist = False) > 0)
             if in_zone:
                 return True
             
@@ -793,32 +771,20 @@ class Reference_Trackable_Object:
     # .................................................................................................................
     
     @property
-    def hull(self):
+    def hull_array(self):
         return self.hull_history[-1]
     
     # .................................................................................................................
     
     @property
-    def x_center(self):
-        return self.x_center_history[-1]
+    def xy_center_tuple(self):
+        return tuple(self.xy_center_history[-1].tolist())
     
     # .................................................................................................................
     
     @property
-    def y_center(self):
-        return self.y_center_history[-1]
-    
-    # .................................................................................................................
-    
-    @property
-    def xy_center(self):
-        return np.float32((self.x_center, self.y_center))
-    
-    # .................................................................................................................
-    
-    @property
-    def xy_center_history(self):
-        return np.vstack((self.x_center_history, self.y_center_history)).T
+    def xy_center_array(self):
+        return self.xy_center_history[-1]
     
     # .................................................................................................................
     
@@ -831,7 +797,7 @@ class Reference_Trackable_Object:
     @property
     def tl_br(self):
         
-        hull_array = self.hull
+        hull_array = self.hull_array
         tl = np.min(hull_array, axis = 0)
         br = np.max(hull_array, axis = 0)
         
@@ -848,10 +814,8 @@ class Reference_Trackable_Object:
 class Smoothed_Trackable_Object(Reference_Trackable_Object):
     
     # Create shared smoothing variables
-    _oldsmooth_x = 0.0
-    _oldsmooth_y = 0.0
-    _newsmooth_x = 1.0
-    _newsmooth_y = 1.0
+    _oldsmooth_xy = np.float32((0.0, 0.0))
+    _newsmooth_xy = np.float32((1.0, 1.0))
     _speed_weight = 0.0
     
     # .................................................................................................................
@@ -870,12 +834,12 @@ class Smoothed_Trackable_Object(Reference_Trackable_Object):
         max_smooth_x, max_smooth_y = 0.80, 0.80
         
         # Take the sqrt of the paremeters, which gives a slightly more intuitive feel to the scaling
-        cls._oldsmooth_x = (x_weight * max_smooth_x) ** (1/2)
-        cls._oldsmooth_y = (y_weight * max_smooth_y) ** (1/2)
+        oldsmooth_x = (x_weight * max_smooth_x) ** (1/2)
+        oldsmooth_y = (y_weight * max_smooth_y) ** (1/2)
+        cls._oldsmooth_xy = np.float32((oldsmooth_x, oldsmooth_y))
         
         # Pre-calculate inverse smoothing values to avoid repeated calculations later
-        cls._newsmooth_x = 1 - cls._oldsmooth_x
-        cls._newsmooth_y = 1 - cls._oldsmooth_y
+        cls._newsmooth_xy = np.float32((1.0, 1.0)) - cls._oldsmooth_xy
         
         # Update speed weighting
         cls._speed_weight = speed_weight
@@ -893,46 +857,37 @@ class Smoothed_Trackable_Object(Reference_Trackable_Object):
         self._update_final_match_data(current_frame_index, current_epoch_ms, current_datetime)
         
         # Get detection data
-        new_hull, new_x_cen, new_y_cen = self.get_detection_parameters(detection_object)
+        new_hull_array, new_xy_cen_array = self.get_detection_parameters(detection_object)
         
         # Apply smooth updates
-        self.smooth_update(new_hull, new_x_cen, new_y_cen)
+        self.smooth_update(new_hull_array, new_xy_cen_array)
         
     # .................................................................................................................
     
-    def smooth_update(self, new_hull, new_x_cen, new_y_cen):
+    def smooth_update(self, new_hull_array, new_xy_cen_array):
         
         try:
             
             # Collect previous values
-            old_x_cen = self.x_center
-            old_y_cen = self.y_center
+            old_xy_cen_array = self.xy_center_array
             
             # Calculate new (smoothed) values using new detection data and previous values
-            smooth_x_cen = self.smooth_x(new_x_cen, old_x_cen)
-            smooth_y_cen = self.smooth_y(new_y_cen, old_y_cen)
+            smooth_xy_cen_array = self.smooth_xy(new_xy_cen_array, old_xy_cen_array)
         
         except IndexError:   
             # Will get an error on initial detection, since we don't have previous values needed for smoothing
             # When this happens, just perform verbatim update
-            smooth_x_cen = new_x_cen
-            smooth_y_cen = new_y_cen
+            smooth_xy_cen_array = new_xy_cen_array
         
         # Update object state using smoothed values
         new_track_status = 1
-        self.verbatim_update(new_hull, smooth_x_cen, smooth_y_cen, new_track_status)
-        
-    # .................................................................................................................
-    
-    def smooth_x(self, new_x, old_x):
-        predictive_x = self.x_delta() * self._speed_weight
-        return self._newsmooth_x * new_x + self._oldsmooth_x * (old_x + predictive_x)
+        self.verbatim_update(new_hull_array, smooth_xy_cen_array, new_track_status)
     
     # .................................................................................................................
     
-    def smooth_y(self, new_y, old_y):
-        predictive_y = self.y_delta() * self._speed_weight
-        return self._newsmooth_y * new_y + self._oldsmooth_y * (old_y + predictive_y)
+    def smooth_xy(self, new_xy_array, old_xy_array):
+        predictive_xy = self.xy_delta_array() * self._speed_weight
+        return (self._newsmooth_xy * new_xy_array) + (self._oldsmooth_xy * (old_xy_array + predictive_xy))
     
     # .................................................................................................................
     # .................................................................................................................

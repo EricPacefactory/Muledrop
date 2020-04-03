@@ -548,7 +548,7 @@ def scheduled_post(server_url, cameras_folder_path, camera_select,
     # Create logger to handle saving feedback (or printing to terminal)
     logger = create_logger(cameras_folder_path, camera_select, enabled = log_to_file)
     
-    # Get the current time, which we'll use to figure out when we should post
+    # Calculate posting period values
     post_period_sec = (60.0 * post_period_mins)
     random_period_sec = max(20.0, 0.2 * post_period_sec)
     

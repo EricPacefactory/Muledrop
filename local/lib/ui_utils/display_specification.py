@@ -391,7 +391,7 @@ class Detection_Display(Display_Window_Specification):
             
             # Draw the blob outline
             if self._show_outlines:
-                det_hull = np.int32(np.round(each_det.hull * frame_wh))
+                det_hull = np.int32(np.round(each_det.hull_array * frame_wh))
                 cv2.polylines(detection_frame, [det_hull], True, self._line_color, 1, cv2.LINE_AA)
             
             # Draw the bounding box
@@ -571,7 +571,7 @@ def draw_objects_on_frame(display_frame, object_dict,
         
         # Show object outlines (i.e. blobs) if needed
         if show_outlines:
-            obj_hull = np.int32(np.round(each_obj.hull * frame_wh))
+            obj_hull = np.int32(np.round(each_obj.hull_array * frame_wh))
             cv2.polylines(display_frame, [obj_hull], True, draw_ol_color, 1, cv2.LINE_AA)
         
         # Draw bounding boxes if needed

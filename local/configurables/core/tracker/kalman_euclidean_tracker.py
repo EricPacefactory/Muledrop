@@ -178,6 +178,16 @@ class Tracker_Stage(Reference_Tracker):
                 tooltip = ["If enabled, objects in (user drawn) decay zones will immediately decay if they",
                            "are not matched to a detection. These zones are intended to help remove objects",
                            "near edge boundaries."])
+    
+        self.store_box_in_place_of_hull = \
+        self.ctrl_spec.attach_toggle(
+                "store_box_in_place_of_hull", 
+                label = "Replace outlines with boxes", 
+                default_value = True,
+                tooltip = ["If enabled, objects outlines will be replaced by the (smoothed) bounding box",
+                           "which the underlying system is using to represent the object.",
+                           "Enabling this option will ensure better consistency between the object trail and",
+                           "the object 'outline' (now bounding box), at the cost of losing outline details."])
         
         # .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . Control Group 2 .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
         
@@ -290,6 +300,7 @@ class Tracker_Stage(Reference_Tracker):
         # Update the tracking class with new shared settings
         Kalman_Trackable_Object.set_smoothing_exponent(self.smoothing_exponent)
         Kalman_Trackable_Object.set_velocity_decay(cubed_x_decay, cubed_y_decay)
+        Kalman_Trackable_Object.set_outline_style(self.store_box_in_place_of_hull)
     
     # .................................................................................................................
     
@@ -382,8 +393,8 @@ class Tracker_Stage(Reference_Tracker):
                 dead_obj_ids_list.append(each_obj_id)
                 continue
             
-            # Any object in a decay zone is immediately dead (since it was unmatched)
-            if self.enabled_edge_decay_zones and each_obj.in_zones_list(self.edge_zones_list):
+            # Any unmatched object in a decay zone is immediately dead
+            if self.enabled_edge_decay_zones and each_obj.in_zones(self.edge_zones_list):
                 dead_obj_ids_list.append(each_obj_id)
         
         return object_dict, dead_obj_ids_list
@@ -714,17 +725,18 @@ class Kalman_Trackable_Object(Reference_Trackable_Object):
     smoothing_exponent = 0
     vx_decay_factor = 0.5
     vy_decay_factor = 0.5
+    replace_outlines_with_boxes = True
     
     # .................................................................................................................
     
     def __init__(self, nice_id, full_id, detection_object, current_frame_index, current_epoch_ms, current_datetime):
         
         # Get detection measurements for initial tracking state
-        _, det_x_center, det_y_center, det_width, det_height = self.get_detection_parameters(detection_object)
+        _, det_x_left, det_x_right, det_y_top, det_y_bottom = self.get_detection_parameters(detection_object)
         
         # Set up kalman filter for tracking        
         self._kalman_tracker = \
-        Kalman_Position_Tracker(det_x_center, det_y_center, det_width, det_height, 
+        Kalman_Position_Tracker(det_x_left, det_x_right, det_y_top, det_y_bottom, 
                                 self.smoothing_exponent, self.vx_decay_factor, self.vy_decay_factor)
         
         # Inherit from reference object
@@ -742,6 +754,12 @@ class Kalman_Trackable_Object(Reference_Trackable_Object):
     def set_velocity_decay(cls, vx_decay_factor, vy_decay_factor):
         cls.vx_decay_factor = vx_decay_factor
         cls.vy_decay_factor = vy_decay_factor
+    
+    # .................................................................................................................
+    
+    @classmethod
+    def set_outline_style(cls, replace_outlines_with_boxes):
+        cls.replace_outlines_with_boxes = replace_outlines_with_boxes
     
     # .................................................................................................................
         
@@ -762,6 +780,11 @@ class Kalman_Trackable_Object(Reference_Trackable_Object):
         # Run kalman filter & get state estimate
         est_x_cen, est_y_cen = self._kalman_tracker.update_from_measurements(new_xL, new_xR, new_yT, new_yB)
         
+        # Choose hull style
+        if self.replace_outlines_with_boxes:
+            (x_l, y_t), (x_r, y_b) = self._kalman_tracker.get_tlbr_estimate()
+            new_hull = np.float32(((x_l, y_t), (x_r, y_t), (x_r, y_b), (x_l, y_b)))
+        
         # Directly add new data into object
         self.verbatim_update(new_hull, est_x_cen, est_y_cen, new_track_status)
         
@@ -778,7 +801,7 @@ class Kalman_Trackable_Object(Reference_Trackable_Object):
         est_x_cen, est_y_cen = self._kalman_tracker.update_from_self()
         
         # Hard-code non-tracked properties
-        new_hull = self.hull
+        new_hull = self.hull_array
         new_track_status = 0
         
         # Directly add 'new' predicted results into object
@@ -794,7 +817,7 @@ class Kalman_Trackable_Object(Reference_Trackable_Object):
         '''
         
         # Grab parameters out of the detection object
-        new_hull = detection_object.hull
+        new_hull = detection_object.hull_array
         (x_L, y_T), (x_R, y_B) = detection_object.tl_br
         
         return new_hull, x_L, x_R, y_T, y_B

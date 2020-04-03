@@ -117,18 +117,6 @@ class Custom_Tracking_Display(Display_Window_Specification):
                                                outline_color = self._tracked_color, 
                                                box_color = self._tracked_color)
         
-        
-        frame_height, frame_width = tracking_frame.shape[0:2]
-        frame_scaling = np.float32((frame_width - 1, frame_height - 1))
-        for each_id, each_obj in tracked_object_dict.items():
-            
-            top_left, bot_right = each_obj._kalman_tracker.get_tlbr_estimate()
-            rect_pt1 = tuple(np.int32(np.round(top_left * frame_scaling)))
-            rect_pt2 = tuple(np.int32(np.round(bot_right * frame_scaling)))
-            
-            cv2.rectangle(tracking_frame, rect_pt1, rect_pt2, (0, 127, 255), 2)
-            #print(each_id, tl_br)
-        
         # Draw mouse following indicator over top of everything else
         draw_mouse_indicator(tracking_frame, configurable_ref, mouse_xy)
         

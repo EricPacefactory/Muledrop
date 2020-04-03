@@ -1,0 +1,13 @@
+{
+  "access_info": {
+    "class_name": "Preprocessor_Stage",
+    "configuration_utility": "scaling",
+    "script_name": "scaling_preprocessor"
+  },
+  "setup_data": {
+    "ar_adjustment_factor": 1.0,
+    "enable_transform": true,
+    "interpolation_type": 0,
+    "max_dimension_px": 640
+  }
+}

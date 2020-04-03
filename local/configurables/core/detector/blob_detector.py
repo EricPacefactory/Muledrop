@@ -251,7 +251,7 @@ def draw_detections(stage_outputs, configurable_ref,
             # Draw the blob bounding boxes (for detections only)
             if show_outlines:
                 # Draw the blob outline
-                blob_hull = np.int32(np.round(each_blob.hull * frame_wh))
+                blob_hull = np.int32(np.round(each_blob.hull_array * frame_wh))
                 cv2.polylines(detection_frame, [blob_hull], True, blob_color, 1, cv2.LINE_AA)
             
             if show_bounding_boxes:

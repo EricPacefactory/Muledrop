@@ -83,20 +83,20 @@ class Summary_Stage(Reference_Summary):
         
         # Will calculate simple positional parameters & speed, so we need the trail data + timing
         object_metadata = object_database.load_metadata_by_id(object_id)
-        object_trail_data = object_metadata["tracking"]
+        object_tracking_data = object_metadata["tracking"]
         object_lifetime_ms = object_metadata["lifetime_ms"]
         
-        return object_trail_data, object_lifetime_ms
+        return object_tracking_data, object_lifetime_ms
     
     # .................................................................................................................
     
     def summarize_one_object(self, object_data, snapshot_database):
         
         # Unpack object data for clarity
-        object_trail_data, object_lifetime_ms = object_data
+        object_tracking_data, object_lifetime_ms = object_data
         
         # Bundle trail x/y values for convenience
-        trail_xy = np.vstack((object_trail_data["x_center"], object_trail_data["y_center"])).T
+        trail_xy = np.float32(object_tracking_data["xy_center"])
         
         # Calculate starting/end points and distance travelled
         start_x, start_y = trail_xy[0, :]

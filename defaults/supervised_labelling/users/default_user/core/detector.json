@@ -1,0 +1,13 @@
+{
+  "access_info": {
+    "script_name": "blob_detector",
+    "class_name": "Detector_Stage",
+    "configuration_utility": "blob"
+  },
+  "setup_data": {
+    "min_width_norm": 0.02,
+    "max_width_norm": 0.95,
+    "min_height_norm": 0.05,
+    "max_height_norm": 0.95
+  }
+}

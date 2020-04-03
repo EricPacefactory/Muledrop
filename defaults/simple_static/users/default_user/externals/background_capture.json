@@ -1,0 +1,17 @@
+{
+  "access_info": {
+    "class_name": "Background_Capture",
+    "configuration_utility": "median",
+    "script_name": "median_backgroundcapture"
+  },
+  "setup_data": {
+    "capture_period_hr": 0,
+    "capture_period_min": 15,
+    "capture_period_sec": 0,
+    "generation_period_hr": 1,
+    "generation_period_min": 0,
+    "generation_period_sec": 0,
+    "max_captures_to_use": 25,
+    "min_captures_to_use": 5
+  }
+}

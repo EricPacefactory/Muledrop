@@ -301,7 +301,7 @@ class Tracker_Stage(Reference_Tracker):
                 continue
             
             # Any object in a decay zone is immediately dead (since it was unmatched)
-            if self.enabled_edge_decay_zones and each_obj.in_zones_list(self.edge_zones_list):
+            if self.enabled_edge_decay_zones and each_obj.in_zones(self.edge_zones_list):
                 dead_obj_ids_list.append(each_obj_id)
         
         return object_dict, dead_obj_ids_list

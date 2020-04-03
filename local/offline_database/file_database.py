@@ -513,7 +513,7 @@ class Snap_DB(File_DB):
         # Check that the snapshot path is valid before continuing
         snapshot_image_folder_exists = os.path.exists(self.snap_images_folder_path)
         if not snapshot_image_folder_exists:
-            raise FileNotFoundError("Couldn't find snapshot image folder: {}".format(self.snap_images_folder_path))
+            raise FileNotFoundError("Couldn't find snapshot image folder:\n{}".format(self.snap_images_folder_path))
         
     # .................................................................................................................
     
@@ -1874,12 +1874,31 @@ def launch_file_db(cameras_folder_path, camera_select, user_select,
 
 # .....................................................................................................................
 
-def close_dbs_if_missing_data(*database_refs, error_if_missing_data = True):
+def close_dbs_if_missing_data(*database_refs, 
+                              error_message_if_missing = "Missing data in database"):
     
-    ''' Helper function which closes all provided databases if any are missing data '''
+    ''' 
+    Helper function which closes all provided databases if any are missing data
+    
+    Inputs: 
+        *database_refs: (one or many fileDB objects).
+    
+        error_message_if_missing: (String or None). If a string is provided and there is no data 
+                                  in one or more of the database_refs, a 'RunTimeError' will be
+                                  raised with the given error message.
+                                  If this input is set to None (or an empty string), no error will be raised
+                                      
+    Outputs:
+        missing_data (boolean)                                        
+    '''
     
     # Check if any of the databases are missing data
-    dbs_no_data = [each_db.no_data() for each_db in database_refs]
+    try:
+        dbs_no_data = [each_db.no_data() for each_db in database_refs]
+    except AttributeError:
+        err_msg_list = ["Error checking missing data in dbs!",
+                        "Likely forgot to pass 'error_message_if_missing' as a keyword argument"]
+        raise TypeError("\n".join(err_msg_list))
     
     # Close all databases if any are missing data
     missing_data = any(dbs_no_data)
@@ -1890,8 +1909,8 @@ def close_dbs_if_missing_data(*database_refs, error_if_missing_data = True):
             each_db_ref.close()
             
         # Raise an error to stop execution when missing data, if needed
-        if error_if_missing_data:
-            raise RuntimeError("Missing data in database")
+        if error_message_if_missing:
+            raise RuntimeError(error_message_if_missing)
             
     return missing_data
 

@@ -257,13 +257,15 @@ class Reference_Object_Capture(Externals_Configurable_Base):
         This is important to ensure object data matches up with snapshot data, which itself is not-warped!
         '''
         
-        orig_xy = np.float32((obj_metadata["tracking"]["x_center"], obj_metadata["tracking"]["y_center"])).T
-        new_xy = self.unwarp_function(orig_xy)
-        obj_metadata["tracking"]["x_center"] = new_xy[:,0].tolist()
-        obj_metadata["tracking"]["y_center"] = new_xy[:,1].tolist()
+        # Perform correction on trail data
+        orig_xy_array = np.float32(obj_metadata["tracking"]["xy_center"])
+        new_xy_array = self.unwarp_function(orig_xy_array)
+        obj_metadata["tracking"]["xy_center"] = new_xy_array.tolist()
         
-        orig_hull = obj_metadata["tracking"]["hull"]
-        obj_metadata["tracking"]["hull"] = [self.unwarp_function(np.float32(each_hull)).tolist() for each_hull in orig_hull]
+        # Perform correction on every point of every hull
+        orig_hull_lists = obj_metadata["tracking"]["hull"]
+        orig_hull_arrays = (np.float32(each_hull) for each_hull in orig_hull_lists)
+        obj_metadata["tracking"]["hull"] = [self.unwarp_function(each_hull).tolist() for each_hull in orig_hull_arrays]
         
         return obj_metadata
     
