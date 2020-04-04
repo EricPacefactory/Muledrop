@@ -52,7 +52,7 @@ find_path_to_local()
 from time import sleep
 
 from local.lib.common.timekeeper_utils import get_human_readable_timestamp, get_human_readable_timezone
-from local.lib.common.timekeeper_utils import get_local_datetime, get_isoformat_string, datetime_to_epoch_ms
+from local.lib.common.timekeeper_utils import get_local_datetime, datetime_to_isoformat_string, datetime_to_epoch_ms
 
 from local.lib.ui_utils.cli_selections import Resource_Selector
 from local.lib.ui_utils.script_arguments import script_arg_builder
@@ -193,7 +193,7 @@ class File_Configuration_Loader:
         # Get camera launch info
         rtsp_config, _ = load_rtsp_config(self.cameras_folder_path, self.camera_select)
         start_datetime = get_local_datetime()
-        start_dt_str = get_isoformat_string(start_datetime)
+        start_dt_str = datetime_to_isoformat_string(start_datetime)
         start_epoch_ms = datetime_to_epoch_ms(start_datetime)
         
         # Split snapshot sizing info for reporting

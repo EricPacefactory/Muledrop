@@ -188,20 +188,6 @@ def get_utc_epoch_ms():
 
 # .....................................................................................................................
 
-def get_isoformat_string(input_datetime):
-    
-    '''
-    Converts a datetime object into an isoformat string
-    Example:
-        "2019-01-30T11:22:33+00:00.000000"
-        
-    Note: This function assumes the datetime object has timezone information (tzinfo)
-    '''
-    
-    return input_datetime.isoformat()
-
-# .....................................................................................................................
-
 def get_human_readable_timestamp(input_datetime = None):
     
     '''
@@ -286,6 +272,20 @@ def parse_isoformat_string(isoformat_datetime_str):
     parsed_dt = dt.datetime.strptime(isoformat_datetime_str[:], string_format).replace(tzinfo = parsed_tzinfo)
     
     return parsed_dt
+
+# .....................................................................................................................
+
+def datetime_to_isoformat_string(input_datetime):
+    
+    '''
+    Converts a datetime object into an isoformat string
+    Example:
+        "2019-01-30T11:22:33+00:00.000000"
+        
+    Note: This function assumes the datetime object has timezone information (tzinfo)
+    '''
+    
+    return input_datetime.isoformat()
 
 # .....................................................................................................................
 

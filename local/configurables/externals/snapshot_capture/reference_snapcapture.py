@@ -51,7 +51,7 @@ find_path_to_local()
 
 from local.configurables.configurable_template import Externals_Configurable_Base
 
-from local.lib.common.timekeeper_utils import get_isoformat_string
+from local.lib.common.timekeeper_utils import datetime_to_isoformat_string
 
 from local.lib.file_access_utils.reporting import Image_Report_Saver, Image_Metadata_Report_Saver
 
@@ -282,7 +282,7 @@ class Reference_Snapshot_Capture(Externals_Configurable_Base):
             self._reset_counters()
         
         # Get info saved into snapshot metadata
-        snapshot_time_isoformat = get_isoformat_string(current_datetime)
+        snapshot_time_isoformat = datetime_to_isoformat_string(current_datetime)
             
         # Build metadata
         snapshot_metadata = {"_id": current_epoch_ms,

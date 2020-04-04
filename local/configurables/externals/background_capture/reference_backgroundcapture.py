@@ -55,7 +55,7 @@ from time import perf_counter
 
 from local.configurables.configurable_template import Externals_Configurable_Base
 
-from local.lib.common.timekeeper_utils import get_isoformat_string
+from local.lib.common.timekeeper_utils import datetime_to_isoformat_string
 
 from local.lib.file_access_utils.threaded_read_write import Parallel_Function, create_new_thread_lock
 from local.lib.file_access_utils.reporting import Image_Report_Saver, Image_Metadata_Report_Saver
@@ -1053,7 +1053,7 @@ class Reference_Background_Creator:
         ''' Function which creates reporting copies of newly generated background image '''
         
         # Get time as a string for reporting
-        bgcap_time_isoformat = get_isoformat_string(current_datetime)
+        bgcap_time_isoformat = datetime_to_isoformat_string(current_datetime)
         
         # Build reporting metadata
         bgcap_metadata = {"_id": current_epoch_ms,

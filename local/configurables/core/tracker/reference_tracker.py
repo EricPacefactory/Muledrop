@@ -54,7 +54,7 @@ import numpy as np
 
 from collections import deque
 
-from local.lib.common.timekeeper_utils import get_isoformat_string
+from local.lib.common.timekeeper_utils import datetime_to_isoformat_string
 
 from local.configurables.configurable_template import Core_Configurable_Base
 
@@ -651,10 +651,10 @@ class Reference_Trackable_Object:
                           "max_samples": self.max_samples,
                           "first_frame_index": self.first_frame_index,
                           "first_epoch_ms": self.first_epoch_ms,
-                          "first_datetime_isoformat": get_isoformat_string(self.first_datetime),
+                          "first_datetime_isoformat": datetime_to_isoformat_string(self.first_datetime),
                           "final_frame_index": self.final_match_frame_index,
                           "final_epoch_ms": self.final_match_epoch_ms,
-                          "final_datetime_isoformat": get_isoformat_string(self.final_match_datetime),
+                          "final_datetime_isoformat": datetime_to_isoformat_string(self.final_match_datetime),
                           "lifetime_ms": lifetime_ms,
                           "detection_class": self.detection_classification,
                           "classification_score": self.classification_score,

@@ -54,7 +54,7 @@ import cv2
 from itertools import cycle
 from time import sleep
 
-from local.lib.common.timekeeper_utils import get_isoformat_string, get_local_datetime, datetime_to_epoch_ms
+from local.lib.common.timekeeper_utils import get_local_datetime, datetime_to_epoch_ms, datetime_to_isoformat_string
 from local.lib.ui_utils.cli_selections import Resource_Selector
 from local.lib.ui_utils.script_arguments import script_arg_builder
 
@@ -305,7 +305,7 @@ def server_help():
     
     # Add some additional info to html
     local_dt = get_local_datetime()
-    example_dt_str = get_isoformat_string(local_dt)
+    example_dt_str = datetime_to_isoformat_string(local_dt)
     example_ems = datetime_to_epoch_ms(local_dt)
     html_strs += ["<br>",
                   "<p><b>Note:</b> If not specified, 'time' values can be provided in string or integer format</p>",
@@ -370,8 +370,8 @@ def snapshots_get_bounding_times(camera_select):
     min_dt, max_dt = snap_db.get_bounding_datetimes()
     bounding_times_dict = {"min_epoch_ms": min_epoch_ms,
                            "max_epoch_ms": max_epoch_ms,
-                           "min_datetime_isoformat": get_isoformat_string(min_dt),
-                           "max_datetime_isoformat": get_isoformat_string(max_dt)}
+                           "min_datetime_isoformat": datetime_to_isoformat_string(min_dt),
+                           "max_datetime_isoformat": datetime_to_isoformat_string(max_dt)}
     
     return jsonify(bounding_times_dict)
 

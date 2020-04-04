@@ -52,11 +52,10 @@ find_path_to_local()
 import sqlite3
 import cv2
 import numpy as np
-import datetime as dt
 
 from time import perf_counter
 
-from local.lib.common.timekeeper_utils import time_to_epoch_ms, parse_isoformat_string, get_isoformat_string
+from local.lib.common.timekeeper_utils import time_to_epoch_ms, parse_isoformat_string
 
 from local.lib.file_access_utils.reporting import build_camera_info_metadata_report_path
 from local.lib.file_access_utils.reporting import build_snapshot_image_report_path
@@ -76,7 +75,6 @@ from local.lib.file_access_utils.rules import new_rule_report_entry
 
 from local.lib.file_access_utils.read_write import load_jgz, fast_json_stringify, fast_json_to_dict
 
-from local.eolib.utils.cli_tools import cli_prompt_with_defaults
 from local.eolib.utils.files import get_file_list, get_folder_list
 from local.eolib.utils.quitters import ide_quit
 
