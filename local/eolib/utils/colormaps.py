@@ -436,6 +436,78 @@ def twilight_colormap(gamma = 1.0):
     return resized_lut
 
 # .....................................................................................................................
+
+def create_interpolated_colormap(count_and_bgr_dict, normalized_keys = False):
+    
+    '''
+    Helper function for generating colormaps with interpolated values.
+    
+    Expects an input dictionary in the form of:
+        {
+          0: (0, 255, 0),
+          2: (0, 255, 255),
+          5: (0, 0, 255),
+          10: (255, 255, 255)
+        }
+    Note that the dictionary keys correspond to target values
+    and the values correspond to the color mapped to that value.
+    
+    The counts do not need to be sequential, the function will interpolate the colors between values.
+    Also, the function will automatically assign the same color 
+    to all counts below or above the provided keys!
+    
+    Note that if normalized_keys is True, the keys should be given as floating point values, between 0.0 and 1.0
+    '''
+    
+    # Get sorted counts, so we can order input bgr values properly
+    sorted_counts = sorted(count_and_bgr_dict.keys())
+    sorted_counts_as_ints = sorted_counts
+    
+    # If the input keys are normalized, scale them to uint8 range
+    if normalized_keys:
+        sorted_counts_as_ints = [int(round(each_value * 255)) for each_value in sorted_counts]
+    
+    # Find min/max counts and catch out-of-bounds errors
+    min_count = min(sorted_counts_as_ints)
+    max_count = max(sorted_counts_as_ints)
+    if min_count < 0:
+        min_allowed = 0.0 if normalized_keys else 0
+        raise ValueError("Can't input counts below {} using this function!".format(min_allowed))
+    if max_count > 255:
+        max_allowed = 1.0 if normalized_keys else 255
+        raise ValueError("Can't input counts above {} using this function!".format(max_allowed))
+    
+    # Build inital (empty) array to store provided colors
+    input_blue_list = []
+    input_green_list = []
+    input_red_list = []
+    
+    # Build separate lists for each color, which we'll interpolate
+    for row_idx, each_count in enumerate(sorted_counts):
+        blue_val, green_val, red_val = count_and_bgr_dict[each_count]
+        input_blue_list.append(blue_val)
+        input_green_list.append(green_val)
+        input_red_list.append(red_val)
+    
+    # Build target indices for interpolation
+    low_missing_idxs = np.arange(0, min_count)
+    provided_idxs = np.arange(min_count, max_count)
+    high_missing_idxs = np.arange(max_count, 256)
+    target_idxs = np.hstack((low_missing_idxs, provided_idxs, high_missing_idxs))
+    
+    # Perform interpolation to get all unspecified indices
+    interp_list = lambda input_list: np.interp(target_idxs, sorted_counts_as_ints, input_list)
+    interp_blue_array = interp_list(input_blue_list)
+    interp_green_array = interp_list(input_green_list)
+    interp_red_array = interp_list(input_red_list)
+    
+    # Build lookup table
+    lut = np.uint8(np.round(np.vstack((interp_blue_array, interp_green_array, interp_red_array)).T))
+    lut_1_by_256_by_3 = np.expand_dims(lut, 0)
+    
+    return lut_1_by_256_by_3
+
+# .....................................................................................................................
     
 def gamma_correct(lut, gamma):
     
