@@ -59,8 +59,13 @@ from local.lib.ui_utils.local_ui.windows_base import Simple_Window
 from local.offline_database.file_database import launch_file_db, close_dbs_if_missing_data
 from local.offline_database.object_reconstruction import Smoothed_Object_Reconstruction as Obj_Recon
 from local.offline_database.classification_reconstruction import set_object_classification_and_colors
+from local.offline_database.classification_reconstruction import create_object_class_dict
 
 from local.eolib.utils.cli_tools import Datetime_Input_Parser as DTIP
+
+from local.eolib.utils.colormaps import create_interpolated_colormap
+
+from local.eolib.video.imaging import image_1d_to_3d, color_list_to_image, vstack_padded
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
@@ -112,24 +117,127 @@ class Hover_Callback:
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-#%% Define functions
+#%% Playback helper functions
 
 # .....................................................................................................................
 
-def redraw_timebar_base(blank_timebar, start_idx, end_idx, max_idx, highlight_color = (80,80,80)):
+def get_playback_pixel_location(start_time, end_time, current_time, frame_width, total_time = None):
+    
+    ''' Helper function for converting time into horizontal pixel location (for drawing timing onto playback bar) '''
+    
+    if total_time is None:
+        total_time = end_time - start_time
+    playback_progress = (current_time - start_time) / total_time
+    
+    playback_position_px = int(round(playback_progress * (frame_width - 1)))
+    
+    return playback_position_px
+
+# .....................................................................................................................
+
+def get_playback_line_coords(playback_position_px, playback_bar_height):
+    
+    '''
+    Helper function for generating the two points needed to indicate the
+    extent of the current snapshot on the playback indicator .
+    For cases with lots of snaps, this will be equivalent to a line, but for few snaps, it generates a rectangle!
+    '''
+    
+    pt1 = (playback_position_px, -5)
+    pt2 = (playback_position_px, playback_bar_height + 5)
+    
+    return pt1, pt2
+
+# .....................................................................................................................
+
+def redraw_density_base(original_density_image, start_idx, end_idx, max_idx, knock_out_color = (20,20,20)):
+    
+    if start_idx == 0 and end_idx == max_idx:
+        return original_density_image
+    
+    # Create a copy so we don't ruin the original
+    return_image = original_density_image.copy()
     
     # Get frame sizing so we know where to draw everything
-    frame_height, frame_width = blank_timebar.shape[0:2]
+    frame_height, frame_width = original_density_image.shape[0:2]
     width_scale = frame_width - 1
     
     # Calculate starting/ending points of the highlighted playback region
     x_start_px = int(round(width_scale * start_idx / max_idx))
     x_end_px = int(round(width_scale * end_idx / max_idx))
     
-    # Bundle x/y values for clarity
-    pt1 = (x_start_px, 0 - 10)
-    pt2 = (x_end_px, frame_height + 10)
-    return cv2.rectangle(blank_timebar.copy(), pt1, pt2, highlight_color, -1)
+    # Draw starting knockout (if needed)
+    if start_idx > 0:
+        pt_s1 = (0, 0)
+        pt_s2 = (x_start_px, frame_height + 10)
+        cv2.rectangle(return_image, pt_s1, pt_s2, knock_out_color, -1)
+    
+    # Draw ending knockout (if needed)
+    if end_idx < max_idx:
+        pt_e1 = (x_end_px, 0)
+        pt_e2 = (frame_width, frame_height + 10)
+        cv2.rectangle(return_image, pt_e1, pt_e2, knock_out_color, -1)
+    
+    return return_image
+
+# .....................................................................................................................
+# .....................................................................................................................
+
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Define functions
+
+# .....................................................................................................................
+
+def get_class_count_lists(snap_db, objclass_dict):
+
+    # Get counts for each class separately
+    objclass_count_lists_dict = {each_class_label: [] for each_class_label in objclass_dict.keys()}
+    for each_snap_time_ms in snap_times_ms_list:
+        
+        # Get snapshot timing info
+        snap_md = snap_db.load_snapshot_metadata(each_snap_time_ms)
+        snap_epoch_ms = snap_md["epoch_ms"]
+        
+        # Count up all the objects on each frame, for each class label
+        for each_class_label, each_obj_dict in objclass_dict.items():
+            objclass_count = 0
+            for each_obj_id, each_obj_ref in each_obj_dict.items():
+                is_on_snap = each_obj_ref.exists_at_target_time(snap_epoch_ms)
+                if is_on_snap:
+                    objclass_count += 1
+            
+            # Record the total count for each class label separately
+            objclass_count_lists_dict[each_class_label].append(objclass_count)
+    
+    return objclass_count_lists_dict
+
+# .....................................................................................................................
+
+def create_density_images(class_db, objclass_count_lists_dict, snap_width, 
+                          density_bar_height = 16, bar_bg_color = (40, 40, 40)):
+
+    # Create images to be appended to display, per class label
+    class_trail_colors_dict, class_outline_colors_dict = class_db.get_label_color_luts()
+    
+    # Create a single row density image, for each class label separately
+    density_images_dict = {each_class_label: None for each_class_label in objclass_dict.keys()}
+    for each_class_label, each_count_list in objclass_count_lists_dict.items():
+        
+        # Create scaled color map for each class label, with max count corresponding to full class color
+        max_count = max(each_count_list)
+        max_count = max(1, max_count)
+        count_bgr_dict = {0: bar_bg_color, max_count: class_outline_colors_dict[each_class_label]}
+        count_cmap = create_interpolated_colormap(count_bgr_dict)
+        
+        # Convert count list to an image
+        count_gray_img = image_1d_to_3d(color_list_to_image(each_count_list))
+        count_image_bar = cv2.LUT(count_gray_img, count_cmap)
+        
+        # Resize the count image to match the snapshots (for stacking) and apply color map
+        resized_density_image_bar = cv2.resize(count_image_bar, dsize = (snap_width, density_bar_height))
+        density_images_dict[each_class_label] = resized_density_image_bar
+
+    return density_images_dict
 
 # .....................................................................................................................
 # .....................................................................................................................
@@ -166,6 +274,7 @@ close_dbs_if_missing_data(snap_db, error_message_if_missing = "No snapshot data 
 # Get the maximum range of the data (based on the snapshots, because that's the most we could show)
 earliest_datetime, latest_datetime = snap_db.get_bounding_datetimes()
 snap_wh = cinfo_db.get_snap_frame_wh()
+snap_width, snap_height = snap_wh
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -177,12 +286,12 @@ user_start_dt, user_end_dt = DTIP.cli_prompt_start_end_datetimes(earliest_dateti
                                                                  debug_mode = enable_debug_mode)
 
 # Get all the snapshot times we'll need for animation
-snap_time_ms_list = snap_db.get_all_snapshot_times_by_time_range(user_start_dt, user_end_dt)
-num_snaps = len(snap_time_ms_list)
+snap_times_ms_list = snap_db.get_all_snapshot_times_by_time_range(user_start_dt, user_end_dt)
+num_snaps = len(snap_times_ms_list)
 
 # Get playback timing information
-start_snap_time_ms = snap_time_ms_list[0]
-end_snap_time_ms = snap_time_ms_list[-1]
+start_snap_time_ms = snap_times_ms_list[0]
+end_snap_time_ms = snap_times_ms_list[-1]
 total_ms_duration = end_snap_time_ms - start_snap_time_ms
 playback_progress = lambda current_time_ms: (current_snap_time_ms - start_snap_time_ms) / total_ms_duration
 
@@ -199,24 +308,36 @@ obj_list = Obj_Recon.create_reconstruction_list(obj_metadata_generator,
                                                 user_start_dt, 
                                                 user_end_dt)
 
+# Organize objects by class label -> then by object id (nested dictionaries)
+objclass_dict = create_object_class_dict(class_db, obj_list)
+
 # Load in classification data, if any
 set_object_classification_and_colors(class_db, obj_list)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
+#%% Generate density data
+
+# Get counts of each class label over time and generate an image representing the count by color intensity
+objclass_count_lists_dict = get_class_count_lists(snap_db, objclass_dict)
+density_images_dict = create_density_images(class_db, objclass_count_lists_dict, snap_width)
+
+# Create combined image with all density plots
+combined_density_bars = vstack_padded(*[each_img for each_img in density_images_dict.values()],
+                                        pad_height = 3,
+                                        prepend_separator = True,
+                                        append_separator = True)
+
+# Figure out combined bar height, for use with playback indicator
+combined_bar_height = combined_density_bars.shape[0]
+
+
+# ---------------------------------------------------------------------------------------------------------------------
 #%% Data playback
 
-# Create timebar to show playback location
-snap_width, snap_height = snap_wh
-timebar_height = 18
-blank_timebar = np.full((timebar_height, snap_width, 3), (40, 40, 40), dtype=np.uint8)
-tb_pt1 = lambda playback_pos: (playback_pos, -5)
-tb_pt2 = lambda playback_pos: (playback_pos, timebar_height + 5)
-
 # Get full frame sizing
-full_frame_height = snap_height + timebar_height
+full_frame_height = snap_height + combined_bar_height
 full_frame_wh = (snap_width, full_frame_height)
-timebar_normalized_y_thresh = snap_height / full_frame_height
 
 # Create window for display
 hover_callback = Hover_Callback(full_frame_wh)
@@ -257,15 +378,15 @@ use_frame_delay_ms = lambda pause_frame_delay, pause_mode: pause_frame_delay if 
 start_idx = 0
 end_idx = num_snaps
 
-# Create initial timebar base image, which includes highlights for playback region
-timebar_base = redraw_timebar_base(blank_timebar, start_idx, end_idx, num_snaps)
+# Create initial density base image, which may be re-drawn for reduced subset playback
+density_base = redraw_density_base(combined_density_bars, start_idx, end_idx, num_snaps)
 
 # Loop over snapshot times to generate the playback video
 snap_idx = 0
 while True:
     
     # Get the next snap time
-    current_snap_time_ms = snap_time_ms_list[snap_idx]
+    current_snap_time_ms = snap_times_ms_list[snap_idx]
     
     # Check for mouse clicks to update timebar position
     if hover_callback.clicked():
@@ -281,13 +402,14 @@ while True:
         each_obj.draw_outline(snap_image, snap_frame_idx, current_snap_time_ms)
         
     # Draw the timebar image with playback indicator
-    playback_px = int(round(playback_progress(current_snap_time_ms) * (snap_width - 1)))
-    timebar_image = timebar_base.copy()
-    timebar_image = cv2.rectangle(timebar_image, tb_pt1(playback_px), tb_pt2(playback_px), (255, 255, 255), 1)
-    timebar_image = cv2.line(timebar_image, (0, 0), (snap_width, 0), (40,40,40), 2)
+    playback_px = get_playback_pixel_location(start_snap_time_ms, end_snap_time_ms, current_snap_time_ms,
+                                              snap_width, total_time = total_ms_duration)
+    play_pt1, play_pt2 = get_playback_line_coords(playback_px, combined_bar_height)
+    density_image = density_base.copy()
+    density_image = cv2.rectangle(density_image, play_pt1, play_pt2, (255, 255, 255), 1)
     
     # Display the snapshot image, but stop if the window is closed
-    combined_image = np.vstack((snap_image, timebar_image))
+    combined_image = np.vstack((snap_image, density_image))
     winexists = disp_window.imshow(combined_image)
     if not winexists:
         break
@@ -314,14 +436,14 @@ while True:
         
     elif keypress == one_key:
         start_idx = snap_idx
-        timebar_base = redraw_timebar_base(blank_timebar, start_idx, end_idx, num_snaps)
+        density_base = redraw_density_base(combined_density_bars, start_idx, end_idx, num_snaps)
     elif keypress == two_key:
         end_idx = snap_idx
-        timebar_base = redraw_timebar_base(blank_timebar, start_idx, end_idx, num_snaps)
+        density_base = redraw_density_base(combined_density_bars, start_idx, end_idx, num_snaps)
     elif keypress == zero_key:
         start_idx = 0
         end_idx = num_snaps
-        timebar_base = redraw_timebar_base(blank_timebar, start_idx, end_idx, num_snaps)
+        density_base = redraw_density_base(combined_density_bars, start_idx, end_idx, num_snaps)
     
     # Update the snapshot index with looping
     if not pause_mode:
@@ -339,10 +461,4 @@ cv2.destroyAllWindows()
 #%% Scrap
 
 # TODO:
-# - add timebar indicator to show when objects are present
 # - add smoothing controls (at least enabled/disable)
-# - handle object timing/frame index matching better...
-#       - When data is reset (i.e. multiple captures) frame index is also reset!
-#       - frame index reset causes errors in replay, due to duplicate index values
-#       - need to add additional check on snap timing, to filter out objects not in correct time range
-

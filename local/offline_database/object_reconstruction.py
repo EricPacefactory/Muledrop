@@ -157,6 +157,14 @@ class Object_Reconstruction:
     
     # .................................................................................................................
     
+    def exists_at_target_time(self, epoch_ms):
+        
+        ''' Helper function for deciding if an object existed at a given time (in epoch_ms format) '''
+        
+        return (self.start_ems <= epoch_ms < self.end_ems)
+    
+    # .................................................................................................................
+    
     def get_bounding_epoch_ms(self):
         
         ''' Function used to return the start/end timing of the object. Useful for syncing with snapshots '''
@@ -232,9 +240,9 @@ class Object_Reconstruction:
                      line_color = None, line_thickness = 1):
         
         # If a snapshot time is provided, make sure the object existed during the given time!
-        if snapshot_epoch_ms is not None:            
-            in_time_range = (self.start_ems <= snapshot_epoch_ms < self.end_ems)
-            if not in_time_range:
+        if snapshot_epoch_ms is not None:
+            exists_on_snap = self.exists_at_target_time(snapshot_epoch_ms)
+            if not exists_on_snap:
                 return output_frame
         
         # Get hull data, if it exists
@@ -266,8 +274,8 @@ class Object_Reconstruction:
         
         # If a snapshot time is provided, make sure the object existed during the given time!
         if snapshot_epoch_ms is not None:            
-            in_time_range = (self.start_ems <= snapshot_epoch_ms < self.end_ems)
-            if not in_time_range:
+            exists_on_snap = self.exists_at_target_time(snapshot_epoch_ms)
+            if not exists_on_snap:
                 return output_frame
         
         # Get reduced data set for plotting
@@ -307,8 +315,8 @@ class Object_Reconstruction:
         
         # If a snapshot time is provided, make sure the object existed during the given time!
         if snapshot_epoch_ms is not None:            
-            in_time_range = (self.start_ems <= snapshot_epoch_ms < self.end_ems)
-            if not in_time_range:
+            exists_on_snap = self.exists_at_target_time(snapshot_epoch_ms)
+            if not exists_on_snap:
                 return output_frame
         
         # Get trail segment for plotting
@@ -339,6 +347,34 @@ class Object_Reconstruction:
                       color = line_color,
                       thickness = line_thickness,
                       lineType = cv2.LINE_AA)
+        
+        return output_frame
+    
+    # .................................................................................................................
+    
+    def draw_object_full_id(self, output_frame, frame_index, snapshot_epoch_ms = None):
+        
+        ''' Meant to help with debugging '''
+        
+        # If a snapshot time is provided, make sure the object existed during the given time!
+        if snapshot_epoch_ms is not None:            
+            exists_on_snap = self.exists_at_target_time(snapshot_epoch_ms)
+            if not exists_on_snap:
+                return output_frame
+        
+        # Don't bother trying to draw anything if there aren't any samples!
+        valid_index, rel_idx = self._index_in_dataset(frame_index)
+        if not valid_index:
+            return output_frame
+        
+        obj_full_id = self.full_id
+        xy_cen_px  = np.int32(np.round(self.trail_xy[rel_idx] * self.frame_scaling_array))
+        cv2.putText(output_frame, str(obj_full_id), tuple(xy_cen_px), 
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    1.0,
+                    (255, 255, 255),
+                    1, 
+                    cv2.LINE_AA)
         
         return output_frame
     
