@@ -265,7 +265,7 @@ snap_times_ms_list = snap_db.get_all_snapshot_times_by_time_range(user_start_dt,
 
 # Estimate the 'framerate' of the snapshots, based on the average time difference between them
 average_snap_timedelta_ms = np.round(np.mean(np.diff(snap_times_ms_list)))
-snapshot_fps = average_snap_timedelta_ms / 1000.0
+snapshot_fps = (1000.0 / average_snap_timedelta_ms)
 
 # Determine a reasonble 'default' timelapse factor (so that the output video isn't horribly choppy)
 maximum_fps = 30.0
