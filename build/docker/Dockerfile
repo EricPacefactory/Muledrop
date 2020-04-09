@@ -23,6 +23,9 @@ libsm6 libxext6 libxrender-dev
 # -----------------------------------------------------------------------------
 #%% Set environment variables
 
+# Create a 'home' folder path to avoid storing everything in the root fs
+ENV HOME                        /home/scv2s
+
 # Set pathing to the camera configuration folder
 ENV CAMERAS_FOLDER_PATH         $HOME/cameras
 
@@ -38,6 +41,9 @@ ENV UPSERVER_PORT               8181
 # -----------------------------------------------------------------------------
 #%% Setup python 
 
+# Work with files outside of the root fs
+WORKDIR $HOME/realtime
+
 # Install python requirements
 COPY requirements.txt $HOME/realtime
 RUN pip3 install -r requirements.txt
@@ -47,7 +53,6 @@ RUN pip3 install -r requirements.txt
 #%% Launch!
 
 # Move system files into the image
-WORKDIR $HOME/realtime
 COPY . .
 
 # Run the upload server! This is a blocking call...
