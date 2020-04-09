@@ -619,8 +619,8 @@ class Snap_DB(File_DB):
         
         # Build command string for getting all snapshot times between start/end
         select_cmd = "SELECT epoch_ms FROM {} WHERE epoch_ms BETWEEN {} and {}".format(self._table_name(), 
-                                                                                               start_epoch_ms, 
-                                                                                               end_epoch_ms)
+                                                                                       start_epoch_ms,
+                                                                                       end_epoch_ms)
         
         # Get data from database!
         cursor = self._cursor()
