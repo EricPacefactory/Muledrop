@@ -209,10 +209,11 @@ def create_new_camera_entry(selector, camera_select):
 
 # .....................................................................................................................
 
-def request_caminfo_metadata(server_url, camera_select):
+def request_caminfo_metadata(server_url, camera_select, start_epoch_ms, end_epoch_ms):
     
     # Build route for requesting all camera info metadata
-    request_url = build_request_url(server_url, camera_select, "camerainfo", "get-all-camera-info")
+    request_url = build_request_url(server_url, camera_select, "camerainfo", "get-many-camera-info",
+                                    start_epoch_ms, end_epoch_ms)
     
     # Grab camera info data (with feedback)
     print("", "Downloading camera info metadata...", sep = "\n", end = " ")
@@ -484,7 +485,7 @@ delete_existing_report_data(cameras_folder_path, camera_select, user_select,
 #%% Get camera info
 
 # Request all camera info metadata & save it
-many_caminfo_metadata_list = request_caminfo_metadata(server_url, camera_select)
+many_caminfo_metadata_list = request_caminfo_metadata(server_url, camera_select, start_epoch_ms, end_epoch_ms)
 save_caminfo_metadata(cameras_folder_path, camera_select, user_select, many_caminfo_metadata_list)
 
 
