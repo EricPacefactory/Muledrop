@@ -360,7 +360,7 @@ def post_many_images_to_server(server_url, camera_select, collection_name, image
     post_kwargs = {"headers": {"Content-Type": "image/jpeg"},
                    "auth": ("", ""),
                    "verify": False,
-                   "timeout": 10.0}    
+                   "timeout": 10.0}
     
     # Only post the newest images
     error_message_list = []
@@ -508,7 +508,7 @@ def create_logger(cameras_folder_path, camera_select, enabled = True):
     ''' Helper function to standardize the logger inputs, in case we use it when running this script directly '''
     
     logging_folder_path = build_post_db_log_path(cameras_folder_path, camera_select)
-    logger = Daily_Logger(logging_folder_path, log_files_to_keep = 20, enabled = enabled)
+    logger = Daily_Logger(logging_folder_path, log_files_to_keep = 10, enabled = enabled)
     
     return logger
 
@@ -522,10 +522,11 @@ def check_server_connection(server_url):
     status_check_url = "{}/is-alive".format(server_url)
     
     # Request status check from the server
+    server_is_alive = False
     try:
         server_response = requests.get(status_check_url, timeout = 10)
         server_is_alive = (server_response.status_code == 200)
-    except requests.ConnectionError:
+    except (requests.ConnectionError, requests.exceptions.ReadTimeout):
         server_is_alive = False
     
     return server_is_alive
