@@ -78,21 +78,21 @@ from local.eolib.utils.quitters import ide_quit
 
 def parse_record_args():
     
-    default_output_path = "~/Desktop"
+    default_output_path = os.path.join("~", "Desktop")
     default_codec = "avc1"
     default_recording_ext = "mp4"
     
     # Set up argument parsing
     ap = argparse.ArgumentParser(formatter_class = argparse.RawTextHelpFormatter)
     ap.add_argument("-o", "--output", default = default_output_path, type = str,
-                    help = "Base folder path for the recorded video file. \
-                            \n(Default: {})".format(default_output_path))
+                    help = "\n".join(["Base folder path for the recorded video file.",
+                                      "(Default: {})".format(default_output_path)]))
     ap.add_argument("-x", "--extension", default = default_recording_ext, type = str,
-                    help = "File extension of the recorded video (avi, mp4, mkv, etc.). \
-                            \n(Default: {})".format(default_recording_ext))
+                    help = "\n".join(["File extension of the recorded video (avi, mp4, mkv, etc.).",
+                            "(Default: {})".format(default_recording_ext)]))
     ap.add_argument("-c", "--codec", default = default_codec, type = str,
-                    help = "FourCC code used for recording (avc1, X264, XVID, MJPG, mp4v, etc.). \
-                            \n(Default: {})".format(default_codec))
+                    help = "\n".join(["FourCC code used for recording (avc1, X264, XVID, MJPG, mp4v, etc.).",
+                            "(Default: {})".format(default_codec)]))
     
     # Get arg inputs into a dictionary
     args = vars(ap.parse_args())
