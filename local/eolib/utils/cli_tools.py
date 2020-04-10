@@ -259,25 +259,29 @@ class Datetime_Input_Parser:
         if print_help_before_prompt:
             cls.print_dt_str_input_help()
         
+        # Round bounding times to nearest second, since user input only accepts seconds
+        rounded_start_dt = bounding_start_dt.replace(microsecond = 0)
+        rounded_end_dt = (bounding_end_dt + dt.timedelta(microseconds = 999999)).replace(microsecond = 0)
+        
         # Decide how to display the default date/times
-        different_dates = (bounding_start_dt.date() != bounding_end_dt.date())
+        different_dates = (rounded_start_dt.date() != rounded_end_dt.date())
         show_dates = (always_show_date or different_dates)
         default_display_format = cls.datetime_format if show_dates else cls.time_format
         
         # Provide user with start date/time prompt
-        default_start_str = bounding_start_dt.strftime(default_display_format)
+        default_start_str = rounded_start_dt.strftime(default_display_format)
         start_str = cli_prompt_with_defaults(start_dt_prompt, default_start_str, debug_mode = debug_mode)
         
         # Provide user with end date/time prompt
-        default_end_str = bounding_end_dt.strftime(default_display_format)
+        default_end_str = rounded_end_dt.strftime(default_display_format)
         end_str = cli_prompt_with_defaults(end_dt_prompt, default_end_str, debug_mode = debug_mode)
         
         # Parse user inputs to generate output datetimes
-        user_start_dt, user_end_dt = cls.parse_user_datetimes(start_str, end_str, bounding_start_dt, bounding_end_dt)
+        user_start_dt, user_end_dt = cls.parse_user_datetimes(start_str, end_str, rounded_start_dt, rounded_end_dt)
         
         # Add timezone info back into results
-        user_start_dt = user_start_dt.replace(tzinfo = bounding_start_dt.tzinfo)
-        user_end_dt = user_end_dt.replace(tzinfo = bounding_end_dt.tzinfo)
+        user_start_dt = user_start_dt.replace(tzinfo = rounded_start_dt.tzinfo)
+        user_end_dt = user_end_dt.replace(tzinfo = rounded_end_dt.tzinfo)
         
         return user_start_dt, user_end_dt
 
@@ -464,7 +468,7 @@ class Datetime_Input_Parser:
     def print_dt_str_input_help(cls):
         
         # Build an example datetime
-        example_dt = dt.datetime.now()
+        example_dt = dt.datetime(2020, 1, 2, 23, 22, 21)
         example_dt_str = example_dt.strftime(cls.datetime_format)
         
         print("", 
@@ -1134,8 +1138,8 @@ if __name__ == "__main__":
     cli_confirm("True or not?", default_response = True, true_indicator = "Correct")
     
     # Test datetime parser
-    sdt = dt.datetime(2020, 3, 11, 11, 5, 0)
-    edt = dt.datetime(2020, 3, 11, 14, 0, 0)
+    sdt = dt.datetime(2020, 3, 11, 11, 5, 0, 1)
+    edt = dt.datetime(2020, 3, 11, 14, 0, 0, 1)
     start_dt, end_dt = Datetime_Input_Parser.cli_prompt_start_end_datetimes(sdt, edt)
     
     print(start_dt.strftime(Datetime_Input_Parser.datetime_format))
