@@ -49,6 +49,7 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
+import argparse
 import cv2
 import numpy as np
 
@@ -56,16 +57,18 @@ from local.lib.ui_utils.cli_selections import Resource_Selector
 
 from local.lib.ui_utils.local_ui.windows_base import Simple_Window
 
+from local.lib.common.timekeeper_utils import parse_isoformat_string, fake_datetime_like
+
 from local.offline_database.file_database import launch_file_db, close_dbs_if_missing_data
 from local.offline_database.object_reconstruction import Smoothed_Object_Reconstruction as Obj_Recon
 from local.offline_database.classification_reconstruction import set_object_classification_and_colors
 from local.offline_database.classification_reconstruction import create_object_class_dict
 
 from local.eolib.utils.cli_tools import Datetime_Input_Parser as DTIP
-
 from local.eolib.utils.colormaps import create_interpolated_colormap
-
 from local.eolib.video.imaging import image_1d_to_3d, color_list_to_image, vstack_padded
+from local.eolib.video.text_rendering import position_frame_relative, font_config, simple_text
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
@@ -117,7 +120,160 @@ class Hover_Callback:
 
 
 # ---------------------------------------------------------------------------------------------------------------------
+#%% Define functions
+
+# .....................................................................................................................
+
+def parse_replay_args():
+    
+    # Set defaults
+    default_timestamp_pos = None
+    default_relative_timestamp = False
+    
+    # Set up argument parsing
+    ap = argparse.ArgumentParser(formatter_class = argparse.RawTextHelpFormatter)
+    ap.add_argument("-t", "--timestamp_position", default = default_timestamp_pos, type = str,
+                    help = "\n".join(["Set the position of a timestamp to be overlayed on the replay.",
+                                      "Can be set to:",
+                                      "  tl, tr, bl, br",
+                                      "Corresponding to (t)op, (b)ottom, (l)eft and (r)ight.",
+                                      "If not set, a timestamp will not be added."]))
+    
+    ap.add_argument("-r", "--relative_timestamp", default = default_relative_timestamp, action = "store_true",
+                    help = "\n".join(["If enabled, the overlayed timestamp will report relative time",
+                                      "(e.g. video time) as opposed to absolute time.",
+                                      "Note, a timestamp position must be set to see the timestamp!"]))
+    
+    # Get arg inputs into a dictionary
+    args = vars(ap.parse_args())
+    
+    # Get script arg values
+    arg_timestamp_position = args["timestamp_position"]
+    arg_relative_timestamp = args["relative_timestamp"]
+    
+    return arg_timestamp_position, arg_relative_timestamp
+
+# .....................................................................................................................
+
+def get_class_count_lists(snap_db, objclass_dict):
+
+    # Get counts for each class separately
+    objclass_count_lists_dict = {each_class_label: [] for each_class_label in objclass_dict.keys()}
+    for each_snap_time_ms in snap_times_ms_list:
+        
+        # Get snapshot timing info
+        snap_md = snap_db.load_snapshot_metadata(each_snap_time_ms)
+        snap_epoch_ms = snap_md["epoch_ms"]
+        
+        # Count up all the objects on each frame, for each class label
+        for each_class_label, each_obj_dict in objclass_dict.items():
+            objclass_count = 0
+            for each_obj_id, each_obj_ref in each_obj_dict.items():
+                is_on_snap = each_obj_ref.exists_at_target_time(snap_epoch_ms)
+                if is_on_snap:
+                    objclass_count += 1
+            
+            # Record the total count for each class label separately
+            objclass_count_lists_dict[each_class_label].append(objclass_count)
+    
+    return objclass_count_lists_dict
+
+# .....................................................................................................................
+
+def create_density_images(class_db, objclass_count_lists_dict, snap_width, 
+                          density_bar_height = 16, bar_bg_color = (40, 40, 40)):
+    
+    # Return a blank image if no class data is available
+    density_images_dict = {each_class_label: None for each_class_label in objclass_dict.keys()}
+    if not objclass_count_lists_dict:
+        blank_bar = np.full((density_bar_height, snap_width, 3), bar_bg_color, dtype = np.uint8)
+        density_images_dict["unclassified"] = blank_bar
+
+    # Create images to be appended to display, per class label
+    class_trail_colors_dict, class_outline_colors_dict = class_db.get_label_color_luts()
+    
+    # Create a single row density image, for each class label separately
+    for each_class_label, each_count_list in objclass_count_lists_dict.items():
+        
+        # Create scaled color map for each class label, with max count corresponding to full class color
+        max_count = max(each_count_list)
+        max_count = max(1, max_count)
+        count_bgr_dict = {0: bar_bg_color, max_count: class_outline_colors_dict[each_class_label]}
+        count_cmap = create_interpolated_colormap(count_bgr_dict)
+        
+        # Convert count list to an image
+        count_gray_img = image_1d_to_3d(color_list_to_image(each_count_list))
+        count_image_bar = cv2.LUT(count_gray_img, count_cmap)
+        
+        # Resize the count image to match the snapshots (for stacking) and apply color map
+        resized_density_image_bar = cv2.resize(count_image_bar, dsize = (snap_width, density_bar_height))
+        density_images_dict[each_class_label] = resized_density_image_bar
+
+    return density_images_dict
+
+# .....................................................................................................................
+
+def create_combined_density_image(density_images_dict):
+    
+    # Create combined image with all density plots
+    image_list = [each_img for each_img in density_images_dict.values()]
+    combined_density_bars = vstack_padded(*image_list, 
+                                          pad_height = 3, 
+                                          prepend_separator = True, 
+                                          append_separator = True)
+    
+    # Figure out combined bar height, for use with playback indicator
+    combined_bar_height = combined_density_bars.shape[0]
+    
+    return combined_density_bars, combined_bar_height
+
+# .....................................................................................................................
+# .....................................................................................................................
+
+# ---------------------------------------------------------------------------------------------------------------------
 #%% Playback helper functions
+
+# .....................................................................................................................
+
+def draw_timestamp(display_frame, snapshot_metadata, fg_config, bg_config, replay_start_dt, use_relative_time, 
+                   text_position = None):
+    
+    # Don't draw the timestamp if there is no position data
+    if text_position is None:
+        return display_frame
+    
+    # For clarity
+    centered = False
+    
+    # Get snapshot timing info
+    datetime_isoformat = snapshot_metadata["datetime_isoformat"]
+    snap_dt = parse_isoformat_string(datetime_isoformat)
+    
+    # Convert timing to 'relative' time, if needed
+    if use_relative_time:
+        snap_dt = (snap_dt - replay_start_dt) + fake_datetime_like(snap_dt)
+    
+    # Draw timestamp with background/foreground to help separate from video background
+    snap_dt_str = snap_dt.strftime("%H:%M:%S")
+    simple_text(display_frame, snap_dt_str, text_position, centered, **bg_config)
+    simple_text(display_frame, snap_dt_str, text_position, centered, **fg_config)
+    
+    return display_frame
+
+# .....................................................................................................................
+    
+def get_timestamp_location(timestamp_position_arg):
+    
+    # Use simple lookup to get the timestamp positioning
+    position_lut = {"tl": (3, 3), "tr": (-3, 3),
+                    "bl": (3, -1), "br": (-3, -1)}
+    
+    # If we can't get the position (either wasn't provided, or incorrectly specified), then we won't return anything
+    relative_position = position_lut.get(timestamp_position_arg, None)
+    if relative_position is None:
+        return None
+    
+    return position_frame_relative(snap_shape, "00:00:00", relative_position, **fg_font_config)
 
 # .....................................................................................................................
 
@@ -137,11 +293,7 @@ def get_playback_pixel_location(start_time, end_time, current_time, frame_width,
 
 def get_playback_line_coords(playback_position_px, playback_bar_height):
     
-    '''
-    Helper function for generating the two points needed to indicate the
-    extent of the current snapshot on the playback indicator .
-    For cases with lots of snaps, this will be equivalent to a line, but for few snaps, it generates a rectangle!
-    '''
+    ''' Helper function for generating the two points needed to indicate the playback position '''
     
     pt1 = (playback_position_px, -5)
     pt2 = (playback_position_px, playback_bar_height + 5)
@@ -152,6 +304,9 @@ def get_playback_line_coords(playback_position_px, playback_bar_height):
 
 def redraw_density_base(original_density_image, start_idx, end_idx, max_idx, knock_out_color = (20,20,20)):
     
+    ''' Helper function for blanking out regions of the playback back, when looping over shorter sections '''
+    
+    # Don't do anything if a subset of the timeline hasn't been selected
     if start_idx == 0 and end_idx == max_idx:
         return original_density_image
     
@@ -184,63 +339,9 @@ def redraw_density_base(original_density_image, start_idx, end_idx, max_idx, kno
 # .....................................................................................................................
 
 # ---------------------------------------------------------------------------------------------------------------------
-#%% Define functions
+#%% Get script arguments
 
-# .....................................................................................................................
-
-def get_class_count_lists(snap_db, objclass_dict):
-
-    # Get counts for each class separately
-    objclass_count_lists_dict = {each_class_label: [] for each_class_label in objclass_dict.keys()}
-    for each_snap_time_ms in snap_times_ms_list:
-        
-        # Get snapshot timing info
-        snap_md = snap_db.load_snapshot_metadata(each_snap_time_ms)
-        snap_epoch_ms = snap_md["epoch_ms"]
-        
-        # Count up all the objects on each frame, for each class label
-        for each_class_label, each_obj_dict in objclass_dict.items():
-            objclass_count = 0
-            for each_obj_id, each_obj_ref in each_obj_dict.items():
-                is_on_snap = each_obj_ref.exists_at_target_time(snap_epoch_ms)
-                if is_on_snap:
-                    objclass_count += 1
-            
-            # Record the total count for each class label separately
-            objclass_count_lists_dict[each_class_label].append(objclass_count)
-    
-    return objclass_count_lists_dict
-
-# .....................................................................................................................
-
-def create_density_images(class_db, objclass_count_lists_dict, snap_width, 
-                          density_bar_height = 16, bar_bg_color = (40, 40, 40)):
-
-    # Create images to be appended to display, per class label
-    class_trail_colors_dict, class_outline_colors_dict = class_db.get_label_color_luts()
-    
-    # Create a single row density image, for each class label separately
-    density_images_dict = {each_class_label: None for each_class_label in objclass_dict.keys()}
-    for each_class_label, each_count_list in objclass_count_lists_dict.items():
-        
-        # Create scaled color map for each class label, with max count corresponding to full class color
-        max_count = max(each_count_list)
-        max_count = max(1, max_count)
-        count_bgr_dict = {0: bar_bg_color, max_count: class_outline_colors_dict[each_class_label]}
-        count_cmap = create_interpolated_colormap(count_bgr_dict)
-        
-        # Convert count list to an image
-        count_gray_img = image_1d_to_3d(color_list_to_image(each_count_list))
-        count_image_bar = cv2.LUT(count_gray_img, count_cmap)
-        
-        # Resize the count image to match the snapshots (for stacking) and apply color map
-        resized_density_image_bar = cv2.resize(count_image_bar, dsize = (snap_width, density_bar_height))
-        density_images_dict[each_class_label] = resized_density_image_bar
-
-    return density_images_dict
-
-# .....................................................................................................................
-# .....................................................................................................................
+timestamp_pos_arg, enable_relative_timestamp = parse_replay_args()
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Select camera/user
@@ -293,7 +394,6 @@ num_snaps = len(snap_times_ms_list)
 start_snap_time_ms = snap_times_ms_list[0]
 end_snap_time_ms = snap_times_ms_list[-1]
 total_ms_duration = end_snap_time_ms - start_snap_time_ms
-playback_progress = lambda current_time_ms: (current_snap_time_ms - start_snap_time_ms) / total_ms_duration
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -322,18 +422,18 @@ set_object_classification_and_colors(class_db, obj_list)
 objclass_count_lists_dict = get_class_count_lists(snap_db, objclass_dict)
 density_images_dict = create_density_images(class_db, objclass_count_lists_dict, snap_width)
 
-# Create combined image with all density plots
-combined_density_bars = vstack_padded(*[each_img for each_img in density_images_dict.values()],
-                                        pad_height = 3,
-                                        prepend_separator = True,
-                                        append_separator = True)
-
-# Figure out combined bar height, for use with playback indicator
-combined_bar_height = combined_density_bars.shape[0]
+# Create a combined image from all the class density images
+combined_density_bars, combined_bar_height = create_combined_density_image(density_images_dict)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Data playback
+
+# Set up timestamp text config, in case it's needed
+snap_shape = (snap_height, snap_width, 3)
+fg_font_config = font_config(scale = 0.35, color = (255, 255, 255))
+bg_font_config = font_config(scale = 0.35, color = (0, 0, 0), thickness = 2)
+timestamp_xy = get_timestamp_location(timestamp_pos_arg)
 
 # Get full frame sizing
 full_frame_height = snap_height + combined_bar_height
@@ -396,6 +496,7 @@ while True:
             snap_idx = int(round(mouse_x * num_snaps))
     
     # Load each snapshot image & draw object annoations over top
+    snap_md = snap_db.load_snapshot_metadata(current_snap_time_ms)
     snap_image, snap_frame_idx = snap_db.load_snapshot_image(current_snap_time_ms)    
     for each_obj in obj_list:
         each_obj.draw_trail(snap_image, snap_frame_idx, current_snap_time_ms)
@@ -406,7 +507,11 @@ while True:
                                               snap_width, total_time = total_ms_duration)
     play_pt1, play_pt2 = get_playback_line_coords(playback_px, combined_bar_height)
     density_image = density_base.copy()
-    density_image = cv2.rectangle(density_image, play_pt1, play_pt2, (255, 255, 255), 1)
+    density_image = cv2.line(density_image, play_pt1, play_pt2, (255, 255, 255), 1)
+    
+    # Draw timestamp over replay image, if needed
+    timestamp_image = draw_timestamp(snap_image, snap_md, fg_font_config, bg_font_config, 
+                                     user_start_dt, enable_relative_timestamp, timestamp_xy)
     
     # Display the snapshot image, but stop if the window is closed
     combined_image = np.vstack((snap_image, density_image))
@@ -431,8 +536,10 @@ while True:
         
     elif keypress in up_arrow_keys:
         play_frame_delay = max(1, play_frame_delay - 5)
+        snap_idx = snap_idx - 1
     elif keypress in down_arrow_keys:
         play_frame_delay = min(1000, play_frame_delay + 5)
+        snap_idx = snap_idx - 1
         
     elif keypress == one_key:
         start_idx = snap_idx

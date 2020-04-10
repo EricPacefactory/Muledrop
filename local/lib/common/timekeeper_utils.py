@@ -238,6 +238,12 @@ def get_utc_tzinfo():
     return dt.timezone.utc
 
 # .....................................................................................................................
+# .....................................................................................................................
+
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Conversion functions
+
+# .....................................................................................................................
 
 def parse_isoformat_string(isoformat_datetime_str):
     
@@ -351,7 +357,35 @@ def time_to_epoch_ms(time_value):
 
 # .....................................................................................................................
 # .....................................................................................................................
+
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Misc functions
+
+# .....................................................................................................................
+
+def fake_datetime_like(reference_datetime, 
+                       fake_year = None, fake_month = None, fake_day = None,
+                       fake_hour = 0, fake_minute = 0, fake_second = 0, fake_tzinfo = None):
     
+    ''' 
+    Creates a 'fake' datetime, based on an input datetime. 
+    Inputs that are set to None will copy from the input datetime
+    Likely used to generate 'zeroed' time components from an existing datetime (i.e. start of day datetime)
+    '''
+    
+    set_from_ref = lambda ref_value, fake_value: ref_value if fake_value is None else fake_value
+    return dt.datetime(set_from_ref(reference_datetime.year, fake_year),
+                       set_from_ref(reference_datetime.month, fake_month),
+                       set_from_ref(reference_datetime.day, fake_day),
+                       set_from_ref(reference_datetime.hour, fake_hour),
+                       set_from_ref(reference_datetime.minute, fake_minute),
+                       set_from_ref(reference_datetime.second, fake_second),
+                       tzinfo = set_from_ref(reference_datetime.tzinfo, fake_tzinfo))
+
+# .....................................................................................................................
+# .....................................................................................................................
+
+
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Demo
 
