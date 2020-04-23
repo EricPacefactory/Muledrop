@@ -168,6 +168,7 @@ def save_single_supervised_label(cameras_folder_path, camera_select, user_select
     
     # Build parent folder path
     svlabels_folder_path = build_supervised_labels_folder_path(cameras_folder_path, camera_select, user_select)
+    os.makedirs(svlabels_folder_path, exist_ok = True)
     
     # Build path to save target object data
     object_full_id = supervised_label_entry["full_id"]

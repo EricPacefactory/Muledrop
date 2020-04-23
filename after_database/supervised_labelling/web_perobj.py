@@ -67,10 +67,9 @@ from local.offline_database.object_reconstruction import Smoothed_Object_Reconst
 
 from local.lib.file_access_utils.classifier import load_reserved_labels_lut, load_topclass_labels_lut
 
-from local.lib.file_access_utils.supervised_labels import load_all_supervised_labels, save_single_supervised_label, load_single_supervised_label
+from local.lib.file_access_utils.supervised_labels import save_single_supervised_label, load_single_supervised_label
 from local.lib.file_access_utils.supervised_labels import create_supervised_label_entry
 from local.lib.file_access_utils.supervised_labels import get_svlabel_topclass_label
-from local.lib.file_access_utils.supervised_labels import check_supervised_labels_exist
 
 from local.eolib.utils.quitters import ide_catcher, ide_quit
 
@@ -185,22 +184,6 @@ user_select, _ = selector.user(camera_select, debug_mode=enable_debug_mode)
 
 # Bundle pathing args for convenience
 pathing_args = (cameras_folder_path, camera_select, user_select)
-
-
-# ---------------------------------------------------------------------------------------------------------------------
-#%% Check for supervised label data
-
-sv_labels_exist = check_supervised_labels_exist(cameras_folder_path, camera_select, user_select)
-if not sv_labels_exist:
-    print("", 
-          "No supervised labels were found for:",
-          "  camera: {}".format(camera_select),
-          "    user: {}".format(user_select),
-          "",
-          "Nothing to label!",
-          "  -> Please collect data first, then try again.",
-          sep = "\n")
-    ide_quit()
 
 
 # ---------------------------------------------------------------------------------------------------------------------
