@@ -262,7 +262,7 @@ def draw_timestamp(display_frame, snapshot_metadata, fg_config, bg_config, repla
 
 # .....................................................................................................................
     
-def get_timestamp_location(timestamp_position_arg):
+def get_timestamp_location(timestamp_position_arg, snap_shape, fg_font_config):
     
     # Use simple lookup to get the timestamp positioning
     position_lut = {"tl": (3, 3), "tr": (-3, 3),
@@ -433,7 +433,7 @@ combined_density_bars, combined_bar_height = create_combined_density_image(densi
 snap_shape = (snap_height, snap_width, 3)
 fg_font_config = font_config(scale = 0.35, color = (255, 255, 255))
 bg_font_config = font_config(scale = 0.35, color = (0, 0, 0), thickness = 2)
-timestamp_xy = get_timestamp_location(timestamp_pos_arg)
+timestamp_xy = get_timestamp_location(timestamp_pos_arg, snap_shape, fg_font_config)
 
 # Get full frame sizing
 full_frame_height = snap_height + combined_bar_height
