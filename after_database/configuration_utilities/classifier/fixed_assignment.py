@@ -51,8 +51,7 @@ find_path_to_local()
 
 from local.lib.ui_utils.cli_selections import Resource_Selector
 
-from local.lib.file_access_utils.classifier import build_classifier_config_path
-from local.lib.file_access_utils.read_write import load_config_json, save_config_json
+from local.lib.file_access_utils.classifier import load_matching_config, save_classifier_config
 
 from local.configurables.after_database.classifier.fixed_classifier import Classifier_Stage
 
@@ -63,57 +62,6 @@ from local.eolib.utils.cli_tools import cli_confirm, cli_select_from_list
 #%% Define functions
 
 # .....................................................................................................................
-
-def path_to_configuration_file(configurable_ref):
-    
-    # Get major pathing info from the configurable
-    cameras_folder_path = configurable_ref.cameras_folder_path
-    camera_select = configurable_ref.camera_select
-    user_select = configurable_ref.user_select
-    
-    return build_classifier_config_path(cameras_folder_path, camera_select, user_select)
-
-# .....................................................................................................................
-
-def load_matching_config(configurable_ref):
-    
-    # Build pathing to existing configuration file
-    load_path = path_to_configuration_file(configurable_ref)
-    
-    # Load existing config
-    config_data = load_config_json(load_path)
-    file_access_dict = config_data["access_info"]
-    setup_data_dict = config_data["setup_data"]
-    
-    # Get target script/class from the configurable, to see if the saved config matches
-    target_script_name = configurable_ref.script_name
-    target_class_name = configurable_ref.class_name
-    
-    # Check if file access matches
-    script_match = (target_script_name == file_access_dict["script_name"])
-    class_match = (target_class_name == file_access_dict["class_name"])
-    if script_match and class_match:
-        return setup_data_dict
-    
-    # If file acces doesn't match, return an empty setup dictionary
-    no_match_setup_data_dict = {}
-    return no_match_setup_data_dict
-
-# .....................................................................................................................
-
-def save_config(configurable_ref, file_dunder = __file__):
-    
-    # Figure out the name of this configuration script
-    config_utility_script_name, _ = os.path.splitext(os.path.basename(file_dunder))
-    
-    # Get file access info & current configuration data for saving
-    file_access_dict, setup_data_dict = configurable_ref.get_data_to_save()
-    file_access_dict.update({"configuration_utility": config_utility_script_name})
-    save_data = {"access_info": file_access_dict, "setup_data": setup_data_dict}
-    
-    # Build pathing to existing configuration file
-    save_path = path_to_configuration_file(configurable_ref)    
-    save_config_json(save_path, save_data)
 
 # .....................................................................................................................
 # .....................................................................................................................
@@ -135,6 +83,7 @@ project_root_path, cameras_folder_path = selector.get_project_pathing()
 camera_select, _ = selector.camera(debug_mode = enable_debug_mode)
 user_select, _ = selector.user(camera_select, debug_mode=enable_debug_mode)
 
+
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Set up the classifier
 
@@ -144,6 +93,7 @@ classifier_ref = Classifier_Stage(cameras_folder_path, camera_select, user_selec
 # Load existing config settings, if available
 initial_setup_data_dict = load_matching_config(classifier_ref)
 classifier_ref.reconfigure(initial_setup_data_dict)
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Provide simple CLI to change configuration
@@ -163,11 +113,12 @@ classifier_ref.reconfigure({"fixed_class_label": value_select})
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-#%% Catalog existing data
+#%% Save classifier
 
 user_confirm_save = cli_confirm("Save fixed assignment classifier config?", default_response = False)
 if user_confirm_save:
-    save_config(classifier_ref, __file__)
+    save_classifier_config(classifier_ref, __file__)
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Scrap

@@ -190,7 +190,7 @@ def create_density_images(class_db, objclass_count_lists_dict, snap_width,
         density_images_dict["unclassified"] = blank_bar
 
     # Create images to be appended to display, per class label
-    class_trail_colors_dict, class_outline_colors_dict = class_db.get_label_color_luts()
+    _, _, all_label_colors_dict = class_db.get_label_color_luts()
     
     # Create a single row density image, for each class label separately
     for each_class_label, each_count_list in objclass_count_lists_dict.items():
@@ -198,7 +198,7 @@ def create_density_images(class_db, objclass_count_lists_dict, snap_width,
         # Create scaled color map for each class label, with max count corresponding to full class color
         max_count = max(each_count_list)
         max_count = max(1, max_count)
-        count_bgr_dict = {0: bar_bg_color, max_count: class_outline_colors_dict[each_class_label]}
+        count_bgr_dict = {0: bar_bg_color, max_count: all_label_colors_dict[each_class_label]}
         count_cmap = create_interpolated_colormap(count_bgr_dict)
         
         # Convert count list to an image

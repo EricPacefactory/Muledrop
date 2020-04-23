@@ -53,6 +53,8 @@ import numpy as np
 
 from time import perf_counter
 
+from local.lib.common.feedback import print_time_taken_ms
+
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
 
@@ -78,7 +80,7 @@ def median_background_from_snapshots(database, start_dt, end_dt, num_snaps_to_av
     # End timing
     if print_feedback:
         t_end = perf_counter()
-        print("  Finished! Took {:.0f} ms".format(1000 * (t_end - t_start)))
+        print_time_taken_ms(t_start, t_end, prepend_newline = False, string_format = "{:.0f}", inset_spaces = 2)
     
     return np.uint8(np.median(frame_stack, axis = 0))
 

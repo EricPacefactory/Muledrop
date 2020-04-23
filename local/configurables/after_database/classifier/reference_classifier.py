@@ -92,9 +92,9 @@ class Reference_Classifier(After_Database_Configurable_Base):
         
         # First get object data (in a customizable format) then classify that object!
         object_data = self.request_object_data(object_id, object_database)
-        class_label, score_pct, subclass, attributes = self.classify_one_object(object_data, snapshot_database)
+        topclass_dict, subclass_dict, attributes_dict = self.classify_one_object(object_data, snapshot_database)
             
-        return class_label, score_pct, subclass, attributes
+        return topclass_dict, subclass_dict, attributes_dict
     
     # .................................................................................................................
 
@@ -119,22 +119,30 @@ class Reference_Classifier(After_Database_Configurable_Base):
     def classify_one_object(self, object_data, snapshot_database):
         
         '''
-        Function which performs actual classification, given some 'object_data' 
+        Function which performs actual classification given some 'object_data' 
         and access to the snapshot database, if needed.
         Note that the object data can be in any format, 
         depending on how it is output from the request_object_data() function.
+        Though for most use cases, it's likely to be a reconstruction of some kind.
         
         Must return:
-            class_label (string), score_pct (integer), subclass (string), attributes_dict (dict)
+            topclass_dict, subclass_dict, attributes_dict (all dictionaries)
+            
+        Notes:
+        - The topclass_dict and subclass_dict are expected to have keys corresponding to class labels,
+          and values corresponding to the score or probability of the object being each class.
+        - The topclass is meant to be the main classification, whereas the subclass represents a more granular
+          classification (for example, topclass = 'vehicle', subclass = 'forklift').
+        - The attributes_dict is meant to contain additional identifying info, such as whether a person
+          was wearing a safety vest or eye protection. Mostly just a placeholder for now...
         '''
         
         # Reference implementation just hard-codes meaningless outputs
-        class_label = "missing"
-        score_pct = 0
-        subclass = ""
+        topclass_dict = {}
+        subclass_dict = {}
         attributes_dict = {}
         
-        return class_label, score_pct, subclass, attributes_dict
+        return topclass_dict, subclass_dict, attributes_dict
 
     # .................................................................................................................
     # .................................................................................................................

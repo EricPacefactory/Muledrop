@@ -51,13 +51,18 @@ find_path_to_local()
 
 from shutil import rmtree
 from time import perf_counter
+from collections import defaultdict
 
 from tqdm import tqdm
+
+from local.lib.common.feedback import print_time_taken_sec
 
 from local.lib.ui_utils.cli_selections import Resource_Selector
 
 from local.lib.file_access_utils.classifier import build_classifier_adb_metadata_report_path
 from local.lib.file_access_utils.classifier import load_classifier_config
+from local.lib.file_access_utils.classifier import new_classifier_report_entry
+from local.lib.file_access_utils.classifier import save_classifier_report_data
 
 from local.offline_database.file_database import launch_file_db, close_dbs_if_missing_data
 
@@ -76,8 +81,8 @@ from local.eolib.utils.quitters import ide_quit
 def import_classifier_class(cameras_folder_path, camera_select, user_select):
     
     # Check configuration file to see which script/class to load from & get configuration data
-    pathing_args = (cameras_folder_path, camera_select, user_select)
-    _, file_access_dict, setup_data_dict = load_classifier_config(*pathing_args)
+    load_pathing_args = (cameras_folder_path, camera_select, user_select)
+    _, file_access_dict, setup_data_dict = load_classifier_config(*load_pathing_args)
     script_name = file_access_dict["script_name"]
     class_name = file_access_dict["class_name"]
     
@@ -121,6 +126,22 @@ def delete_existing_classification_data(enable_deletion_prompt,
     rmtree(class_data_folder)
 
 # .....................................................................................................................
+
+def print_classification_results(class_count_dict):
+    
+    ''' Helper function which prints out classification results for user feedback '''
+    
+    # Get the longest class label, since we'll use this to align the text print out
+    longest_class_name = max([len(each_label) for each_label in class_count_dict.keys()])    
+    print("", 
+          "Classification results:", 
+          *["  {}: {}".format(each_label.rjust(longest_class_name), each_count) \
+            for each_label, each_count in class_count_dict.items()],
+          "", sep = "\n")
+    
+    return
+
+# .....................................................................................................................
 # .....................................................................................................................
 
 
@@ -139,18 +160,19 @@ user_select, _ = selector.user(camera_select, debug_mode=enable_debug_mode)
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Catalog existing data
 
-cinfo_db, rinfo_db, snap_db, obj_db, class_db, _, _ = \
+cinfo_db, rinfo_db, snap_db, obj_db, _, _, _ = \
 launch_file_db(cameras_folder_path, camera_select, user_select,
                launch_snapshot_db = True,
                launch_object_db = True,
-               launch_classification_db = True,
+               launch_classification_db = False,
                launch_summary_db = False,
                launch_rule_db = False)
 
 # Catch missing data
 cinfo_db.close()
 rinfo_db.close()
-close_dbs_if_missing_data(snap_db, obj_db)
+close_dbs_if_missing_data(snap_db, error_message_if_missing = "No snapshot data in the database!")
+close_dbs_if_missing_data(obj_db, error_message_if_missing = "No object trail data in the database!")
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -171,30 +193,18 @@ if no_object_data:
 #%% Load & configure classifier
 
 # Programmatically import the target classifier class
-pathing_args = (cameras_folder_path, camera_select, user_select)
-Imported_Classifier_Class, setup_data_dict = import_classifier_class(*pathing_args)
-classifier_ref = Imported_Classifier_Class(*pathing_args)
+import_pathing_args = (cameras_folder_path, camera_select, user_select)
+Imported_Classifier_Class, setup_data_dict = import_classifier_class(*import_pathing_args)
+classifier_ref = Imported_Classifier_Class(*import_pathing_args)
 classifier_ref.reconfigure(setup_data_dict)
-
-
-# ---------------------------------------------------------------------------------------------------------------------
-#%% Clear existing data
-
-# Don't update the classification file unless the user agrees!
-saving_enabled = cli_confirm("Save results?", default_response = True)
-if saving_enabled:
-    # Delete existing classification data, if needed
-    enable_deletion = True
-    save_and_keep = False
-    delete_existing_classification_data(enable_deletion, cameras_folder_path, camera_select, user_select, save_and_keep)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Run classification
 
-# Allocate storage for results feedback
-class_count_dict = {}
-update_class_count = lambda update_class_label: 1 + class_count_dict.get(update_class_label, 0)
+# Allocate storage for results feedback & for saving
+class_count_dict = defaultdict(int)
+save_data_dict = {}
 
 # Some feedback & timing
 print("", "Running classification...", sep = "\n")
@@ -204,17 +214,19 @@ t_start = perf_counter()
 total_objs = len(obj_id_list)
 cli_prog_bar = tqdm(total = total_objs, mininterval = 0.5)
 
+# Loop over all objects and apply classifier
 for each_obj_id in obj_id_list:
     
     # Run the classifier on the selected dataset
-    class_label, score_pct, subclass, attributes_dict = classifier_ref.run(each_obj_id, obj_db, snap_db)
+    topclass_dict, subclass_dict, attributes_dict = classifier_ref.run(each_obj_id, obj_db, snap_db)
+    
+    # Store results in case we need to save
+    report_entry_dict = new_classifier_report_entry(each_obj_id, topclass_dict, subclass_dict, attributes_dict)
+    save_data_dict[each_obj_id] = report_entry_dict
     
     # Keep track of class counts for feedback
-    class_count_dict[class_label] = update_class_count(class_label)
-    
-    # Save results, if needed
-    if saving_enabled:
-        class_db.save_entry(each_obj_id, class_label, score_pct,subclass, attributes_dict)
+    topclass_label = report_entry_dict["topclass_label"]
+    class_count_dict[topclass_label] += 1
 
     # Provide some progress feedback
     cli_prog_bar.update()
@@ -224,18 +236,29 @@ classifier_ref.close()
 cli_prog_bar.close()
 print("")
 
-# Some timing feedback
+# Some feedback
 t_end = perf_counter()
-total_processing_time_sec = (t_end - t_start)
-print("", "Finished! Took {:.1f} seconds".format(total_processing_time_sec), sep = "\n")
+print_time_taken_sec(t_start, t_end)
+print_classification_results(class_count_dict)
 
-# Some feedback about class counts
-longest_class_name = max([len(each_label) for each_label in class_count_dict.keys()])
-print("", 
-      "Classification results:", 
-      *["  {}: {}".format(each_label.rjust(longest_class_name), each_count) \
-        for each_label, each_count in class_count_dict.items()],
-      "", sep = "\n")
+
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Ask to save
+
+# Don't update the classification file unless the user agrees!
+saving_enabled = cli_confirm("Save results?", default_response = True)
+if saving_enabled:
+    
+    # Delete existing classification data, if needed
+    enable_deletion = True
+    save_and_keep = False
+    delete_existing_classification_data(enable_deletion, cameras_folder_path, camera_select, user_select, save_and_keep)
+    
+    # Loop over all results and save!
+    save_pathing_args = (cameras_folder_path, camera_select, user_select)
+    for each_obj_id, each_report_data_dict in save_data_dict.items():        
+        save_classifier_report_data(*save_pathing_args, report_data_dict = each_report_data_dict)
+
 
 
 # ---------------------------------------------------------------------------------------------------------------------

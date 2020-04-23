@@ -376,7 +376,7 @@ obj_dict = process_all_object_data(rule_ref, obj_db, frame_wh, user_start_dt, us
 # Load in classification data, if any
 obj_list_gen = object_data_dict_to_list_generator(obj_dict)
 objclass_dict = create_object_class_dict(class_db, obj_list_gen)
-_, outline_colors_lut = class_db.get_label_color_luts()
+_, _, all_label_colors_dict = class_db.get_label_color_luts()
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -406,7 +406,9 @@ draw_window.attach_callback(zone_drawer)
 # Create plots for histograms
 x_offset = (frame_width + 2 * (50 + zone_drawer.border_size_px))
 y_offset = 50
-histogram_dict = Histogram_Plot.generate_histogram_plots(objclass_dict.keys(), outline_colors_lut, x_offset, y_offset)
+histogram_dict = Histogram_Plot.generate_histogram_plots(objclass_dict.keys(),
+                                                         all_label_colors_dict,
+                                                         x_offset, y_offset)
 
 
 # ---------------------------------------------------------------------------------------------------------------------

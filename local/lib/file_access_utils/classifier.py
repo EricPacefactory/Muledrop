@@ -52,8 +52,7 @@ find_path_to_local()
 from local.lib.file_access_utils.after_database import build_after_database_configs_folder_path
 from local.lib.file_access_utils.reporting import build_after_database_report_path
 from local.lib.file_access_utils.resources import build_base_resources_path
-from local.lib.file_access_utils.read_write import load_config_json, save_jgz, load_jgz
-
+from local.lib.file_access_utils.read_write import save_config_json, load_config_json, save_jgz, load_jgz
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% General Pathing functions
@@ -75,19 +74,99 @@ def build_classifier_resources_path(cameras_folder_path, camera_select, *path_jo
     
 # .....................................................................................................................
 
-def build_model_path(cameras_folder_path, camera_select, *path_joins):
+def build_model_resources_path(cameras_folder_path, camera_select, *path_joins):
     classifier_folder_path = build_classifier_resources_path(cameras_folder_path, camera_select)
     return os.path.join(classifier_folder_path, "models", *path_joins)
 
 # .....................................................................................................................
 
-def build_labels_lut_path(cameras_folder_path, camera_select): 
-    return build_classifier_resources_path(cameras_folder_path, camera_select, "class_label_lut.json")
+def build_reserved_labels_lut_path(cameras_folder_path, camera_select):
+    return build_classifier_resources_path(cameras_folder_path, camera_select, "reserved_labels_lut.json")
 
 # .....................................................................................................................
 
-def build_supervised_labels_folder_path(cameras_folder_path, camera_select, user_select):
-    return build_after_database_report_path(cameras_folder_path, camera_select, user_select, "supervised_labels")
+def build_topclass_labels_lut_path(cameras_folder_path, camera_select):
+    return build_classifier_resources_path(cameras_folder_path, camera_select, "topclass_label_lut.json")
+
+# .....................................................................................................................
+
+def build_subclass_labels_lut_path(cameras_folder_path, camera_select):
+    return build_classifier_resources_path(cameras_folder_path, camera_select, "subclass_label_lut.json")
+
+# .....................................................................................................................
+
+def build_attributes_dict_path(cameras_folder_path, camera_select):
+    return build_classifier_resources_path(cameras_folder_path, camera_select, "attributes_dict.json")
+
+# .....................................................................................................................
+# .....................................................................................................................
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Reserved labels
+
+# .....................................................................................................................
+
+def reserved_unclassified_label():
+    
+    '''
+    Helper function used to specify the label & default color for objects that are not yet classified 
+    Returns:
+        class_label (string), default_color_bgr (tuple)
+    '''
+    
+    label = "unclassified"
+    default_color_bgr = (0, 255, 255)
+    
+    return label, default_color_bgr
+
+# .....................................................................................................................
+
+def reserved_notrain_label():
+    
+    '''
+    Helper function used to specify the label & default color for objects that should not be
+    included in datasets used for training. Most likely because they represent ambiguous detections.
+    Returns:
+        class_label (string), default_color_bgr (tuple)
+    '''
+    
+    label = "no train"
+    default_color_bgr = (0, 0, 0)
+    
+    return label, default_color_bgr
+
+# .....................................................................................................................
+
+def reserved_background_label():
+    
+    '''
+    Helper function used to specify the label & default color for objects that are actually
+    representing the background. Mostly likely applied to errors common when using background-subtraction.
+    Returns:
+        class_label (string), default_color_bgr (tuple)
+    '''
+    
+    label = "background"
+    default_color_bgr = (255, 255, 255)
+    
+    return label, default_color_bgr
+
+# .....................................................................................................................
+
+def reserved_incomplete_label():
+    
+    '''
+    Helper function used to specify the label & default color for objects that were bad detections
+    or otherwise incomplete for one reason or another. Most likely applied to errors common to frame-to-frame detection
+    Returns:
+        class_label (string), default_color_bgr (tuple)
+    '''
+    
+    label = "incomplete"
+    default_color_bgr = (0, 100, 255)
+    
+    return label, default_color_bgr
 
 # .....................................................................................................................
 # .....................................................................................................................
@@ -106,62 +185,174 @@ def create_classifier_report_file_name(object_full_id):
 
 
 # ---------------------------------------------------------------------------------------------------------------------
+#%% Define config helpers
+
+# .....................................................................................................................
+
+def path_to_configuration_file(configurable_ref):
+    
+    # Get major pathing info from the configurable
+    cameras_folder_path = configurable_ref.cameras_folder_path
+    camera_select = configurable_ref.camera_select
+    user_select = configurable_ref.user_select
+    
+    return build_classifier_config_path(cameras_folder_path, camera_select, user_select)
+
+# .....................................................................................................................
+
+def load_matching_config(configurable_ref):
+    
+    ''' 
+    Function which takes in a configurable and tries to load an existing config file which matches the configurable.
+    Intended for use in configuration utilities, where a specific configurable is hard-coded to load,
+    while this function provides existing configuration data (if present), instead of always loading defaults.
+    '''
+    
+    # Build pathing to existing configuration file
+    load_path = path_to_configuration_file(configurable_ref)
+    
+    # Load existing config
+    config_data = load_config_json(load_path)
+    file_access_dict = config_data["access_info"]
+    setup_data_dict = config_data["setup_data"]
+    
+    # Get target script/class from the configurable, to see if the saved config matches
+    target_script_name = configurable_ref.script_name
+    target_class_name = configurable_ref.class_name
+    
+    # Check if file access matches
+    script_match = (target_script_name == file_access_dict["script_name"])
+    class_match = (target_class_name == file_access_dict["class_name"])
+    if script_match and class_match:
+        return setup_data_dict
+    
+    # If file acces doesn't match, return an empty setup dictionary
+    no_match_setup_data_dict = {}
+    return no_match_setup_data_dict
+
+# .....................................................................................................................
+
+def save_classifier_config(configurable_ref, file_dunder = __file__):
+    
+    # Figure out the name of this configuration script
+    config_utility_script_name, _ = os.path.splitext(os.path.basename(file_dunder))
+    
+    # Get file access info & current configuration data for saving
+    file_access_dict, setup_data_dict = configurable_ref.get_data_to_save()
+    file_access_dict.update({"configuration_utility": config_utility_script_name})
+    save_data = {"access_info": file_access_dict, "setup_data": setup_data_dict}
+    
+    # Build pathing to existing configuration file
+    save_path = path_to_configuration_file(configurable_ref)    
+    save_config_json(save_path, save_data)
+
+# .....................................................................................................................
+# .....................................................................................................................
+
+
+# ---------------------------------------------------------------------------------------------------------------------
 #%% Data access functions
 
 # .....................................................................................................................
 
-def save_classifier_data(cameras_folder_path, camera_select, user_select, 
-                         object_full_id, class_label, score_pct, subclass, attributes_dict):
+def save_classifier_report_data(cameras_folder_path, camera_select, user_select, report_data_dict):
+    
+    # Get object id from the report data
+    object_full_id = report_data_dict["full_id"]
     
     # Build pathing to save
     save_file_name = create_classifier_report_file_name(object_full_id)
     save_folder_path = build_classifier_adb_metadata_report_path(cameras_folder_path, camera_select, user_select)
     save_file_path = os.path.join(save_folder_path, save_file_name)
     
-    # Bundle data and save
-    save_data = new_classifier_report_entry(object_full_id, class_label, score_pct, subclass, attributes_dict)
-    save_jgz(save_file_path, save_data, create_missing_folder_path = True)
+    # Save!
+    save_jgz(save_file_path, report_data_dict, create_missing_folder_path = True)
 
 # .....................................................................................................................
     
 def new_classifier_report_entry(object_full_id, 
-                                class_label = "unclassified", 
-                                score_pct = 0, 
-                                subclass = "", 
+                                topclass_dict = None,
+                                subclass_dict = None,
                                 attributes_dict = None):
     
-    ''' Helper function for creating properly formatted classification entries '''
-    
-    # Avoid funny mutability stuff
-    attributes_dict = {} if attributes_dict is None else attributes_dict
-    
-    return {"full_id": object_full_id,
-            "class_label": class_label,
-            "score_pct": score_pct,
-            "subclass": subclass,
-            "attributes": attributes_dict}
-
-# .....................................................................................................................
-    
-def default_label_lut():
-    
     ''' 
-    NOT CALLED ANYWHERE! KEPT FOR REFERENCE UNTIL FILE STRUCTURE IS FINALIZED... 
-    COULD DELETE ONCE CLASSIFICATION SYSTEM IS WORKING
+    Helper function for creating consistently formatted classification entries 
+    Inputs:
+        object_full_id -> Integer. Object ID, used to associate classification data with some object metadata
+        
+        topclass_dict -> Dict or None. Dictionary containing keys representing class labels and corresponding
+                         values representing the 'score' or probability that the object was the given class.
+                         If 'None' is provided, an empty dictionary will be substituted
+                         
+        subclass_dict -> Dict or None. Same as the topclass_dict, but intended to provide a more granular
+                         assignment of classification data, given the topclass data. For example, the topclass
+                         may be 'vehicle', in which case subclass may specify the kind of vehicle 
+                         (e.g. forklift vs golf cart vs. tugger vs. autonomous etc.)
+                         
+        attributes_dict -> Dict or None. A final dictionary (currently here only as a placeholder?!) used to
+                           provide additional data about possible attributes of an object. For example, if the
+                           object is identified as a pedestrian, the attributes_dict can be used to indicate
+                           whether they were wearing a hard-hat, safety-vest, eye protection etc.
+                           
+    Outputs:
+        classification entry (dict)
+        (contains keys: 'full_id', 'topclass_label', 'subclass_label', 
+                        'topclass_dict', 'subclass_dict', 'attributes_dict')
+        
+    Note: The '..._label' entries are automatically derived from the inputs
     '''
     
-    # Hard-code the default classification lookup table
-    default_lut = {"unclassified": {"class_index": -2, "trail_color": [255, 255, 0], "outline_color": [0, 255, 0]},
-                   "ignore": {"class_index": -1, "trail_color": [0, 0, 0], "outline_color": [0, 255, 0]},
-                   "background": {"class_index": 0, "trail_color": [255, 255, 255], "outline_color": [0, 255, 0]},
-                   "pedestrian": {"class_index": 1, "trail_color": [0, 255, 0], "outline_color": [0, 255, 0]},
-                   "vehicle": {"class_index": 2, "trail_color": [0, 255, 255], "outline_color": [0, 255, 0]},
-                   "other": {"class_index": 3, "trail_color": [175, 50, 200], "outline_color": [0, 255, 0]},
-                   "mixed": {"class_index": 4, "trail_color": [210, 90, 15]}, "outline_color": [0, 255, 0]}
+    # Avoid funny mutability stuff
+    topclass_dict = {} if topclass_dict is None else topclass_dict
+    subclass_dict = {} if subclass_dict is None else subclass_dict
+    attributes_dict = {} if attributes_dict is None else attributes_dict
     
-    return default_lut
+    # Figure out the 'best estimate' for the object topclass label
+    default_label, _ = reserved_unclassified_label()
+    topclass_label, _ = get_highest_score_label(topclass_dict, default_label)
+            
+    # Figure out the 'best estimate' for the subclass label, defaulting to whatever the topclass is...
+    subclass_label, _ = get_highest_score_label(subclass_dict, "")
+    
+    return {"full_id": object_full_id,
+            "topclass_label": topclass_label,
+            "subclass_label": subclass_label,
+            "topclass_dict": topclass_dict,
+            "subclass_dict": subclass_dict,
+            "attributes_dict": attributes_dict}
 
-# .................................................................................................................
+# .....................................................................................................................
+
+def get_highest_score_label(label_score_dict, default_label = None):
+    
+    ''' 
+    Helper function for determining the 'best' label given a label:score dictionary 
+    
+    Inputs:
+        label_score_dict --> (dictionary) Dictionary to be checked for 'highest scoring' label. Should
+                             have keys representing classification labels and values corresponding to scores.
+        
+        default_label --> (string) Label to use by default (i.e. if no label is determined from the input dictionary)
+        
+    Outputs:
+        best_label (string), best_score
+    '''
+    
+    # Deal with missing default label
+    if default_label is None:
+        default_label, _ = reserved_unclassified_label()
+    
+    # Find the label with the highest score, assuming dictionary of {label:score} entries
+    best_label = default_label
+    best_score = -1
+    for each_label, each_score in label_score_dict.items():
+        if each_score > best_score:
+            best_score = each_score
+            best_label = each_label
+            
+    return best_label, best_score
+
+# .....................................................................................................................
     
 def load_classifier_config(cameras_folder_path, camera_select, user_select):
     
@@ -180,114 +371,92 @@ def load_classifier_config(cameras_folder_path, camera_select, user_select):
     return config_file_path, access_info_dict, setup_data_dict
 
 # .....................................................................................................................
+
+def load_reserved_labels_lut(cameras_folder_path, camera_select):
     
-def load_label_lut_tuple(cameras_folder_path, camera_select):
+    ''' Function which loads a dictionary of label:color pairs corresponding to the reserved labels '''
+    
+    # Get built-in defaults
+    unclassified_label, unclassified_color = reserved_unclassified_label()
+    notrain_label, notrain_color = reserved_notrain_label()
+    background_label, background_color = reserved_background_label()
+    incomplete_label, incomplete_color = reserved_incomplete_label()
+    
+    # Build up default output
+    reserved_labels_dict = {}
+    reserved_labels_dict[unclassified_label] = unclassified_color
+    reserved_labels_dict[notrain_label] = notrain_color
+    reserved_labels_dict[background_label] = background_color
+    reserved_labels_dict[incomplete_label] = incomplete_color
+    
+    # Load stored reserved file, in case the user has modified default values
+    reserved_labels_file_path = build_reserved_labels_lut_path(cameras_folder_path, camera_select)
+    loaded_reserved_labels_dict = load_config_json(reserved_labels_file_path)
+    
+    # Update the built-in defaults with the loaded data
+    reserved_labels_dict.update(**loaded_reserved_labels_dict)
+    
+    return reserved_labels_dict
+
+# .....................................................................................................................
+
+def load_topclass_labels_lut(cameras_folder_path, camera_select):
+    
+    ''' Function which loads a dictionary of label:color pairs corresponding to topclass labels '''
+    
+    # Initialize default output
+    topclass_labels_dict = {}
+    
+    # Load stored labels file
+    topclass_labels_file_path = build_topclass_labels_lut_path(cameras_folder_path, camera_select)
+    loaded_topclass_labels_dict = load_config_json(topclass_labels_file_path)
+    
+    # Update the built-in defaults with the loaded data
+    topclass_labels_dict.update(**loaded_topclass_labels_dict)
+    
+    return topclass_labels_dict 
+
+# .....................................................................................................................
+
+def load_subclass_labels_lut(cameras_folder_path, camera_select):
+    
+    ''' 
+    Function which loads a dictionary of lists,
+    structured as:
+      {
+        topclass_label_1: [subclass_label_1, subclass_label_2, ...],
+        topclass_label_2: [...]
+      }
+    for each sublcass (nested by corresponding topclass) 
+    '''
+    
+    # Initialize default output
+    subclass_labels_dict = {}
+    
+    # Load stored labels file
+    subclass_labels_file_path = build_subclass_labels_lut_path(cameras_folder_path, camera_select)
+    loaded_subclass_labels_dict = load_config_json(subclass_labels_file_path)
+    
+    # Update the built-in defaults with the loaded data
+    subclass_labels_dict.update(**loaded_subclass_labels_dict)
+    
+    return subclass_labels_dict
+
+# .....................................................................................................................
+
+def load_attributes_dict(cameras_folder_path, camera_select):
     
     '''
-    Function which loads the label lookup table, for classification
-    Returns:
-        label_lut_dict (dict), label_to_index_lut (dict)
-        
-    The label_lut_dict has keys representing class labels, and values which are dicts containing settings
-    The label_to_index_lut is a shortcut version of the label lut, which maps labels to indices directly
+    Function which loads a dictionary of dictionaries of lists
+    structures as:
+        {
+          topclass_label_1: {subclass_label_1: [attribute_1, attribute_2, etc.],
+                             subclass_label_2: [...]},
+          topclass_label_2: ...
+        }
     '''
     
-    # Build the pathing to the labelling lut file & load it
-    label_lut_file_path = build_labels_lut_path(cameras_folder_path, camera_select)
-    label_lut_dict = load_config_json(label_lut_file_path)
-    
-    # Create handy alternative versions of the data for convenience
-    get_idx = lambda label: label_lut_dict[label]["class_index"]
-    label_to_index_lut = {each_label: get_idx(each_label) for each_label in label_lut_dict.keys()}
-    
-    return label_lut_dict, label_to_index_lut
-
-# .....................................................................................................................
-
-def filter_labelling_results(supervised_labels_dict, remove_labels_list):
-    
-    # Don't do anything if the removal list is empty
-    no_filtering_needed = (remove_labels_list == [])
-    if no_filtering_needed:
-        return supervised_labels_dict
-    
-    # Go through all labelling data, and get rid of unclassified/ignored entries
-    filtered_labelling_dict = {}
-    for each_obj_id, each_class_label in supervised_labels_dict.items():
-        
-        # Skip target entries
-        if each_class_label in remove_labels_list:
-            continue
-        
-        # Add all other entries to the filtered output
-        new_filtered_entry = {each_obj_id: each_class_label}
-        filtered_labelling_dict.update(new_filtered_entry)
-        
-    return filtered_labelling_dict
-
-# .....................................................................................................................
-# .....................................................................................................................
-
-# ---------------------------------------------------------------------------------------------------------------------
-#%% Supervised labelling helpers
-
-# .....................................................................................................................
-
-def create_supervised_labels_folder_name(user_select, data_start_datetime):
-    
-    # Build standard folder path name based on dataset start timing & user
-    datetime_name = data_start_datetime.strftime("%Y%m%d_%H%M%S")
-    supervised_labels_folder_name = "{}-{}".format(user_select, datetime_name)
-    
-    return supervised_labels_folder_name
-
-# .....................................................................................................................
-
-def create_supervised_label_file_name(object_full_id):
-    return "supervlabel-{}.json.gz".format(object_full_id)
-
-# .....................................................................................................................
-
-def create_supervised_label_data(object_id, class_label):
-    
-    ''' Helper function used to ensure consistent formatting of supervised label data '''
-    
-    return {"full_id": object_id, "class_label": class_label}
-
-# .....................................................................................................................
-
-def save_supervised_label(supervised_labels_folder_path, object_full_id, supervised_label_dict):
-    
-    # Build path to save target object data
-    save_name = create_supervised_label_file_name(object_full_id)
-    save_path = os.path.join(supervised_labels_folder_path, save_name)
-    
-    return save_jgz(save_path, supervised_label_dict, check_validity = True)
-
-# .....................................................................................................................
-    
-def load_supervised_labels(supervised_labels_folder_path, object_id_list, default_label_if_missing = "unclassified"):
-    
-    # Make sure the folder path exists
-    os.makedirs(supervised_labels_folder_path, exist_ok = True)
-    
-    # Load all of target object ID labelling data into a dictionary
-    labelling_results_dict = {}
-    for each_full_id in object_id_list:
-        
-        # Build pathing to target object data
-        load_file_name = create_supervised_label_file_name(each_full_id)
-        load_file_path = os.path.join(supervised_labels_folder_path, load_file_name)
-        
-        # Load the supervised labelling data, if present, otherwise use the default
-        object_entry = create_supervised_label_data(each_full_id, default_label_if_missing)
-        file_exists = (os.path.exists(load_file_path))
-        if file_exists:
-            supervised_labelling_data = load_jgz(load_file_path)
-            object_entry = supervised_labelling_data
-        labelling_results_dict.update({each_full_id: object_entry})
-    
-    return labelling_results_dict
+    raise NotImplementedError("Attributes are not yet implemented!")
 
 # .....................................................................................................................
 # .....................................................................................................................

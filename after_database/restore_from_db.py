@@ -74,7 +74,7 @@ from local.lib.file_access_utils.read_write import save_jgz
 
 from local.eolib.utils.quitters import ide_quit
 from local.eolib.utils.cli_tools import Datetime_Input_Parser as DTIP
-from local.eolib.utils.cli_tools import cli_select_from_list, cli_prompt_with_defaults
+from local.eolib.utils.cli_tools import cli_select_from_list, cli_prompt_with_defaults, cli_confirm
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -105,10 +105,21 @@ def parse_restore_args(debug_print = False):
     script_description = "Download report data from the database server, for a single camera."
     
     # Build & evaluate script arguments!
-    ap_result = script_arg_builder(args_list,
+    ap_obj = script_arg_builder(args_list,
                                    description = script_description,
-                                   parse_on_call = True,
+                                   parse_on_call = False,
                                    debug_print = debug_print)
+    
+    # Add argument for controlling snapshot downsampling
+    default_skip_n = 0
+    ap_obj.add_argument("-n", "--skip_n", default = default_skip_n, type = int,
+                        help = "\n".join(["Number of snapshots to skip when downloading data.",
+                                          "Allows image data to be 'downsampled'",
+                                          "at the expense of a coarser resolution in time.",
+                                          "(Default: {})".format(default_skip_n)]))
+    
+    # Evaluate args now
+    ap_result = vars(ap_obj.parse_args())
     
     return ap_result
 
@@ -212,11 +223,11 @@ def create_new_camera_entry(selector, camera_select):
 def request_caminfo_metadata(server_url, camera_select, start_epoch_ms, end_epoch_ms):
     
     # Build route for requesting all camera info metadata
-    request_url = build_request_url(server_url, camera_select, "camerainfo", "get-many-camera-info",
+    request_url = build_request_url(server_url, camera_select, "camerainfo", 
+                                    "get-many-camera-info", "by-time-range",
                                     start_epoch_ms, end_epoch_ms)
     
-    # Grab camera info data (with feedback)
-    print("", "Downloading camera info metadata...", sep = "\n", end = " ")
+    # Grab camera info data
     many_caminfo_metadata_list = get_json(request_url)
     
     return many_caminfo_metadata_list
@@ -230,7 +241,7 @@ def save_caminfo_metadata(cameras_folder_path, camera_select, user_select, camin
     os.makedirs(base_save_folder, exist_ok = True)
     
     # Loop through all the requested metadata and save back into the filesystem
-    print("Saving object metadata")
+    print("", "Saving camera info metadata", sep = "\n")
     for each_metadata_dict in tqdm(caminfo_metadata_list):
         caminfo_start_epoch_ms = each_metadata_dict["start_epoch_ms"]
         file_name = "dlcaminfo-{}.json.gz".format(caminfo_start_epoch_ms)
@@ -243,7 +254,22 @@ def save_caminfo_metadata(cameras_folder_path, camera_select, user_select, camin
 # .....................................................................................................................
 
 # ---------------------------------------------------------------------------------------------------------------------
-#%% Backgrounds functions
+#%% Background functions
+
+# .....................................................................................................................
+
+def count_backgrounds(server_url, camera_select, start_epoch_ms, end_epoch_ms):
+    
+    # Build route for requesting count of backgrounds between a start/end time
+    request_url = build_request_url(server_url, camera_select, "backgrounds",
+                                    "count", "by-time-range",
+                                    start_epoch_ms, end_epoch_ms)
+    
+    # Grab background counts
+    count_dict = get_json(request_url)
+    background_count = count_dict.get("count", "error")
+    
+    return background_count
 
 # .....................................................................................................................
 
@@ -254,7 +280,6 @@ def request_background_metadata(server_url, camera_select, start_epoch_ms, end_e
                                     "get-many-metadata", "by-time-range", 
                                     start_epoch_ms, end_epoch_ms)
     
-    print("", "Downloading background metadata...", sep = "\n", end = " ")
     many_background_metadata_list = get_json(request_url)
     
     return many_background_metadata_list
@@ -268,7 +293,7 @@ def save_background_metadata(cameras_folder_path, camera_select, user_select, ba
     os.makedirs(base_save_folder, exist_ok = True)
     
     # Loop through all the requested metadata and save back into the filesystem
-    print("Saving background metadata")
+    print("", "Saving background metadata", sep = "\n")
     for each_metadata_dict in tqdm(background_metadata_list):
         bg_epoch_ms = each_metadata_dict["epoch_ms"]
         file_name = "dlsnap-{}.json.gz".format(bg_epoch_ms)
@@ -286,7 +311,7 @@ def save_background_images(server_url, cameras_folder_path, camera_select, user_
     os.makedirs(base_save_folder, exist_ok = True)
         
     # Loop through all the requested metadata and request + save the correspond images
-    print("", "Downloading & saving background images", sep = "\n")
+    print("", "Saving background images", sep = "\n")
     for each_metadata_dict in tqdm(background_metadata_list):
         
         # Build pathing info
@@ -308,19 +333,92 @@ def save_background_images(server_url, cameras_folder_path, camera_select, user_
 # .....................................................................................................................
 
 # ---------------------------------------------------------------------------------------------------------------------
+#%% Object functions
+
+# .....................................................................................................................
+
+def counts_objects(server_url, camera_select, start_epoch_ms, end_epoch_ms):
+    
+    # Build route for requesting count of objects between a start/end time
+    request_url = build_request_url(server_url, camera_select, "objects",
+                                    "count", "by-time-range",
+                                    start_epoch_ms, end_epoch_ms)
+    
+    # Grab object count
+    count_dict = get_json(request_url)
+    object_count = count_dict.get("count", "error")
+    
+    return object_count
+
+# .....................................................................................................................
+
+def request_object_metadata(server_url, camera_select, start_epoch_ms, end_epoch_ms):
+    
+    # Build route for requesting all metadata between a start/end time
+    request_url = build_request_url(server_url, camera_select, "objects",
+                                    "get-many-metadata", "by-time-range",
+                                    start_epoch_ms, end_epoch_ms)
+    
+    # Grab object data
+    many_object_metadata_dict = get_json(request_url)
+    
+    return many_object_metadata_dict
+
+# .....................................................................................................................
+
+def save_object_metadata(cameras_folder_path, camera_select, user_select, object_metadata_dict):
+    
+    # Make sure the metadata reporting folder exists
+    base_save_folder = build_object_metadata_report_path(cameras_folder_path, camera_select, user_select)
+    os.makedirs(base_save_folder, exist_ok = True)
+    
+    # Loop through all the requested metadata and save back into the filesystem
+    print("", "Saving object metadata", sep = "\n")
+    for each_obj_id, each_metadata_dict in tqdm(object_metadata_dict.items()):
+        file_name = "dlobj-{}.json.gz".format(each_obj_id)
+        save_path = os.path.join(base_save_folder, file_name)
+        save_jgz(save_path, each_metadata_dict)
+        
+    return
+
+# .....................................................................................................................
+# .....................................................................................................................
+
+# ---------------------------------------------------------------------------------------------------------------------
 #%% Snapshot functions
 
 # .....................................................................................................................
+
+def count_snapshots(server_url, camera_select, start_epoch_ms, end_epoch_ms):
     
-def request_snapshot_metadata(server_url, camera_select, start_epoch_ms, end_epoch_ms):
+    # Build route for requesting count of snapshots between a start/end time
+    request_url = build_request_url(server_url, camera_select, "snapshots",
+                                    "count", "by-time-range",
+                                    start_epoch_ms, end_epoch_ms)
+    
+    # Grab snapshot counts
+    count_dict = get_json(request_url)
+    snapshot_count = count_dict.get("count", "error")
+    
+    return snapshot_count
+
+# .....................................................................................................................
+    
+def request_snapshot_metadata(server_url, camera_select, start_epoch_ms, end_epoch_ms, skip_n = 0):
     
     # Build route for requesting all metadata between a start/end time
     request_url = build_request_url(server_url, camera_select, "snapshots",
                                     "get-many-metadata", "by-time-range", 
                                     start_epoch_ms, end_epoch_ms)
     
-    # Grab snapshot data (with feedback)
-    print("", "Downloading snapshot metadata...", sep = "\n", end = " ")
+    # If we're skipping snapshots, use a diferent request route
+    if skip_n > 0:
+        request_url = build_request_url(server_url, camera_select, "snapshots",
+                                        "get-many-metadata", "by-time-range",
+                                        "skip-n",
+                                        start_epoch_ms, end_epoch_ms, skip_n)
+    
+    # Grab snapshot data
     many_snapshot_metadata_list = get_json(request_url)
     
     return many_snapshot_metadata_list
@@ -334,7 +432,7 @@ def save_snapshot_metadata(cameras_folder_path, camera_select, user_select, snap
     os.makedirs(base_save_folder, exist_ok = True)
     
     # Loop through all the requested metadata and save back into the filesystem
-    print("Saving snapshot metadata")
+    print("", "Saving snapshot metadata", sep = "\n")
     for each_metadata_dict in tqdm(snapshot_metadata_list):
         snap_epoch_ms = each_metadata_dict["epoch_ms"]
         file_name = "dlsnap-{}.json.gz".format(snap_epoch_ms)
@@ -352,7 +450,7 @@ def save_snapshot_images(server_url, cameras_folder_path, camera_select, user_se
     os.makedirs(base_save_folder, exist_ok = True)
         
     # Loop through all the requested metadata and request + save the correspond images
-    print("", "Downloading & saving snapshot images", sep = "\n")
+    print("", "Saving snapshot images", sep = "\n")
     for each_metadata_dict in tqdm(snapshot_metadata_list):
         
         # Build pathing info
@@ -373,45 +471,6 @@ def save_snapshot_images(server_url, cameras_folder_path, camera_select, user_se
 # .....................................................................................................................
 # .....................................................................................................................
 
-
-# ---------------------------------------------------------------------------------------------------------------------
-#%% Object function
-
-# .....................................................................................................................
-
-def request_object_metadata(server_url, camera_select, start_epoch_ms, end_epoch_ms):
-    
-    # Build route for requesting all metadata between a start/end time
-    request_url = build_request_url(server_url, camera_select, "objects",
-                                    "get-many-metadata", "by-time-range",
-                                    start_epoch_ms, end_epoch_ms)
-    
-    # Grab object data (with feedback)
-    print("", "Downloading object metadata...", sep = "\n", end = " ")
-    many_object_metadata_dict = get_json(request_url)
-    
-    return many_object_metadata_dict
-
-# .....................................................................................................................
-
-def save_object_metadata(cameras_folder_path, camera_select, user_select, object_metadata_dict):
-    
-    # Make sure the metadata reporting folder exists
-    base_save_folder = build_object_metadata_report_path(cameras_folder_path, camera_select, user_select)
-    os.makedirs(base_save_folder, exist_ok = True)
-    
-    # Loop through all the requested metadata and save back into the filesystem
-    print("Saving object metadata")
-    for each_obj_id, each_metadata_dict in tqdm(object_metadata_dict.items()):
-        file_name = "dlobj-{}.json.gz".format(each_obj_id)
-        save_path = os.path.join(base_save_folder, file_name)
-        save_jgz(save_path, each_metadata_dict)
-        
-    return
-
-# .....................................................................................................................
-# .....................................................................................................................
-
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Get system pathing info
 
@@ -425,6 +484,7 @@ user_select = "live"
 
 # Set server connection parameters
 ap_result = parse_restore_args()
+skip_n_snapshots = ap_result["skip_n"]
 server_protocol = ap_result["protocol"]
 default_server_host = get_dbserver_host()
 default_server_port = get_dbserver_port()
@@ -465,13 +525,53 @@ DTIP.limit_start_end_range(bounding_start_dt, bounding_end_dt, max_timedelta_hou
 # Prompt user to select time range to download
 user_start_dt, user_end_dt = DTIP.cli_prompt_start_end_datetimes(bounding_start_dt, bounding_end_dt)
 
-# Prompt user to sub-sample the snapshot data
-snap_subsample_factor = cli_prompt_with_defaults("Subsample factor: ",
-                                                 default_value = 1, return_type = int)
-
 # Convert user input times to epoch values
 start_epoch_ms = datetime_to_epoch_ms(user_start_dt)
 end_epoch_ms = datetime_to_epoch_ms(user_end_dt)
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Count data to download
+
+# Request all camera info directly (and count it), since it should be small enough to not matter
+many_caminfo_metadata_list = request_caminfo_metadata(server_url, camera_select, start_epoch_ms, end_epoch_ms)
+
+# Request counts for background, snapshots and objects
+caminfo_count = len(many_caminfo_metadata_list)
+background_count = count_backgrounds(server_url, camera_select, start_epoch_ms, end_epoch_ms)
+snapshot_count = count_snapshots(server_url, camera_select, start_epoch_ms, end_epoch_ms)
+object_count = counts_objects(server_url, camera_select, start_epoch_ms, end_epoch_ms)
+
+# Calculate the number of snapshots if we're downsampling
+downsample_str = ""
+use_downsampling = (skip_n_snapshots > 0)
+if use_downsampling:
+    downsample_str = " (downsampled from {})".format(snapshot_count)
+    downsampled_snapshot_count = 1 + ((snapshot_count - 1) // (skip_n_snapshots + 1))
+
+# Provide feedback, in case user doesn't want to download the data
+start_dt_str = user_start_dt.strftime(DTIP.datetime_format)
+end_dt_str = user_end_dt.strftime(DTIP.datetime_format)
+print("","", 
+      "--- DATA TO DOWNLOAD ---",
+      "",
+      "  {} (start)".format(start_dt_str),
+      "  {} (end)".format(end_dt_str),
+      "",
+      "  {} camera info {}".format(caminfo_count, "entries" if caminfo_count > 1 else "entry"),
+      "  {} backgrounds".format(background_count),
+      "  {} objects".format(object_count),
+      "  {} snapshots{}".format(downsampled_snapshot_count if use_downsampling else snapshot_count, downsample_str),
+      sep = "\n")
+
+# Give the user a chance to cancel the download, if they don't like the dataset numbers
+user_confirm_download = cli_confirm("Download dataset?")
+if not user_confirm_download:
+    ide_quit("Download cancelled!")
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Prepare the save folder
 
 # Create the camera folder, if needed
 create_new_camera_entry(selector, camera_select)
@@ -484,44 +584,54 @@ delete_existing_report_data(cameras_folder_path, camera_select, user_select,
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Get camera info
 
-# Request all camera info metadata & save it
-many_caminfo_metadata_list = request_caminfo_metadata(server_url, camera_select, start_epoch_ms, end_epoch_ms)
-save_caminfo_metadata(cameras_folder_path, camera_select, user_select, many_caminfo_metadata_list)
+if caminfo_count > 0:
+    
+    # Save all camera info metadata (which we already requested earlier)
+    save_caminfo_metadata(cameras_folder_path, camera_select, user_select, many_caminfo_metadata_list)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Get background info
 
-# Request all background metadata
-many_background_metadata_list = request_background_metadata(server_url, camera_select, start_epoch_ms, end_epoch_ms)
-
-# Save background metadata & request corresponding image data
-save_background_metadata(cameras_folder_path, camera_select, user_select, many_background_metadata_list)
-save_background_images(server_url, cameras_folder_path, camera_select, user_select, many_background_metadata_list)
-
-
-# ---------------------------------------------------------------------------------------------------------------------
-#%% Get snapshot data
-
-# Request all snapshot metadata
-many_snapshot_metadata_list = request_snapshot_metadata(server_url, camera_select, start_epoch_ms, end_epoch_ms)
-
-# Sub-sample the snapshots, if needed
-if snap_subsample_factor > 1:
-    many_snapshot_metadata_list = many_snapshot_metadata_list[::snap_subsample_factor]
-
-# Save snapshot metadata & request corresponding image data
-save_snapshot_metadata(cameras_folder_path, camera_select, user_select, many_snapshot_metadata_list)
-save_snapshot_images(server_url, cameras_folder_path, camera_select, user_select, many_snapshot_metadata_list)
+if background_count > 0:
+    
+    # Request all background metadata
+    many_background_metadata_list = request_background_metadata(server_url, camera_select, start_epoch_ms, end_epoch_ms)
+    
+    # Save background metadata & request corresponding image data
+    save_background_metadata(cameras_folder_path, camera_select, user_select, many_background_metadata_list)
+    save_background_images(server_url, cameras_folder_path, camera_select, user_select, many_background_metadata_list)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Get object info
 
-# Request all object metadata & save it
-many_object_metadata_dict = request_object_metadata(server_url, camera_select, start_epoch_ms, end_epoch_ms)
-save_object_metadata(cameras_folder_path, camera_select, user_select, many_object_metadata_dict)
+if object_count > 0:
+    
+    # Request all object metadata & save it
+    many_object_metadata_dict = request_object_metadata(server_url, camera_select, start_epoch_ms, end_epoch_ms)
+    save_object_metadata(cameras_folder_path, camera_select, user_select, many_object_metadata_dict)
 
+
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Get snapshot data
+
+if snapshot_count > 0:
+
+    # Request all snapshot metadata
+    many_snapshot_metadata_list = request_snapshot_metadata(server_url, camera_select, 
+                                                            start_epoch_ms, end_epoch_ms,
+                                                            skip_n_snapshots)
+    
+    # Save snapshot metadata & request corresponding image data
+    save_snapshot_metadata(cameras_folder_path, camera_select, user_select, many_snapshot_metadata_list)
+    save_snapshot_images(server_url, cameras_folder_path, camera_select, user_select, many_snapshot_metadata_list)
+
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Clean up
+    
+# Add a blank space at the end for aesthetics
+print("")
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Scrap
@@ -531,6 +641,7 @@ save_object_metadata(cameras_folder_path, camera_select, user_select, many_objec
 #   - idea would be to avoid having to input ip address every time
 #   - instead select from know set of hosts (including 'local')
 #   -> a bit complicated, because this would require a 'create new host' option + ability to edit?
+#   -> where does the ip data get saved?
 # - improve snapshot subsampling
 #   - would be better to not download all data, if subsampling
 #   - instead either download all epoch_ms data and subsample that,

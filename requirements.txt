@@ -4,6 +4,9 @@ numpy==1.*
 opencv-python==4.*
 scipy==1.*
 
+# Machine learning library (for classifiers)
+sklearn==0.0
+
 # CLI progress bar
 tqdm==4.*
 

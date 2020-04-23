@@ -113,7 +113,7 @@ def update_rule_results(rule_ref, objclass_dict, snap_db, frame_wh):
 
 # .....................................................................................................................
 
-def update_event_frame(display_frame, rule_ref, rule_results_per_class_dict, outline_colors_lut, 
+def update_event_frame(display_frame, rule_ref, rule_results_per_class_dict, all_label_colors_dict, 
                        start_epoch_ms, end_epoch_ms,
                        line_color = (255, 0, 255), line_thickness = 1, line_type = cv2.LINE_AA,
                        event_bar_height = 24, 
@@ -161,7 +161,7 @@ def update_event_frame(display_frame, rule_ref, rule_results_per_class_dict, out
         
         # Create new (blank) event bar for each class, so we can indicate event timing
         new_event_bar = blank_event_bar.copy()
-        bar_color = outline_colors_lut[each_class_label]
+        bar_color = all_label_colors_dict[each_class_label]
         
         for each_obj_id, (each_results_dict, each_results_list) in each_rule_results_per_obj.items():
             for each_intersection_result in each_results_list:
@@ -278,7 +278,7 @@ obj_dict = process_all_object_data(rule_ref, obj_db, frame_wh, user_start_dt, us
 # Load in classification data, if any
 obj_list_gen = object_data_dict_to_list_generator(obj_dict)
 objclass_dict = create_object_class_dict(class_db, obj_list_gen)
-_, outline_colors_lut = class_db.get_label_color_luts()
+_, _, all_label_colors_dict = class_db.get_label_color_luts()
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -348,7 +348,7 @@ while True:
         
         # Draw new intersection results
         event_frame = update_event_frame(trail_frame, rule_ref, rule_results_per_class,
-                                         outline_colors_lut, start_ems, end_ems)
+                                         all_label_colors_dict, start_ems, end_ems)
     
     # Draw rule line indicator onto the frame
     draw_frame = line_drawer.annotate(trail_frame)

@@ -65,9 +65,12 @@ from local.lib.ui_utils.cli_selections import Resource_Selector
 from local.offline_database.file_database import launch_file_db, close_dbs_if_missing_data
 from local.offline_database.object_reconstruction import Smoothed_Object_Reconstruction as Obj_Recon
 
-from local.lib.file_access_utils.classifier import build_supervised_labels_folder_path
-from local.lib.file_access_utils.classifier import load_label_lut_tuple, load_supervised_labels, save_supervised_label
-from local.lib.file_access_utils.classifier import create_supervised_label_data
+from local.lib.file_access_utils.classifier import load_reserved_labels_lut, load_topclass_labels_lut
+
+from local.lib.file_access_utils.supervised_labels import load_all_supervised_labels, save_single_supervised_label, load_single_supervised_label
+from local.lib.file_access_utils.supervised_labels import create_supervised_label_entry
+from local.lib.file_access_utils.supervised_labels import get_svlabel_topclass_label
+from local.lib.file_access_utils.supervised_labels import check_supervised_labels_exist
 
 from local.eolib.utils.quitters import ide_catcher, ide_quit
 
@@ -180,6 +183,25 @@ project_root_path, cameras_folder_path = selector.get_project_pathing()
 camera_select, camera_path = selector.camera(debug_mode=enable_debug_mode)
 user_select, _ = selector.user(camera_select, debug_mode=enable_debug_mode)
 
+# Bundle pathing args for convenience
+pathing_args = (cameras_folder_path, camera_select, user_select)
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Check for supervised label data
+
+sv_labels_exist = check_supervised_labels_exist(cameras_folder_path, camera_select, user_select)
+if not sv_labels_exist:
+    print("", 
+          "No supervised labels were found for:",
+          "  camera: {}".format(camera_select),
+          "    user: {}".format(user_select),
+          "",
+          "Nothing to label!",
+          "  -> Please collect data first, then try again.",
+          sep = "\n")
+    ide_quit()
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Catalog existing data
@@ -195,7 +217,8 @@ launch_file_db(cameras_folder_path, camera_select, user_select,
 
 # Catch missing data
 rinfo_db.close()
-close_dbs_if_missing_data(snap_db, obj_db)
+close_dbs_if_missing_data(snap_db, error_message_if_missing = "No snapshot data in the database!")
+close_dbs_if_missing_data(obj_db, error_message_if_missing = "No object trail data in the database!")
 
 # Get the maximum range of the data (based on the snapshots, because that's the most we could show)
 earliest_datetime, latest_datetime = snap_db.get_bounding_datetimes()
@@ -215,16 +238,12 @@ if no_object_data:
 #%% Get existing labelling results (if any)
 
 # First get all the available labels
-label_lut_dict, label_to_index_dict = load_label_lut_tuple(cameras_folder_path, camera_select)
+reserved_colors_dict = load_reserved_labels_lut(cameras_folder_path, camera_select)
+topclass_colors_dict = load_topclass_labels_lut(cameras_folder_path, camera_select)
 
-# Generate an ordered set of labels for convenience
-_, ordered_labels_list = zip(*sorted([(each_idx, each_label) for each_label, each_idx in label_to_index_dict.items()]))
-
-# Get pathing to the supervised label data
-supervised_labels_folder_path = build_supervised_labels_folder_path(cameras_folder_path, camera_select, user_select)
-
-# Load existing labelling data
-supervised_class_labels_dict = load_supervised_labels(supervised_labels_folder_path, object_id_list)
+# Get labels in sorted order so we get consistent a display
+sorted_reserved_labels = sorted(list(reserved_colors_dict.keys()))
+sorted_topclass_labels = sorted(list(topclass_colors_dict.keys()))
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -233,8 +252,8 @@ supervised_class_labels_dict = load_supervised_labels(supervised_labels_folder_p
 # Create server so we can start adding routes
 wsgi_app = Flask(__name__,
                  static_url_path = '', 
-                 static_folder = "web/static",
-                 template_folder = "web/templates")
+                 static_folder = "perobj_resources/static",
+                 template_folder = "perobj_resources/templates")
 
 # .....................................................................................................................
 
@@ -256,7 +275,8 @@ def setup_data_route():
     setup_request_data = {"camera_select": camera_select,
                           "user_select": user_select,
                           "object_id_list": object_id_list,
-                          "ordered_labels_list": ordered_labels_list}
+                          "reserved_labels_list": sorted_reserved_labels,
+                          "topclass_labels_list": sorted_topclass_labels}
     
     return jsonify(setup_request_data)
 
@@ -270,17 +290,23 @@ def object_label_request(object_id):
     # Some debugging feedback
     print("", "LABEL REQUEST:", object_id, sep="\n")
     
-    # Get the current label associate with the given object id
+    # Get the current label associated with the given object id
+    object_label = "error"
     try:
-        label_request_data = supervised_class_labels_dict[object_id]
+        single_object_entry = load_single_supervised_label(*pathing_args, object_id, return_nested = True)
+        object_label = get_svlabel_topclass_label(single_object_entry, object_id)
     except KeyError:
-        return "no object {}".format(object_id), 500
+        print("no object {}".format(object_id))
+    
+    # Bundle data for return
+    return_request_dict = {"full_id": object_id,
+                           "object_label": object_label}
     
     # More debugging feedback
-    print("--> returning:", label_request_data)
+    print("--> returning:", return_request_dict)
     print("")
     
-    return jsonify(label_request_data)
+    return jsonify(return_request_dict)
 
 # .....................................................................................................................
 
@@ -330,15 +356,11 @@ def object_label_update():
     
     # Pull out post data
     object_id = update_json_data["object_id"]
-    new_class_label = update_json_data["new_class_label_string"]
+    new_class_label = update_json_data["new_label_string"]
     
     # Create save data & save it!
-    new_label_data = create_supervised_label_data(object_id, new_class_label)
-    save_supervised_label(supervised_labels_folder_path, object_id, new_label_data)
-    
-    # Update the internal label records, so future label requests are consistent with updates!
-    new_labels_dict = load_supervised_labels(supervised_labels_folder_path, [object_id])
-    supervised_class_labels_dict.update(new_labels_dict)
+    new_label_data = create_supervised_label_entry(object_id, new_class_label)
+    save_single_supervised_label(*pathing_args, new_label_data)
     
     # Some debugging feedback
     print("", 
@@ -382,4 +404,5 @@ if __name__ == "__main__":
 # TODOs:
 # - Add script arg to control debug mode
 # - Add script arg to control animation playback speed?
-#   - Or should this be controllable on the web page itself???        
+#   - Or should this be controllable on the web page itself???
+# - update page to use radio buttons for label selection (should simplify things?)

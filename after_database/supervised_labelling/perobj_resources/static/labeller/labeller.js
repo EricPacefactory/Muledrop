@@ -9,8 +9,9 @@ const getelem_objindex_indicator = () => document.getElementById("objindex_indic
 const getelem_objid_tooltip = () => document.getElementById("objid_tooltip_span");
 const getelem_left_arrow = () => document.getElementById("left_arrow_button_div");
 const getelem_right_arrow = () => document.getElementById("right_arrow_button_div");
-const getelem_label_block = () => document.getElementById("label_block_ul");
-const getelem_label_buttons_array = () => Array.from(getelem_label_block().querySelectorAll("li"));
+const getelem_reserved_label_block = () => document.getElementById("reserved_label_block_ul");
+const getelem_topclass_label_block = () => document.getElementById("topclass_label_block_ul");
+const getelem_label_buttons_as_array = (elem_ref) => Array.from(elem_ref.querySelectorAll("li"));
 
 // Label button css-class control functions
 const css_highlight_label_button = (label_button_ref) => label_button_ref.className = "label_button_hl_li";
@@ -71,11 +72,11 @@ function setup_global_constants_and_state(setup_json_data) {
 function setup_initial_ui(setup_json_data){
 
     // Pull out only the terms we need to setup the constant UI elements
-    const {camera_select, user_select, ordered_labels_list, ...rest} = setup_json_data;
+    const {camera_select, user_select, reserved_labels_list, topclass_labels_list, ...rest} = setup_json_data;
 
     // Set up camera title & dynamically create class label buttons
     create_camera_title(camera_select, user_select);
-    create_label_buttons(ordered_labels_list);
+    create_label_buttons(reserved_labels_list, topclass_labels_list);
 
     // Attach image/animation toggle callback to the image element
     const image_elem = getelem_display();
@@ -123,7 +124,7 @@ function update_label_button_highlighting(){
     const label_request_url = build_label_request_url(current_object_id)
     fetch(label_request_url)
     .then(flask_data_json_str => flask_data_json_str.json())
-    .then(label_request_json_data => label_request_json_data["class_label"])
+    .then(label_request_json_data => label_request_json_data["object_label"])
     .then(update_label_button_styling)
     .catch(error => console.error("Label button update error:", error))
 }
@@ -212,23 +213,32 @@ function create_camera_title(camera_select, user_select){
 
 // .....................................................................................................................
 
-function create_label_buttons(ordered_labels_list){
+function create_label_buttons(reserved_labels_list, topclass_labels_list){
+
+    // Get references to dom elements so we can attach buttons
+    const reserved_label_block_ul = getelem_reserved_label_block();
+    const topclass_label_block_ul = getelem_topclass_label_block();
+
+    // Build combined iterator so we can handle both button sets
+    const loop_iter = [[reserved_label_block_ul, reserved_labels_list],
+                       [topclass_label_block_ul, topclass_labels_list]];
 
     // Create each of the class label buttons at the bottom of the UI. These won't change after initial setup
-    const label_block_ul = getelem_label_block();
-    for(const each_label_string of ordered_labels_list){
+    for(const [each_ul_ref, each_labels_list] of loop_iter){
+        for(const each_label_string of each_labels_list){
 
-        // Create label buttons with attribute we can use to check label string (instead of relying on innerText)
-        const new_label_button = document.createElement("li");
-        new_label_button.innerText = each_label_string;
-        new_label_button.setAttribute("class_label_string", each_label_string);
+            // Create label buttons with attribute we can use to check label string (instead of relying on innerText)
+            const new_label_button = document.createElement("li");
+            new_label_button.innerText = each_label_string;
+            new_label_button.setAttribute("label_string", each_label_string);
 
-        // Attach label update callback to each button
-        new_label_button.addEventListener("click", update_object_label_callback(each_label_string));
+            // Attach label update callback to each button
+            new_label_button.addEventListener("click", update_object_label_callback(each_label_string));
 
-        // Finally, add the new button (li) to the parent ul-element
-        label_block_ul.appendChild(new_label_button);
-    };
+            // Finally, add the new button (li) to the parent ul-element
+            each_ul_ref.appendChild(new_label_button);
+        }
+    }
 
     // Lastly, make sure these buttons work after creation!
     enable_label_buttons();
@@ -236,7 +246,7 @@ function create_label_buttons(ordered_labels_list){
 
 // .....................................................................................................................
 
-function update_object_label_callback(new_class_label){
+function update_object_label_callback(new_label){
 
     // Some settings shared by all label buttons
     const fetch_method = "POST";
@@ -254,10 +264,10 @@ function update_object_label_callback(new_class_label){
         // Get current object id & construct label update data
         const current_object_id = get_current_object_id();
         const label_update_data = {object_id: current_object_id, 
-                                   new_class_label_string: new_class_label};
+                                   new_label_string: new_label};
 
         // Some debugging feedback
-        console.log(`label update -> ${current_object_id} : ${new_class_label}`);
+        console.log(`label update -> ${current_object_id} : ${new_label}`);
         
         // Build full POST data
         const post_data_json = {method: fetch_method, 
@@ -280,18 +290,24 @@ function update_object_label_callback(new_class_label){
 
 // .....................................................................................................................
 
-function update_label_button_styling(current_object_class_label){
+function update_label_button_styling(current_class_label){
 
-    // Check the class label on each button and highlight the one matching the current object label
-    let label_button_array = getelem_label_buttons_array();
-    for(const each_label_button_ref of label_button_array){
-        const button_class_label_string = each_label_button_ref.getAttribute("class_label_string");
-        if(button_class_label_string == current_object_class_label){
-            css_highlight_label_button(each_label_button_ref);
-        } else {
-            css_normal_label_button(each_label_button_ref);
+    // Get references to label buttons as arrays
+    const reserved_label_buttons_array = getelem_label_buttons_as_array(getelem_reserved_label_block());
+    const topclass_label_buttons_array = getelem_label_buttons_as_array(getelem_topclass_label_block());
+
+    // Check the label for each reserved label button and highlight the one matching the current object label
+    for(const each_array of [reserved_label_buttons_array, topclass_label_buttons_array]){
+        for(const each_label_button_ref of each_array){
+            const button_label_string = each_label_button_ref.getAttribute("label_string");
+            if(button_label_string == current_class_label){
+                css_highlight_label_button(each_label_button_ref);
+            } else {
+                css_normal_label_button(each_label_button_ref);
+            }
         }
     }
+
 }
 
 // .....................................................................................................................

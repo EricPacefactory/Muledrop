@@ -142,14 +142,17 @@
 /* ----------------------------------------------------------------- */
 /* Class label button styling */
 
-#label_block_ul {
+.label_blocks_div {
+  padding: 1em;
+}
+
+.label_block_ul {
   list-style: none;
   display: flex;
   flex-direction: row;
   flex-wrap: wrap;
   justify-content: center;
   align-items: center;
-  padding: 2em;
 }
 
 .label_button_li, .label_button_hl_li {
@@ -179,6 +182,7 @@
   font-weight: bold;
   color: var(--page_accent);
 }
+
 
 /* ----------------------------------------------------------------- */
 /* Class label button animations */

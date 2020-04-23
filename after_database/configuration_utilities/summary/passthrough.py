@@ -101,7 +101,7 @@ def load_matching_config(configurable_ref):
 
 # .....................................................................................................................
 
-def save_config(configurable_ref, file_dunder = __file__):
+def save_summary_config(configurable_ref, file_dunder = __file__):
     
     # Figure out the name of this configuration script
     config_utility_script_name, _ = os.path.splitext(os.path.basename(file_dunder))
@@ -150,7 +150,7 @@ summary_ref.reconfigure(initial_setup_data_dict)
 
 user_confirm_save = cli_confirm("Save passthrough summary config?", default_response = False)
 if user_confirm_save:
-    save_config(summary_ref, __file__)
+    save_summary_config(summary_ref, __file__)
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Scrap

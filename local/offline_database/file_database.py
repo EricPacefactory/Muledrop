@@ -62,7 +62,8 @@ from local.lib.file_access_utils.reporting import build_snapshot_image_report_pa
 from local.lib.file_access_utils.reporting import build_snapshot_metadata_report_path
 from local.lib.file_access_utils.reporting import build_object_metadata_report_path
 
-from local.lib.file_access_utils.classifier import load_label_lut_tuple, save_classifier_data
+from local.lib.file_access_utils.classifier import load_reserved_labels_lut, load_topclass_labels_lut
+from local.lib.file_access_utils.classifier import reserved_notrain_label
 from local.lib.file_access_utils.classifier import new_classifier_report_entry
 from local.lib.file_access_utils.classifier import build_classifier_adb_metadata_report_path
 
@@ -979,9 +980,13 @@ class Classification_DB(File_DB):
     def __init__(self, cameras_folder_path, camera_select, user_select,
                  db_path = ":memory:", check_same_thread = True):
         
-        # Load the class labelling lookup table for graphic settings
-        self._class_label_lut, self.label_to_idx_dict = load_label_lut_tuple(cameras_folder_path, camera_select)        
-        self.num_classes, self.valid_labels_dict, self.ignoreable_labels_list = self.get_labels()
+        # Load classification labels & colors
+        self.reserved_labels_lut = load_reserved_labels_lut(cameras_folder_path, camera_select)
+        self.topclass_labels_lut = load_topclass_labels_lut(cameras_folder_path, camera_select)
+        self.all_label_colors_lut = {**self.reserved_labels_lut, **self.topclass_labels_lut}
+        
+        # Load reference to special label that is meant as a training directive only
+        self.no_train_label, _ = reserved_notrain_label()
         
         # Get pathing to 'local' classification results
         self.local_classification_folder = build_classifier_adb_metadata_report_path(cameras_folder_path,
@@ -1004,11 +1009,11 @@ class Classification_DB(File_DB):
         
         # Define object classification table columns
         objs_columns = ["full_id INTEGER PRIMARY KEY",
-                        "class_label TEXT",
-                        "score_pct INTEGER",
-                        "is_classified INTEGER",
-                        "subclass TEXT",
-                        "attributes_json TEXT"]
+                        "topclass_label TEXT",
+                        "subclass_label TEXT",
+                        "topclass_dict TEXT",
+                        "subclass_dict TEXT",
+                        "attributes_dict TEXT"]
         objs_column_str = ", ".join(objs_columns)
         
         # Initialize a table for object classifications
@@ -1020,16 +1025,12 @@ class Classification_DB(File_DB):
     
     # .................................................................................................................
     
-    def add_entry(self, full_id, class_label, score_pct, subclass = "", attributes_json = "{}"):
-        
-        # Create variable to signify whether the object has been classified or not
-        is_classified = int(class_label.lower() != "unclassified")
-        if not is_classified:
-            score_pct = 0
+    def add_entry(self, full_id, topclass_label, subclass_label, topclass_dict, subclass_dict, attributes_dict):
         
         # Bundle data in the correct order for database entry
-        new_entry_var_list = ["full_id", "class_label", "is_classified", "score_pct", "subclass", "attributes_json"]
-        new_entry_value_list = [full_id, class_label, is_classified, score_pct, subclass, attributes_json]
+        new_entry_var_list = ["full_id", "topclass_label", "subclass_label", 
+                              "topclass_dict", "subclass_dict", "attributes_dict"]
+        new_entry_value_list = [full_id, topclass_label, subclass_label, topclass_dict, subclass_dict, attributes_dict]
         new_entry_q_list = ["?"] * len(new_entry_var_list)
         
         # Build insert command
@@ -1042,62 +1043,28 @@ class Classification_DB(File_DB):
         cursor = self._cursor()
         cursor.execute(insert_cmd, new_entry_value_list)
         self.connection.commit()
-        
-    # .................................................................................................................
-    
-    def save_entry(self, full_id, new_class_label, new_score_pct, new_subclass = "", new_attributes_dict = None):
-        
-        # Create unique dictionary every time the function is called, for safety
-        new_attributes_dict = {} if new_attributes_dict is None else new_attributes_dict
-        
-        # Save a file to represent the classifier data
-        save_classifier_data(self.cameras_folder_path, self.camera_select, self.user_select, 
-                             full_id, new_class_label, new_score_pct, new_subclass, new_attributes_dict)
     
     # .................................................................................................................
     
-    def get_class_colors(self, class_label):
+    def get_label_color(self, classification_label):
         
         # Look up coloring from class label lookup tables
-        trail_color_rgb = self._class_label_lut[class_label]["trail_color"]
-        outline_color_rgb = self._class_label_lut[class_label]["outline_color"]
+        outline_color = self.all_label_colors_lut[classification_label]
         
-        # Convert to bgr for OpenCV
-        trail_color_bgr = trail_color_rgb[::-1]
-        outline_color_bgr = outline_color_rgb[::-1]
-        
-        return trail_color_bgr, outline_color_bgr
+        return outline_color
     
     # .................................................................................................................
     
-    def get_label_color_luts(self, as_bgr = True):
+    def get_label_color_luts(self):
         
-        ''' 
-        Function which returns two dictionaries which store the color of each class trail/outline by class label
+        '''
+        Function which just returns the color mapping for all class labels
         
-        Inputs:
-            as_bgr --> Boolean. If true, colors are returned in bgr format, otherwise uses rgb
-            
         Outputs:
-            trail_color_lut, outline_color_lut
-            
-        Example outputs:
-            trail_color_lut = {"unclassified": (0, 255, 255), "pedestrian": (0, 255, 255), ...}
-            outline_color_lut = {"unclassified": (0, 255, 255), "pedestrian": (0, 255, 0), ...}
+            reserved_colors_dict, topclass_colors_dict, all_colors_dict
         '''
         
-        # Loop over all the known class labels and pull out the trail and outline colors separately
-        trail_color_lut = {}
-        outline_color_lut = {}
-        for each_class_label, label_data_dict in self._class_label_lut.items():
-            trail_color_rgb = label_data_dict["trail_color"]
-            outline_color_rgb = label_data_dict["outline_color"]
-            trail_color = trail_color_rgb[::-1] if as_bgr else trail_color_rgb
-            outline_color = outline_color_rgb[::-1] if as_bgr else outline_color_rgb
-            trail_color_lut[each_class_label] = trail_color
-            outline_color_lut[each_class_label] = outline_color
-            
-        return trail_color_lut, outline_color_lut
+        return self.reserved_labels_lut, self.topclass_labels_lut, self.all_label_colors_lut
     
     # .................................................................................................................
     
@@ -1129,52 +1096,37 @@ class Classification_DB(File_DB):
         
         # Unbundle for clarity
         try:
-            _, class_label, score_pct, is_classified, subclass, attributes_json = object_classification_data[0]
+            class_data = object_classification_data[0]
+            _, topclass_label, subclass_label, topclass_json, subclass_json, attributes_json = class_data
+            
+            # Convert json strings back to dictionaries so we can work with them in pytho
+            topclass_dict = fast_json_to_dict(topclass_json)
+            subclass_dict = fast_json_to_dict(subclass_json)
+            attributes_dict = fast_json_to_dict(attributes_json)
             
         except IndexError:
             # If we don't find the object, return a default entry
-            new_class_dict = new_classifier_report_entry(object_id)
-            class_label = new_class_dict["class_label"]
-            score_pct = new_class_dict["score_pct"]
-            subclass = new_class_dict["subclass"]
-            attributes_dict = new_class_dict["attributes"]            
-            attributes_json = fast_json_stringify(attributes_dict)
+            default_class_data = new_classifier_report_entry(object_id)
+            topclass_label = default_class_data["topclass_label"]
+            subclass_label = default_class_data["subclass_label"]
+            topclass_dict = default_class_data["topclass_dict"]
+            subclass_dict = default_class_data["subclass_dict"]            
+            attributes_dict = default_class_data["attributes_dict"]
         
-        # Convert attributes back to python dictionary for convenience
-        attributes_dict = fast_json_to_dict(attributes_json)
-        
-        return class_label, score_pct, subclass, attributes_dict
-    
-    # .................................................................................................................
-    
-    def get_labels(self):
-        
-        # Go through all labelling info and split into valid labels and ignoreables (based on class indices)
-        valid_labels_dict = {}
-        ignoreable_labels_list = [] 
-        for each_label, each_idx in self.label_to_idx_dict.items():
-            valid_idx = (each_idx >= 0)
-            
-            if valid_idx:
-                valid_labels_dict.update({each_label: each_idx})
-            else:
-                ignoreable_labels_list.append(each_label)
-        
-        # Count the number of valid classes, since we'll need to make our one-hot vector at least this long!
-        num_valid_classes = len(valid_labels_dict)
-        
-        return num_valid_classes, valid_labels_dict, ignoreable_labels_list
+        return topclass_label, subclass_label, topclass_dict, subclass_dict, attributes_dict
     
     # .................................................................................................................
     
     def ordered_class_names(self):
         
-        ''' Helper function to get class labels in sorted (by index) order '''
+        ''' Helper function to get class labels in sorted order '''
         
-        idx_label_list = [(each_idx, each_label) for each_label, each_idx in self.valid_labels_dict.items()]
-        sorted_idxs, sorted_labels = zip(*sorted(idx_label_list))
+        # Order by reserved than topclass
+        sorted_reserved_labels = sorted(list(self.reserved_labels_lut.keys()))
+        sorted_topclass_labels = sorted(list(self.topclass_labels_lut.keys()))
+        sorted_all_labels = sorted_reserved_labels + sorted_topclass_labels
         
-        return sorted_labels
+        return sorted_all_labels
     
     # .................................................................................................................
     # .................................................................................................................
@@ -1625,16 +1577,19 @@ def _post_classifier_adb_metadata(classifier_adb_metadata_folder_path, database)
         # Pull data out of the classifier metadata file
         class_md = load_jgz(each_file_path)
         full_id = class_md["full_id"]
-        class_label = class_md["class_label"]
-        score_pct = class_md["score_pct"]
-        subclass = class_md["subclass"]
-        attributes = class_md["attributes"]
+        topclass_label = class_md["topclass_label"]
+        subclass_label = class_md["subclass_label"]
+        topclass_dict = class_md["topclass_dict"]
+        subclass_dict = class_md["subclass_dict"]
+        attributes_dict = class_md["attributes_dict"]
         
-        # Convert attributes dictionary to a json string for the database
-        attributes_json = fast_json_stringify(attributes)
+        # Convert dictionarys to json string for the database
+        topclass_json = fast_json_stringify(topclass_dict)
+        subclass_json = fast_json_stringify(subclass_dict)
+        attributes_json = fast_json_stringify(attributes_dict)
 
         # 'POST' to the database
-        database.add_entry(full_id, class_label, score_pct, subclass, attributes_json)
+        database.add_entry(full_id, topclass_label, subclass_label, topclass_json, subclass_json, attributes_json)
     
     # End timing
     t_end = perf_counter()

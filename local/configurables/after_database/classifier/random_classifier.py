@@ -51,7 +51,7 @@ find_path_to_local()
 
 from random import randint
 
-from local.lib.file_access_utils.classifier import load_label_lut_tuple
+from local.lib.file_access_utils.classifier import load_topclass_labels_lut
 
 from local.configurables.after_database.classifier.reference_classifier import Reference_Classifier
 
@@ -67,11 +67,11 @@ class Classifier_Stage(Reference_Classifier):
         # Inherit from base class
         super().__init__(cameras_folder_path, camera_select, user_select, file_dunder = __file__)
         
-        # Get pathing to labels, so we know what to randomly assign!
-        _, label_to_index_lut = load_label_lut_tuple(cameras_folder_path, camera_select)
+        # Get pathing to topclass labels, so we know what to randomly assign!
+        topclass_labels_lut = load_topclass_labels_lut(cameras_folder_path, camera_select)
         
         # Remove indicator labels, so we don't assign them
-        self.valid_labels = [each_label for each_label, each_index in label_to_index_lut.items() if each_index > 0]
+        self.valid_labels = list(topclass_labels_lut.keys())
         self.num_labels = len(self.valid_labels)
         
     # .................................................................................................................
@@ -84,17 +84,20 @@ class Classifier_Stage(Reference_Classifier):
     
     def classify_one_object(self, object_data, snapshot_database):
         
-        # Randomly assign labels & scores
-        random_index = randint(0, self.num_labels - 1)
-        random_score = randint(15, 100)
+        # Randomly assign scores
+        max_index = self.num_labels - 1
+        random_scores = [randint(0, max_index) for k in range(self.num_labels)]
+        total_score = sum(random_scores)
         
-        # Get class label & score from detection data, leave everything else blank
-        class_label = self.valid_labels[random_index]
-        score_pct = random_score
-        subclass = ""
+        # Normalize scores and create a fake topclass dictionary
+        norm_scores = [each_score / total_score for each_score in random_scores]
+        topclass_dict = {self.valid_labels[each_idx]: each_score for each_idx, each_score in enumerate(norm_scores)}
+        
+        # Use blank subclass & attributes
+        subclass_dict = {}
         attributes_dict = {}
         
-        return class_label, score_pct, subclass, attributes_dict
+        return topclass_dict, subclass_dict, attributes_dict
 
     # .................................................................................................................
     # .................................................................................................................

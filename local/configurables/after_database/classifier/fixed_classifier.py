@@ -49,9 +49,8 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
-from random import randint
-
-from local.lib.file_access_utils.classifier import load_label_lut_tuple
+from local.lib.file_access_utils.classifier import load_topclass_labels_lut, load_reserved_labels_lut
+from local.lib.file_access_utils.classifier import reserved_notrain_label
 
 from local.configurables.after_database.classifier.reference_classifier import Reference_Classifier
 
@@ -67,15 +66,21 @@ class Classifier_Stage(Reference_Classifier):
         # Inherit from base class
         super().__init__(cameras_folder_path, camera_select, user_select, file_dunder = __file__)
         
-        # Get pathing to labels, so we know what to randomly assign!
-        _, label_to_index_lut = load_label_lut_tuple(cameras_folder_path, camera_select)
+        # Get pathing to labels, so we know what fixed labels we can choose from
+        reserved_labels_lut = load_reserved_labels_lut(cameras_folder_path, camera_select)
+        topclass_labels_lut = load_topclass_labels_lut(cameras_folder_path, camera_select)
         
-        # List out all labels, sorted by index
-        idx_label_tuples_list = [(each_idx, each_label) for each_label, each_idx in label_to_index_lut.items()]
-        _, sorted_labels = zip(*sorted(idx_label_tuples_list))
+        # Remove the no-train label from the reserved list, since we don't want to assign this in real-use
+        notrain_label, _ = reserved_notrain_label()
+        del reserved_labels_lut[notrain_label]
         
-        # Construct (& store) class label menu from label list
-        self._menu_list = [(each_label.capitalize(), each_label) for each_label in sorted_labels]        
+        # Sort labels, reserved first
+        sorted_reserved_labels = sorted(list(reserved_labels_lut))
+        sorted_topclass_labels = sorted(list(topclass_labels_lut))
+        sorted_all_labels = sorted_reserved_labels + sorted_topclass_labels
+        
+        # Construct (& store) a menu of labels
+        self._menu_list = [(each_label.capitalize(), each_label) for each_label in sorted_all_labels]
         default_menu_select = self._menu_list[0][0]
         
         # .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . Control Group 1 .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
@@ -90,16 +95,16 @@ class Classifier_Stage(Reference_Classifier):
                 option_label_value_list = self._menu_list, 
                 tooltip = "Set the (fixed) class label to assign to all objects.")
         
-        self.fixed_class_score_pct = \
+        self.fixed_class_score = \
         self.ctrl_spec.attach_slider(
-                "fixed_class_score_pct", 
+                "fixed_class_score", 
                 label = "Fixed Class Score", 
-                default_value = 100,
-                min_value = 0, max_value = 100,
-                return_type = int,
+                default_value = 1.0,
+                min_value = 0.0, max_value = 1.0, step_size = 1/100,
+                return_type = float,
                 zero_referenced = True,
-                units = "percent",
-                tooltip = "Set the (fixed) classification score percentage.")
+                units = "normalized",
+                tooltip = "Set the (fixed) classification score.")
         
     # .................................................................................................................
     
@@ -112,12 +117,11 @@ class Classifier_Stage(Reference_Classifier):
     def classify_one_object(self, object_data, snapshot_database):
         
         # Get class label & score from detection data, leave everything else blank
-        class_label = self.fixed_class_label
-        score_pct = self.fixed_class_score_pct
-        subclass = ""
+        topclass_dict = {self.fixed_class_label: self.fixed_class_score}
+        subclass_dict = {}
         attributes_dict = {}
         
-        return class_label, score_pct, subclass, attributes_dict
+        return topclass_dict, subclass_dict, attributes_dict
 
     # .................................................................................................................
     # .................................................................................................................

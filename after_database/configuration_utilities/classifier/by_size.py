@@ -67,8 +67,8 @@ from local.lib.ui_utils.local_ui.windows_base import Simple_Window
 
 from local.eolib.utils.cli_tools import Datetime_Input_Parser as DTIP
 
+from local.lib.file_access_utils.supervised_labels import load_all_supervised_labels, get_svlabel_topclass_label
 
-from local.lib.file_access_utils.classifier import build_supervised_labels_folder_path, load_supervised_labels
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
@@ -148,8 +148,7 @@ def draw_all_wh_list(obj_wh_lists_dict, frame_side_length = 300, line_color = (0
     # Draw every width/height list into the frame
     for each_obj_id, each_wh_list in obj_wh_lists_dict.items():
         
-        sv_label_raw_result = sv_labels_dict[each_obj_id]
-        sv_label = sv_label_raw_result["class_label"].lower()
+        sv_label = get_svlabel_topclass_label(sv_labels_dict, each_obj_id)
         
         # Skip over the ignores
         if sv_label == "ignore":
@@ -181,6 +180,9 @@ project_root_path, cameras_folder_path = selector.get_project_pathing()
 # Select the camera/user to show data for (needs to have saved report data already!)
 camera_select, camera_path = selector.camera(debug_mode=enable_debug_mode)
 user_select, _ = selector.user(camera_select, debug_mode=enable_debug_mode)
+
+# Bundle pathing args for convenience
+pathing_args = (cameras_folder_path, camera_select, user_select)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -250,9 +252,8 @@ trails_background = create_trail_frame_from_object_reconstruction(bg_frame, obj_
 
 #%%
 
-sv_labels_folder = build_supervised_labels_folder_path(cameras_folder_path, camera_select, user_select)
 obj_id_list = [each_obj_recon.full_id for each_obj_recon in obj_list]
-sv_labels_dict = load_supervised_labels(sv_labels_folder, obj_id_list)
+sv_labels_dict = load_all_supervised_labels(*pathing_args, obj_id_list)
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Interaction loop

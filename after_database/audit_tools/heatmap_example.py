@@ -328,7 +328,7 @@ try:
         for each_class_label, each_heatmap in colored_heat_frame_dict.items():
             heat_window = heatmap_window_dict[each_class_label]            
             display_frame = draw_mouse_location(each_heatmap, mouse_xy)
-            display_frame = cv2.addWeighted(display_frame, 1.25, bg_frame, 0.25, 0.0)
+            display_frame = cv2.addWeighted(display_frame, 1.15, bg_frame, 0.35, 0.0)
             winexists = heat_window.imshow(display_frame)
             if winexists:
                 heat_winexists = True

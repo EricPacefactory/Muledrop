@@ -364,15 +364,19 @@ def show_looping_animation(snapshot_database, object_database, object_list,
     anim_snapshot_times = snapshot_database.get_all_snapshot_times_by_time_range(earliest_time, latest_time)
     
     # Set up the display window
-    object_ids_string = ", ".join([str(each_obj.nice_id) for each_obj in object_list])
-    obj_prefix = "Object" if len(object_list) < 2 else "Objects:"
+    only_one_obj = (len(object_list) == 1)
+    get_id_as_str = lambda obj_ref: str(obj_ref.full_id if only_one_obj else obj_ref.nice_id)
+    object_ids_string = ", ".join([get_id_as_str(each_obj) for each_obj in object_list])
+    obj_prefix = "Object" if only_one_obj else "Objects:"
     window_title = "{} {}".format(obj_prefix, object_ids_string)
     anim_window = Simple_Window(window_title)
     anim_window.move_corner_pixels(x_pixels = 400, y_pixels = 200)
     
-    # Hard-code key code for clarity
+    # Hard-code key codes
     esc_key = 27
     spacebar = 32
+    left_arrow_keys = {81, 97}   # Left or 'a' key
+    right_arrow_keys = {83, 100} # Right or "d' key
     
     # Set up frame delay settings
     playback_frame_delay_ms = 150
@@ -380,14 +384,19 @@ def show_looping_animation(snapshot_database, object_database, object_list,
     pause_mode = False    
     
     # Loop over snapshots to animate infinitely
-    snap_times_inf_list = cycle(anim_snapshot_times)
-    for each_snap_time in snap_times_inf_list:
+    snap_idx = 0
+    start_idx = 0
+    end_idx = len(anim_snapshot_times)
+    while True:
+        
+        # Get current snap time
+        curr_snap_time = anim_snapshot_times[snap_idx]
         
         # Get each snapshot and draw all outlines/trails for all objects in the frame
-        snap_image, snap_frame_idx = snapshot_database.load_snapshot_image(each_snap_time)
+        snap_image, snap_frame_idx = snapshot_database.load_snapshot_image(curr_snap_time)
         for each_obj in object_list:
-            each_obj.draw_trail(snap_image, snap_frame_idx, each_snap_time)
-            each_obj.draw_outline(snap_image, snap_frame_idx, each_snap_time)
+            each_obj.draw_trail(snap_image, snap_frame_idx, curr_snap_time)
+            each_obj.draw_outline(snap_image, snap_frame_idx, curr_snap_time)
         
         # Display the snapshot image, but stop if the window is closed
         winexists = anim_window.imshow(snap_image)
@@ -401,11 +410,31 @@ def show_looping_animation(snapshot_database, object_database, object_list,
             break
         
         # Toggle pausing/unpausing with spacebar
-        if keypress == spacebar:
+        elif keypress == spacebar:
             pause_mode = not pause_mode
+            
+        # Step back one frame with left key
+        elif keypress in left_arrow_keys:
+            pause_mode = True
+            snap_idx = snap_idx - 1
+            
+        # Step forward one frame with right key
+        elif keypress in right_arrow_keys:
+            pause_mode = True
+            snap_idx = snap_idx + 1
+            
+        # Update the snapshot index with looping
+        if not pause_mode:
+            snap_idx += 1
+        if snap_idx >= end_idx:
+            snap_idx = start_idx
+        elif snap_idx < start_idx:
+            snap_idx = end_idx - 1
     
     # Get rid of animation widow before leaving
     anim_window.close()
+    
+    return
 
 # .....................................................................................................................
 # .....................................................................................................................

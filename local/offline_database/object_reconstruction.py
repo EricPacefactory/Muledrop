@@ -57,12 +57,17 @@ from time import perf_counter
 from scipy.interpolate import UnivariateSpline
 from scipy.spatial import cKDTree
 
+from local.lib.common.feedback import print_time_taken_ms
 from local.lib.common.timekeeper_utils import time_to_epoch_ms
+
+from local.eolib.utils.read_write import save_csv_dict
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
 
 class Object_Reconstruction:
+    
+    use_base_tracking = False
     
     # .................................................................................................................
     
@@ -74,12 +79,6 @@ class Object_Reconstruction:
         self.nice_id = self.metadata["nice_id"]
         self.full_id = self.metadata["full_id"]
         self.lifetime_ms = self.metadata["lifetime_ms"]
-        
-        # Store object trail separately, since we'll want to use that a lot
-        self._real_trail_xy = np.float32(object_metadata["tracking"]["xy_center"])
-        
-        # Store smoothed trail
-        self.trail_xy = self._create_trail_xy()
         
         # Store object start/end time in terms of video frame indice, used for syncing with snapshots
         self.start_idx = self.metadata["first_frame_index"]
@@ -107,6 +106,17 @@ class Object_Reconstruction:
         self._classification_label = "unclassified"
         self._subclass = ""
         self._classification_attributes = {}
+        
+        # Store object trail separately, since we'll want to use that a lot
+        self._real_trail_xy = np.float32(object_metadata["tracking"]["xy_center"])
+        if self.use_base_tracking:
+            for each_idx, each_xy in enumerate(self._real_trail_xy):
+                frame_idx = self.sample_index_to_frame_index(each_idx)
+                _, box_height = self.get_box_wh(frame_idx)
+                self._real_trail_xy[each_idx] += np.float32((0, box_height / 2.0))
+        
+        # Store smoothed trail
+        self.trail_xy = self._create_trail_xy()
     
     # .................................................................................................................
     
@@ -121,23 +131,28 @@ class Object_Reconstruction:
     
     # .................................................................................................................
     
-    def _rel_index(self, frame_index):
+    @classmethod
+    def set_base_tracking_point(cls, use_base_tracking = True):        
+        cls.use_base_tracking = use_base_tracking
         
-        ''' Function for converting absolute frame indices into a index relative to the object dataset '''
-        
-        #return self.end_idx - frame_index
-        return frame_index - self.start_idx
-    
     # .................................................................................................................
     
-    def _index_in_dataset(self, frame_index):
+    def _index_in_dataset_OLD(self, frame_index):
         
         ''' Function for checking if this object has data for the given frame index '''
         
-        rel_index = self._rel_index(frame_index)
-        is_valid = (0 <= rel_index < self.num_samples)
+        sample_index = self.frame_index_to_sample_index(frame_index)
+        is_valid = (0 <= sample_index < self.num_samples)
                 
-        return is_valid, rel_index
+        return is_valid, sample_index
+    
+    # .................................................................................................................
+    
+    def _frame_index_in_dataset(self, frame_index):
+        
+        ''' Helper function for checking if this object has data for the given frame index '''
+                
+        return (self.start_idx <= frame_index <= self.end_idx)
     
     # .................................................................................................................
     
@@ -165,6 +180,22 @@ class Object_Reconstruction:
     
     # .................................................................................................................
     
+    def frame_index_to_sample_index(self, frame_index):
+        
+        ''' Helper function used to convert frame (global) indices to object sample (local) indices '''
+        
+        return frame_index - self.start_idx
+    
+    # .................................................................................................................
+    
+    def sample_index_to_frame_index(self, sample_index):
+        
+        ''' Helper function used to convert object sample (local) indices to equivalent frame (global) indices '''
+        
+        return sample_index + self.start_idx
+    
+    # .................................................................................................................
+    
     def get_bounding_epoch_ms(self):
         
         ''' Function used to return the start/end timing of the object. Useful for syncing with snapshots '''
@@ -184,14 +215,15 @@ class Object_Reconstruction:
         '''
         
         # Don't bother trying to draw anything if there aren't any samples!
-        valid_index, rel_idx = self._index_in_dataset(frame_index)
+        valid_index = self._frame_index_in_dataset(frame_index)
+        if not valid_index:
+            return None
         
         # Only grab target hull data if we have a valid frame index
-        if valid_index:
-            hull_data = self.metadata["tracking"]["hull"][rel_idx]
-            return self._arrayify(hull_data) if normalized else self._pixelize(hull_data)
+        sample_idx = self.frame_index_to_sample_index(frame_index)
+        hull_data = self.metadata["tracking"]["hull"][sample_idx]
         
-        return None
+        return self._arrayify(hull_data) if normalized else self._pixelize(hull_data)
     
     # .................................................................................................................
     
@@ -217,13 +249,29 @@ class Object_Reconstruction:
         box_bot_right = np.max(obj_hull_array, axis = 0)
         obj_box_tlbr = (box_top_left.tolist(), box_bot_right.tolist())
         
-        return obj_box_tlbr        
+        return obj_box_tlbr
     
     # .................................................................................................................
     
-    def set_graphics(self, trail_color, outline_color):
+    def get_box_wh(self, frame_index, normalized = True):
         
-        self._trail_color = trail_color
+        # Try to get the object hull data at the given frame
+        obj_hull_array = self.get_hull_array(frame_index, normalized = normalized)
+        
+        # If no data exists, just return nothing
+        if obj_hull_array is None:
+            return None
+        
+        # Calculate max/min x/y differences to get width and height
+        box_top_left = np.min(obj_hull_array, axis = 0)
+        box_bot_right = np.max(obj_hull_array, axis = 0)
+        box_wh = box_bot_right - box_top_left
+        
+        return box_wh
+    
+    # .................................................................................................................
+    
+    def set_graphics(self, outline_color):
         self._outline_color = outline_color
     
     # .................................................................................................................
@@ -282,10 +330,12 @@ class Object_Reconstruction:
         if frame_index:
             
             # Don't bother trying to draw anything if there aren't any samples!
-            valid_index, rel_idx = self._index_in_dataset(frame_index)
+            valid_index = self._frame_index_in_dataset(frame_index)
             if not valid_index:
                 return output_frame
-            plot_trail_xy = self.trail_xy[:rel_idx]
+            
+            sample_idx = self.frame_index_to_sample_index(frame_index)
+            plot_trail_xy = self.trail_xy[:sample_idx]
         else:
             plot_trail_xy = self.trail_xy
         
@@ -320,8 +370,8 @@ class Object_Reconstruction:
                 return output_frame
         
         # Get trail segment for plotting
-        start_idx = self._rel_index(start_frame_index)
-        end_idx = self._rel_index(end_frame_index)
+        start_idx = self.frame_index_to_sample_index(start_frame_index)
+        end_idx = self.frame_index_to_sample_index(end_frame_index)
         
         # Don't draw anything if indices are out of bounds
         if start_idx is None or end_idx is None:
@@ -363,12 +413,13 @@ class Object_Reconstruction:
                 return output_frame
         
         # Don't bother trying to draw anything if there aren't any samples!
-        valid_index, rel_idx = self._index_in_dataset(frame_index)
+        valid_index = self._frame_index_in_dataset(frame_index)
         if not valid_index:
             return output_frame
         
+        sample_idx = self.frame_index_to_sample_index(frame_index)
         obj_full_id = self.full_id
-        xy_cen_px  = np.int32(np.round(self.trail_xy[rel_idx] * self.frame_scaling_array))
+        xy_cen_px  = np.int32(np.round(self.trail_xy[sample_idx] * self.frame_scaling_array))
         cv2.putText(output_frame, str(obj_full_id), tuple(xy_cen_px), 
                     cv2.FONT_HERSHEY_SIMPLEX,
                     1.0,
@@ -403,7 +454,7 @@ class Object_Reconstruction:
     
     def _create_trail_xy(self):
         
-        ''' 
+        '''
         Function used to generate modified trails
         Base implementation returns the original (raw) trail data
         Override to provide alternate functionality (i.e. smoothing or other cleanup)
@@ -424,20 +475,21 @@ class Object_Reconstruction:
     # .................................................................................................................
     
     @classmethod
-    def create_reconstruction_list(cls, object_metadata_list, frame_wh, 
+    def create_reconstruction_list(cls, object_metadata_iter, frame_wh, 
                                    global_start_time, global_end_time,
                                    print_feedback = True,
                                    **kwargs):
         
         ''' Helper function for generating a list of reconstructed objects based on this class '''
         
-        # Some feedback before starting a potentiall heavy operation
+        # Some feedback before starting a potentially heavy operation
         if print_feedback:
             print("", "Reconstructing objects...", sep = "\n")
             t_start = perf_counter()
         
+        # Reconstruct python-usable objects from metadata entries
         object_list = []
-        for each_obj_metadata in object_metadata_list:
+        for each_obj_metadata in object_metadata_iter:
             new_reconstruction = cls(each_obj_metadata,
                                      frame_wh,
                                      global_start_time,
@@ -449,9 +501,8 @@ class Object_Reconstruction:
         if print_feedback:
             t_end = perf_counter()
             num_objects = len(object_list)
-            print("  {} total objects".format(num_objects),
-                  "  Finished! Took {:.0f} ms".format(1000 * (t_end - t_start)), 
-                  sep = "\n")
+            print("  {} total objects".format(num_objects))
+            print_time_taken_ms(t_start, t_end, prepend_newline = False, inset_spaces = 2)
             
         return object_list
     
@@ -464,6 +515,7 @@ class Object_Reconstruction:
 
 
 class Smoothed_Object_Reconstruction(Object_Reconstruction):
+    
     
     # .................................................................................................................
     
@@ -549,7 +601,7 @@ class Hover_Mapping:
         # Feedback about hover map being completed
         end_time = perf_counter()
         if print_feedback:
-            print("  Finished! Took {:.0f} ms".format(1000 * (end_time - start_time)))
+            print_time_taken_ms(start_time, end_time, prepend_newline = False, inset_spaces = 2)
     
     # .................................................................................................................
     
@@ -676,6 +728,51 @@ def minimum_crop_box(pt1, pt2, minimum_distance, frame_size):
     new_pt2 = int(np.clip(np.round(new_pt2), 0, frame_size - 1))
     
     return new_pt1, new_pt2
+
+# .....................................................................................................................
+
+def save_object_to_csv(save_folder_path, object_recon_ref):
+    
+    # Get object data
+    trail_xy = object_recon_ref.trail_xy
+    frame_width, frame_height = object_recon_ref.frame_wh
+    print(frame_width, frame_height)
+    
+    #
+    x_cen_list = []
+    y_cen_list = []
+    width_list = []
+    height_list = []
+    for each_sample_idx, (each_x, each_y) in enumerate(trail_xy):
+        
+        frame_idx = object_recon_ref.sample_index_to_frame_index(each_sample_idx)
+        
+        box_w, box_h = object_recon_ref.get_box_wh(frame_idx, normalized = True)
+        
+        x_cen_list.append(each_x)
+        y_cen_list.append(each_y)
+        width_list.append(box_w)
+        height_list.append(box_h)
+        
+    
+    
+    # Bundle data into dictionary to save as csv
+    data_dict = {"x_cen": x_cen_list,
+                 "y_cen": y_cen_list,
+                 "width": width_list,
+                 "height": height_list,
+                 "Frame Width (px)": [frame_width],
+                 "Frame Height (px)": [frame_height]}
+    
+    # All data is numeric and can use the same format string
+    string_formatting_dict = None
+    
+    # Build pathing & save!
+    save_file_name = "{}.csv".format(object_recon_ref.full_id)
+    save_file_path = os.path.join(save_folder_path, save_file_name)
+    save_csv_dict(save_file_path, data_dict, string_formatting_dict, fit_to_longest = True)
+    
+    return save_file_path
 
 # .....................................................................................................................
 # .....................................................................................................................

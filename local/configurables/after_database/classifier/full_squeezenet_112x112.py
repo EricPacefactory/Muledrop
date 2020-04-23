@@ -50,7 +50,7 @@ find_path_to_local()
 #%% Imports
 
 from local.configurables.after_database.classifier.reference_classifier import Reference_Classifier
-from local.lib.file_access_utils.classifier import build_model_path
+from local.lib.file_access_utils.classifier import build_model_resources_path
 
 from local.lib.classifier_models.squeezenet_variants import Full_SqueezeNet_112x112
 
@@ -70,7 +70,7 @@ class Image_Based_Classifier_Stage(Reference_Classifier):
         self.classifier_model = None
         
         # Build pathing to a saved model file, if present
-        self.path_to_model_folder = build_model_path(cameras_folder_path, camera_select)
+        self.path_to_model_folder = build_model_resources_path(cameras_folder_path, camera_select)
         self._path_to_model_file = None
         
         # If no model files exist, raise an error (config utility should be responsible for creating base model file!)

@@ -460,11 +460,13 @@ def objects_get_classification(camera_select, object_full_id):
     
     try:
         class_db = class_dbs_dict[camera_select]
-        class_label, score_pct, subclass, attributes_dict = class_db.load_classification_data(object_full_id)
-        output_dict = {"class_label": class_label,
-                       "score_pct": score_pct,
-                       "subclass": subclass,
-                       "attributes": attributes_dict}
+        topclass_label, subclass_label, topclass_dict, subclass_dict, attributes_dict = \
+        class_db.load_classification_data(object_full_id)
+        output_dict = {"topclass_label": topclass_label,
+                       "subclass_label": subclass_label,
+                       "topclass_dict": topclass_dict,
+                       "subclass_dict": subclass_dict,
+                       "attributes_dict": attributes_dict}
     except Exception as err:
         return ("Error: {}".format(err), 404)
     

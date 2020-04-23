@@ -149,7 +149,7 @@ def build_recording_path(base_path, camera_select, user_select, timelapse_factor
             ide_quit()
     
     # Build full folder pathing
-    recording_folder = os.path.join(base_path, "safety-cv-recordings")
+    recording_folder = os.path.join(base_path, "safety-cv-exports", "recordings")
     os.makedirs(recording_folder, exist_ok = True)
     
     # Build timelapse str, if it isn't just 1

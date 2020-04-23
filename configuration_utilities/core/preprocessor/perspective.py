@@ -55,6 +55,10 @@ from local.lib.launcher_utils.video_processing_loops import Reconfigurable_Video
 from local.lib.ui_utils.display_specification import Display_Window_Specification
 from local.lib.ui_utils.display_specification import Preprocessed_Display
 
+from local.configurables.core.preprocessor.perspective_preprocessor import draw_extended_quad
+#from local.configurables.core.preprocessor.perspective_preprocessor import draw_warped_grid
+
+
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define displays
 
@@ -78,7 +82,8 @@ class Custom_Input_Display(Display_Window_Specification):
                 current_frame_index, current_epoch_ms, current_datetime):
         
         display_frame = stage_outputs["video_capture_input"]["video_frame"]
-        return configurable_ref._draw_extended_quad(display_frame)
+        #return draw_warped_grid(display_frame, configurable_ref)
+        return draw_extended_quad(display_frame, configurable_ref)
     
     # .................................................................................................................
     # .................................................................................................................
@@ -95,7 +100,7 @@ loader = Reconfigurable_Core_Stage_Loader("preprocessor", "perspective_preproces
 configurable_ref = loader.setup_all(__file__)
 
 # Get drawing specification for the given zone variable
-zone_drawing_spec = configurable_ref.get_drawing_spec("perspective_quad")
+zone_drawing_spec = configurable_ref.get_drawing_spec("quad_draw_list")
 
 # Set up object to handle all video processing
 main_process = \

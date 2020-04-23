@@ -195,7 +195,10 @@ def get_human_readable_timestamp(input_datetime = None):
     Example:
         "2019/01/30 11:22:33AM"
         
-    Note: This function assumes the datetime object has timezone information (tzinfo)
+    Notes:
+        - This function assumes the datetime object has timezone information (tzinfo)
+        - If an input datetime isn't provided, the local datetime will be used
+    
     '''
     
     # Use the local datetime if nothing is provided
@@ -215,6 +218,46 @@ def get_human_readable_timezone():
     ''' Convenience function for printing timezones by name instead of time offset. Ex: -05:00 -> EST '''
     
     return time.strftime("%Z")
+
+# .....................................................................................................................
+
+def get_filesafe_date(input_datetime = None):
+    
+    '''
+    Converts a datetime object into a file system & human friendly date string
+    Example:
+        "2019-01-30"
+    Note: If an input datetime isn't provided, the local datetime will be used
+    '''
+    
+    # Use the local datetime if nothing is provided
+    if input_datetime is None:
+        input_datetime = get_local_datetime()
+    
+    # Format date in a way that is safe on all file systems (i.e. don't use / character!)
+    file_safe_date_str = input_datetime.strftime("%Y-%m-%d")
+    
+    return file_safe_date_str
+
+# .....................................................................................................................
+
+def get_filesafe_time(input_datetime = None):
+    
+    '''
+    Converts a datetime object into a file system & human friendly time string
+    Example:
+        "15h35m57s" (from 15:35:57)
+    Note: If an input datetime isn't provided, the local datetime will be used
+    '''
+    
+    # Use the local datetime if nothing is provided
+    if input_datetime is None:
+        input_datetime = get_local_datetime()
+    
+    # Format date in a way that is safe on all file systems (i.e. don't use : character!)
+    file_safe_time_str = input_datetime.strftime("%Hh%Mm%Ss")
+    
+    return file_safe_time_str
 
 # .....................................................................................................................
 

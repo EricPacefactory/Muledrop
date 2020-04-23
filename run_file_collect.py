@@ -51,6 +51,8 @@ find_path_to_local()
 
 from shutil import rmtree
 
+from local.lib.common.feedback import print_time_taken_sec
+
 from local.lib.ui_utils.script_arguments import script_arg_builder
 
 from local.lib.launcher_utils.configuration_loaders import File_Configuration_Loader
@@ -192,7 +194,7 @@ print("", "{}  |  Saving {}".format(start_timestamp, enable_disable_txt), sep = 
 
 # Most of the work is done here!
 total_processing_time_sec = main_process.loop(enable_progress_bar = True)
-print("", "Finished! Took {:.1f} seconds".format(total_processing_time_sec), sep = "\n")
+print_time_taken_sec(total_processing_time_sec)
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Clean up

@@ -64,8 +64,9 @@ def create_object_class_dict(class_database, object_list,
                              set_object_classification = True):
     
     '''
-    Function which takes in a list of reconstructed objects and returns a dictionary whose keys
-    represent different class labels. Each class label entry holds a list of objects corresponding to that class label
+    Function which takes in a list of reconstructed objects and 
+    returns a dictionary whose keys represent different class labels. 
+    Each class label entry holds a list of objects corresponding to that class label.
     '''
     
     object_class_dict = {}
@@ -73,26 +74,26 @@ def create_object_class_dict(class_database, object_list,
         
         # Look up the classification data for each object
         obj_id = each_obj.full_id
-        class_label, score_pct, subclass, attributes_dict = class_database.load_classification_data(obj_id)
+        topclass_label, subclass_label, _, _, attributes_dict = class_database.load_classification_data(obj_id)
         
         # Add an empty list for any non-existant class labels, so we can append objects to it
-        if class_label not in object_class_dict:
-            object_class_dict[class_label] = {}
+        if topclass_label not in object_class_dict:
+            object_class_dict[topclass_label] = {}
         
         # Update each object with classification & graphics settings, if needed
         if set_object_classification:
-            trail_color, outline_color = class_database.get_class_colors(class_label)
-            each_obj.set_classification(class_label, subclass, attributes_dict)
-            each_obj.set_graphics(trail_color, outline_color)
+            outline_color = class_database.get_label_color(topclass_label)
+            each_obj.set_classification(topclass_label, subclass_label, attributes_dict)
+            each_obj.set_graphics(outline_color)
         
         # Finally, add the object to the corresponding class list
-        object_class_dict[class_label][obj_id] = each_obj
+        object_class_dict[topclass_label][obj_id] = each_obj
     
     return object_class_dict
 
 # .....................................................................................................................
 
-def set_object_classification_and_colors(database, object_list):
+def set_object_classification_and_colors(class_database, object_list):
     
     # Record the number of classes
     class_count_dict = {}
@@ -101,17 +102,18 @@ def set_object_classification_and_colors(database, object_list):
     for each_obj in object_list:
     
         # Look up the classification data for each object
-        class_label, score_pct, subclass, attributes_dict = database.load_classification_data(each_obj.full_id)
-        trail_color, outline_color = database.get_class_colors(class_label)
+        obj_id = each_obj.full_id
+        topclass_label, subclass_label, _, _, attributes_dict = class_database.load_classification_data(obj_id)
+        outline_color = class_database.get_label_color(topclass_label)
         
         # Update each object with classification & graphics settings
-        each_obj.set_classification(class_label, subclass, attributes_dict)
-        each_obj.set_graphics(trail_color, outline_color)
+        each_obj.set_classification(topclass_label, subclass_label, attributes_dict)
+        each_obj.set_graphics(outline_color)
         
         # Update class count
-        if class_label not in class_count_dict:
-            class_count_dict[class_label] = 0
-        class_count_dict[class_label] += 1
+        if topclass_label not in class_count_dict:
+            class_count_dict[topclass_label] = 0
+        class_count_dict[topclass_label] += 1
         
     return class_count_dict
 

@@ -54,68 +54,63 @@ import numpy as np
 
 from time import perf_counter
 
+from sklearn.model_selection import train_test_split
+
 from local.lib.ui_utils.cli_selections import Resource_Selector
 
+
+from local.configurables.after_database.classifier.decisiontree_classifier import Classifier_Stage
+from local.configurables.after_database.classifier.decisiontree_classifier import save_classifier_resources
+from local.configurables.after_database.classifier.decisiontree_classifier import load_classifier_resources
+from local.configurables.after_database.classifier.decisiontree_classifier import sample_data_from_object
+
 from local.offline_database.file_database import launch_file_db, close_dbs_if_missing_data
-from local.offline_database.object_reconstruction import Smooth_Hover_Object_Reconstruction as Obj_Recon
+
 from local.offline_database.object_reconstruction import Hover_Mapping
 from local.offline_database.object_reconstruction import create_trail_frame_from_object_reconstruction
-from local.offline_database.snapshot_reconstruction import median_background_from_snapshots
-from local.offline_database.classification_reconstruction import create_object_class_dict
 
-from local.lib.file_access_utils.classifier import build_supervised_labels_folder_path, load_supervised_labels
+from local.offline_database.snapshot_reconstruction import median_background_from_snapshots
+
+from local.lib.file_access_utils.classifier import load_matching_config
+from local.lib.file_access_utils.classifier import save_classifier_config
+from local.lib.file_access_utils.classifier import get_highest_score_label
+
+from local.lib.file_access_utils.supervised_labels import load_all_supervised_labels
+from local.lib.file_access_utils.supervised_labels import check_supervised_labels_exist
+from local.lib.file_access_utils.supervised_labels import get_svlabel_topclass_label, get_labels_to_skip
 
 from local.lib.ui_utils.local_ui.windows_base import Simple_Window
 
+from local.eolib.utils.quitters import ide_quit
 from local.eolib.utils.cli_tools import Datetime_Input_Parser as DTIP
+from local.eolib.utils.cli_tools import cli_confirm, cli_select_from_list
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-#%% Define functions
+#%% Define helper functions
 
-# .....................................................................................................................
-
-def get_sample_data(obj_recon_ref, frame_idx):
+def check_for_existing_resources(cameras_folder_path, camera_select):
     
-    # From raw data
-    # x, y, dx, dy, w, h, area, ar
-    
-    # Get object sample index for the given frame index
-    rel_idx = obj_recon_ref._rel_index(frame_idx)
-    
-    # Get x/y position info
-    x_cen, y_cen = obj_recon_ref._real_trail_xy[rel_idx]
-    
-    # Try to calculate the x/y velocity
+    # Try to load existing classifier resources
+    resources_exist = False
     try:
-        x_futr, y_futr = obj_recon_ref._real_trail_xy[rel_idx + 1]
-        x_prev, y_prev = obj_recon_ref._real_trail_xy[rel_idx - 1]
-        dx_norm = (x_futr - x_prev)
-        dy_norm = (y_futr - y_prev)
-    except IndexError:
-        dx_norm = 0.0
-        dy_norm = 0.0
+        _, _ = load_classifier_resources(cameras_folder_path, camera_select)
+        resources_exist = True
+    except FileNotFoundError:
+        pass    
     
-    # Get width/height info
-    (x1, y1), (x2, y2) = obj_recon_ref.get_box_tlbr(frame_idx)
-    width_norm = (x2 - x1)
-    height_norm = (y2 - y1)
-    
-    # Get area/aspect ratio
-    area_norm = (width_norm * height_norm)
-    aspect_ratio = width_norm / height_norm    
-    
-    # Bundle for clarity
-    output_entries = (x_cen, y_cen, dx_norm, dy_norm, width_norm, height_norm, area_norm, aspect_ratio)
-    
-    return output_entries
+    return resources_exist
+
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Define training functions
 
 # .....................................................................................................................
 
-def generate_training_data(objclass_dict, supervised_obj_labels_dict, 
+def generate_training_data(object_list, supervised_obj_labels_dict, 
                            num_subsamples = 10, 
                            start_inset = 0.02,
                            end_inset = 0.02,
@@ -124,47 +119,48 @@ def generate_training_data(objclass_dict, supervised_obj_labels_dict,
     # Initialize output. Should contain keys for each object id, storing all input data in lists
     obj_data_lists_dict = {}
     
+    # Get skippable labels, which aren't meant for training
+    skip_labels_set = get_labels_to_skip()
+    
     # Start timing and provide feedback
     t1 = perf_counter()
     if print_feedback:
         print("", "Generating training data tables...", sep = "\n")
     
-    # Loop over every object (of every class) and get all data pair samples
-    for each_class_label, each_obj_dict in objclass_dict.items():
+    # Loop over all object reconstructions
+    for each_obj_recon in object_list:
         
-        # Loop over all object ids
-        for each_obj_id, each_obj_recon in each_obj_dict.items():
-            
-            # Get the start/end frame index of each object
-            start_idx = each_obj_recon.start_idx
-            end_idx = each_obj_recon.end_idx
-            num_idx = (end_idx - start_idx)
-            
-            # Calculate a reduced set of samples to select training data from
-            inset_start_idx = int(round(start_idx + start_inset * num_idx))
-            inset_end_idx = int(round(end_idx - end_inset * num_idx))
-            num_inset_idx = (inset_end_idx - inset_start_idx)
-            
-            # Skip this object if we don't have enough data for sampling
-            if num_inset_idx < num_subsamples:
-                continue
-            
-            # Grab some subset of samples to use for training
-            subsample_indices = np.int32(np.round(np.linspace(inset_start_idx, inset_end_idx, num_subsamples)))
-            
-            # Grab every data pair for each object id
-            supervised_label = supervised_obj_labels_dict[each_obj_id]["class_label"]
-            new_data_list = [get_sample_data(each_obj_recon, each_idx) for each_idx in subsample_indices]
-            obj_data_lists_dict[each_obj_id] = {"input": new_data_list,
-                                                "output": [supervised_label] * len(new_data_list),
-                                                "headings": ["x", "y", "dx", "dy", "w", "h", "area", "aspectratio"]}
+        # Get the object id info & target class
+        each_obj_id = each_obj_recon.full_id
+        supervised_label = get_svlabel_topclass_label(supervised_obj_labels_dict, each_obj_id)
+        
+        # Skip certain entries
+        if supervised_label in skip_labels_set:
+            print("Skipped object {}, flagged as '{}'".format(each_obj_id, supervised_label))
+            continue
+        
+        # Get object data samples
+        data_order, obj_data_list = sample_data_from_object(each_obj_recon, num_subsamples, start_inset, end_inset)
+        
+        # Handle case where object doesn't have enough samples
+        not_enough_data = (len(obj_data_list) < num_subsamples)
+        if not_enough_data:
+            print("DEBUG: Skipped object {} ({}), not enough sample data!".format(each_obj_id, supervised_label))
+            continue
+        
+        # Construct target output data (as a list, corresponding to the subsampled data)
+        target_output_list = [supervised_label] * len(obj_data_list)
+        
+        # Bundle everything together for convenience
+        obj_data_lists_dict[each_obj_id] = {"input": obj_data_list,
+                                            "output": target_output_list}
     
     # End timing and provide final feedback
     t2 = perf_counter()
     if print_feedback:
         print("  Done! Took {:.0f} ms".format(1000 * (t2 - t1)))
     
-    return obj_data_lists_dict
+    return data_order, obj_data_lists_dict
 
 # .....................................................................................................................
 
@@ -178,10 +174,44 @@ def creating_training_arrays(training_data_dict):
     the 'output' key represents the target output and holds a string representing the target class
     
     This function needs to output the input data, for all objects, as one large array.
-    It must also output a single large array which contains the corresponding output data (mapped to integers ?)
+    It must also output a single large array which contains the corresponding target output data (mapped to integers ?)
     '''
-    STOPPED HERE
-    pass
+    
+    # Storage for handling the mapping between target labels & integer/id representations
+    target_label_to_id_dict = {}
+    
+    # Storage for entire input/output data
+    full_input_data_list = []
+    full_output_id_list = []
+    
+    for each_obj_id, each_data_dict in training_data_dict.items():
+        
+        # Extract the relevant training data
+        input_data_lists = each_data_dict["input"]
+        output_label_list = each_data_dict["output"]
+        
+        # Convert output labels to ids
+        output_id_list = []
+        for each_output_entry in output_label_list:
+            
+            # Add output entries to the label-to-id mapping dictionary
+            if each_output_entry not in target_label_to_id_dict.keys():
+                num_current_labels = len(target_label_to_id_dict)
+                target_label_to_id_dict[each_output_entry] = 1 + num_current_labels
+                
+            # Build the output id list
+            id_of_label = target_label_to_id_dict[each_output_entry]
+            output_id_list.append(id_of_label)
+        
+        # Add entries to the 'full' outputs
+        full_input_data_list += input_data_lists
+        full_output_id_list += output_id_list
+        
+    # Convert to arrays for faster processing
+    input_data_array = np.float32(full_input_data_list)
+    output_data_array = np.int32(full_output_id_list)
+        
+    return input_data_array, output_data_array, target_label_to_id_dict
 
 # .....................................................................................................................
 # .....................................................................................................................
@@ -189,7 +219,7 @@ def creating_training_arrays(training_data_dict):
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Select camera/user
 
-enable_debug_mode = True
+enable_debug_mode = False
 
 # Create selector so we can access existing report data
 selector = Resource_Selector()
@@ -198,6 +228,56 @@ project_root_path, cameras_folder_path = selector.get_project_pathing()
 # Select the camera/user to show data for (needs to have saved report data already!)
 camera_select, camera_path = selector.camera(debug_mode=enable_debug_mode)
 user_select, _ = selector.user(camera_select, debug_mode=enable_debug_mode)
+
+# Bundle pathing args for convenience
+pathing_args = (cameras_folder_path, camera_select, user_select)
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Check for existing resources
+
+# Check if existing decision tree resources exist
+resources_already_exist = check_for_existing_resources(cameras_folder_path, camera_select)
+
+# Print some feedback about finding resources
+print("",
+      "Existing classifier found!" if resources_already_exist else "No existing classifier found!",
+      "", sep = "\n")
+
+# Prompt use to choose between using existing or training a new classifier, if resources already exist
+if resources_already_exist:    
+    print("", "DEBUG: HACKY IMPLEMENTATION. Need to fix...", "", sep = "\n")
+    use_existing_prompt = "Use existing classifier"
+    train_new_prompt = "Train new classifier"
+    selection_list = [use_existing_prompt, train_new_prompt]
+    selected_idx, selected_entry = cli_select_from_list(selection_list, 
+                                                        "What would you like to do?", 
+                                                        default_selection = use_existing_prompt)
+    
+    # If use existing was chosen, prompt to save classifier 'config' and then we're done!
+    if selected_entry == use_existing_prompt:
+        user_confirm_save = cli_confirm("Save decision tree classifier config?", default_response = False)
+        if user_confirm_save:            
+            # Update the classifier config for the selected camera/user
+            classifier_ref = Classifier_Stage(cameras_folder_path, camera_select, user_select)
+            save_classifier_config(classifier_ref, __file__)
+        ide_quit("Saved classifier config. Done!" if user_confirm_save else "Save cancelled...")
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Check for supervised label data
+
+sv_labels_exist = check_supervised_labels_exist(cameras_folder_path, camera_select, user_select)
+if not sv_labels_exist:
+    print("", 
+          "No supervised labels were found for:",
+          "  camera: {}".format(camera_select),
+          "    user: {}".format(user_select),
+          "",
+          "Cannot train decision tree without labeled data!",
+          "  -> Please use the supervised labeling tool to generate labeled data",
+          sep = "\n")
+    ide_quit()
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -215,7 +295,6 @@ launch_file_db(cameras_folder_path, camera_select, user_select,
 cinfo_db.close()
 rinfo_db.close()
 close_dbs_if_missing_data(snap_db, error_message_if_missing = "No snapshot data in the database!")
-close_dbs_if_missing_data(obj_db, error_message_if_missing = "No object trail data in the database!")
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -240,44 +319,110 @@ frame_wh = (frame_width, frame_height)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
+#%% Set up the classifier
+
+# Load configurable class for this config utility
+classifier_ref = Classifier_Stage(cameras_folder_path, camera_select, user_select)
+
+# Load existing config settings, if available
+initial_setup_data_dict = load_matching_config(classifier_ref)
+classifier_ref.reconfigure(initial_setup_data_dict)
+
+
+# ---------------------------------------------------------------------------------------------------------------------
 #%% Load object data
 
-# Get object metadata from the server
-obj_metadata_generator = obj_db.load_metadata_by_time_range(user_start_dt, user_end_dt)
+# Get object ids from the server
+obj_id_list = obj_db.get_object_ids_by_time_range(user_start_dt, user_end_dt)
 
-# Create list of 'reconstructed' objects based on object metadata, so we can work/interact with the object data
-obj_list = Obj_Recon.create_reconstruction_list(obj_metadata_generator,
-                                                frame_wh,
-                                                user_start_dt, 
-                                                user_end_dt)
+# Load supervised data for each object
+sv_labels_dict = load_all_supervised_labels(*pathing_args, obj_id_list)
 
-# Organize objects by class label -> then by object id (nested dictionaries)
-objclass_dict = create_object_class_dict(class_db, obj_list)
+# Use classifier to generate object data for training, to match real-use case
+obj_list = []
+for each_obj_id in obj_id_list:
+    obj_recon = classifier_ref.request_object_data(each_obj_id, obj_db)
+    obj_list.append(obj_recon)
 
-# Generate trail hover mapping, for quicker mouse-to-trail lookup
-hover_map = Hover_Mapping(objclass_dict)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Generate training data
 
-# Load supervised data
-sv_labels_folder = build_supervised_labels_folder_path(cameras_folder_path, camera_select, user_select)
-obj_id_list = [each_obj_recon.full_id for each_obj_recon in obj_list]
-sv_labels_dict = load_supervised_labels(sv_labels_folder, obj_id_list)
-
 # Build training data set
-training_data_dict = generate_training_data(objclass_dict, sv_labels_dict, num_subsamples = 10)
-input_data_array, output_data_array = creating_training_arrays(training_data_dict)
+data_column_names_list, training_data_dict = generate_training_data(obj_list, sv_labels_dict, num_subsamples = 10)
+input_data_array, output_data_array, label_to_id_dict = creating_training_arrays(training_data_dict)
 
-
-from sklearn.model_selection import train_test_split
-from sklearn.tree import DecisionTreeClassifier
-
+# Split data so we can running training and check accuracy
 X_train, X_test, y_train, y_test = train_test_split(input_data_array, output_data_array, test_size=0.20)
 
-classifier = DecisionTreeClassifier()
-classifier.fit(X_train, y_train)
+# Train classifier!
+classifier_ref.train(data_column_names_list, label_to_id_dict, X_train, y_train)
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Apply classifier to all data for visualization
+
+# Get visualization colors
+_, _, all_label_colors_dict = class_db.get_label_color_luts()
+missing_label_color = (255, 255, 255)
+
+# Storage for accuracy results
+skip_labels_set = get_labels_to_skip()
+total_correct = 0
+total_error = 0
+
+print("DEBUG: NEED TO FIX FRAME SCALING HACK")
+
+# Classify each object
+objclass_dict = {each_label: {} for each_label in label_to_id_dict.keys()}
+for each_obj_ref in obj_list:
+    
+    # Get object id for lookups
+    each_obj_id = each_obj_ref.full_id
+    
+    # Get classifier predictions
+    topclass_dict, subclass_dict, attributes_dict = classifier_ref.classify_one_object(each_obj_ref, snap_db)
+    
+    # Generate single label predictions
+    predicted_topclass, _ = get_highest_score_label(topclass_dict)
+    predicted_subclass, _ = get_highest_score_label(subclass_dict)
+    actual_topclass = get_svlabel_topclass_label(sv_labels_dict, each_obj_id)
+    
+    if actual_topclass not in skip_labels_set:
+        correct_prediction = (predicted_topclass == actual_topclass)
+        total_correct += int(correct_prediction)
+        total_error += 1 - int(correct_prediction)
+        
+        if not correct_prediction:
+            print("Error - Predicted {}, actually {}".format(predicted_topclass, actual_topclass))
+    
+    # Update the object reconstruction so that it is colored correctly
+    object_label_color = all_label_colors_dict.get(predicted_topclass, missing_label_color)
+    each_obj_ref.set_classification(predicted_topclass, predicted_subclass, attributes_dict)
+    each_obj_ref.set_graphics(object_label_color)
+    
+    # HACK
+    each_obj_ref.frame_wh = frame_wh
+    each_obj_ref.frame_scaling_array = np.float32(frame_wh) - np.float32((1, 1))
+    
+    # Finally, store the results
+    if predicted_topclass not in objclass_dict:
+        objclass_dict[predicted_topclass] = {}
+    objclass_dict[predicted_topclass][each_obj_id] = each_obj_ref
+
+
+# Some feedback about accuracy
+total_classified = (total_correct + total_error)
+print("",
+      "Total objects classified: {}".format(total_classified),
+      "  Total correct: {} ({:.0f}%)".format(total_correct, 100 * total_correct / total_classified),
+      "   Total errors: {} ({:.0f}%)".format(total_error, 100 * total_error / total_classified),
+      sep = "\n")
+
+# Generate trail hover mapping, for quicker mouse-to-trail lookup
+hover_map = Hover_Mapping(objclass_dict)
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Create initial images
@@ -316,7 +461,40 @@ while True:
 # Some clean up
 cv2.destroyAllWindows()
 
+
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Save classifier
+
+user_confirm_save = cli_confirm("Save decision tree classifier config?", default_response = False)
+if user_confirm_save:
+    
+    # Save model/lut data
+    save_classifier_resources(classifier_ref)
+    
+    # Update the classifier config for the selected camera/user
+    save_classifier_config(classifier_ref, __file__)
+
+
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Scrap
 
-
+print("DEBUG: D-TREE UNFINISHED WORK! LEFT OFF HERE. See todo list...")
+'''
+STOPPED HERE
+- NEED TO CLEAN UP LOADING PROCESS (AND NOT CHECK FOR EXISTING?)
+    - NEED TO ADD CHECK FOR EXISTING RESOURCES
+    - IF MODEL ALREADY EXISTS, PROMPT TO SAVE CLASSIFIER CONFIG ONLY, DON'T TRAIN NEW MODEL
+- UPDATE TRAINING DATA TO USE ALL SAMPLES
+- INCLUDE CALCULATIONS FOR AVG SPEED, OBJ LIFETIME, RELATIVE LIFE POSITION OF EACH SAMPLE, TOTAL TRAVEL DIST ETC.
+- UPDATE TRAINING TO USE WEIGHTING TO BALANCE (NON-RESERVED) CLASS LABEL FREQUENCIES!
+- NEED TO ADD METHOD FOR SELECTING WHAT DATA GETS USED IN TREE (IDEALLY WITH TOGGLE CONTROLS!)
+- NEED TO ADD ACCURACY REPORT -> Need to add breakdown by class (e.g. confusion matrix)
+- NEED TO CLEAN UP TRAINING DATA CONSTRUCTION -> Some parts need to be sharable between other systems (esp. notrain)
+- NEED TO CLEAN UP FRAME SIZING STUPIDITY
+    - really need to redo how classifier + coloring is handled on objects...
+    - also need to consider switching to objclass_dict as default way to do things
+        - would need to return other dicts tho (an id order dict + id-to-label-dict)
+- NEED TO TEST OUT 'RUN_CLASSIFIER' AFTER SAVING!
+- NEED TO MAKE RANDOM FOREST VERSION OF ALL THIS!
+- THEN THINK ABOUT GETTING ALL THIS WORKING 'ONLINE' WITH REAL DATABASE AND SERVER...
+'''

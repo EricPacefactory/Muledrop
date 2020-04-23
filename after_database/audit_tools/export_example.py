@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Tue Dec 17 16:05:23 2019
+Created on Thu Apr 16 10:33:31 2020
 
 @author: eo
 """
@@ -59,12 +59,13 @@ from local.lib.ui_utils.cli_selections import Resource_Selector
 from local.offline_database.file_database import launch_file_db, close_dbs_if_missing_data
 from local.offline_database.object_reconstruction import Smooth_Hover_Object_Reconstruction, Hover_Mapping
 from local.offline_database.object_reconstruction import create_trail_frame_from_object_reconstruction
+from local.offline_database.object_reconstruction import save_object_to_csv
 from local.offline_database.snapshot_reconstruction import median_background_from_snapshots
+from local.offline_database.classification_reconstruction import set_object_classification_and_colors
 from local.offline_database.classification_reconstruction import create_object_class_dict
 
 from local.lib.ui_utils.local_ui.windows_base import Simple_Window
 
-from local.eolib.video.text_rendering import simple_text, relative_text
 from local.eolib.utils.cli_tools import Datetime_Input_Parser as DTIP
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -212,104 +213,88 @@ class Callback_Sequencer:
 
 # =====================================================================================================================
 # =====================================================================================================================
-
+    
 
 class Hover_Object(Smooth_Hover_Object_Reconstruction):
     
     # .................................................................................................................
     
     def __init__(self, object_metadata, frame_wh, global_start_datetime_isoformat, global_end_datetime_isoformat,
-                 smoothing_factor = 0.015):
+                 smoothing_factor = 0.015, timebar_row_height = 30):
         
         # Inherit from parent class
         super().__init__(object_metadata, frame_wh, global_start_datetime_isoformat, global_end_datetime_isoformat, 
                          smoothing_factor)
         
-        # Calculate the object velocity plot on setup, so we can easily re-use it
-        self._vx = np.diff(self.trail_xy[:,0])
-        self._vy = np.diff(self.trail_xy[:,1])
-        self._velo = np.sqrt(np.square(self._vx) + np.square(self._vy))
-        self._num_velo_samples = len(self._velo)
-        self._max_velo = np.max(self._velo)
+        # Store addition timebar drawing sizes & scalings
+        self._timebar_row_height = timebar_row_height
+        tbar_width_scaling = frame_wh[0] - 1
         
-        # Calculate heading angle as well, in case we need to animate direction
-        self._direction_angle_rad = np.arctan2(self._vy, self._vx)
+        # Pre-calculate timebar pixel co-ordinates
+        self._tbar_x1 = int(np.ceil(self.relative_start * tbar_width_scaling))
+        self._tbar_x2 = int(np.floor(self.relative_end * tbar_width_scaling))
+        self._tbar_y1 = None
+        self._tbar_y2 = None
+        self._timebar_tl = None
+        self._timebar_br = None
         
     # .................................................................................................................
     
-    def draw_speed_plot(self, median_max_velo, 
-                        frame_index = None, frame_width = 640, frame_height = 360, bg_color = (40,40,40)):
+    def set_timebar_row_index(self, class_label_list):
         
-        # Create a frame to draw in, which matches the 'empty' frame size
-        speed_frame = np.full((frame_height, frame_width, 3), bg_color, dtype = np.uint8)
-        half_height = int(frame_height / 2)
-        half_width = int(frame_width / 2)
+        # Store row index, so we can use it later to check if we're hovered
+        row_index = class_label_list.index(self._classification_label)
+        self._tbar_row_index = row_index
         
-        # Handle animation
-        sample_idx = None
-        is_animating = (frame_index is not None)
-        if is_animating:
-            sample_idx = self.frame_index_to_sample_index(frame_index)
-            sample_idx = min(self._num_velo_samples - 1, sample_idx)
-            sample_idx = max(0, sample_idx)
+        # Calculate timebar y co-ords
+        tbar_h = self._timebar_row_height
+        self._tbar_y1 = (row_index * tbar_h) + 5
+        self._tbar_y2 = ((row_index + 1) * (tbar_h - 1)) - 5
         
-        # Generate a time basis
-        lifetime_ms = self.lifetime_ms
-        time_samples = np.linspace(0, lifetime_ms, self._num_velo_samples)
+        # Calculate timebar rectangle co-ords for drawing
+        self._timebar_tl = (self._tbar_x1, self._tbar_y1)
+        self._timebar_br = (self._tbar_x2, self._tbar_y2)
+    
+    # .................................................................................................................
+    
+    def hover_highlight(self, trails_frame, timebar_frame):
         
-        # Set plot parameters
-        x1 = 20
-        x2 = (frame_width - x1 - 1)
-        y1 = 40 
-        y2 = (frame_height - y1 - 1)
-        plot_width = (x2 - x1)
-        plot_height = (y2 - y1)   
+        ''' Helper function for applying both trail & timebar highlights '''
         
-        # Draw graph title & x axis label
-        simple_text(speed_frame, "Object: {}".format(self.nice_id), (half_width, 21), scale = 0.6, center_text = True)
-        simple_text(speed_frame, "Time", (half_width, y2 + 16), center_text = True)
+        return self.highlight_trail(trails_frame), self.highlight_trail_timebar(timebar_frame)
+    
+    # .................................................................................................................
+    
+    def is_hovering_timebar(self, x_point_normalized, row_index):
         
-        # Draw direction, if animating
-        if is_animating:
-            mid_point = (half_width, half_height)
-            circle_radius = 96
-            cv2.circle(speed_frame, mid_point, circle_radius, (30, 30, 30), -1, cv2.LINE_AA)
-            
-            curr_direction = self._direction_angle_rad[sample_idx]
-            arrow_x = half_width + int(round(circle_radius * 0.9 * np.cos(curr_direction)))
-            arrow_y = half_height + int(round(circle_radius * 0.9 * np.sin(curr_direction)))
-            end_pt = (arrow_x, arrow_y)
-            
-            cv2.arrowedLine(speed_frame, mid_point, end_pt, (80,80,80), 2, cv2.LINE_AA, tipLength = 0.05)
+        ''' Helper function to check if mouse is hovering over the object timebar '''
         
-        # Determine y-scale (use median max velo if higher than object max velo)
-        bump_scale = 1.05
-        y_max = max(median_max_velo, self._max_velo) * bump_scale
+        # If we're not on the correct row, we aren't being hovered!
+        if row_index != self._tbar_row_index:
+            return False
         
-        # Draw median max velo
-        med_color = (75, 0, 210)
-        median_velo_y = int(y2 - plot_height * (median_max_velo / y_max))
-        cv2.line(speed_frame, (x1, median_velo_y), (x2, median_velo_y), med_color, 1)
-        simple_text(speed_frame, "(Median of max velocities)", (x1 + 2, median_velo_y - 2), 
-                    scale = 0.35, color = med_color)
+        return self.relative_start < x_point_normalized <= self.relative_end
+    
+    # .................................................................................................................
+    
+    def draw_trail_timebar(self, output_frame, bar_color = None):
         
-        # Draw speed plot
-        time_max = np.max(time_samples)
-        x_plot = x1 + plot_width * (time_samples / time_max)
-        y_plot = y2 - plot_height * (self._velo / y_max) #self._max_velo)
+        if bar_color is None:
+            bar_color = self._outline_color
         
-        plot_xy = np.int32(np.round(np.vstack((x_plot, y_plot)).T))
+        cv2.rectangle(output_frame, 
+                      pt1 = self._timebar_tl,
+                      pt2 = self._timebar_br, 
+                      color = bar_color,
+                      thickness = -1,
+                      lineType = cv2.LINE_4)
         
-        cv2.polylines(speed_frame, [plot_xy], False, self._outline_color, 1, cv2.LINE_AA)
-        cv2.rectangle(speed_frame, (x1,y1), (x2,y2), (255, 255, 255), 1)
-        relative_text(speed_frame, "{:.1f} sec".format(lifetime_ms / 1000), (-x1, -y1), scale = 0.35)
-        
-        # Draw point on curve, if animating
-        if is_animating:
-            plot_idx = tuple(plot_xy[sample_idx])
-            cv2.circle(speed_frame, plot_idx, 5, (0, 0, 200), -1, cv2.LINE_AA)
-        
-        return speed_frame
+        return output_frame
+    
+    # .................................................................................................................
+    
+    def highlight_trail_timebar(self, output_frame):
+        self.draw_trail_timebar(output_frame, bar_color = (255, 0, 255))
     
     # .................................................................................................................
     # .................................................................................................................
@@ -320,13 +305,52 @@ class Hover_Object(Smooth_Hover_Object_Reconstruction):
 
 # .....................................................................................................................
 
-def show_looping_animation(snapshot_database, object_database, object_to_animate, 
-                           speed_plot_window_ref, median_max_velo, window_x = 50, window_y = 50,
+def create_timebar_frame_object_reconstruction(example_frame, timebar_row_height, object_list, class_count_dict, 
+                                               bg_color = (40, 40, 40)):
+    
+    # Figure out image sizing from example frame and number of classes (rows) needed
+    num_classes = len(class_count_dict)
+    bar_width = example_frame.shape[1]
+    bar_height = num_classes * timebar_row_height
+    
+    # Set up blank background timebar to draw in to
+    bar_background = np.full((bar_height, bar_width, 3), bg_color, dtype=np.uint8)
+    
+    # Draw separator lines between class rows
+    for k in range(num_classes):
+        y_line = k * (timebar_row_height) - 1
+        cv2.line(bar_background, (-10, y_line), (bar_width + 10, y_line), (25, 25, 25), 1)
+    
+    # Draw all object timebars (likely overlapping)
+    for each_obj in object_list:
+        each_obj.draw_trail_timebar(bar_background)
+        
+    return bar_background
+
+# .....................................................................................................................
+
+def get_hovered_timebars(mouse_x, timebar_row_index_hover, object_reconstructions_list):
+    
+    # Check which object time bars are being hovered
+    obj_indices_hovered_list = []
+    for each_idx, each_recon in enumerate(object_reconstructions_list):
+        if each_recon.is_hovering_timebar(mouse_x, timebar_row_index_hover):
+            obj_indices_hovered_list.append(each_idx)
+            
+    return obj_indices_hovered_list
+
+# .....................................................................................................................
+
+def show_looping_animation(snapshot_database, object_list, 
                            start_buffer_time_sec = 3.0, end_buffer_time_sec = 5.5):
+
+    # Don't do anything if there are no objects to animate! (i.e. a blank area was clicked)
+    if len(object_list) == 0:
+        return
     
     # Figure out the time range to animate over
-    start_time_ems = np.min(object_to_animate.start_ems)
-    end_time_ems = np.max(object_to_animate.end_ems)
+    earliest_time = np.min([each_obj.start_ems for each_obj in object_list])
+    latest_time = np.max([each_obj.end_ems for each_obj in object_list])
     
     # Set up buffer times (used to extend animation range to include time before/after object existence)
     start_buffer_time_ms = int(start_buffer_time_sec * 1000.0)
@@ -334,22 +358,25 @@ def show_looping_animation(snapshot_database, object_database, object_to_animate
     
     # Make sure we don't reach for snapshots out of the snapshot time range
     earliest_snap, latest_snap = snapshot_database.get_bounding_epoch_ms()
-    earliest_time = max(earliest_snap, start_time_ems - start_buffer_time_ms)
-    latest_time = min(latest_snap, end_time_ems + end_buffer_time_ms)
+    earliest_time = max(earliest_snap, earliest_time - start_buffer_time_ms)
+    latest_time = min(latest_snap, latest_time + end_buffer_time_ms)
     
     # Get all the snapshot times we'll need for animation
     anim_snapshot_times = snapshot_database.get_all_snapshot_times_by_time_range(earliest_time, latest_time)
     
     # Set up the display window
-    window_title = "Object {}".format(object_to_animate.nice_id)
+    object_ids_string = ", ".join([str(each_obj.nice_id) for each_obj in object_list])
+    obj_prefix = "Object" if len(object_list) < 2 else "Objects:"
+    window_title = "{} {}".format(obj_prefix, object_ids_string)
     anim_window = Simple_Window(window_title)
-    anim_window.move_corner_pixels(window_x, window_y)
+    anim_window.move_corner_pixels(x_pixels = 400, y_pixels = 200)
     
     # Hard-code key codes
     esc_key = 27
     spacebar = 32
-    left_arrow_keys = {81, 97}   # Left or 'a' key
-    right_arrow_keys = {83, 100} # Right or "d' key
+    left_arrow_keys = {81, 97}      # Left or 'a' key
+    right_arrow_keys = {83, 100}    # Right or "d' key
+    enter_keys = {13, 141}          # Enter key + numpad enter key
     
     # Set up frame delay settings
     playback_frame_delay_ms = 150
@@ -367,12 +394,9 @@ def show_looping_animation(snapshot_database, object_database, object_to_animate
         
         # Get each snapshot and draw all outlines/trails for all objects in the frame
         snap_image, snap_frame_idx = snapshot_database.load_snapshot_image(curr_snap_time)
-        object_to_animate.draw_trail(snap_image, snap_frame_idx, curr_snap_time)
-        object_to_animate.draw_outline(snap_image, snap_frame_idx, curr_snap_time)
-        speed_frame = obj_to_animate.draw_speed_plot(median_max_velo, frame_index = snap_frame_idx)
-        
-        # Display the speed plot        
-        speed_plot_window_ref.imshow(speed_frame)
+        for each_obj in object_list:
+            each_obj.draw_trail(snap_image, snap_frame_idx, curr_snap_time)
+            each_obj.draw_outline(snap_image, snap_frame_idx, curr_snap_time)
         
         # Display the snapshot image, but stop if the window is closed
         winexists = anim_window.imshow(snap_image)
@@ -388,7 +412,12 @@ def show_looping_animation(snapshot_database, object_database, object_to_animate
         # Toggle pausing/unpausing with spacebar
         elif keypress == spacebar:
             pause_mode = not pause_mode
-            
+        
+        # Save data using enter key
+        elif keypress in enter_keys:
+            save_object_data(object_list)
+            break
+        
         # Step back one frame with left key
         elif keypress in left_arrow_keys:
             pause_mode = True
@@ -406,12 +435,52 @@ def show_looping_animation(snapshot_database, object_database, object_to_animate
             snap_idx = start_idx
         elif snap_idx < start_idx:
             snap_idx = end_idx - 1
-            
+    
     # Get rid of animation widow before leaving
     anim_window.close()
     
     return
+
+# .....................................................................................................................
+# .....................................................................................................................
+
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Saving functions
+
+# .....................................................................................................................
+
+def build_base_saving_folder():
     
+    # Hard-code the base saving path (HACKY USING CAMERA + USER GLOBALLY)
+    base_path = os.path.expanduser(os.path.join("~", "Desktop"))
+    camera_specific_folder = "{}-({})".format(camera_select, user_select)
+    
+    # Build full folder pathing
+    saving_folder = os.path.join(base_path, "safety-cv-exports", "csv", camera_specific_folder)
+    os.makedirs(saving_folder, exist_ok = True)
+    
+    return saving_folder
+
+# .....................................................................................................................
+
+def save_object_data(object_list):
+    
+    # Don't bother doing anything if no objects are provided
+    if not object_list:
+        return
+    
+    # Space out saving print out for readability
+    print("")
+    
+    # Get hacky/hard-coded base pathing
+    save_folder = build_base_saving_folder()
+    for each_obj in object_list:        
+        save_file_path = save_object_to_csv(save_folder, each_obj)
+        print("Saved object {}:".format(each_obj.full_id),
+              "@ {}".format(save_file_path), sep = "\n")
+    
+    return
+
 # .....................................................................................................................
 # .....................................................................................................................
 
@@ -467,6 +536,9 @@ bg_frame = median_background_from_snapshots(snap_db, user_start_dt, user_end_dt,
 frame_height, frame_width = bg_frame.shape[0:2]
 frame_wh = (frame_width, frame_height)
 
+# Set timebar size
+timebar_row_height = 30
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Load object data
@@ -479,7 +551,7 @@ obj_list = Hover_Object.create_reconstruction_list(obj_metadata_generator,
                                                    frame_wh,
                                                    user_start_dt, 
                                                    user_end_dt,
-                                                   smoothing_factor = 0.015)
+                                                   timebar_row_height = timebar_row_height)
 
 # Organize objects by class label -> then by object id (nested dictionaries)
 objclass_dict = create_object_class_dict(class_db, obj_list)
@@ -488,15 +560,27 @@ objclass_dict = create_object_class_dict(class_db, obj_list)
 hover_map = Hover_Mapping(objclass_dict)
 
 
+# Load in classification data, if any
+class_count_dict = set_object_classification_and_colors(class_db, obj_list)
+
+# Tell each object which class row index it is (for timebar)
+class_label_list = list(class_count_dict.keys())
+for each_obj in obj_list:
+    each_obj.set_timebar_row_index(class_label_list)
+num_classes = len(class_label_list)
+
+
 # ---------------------------------------------------------------------------------------------------------------------
-#%% Create static datasets
+#%% Create initial images
 
 # Generate the background display frame, containing all object trails
 trails_background = create_trail_frame_from_object_reconstruction(bg_frame, obj_list)
+bar_background = create_timebar_frame_object_reconstruction(bg_frame, timebar_row_height, obj_list, class_count_dict)
 
-# Figure out max speeds of objects
-all_objs_max_velo = [each_obj._max_velo for each_obj in obj_list]
-median_max_velo = np.median(all_objs_max_velo)
+# Get timebar final sizing
+timebar_image_height = bar_background.shape[0]
+timebar_image_wh = (frame_width, timebar_image_height)
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Interaction loop
@@ -506,34 +590,25 @@ cv2.destroyAllWindows()
 
 # Set up mouse interaction callbacks
 trail_hover_callback = Hover_Callback(frame_wh)
+bar_hover_callback =  Hover_Callback(timebar_image_wh)
 cb_sequencer = Callback_Sequencer("trails", trail_hover_callback, frame_wh)
-
-# Set up window positioning
-x_spacing = 50
-y_spacing = 50
-x1 = x_spacing
-x2 = 2 * (x_spacing) + frame_width
-y1 = y_spacing
-y2 = 2 * (y_spacing) + frame_height
-
-
-# Set up speed plot display
-blank_speed_plot_image = np.full((360, 640, 3), (40,40,40), dtype = np.uint8)
-simple_text(blank_speed_plot_image, "Hover over a trail to see speed plot...", (320, 180), center_text=True)
-speed_window = Simple_Window("Speed Plot")
-speed_window.move_corner_pixels(x2, y2)
+cb_sequencer.add_callback_vstack("timebar", bar_hover_callback, timebar_image_wh)
 
 # Set up main display window
-disp_window = Simple_Window("Select Trail")
+disp_window = Simple_Window("Display")
 disp_window.attach_callback(cb_sequencer)
-disp_window.move_corner_pixels(x1, y1)
-print("", "Press Esc to close", "", sep="\n")
+disp_window.move_corner_pixels(50, 50)
+print("", 
+      "Click on a trail to view an animation of the object,",
+      "then press 'Enter' on the animation to export to csv!",
+      "",
+      "Press Esc to close", "", sep="\n")
 
 while True:
     
     # Make clean copies of the frames to display, so we don't muddy up the originals
     display_frame = trails_background.copy()
-    speed_frame = blank_speed_plot_image
+    timebar_frame = bar_background.copy()
     
     # Respond to trail hovering, if active
     if cb_sequencer.is_active("trails"):
@@ -545,23 +620,34 @@ while True:
         # Highlight the closest trail/timebar segment if the mouse is close enough
         if closest_trail_dist < 0.05:
             obj_ref = objclass_dict[closest_obj_class][closest_obj_id]
-            display_frame = obj_ref.highlight_trail(display_frame)
-            speed_frame = obj_ref.draw_speed_plot(median_max_velo)
+            obj_ref.hover_highlight(display_frame, timebar_frame)
             
             # Play an animation if the user clicks on the highlighted trail
             if trail_hover_callback.clicked():
-                obj_to_animate = obj_ref
-                show_looping_animation(snap_db, obj_db, obj_to_animate, speed_window, median_max_velo,
-                                       window_x = x2, window_y = y1)
+                objs_to_animate_list = [obj_ref]
+                show_looping_animation(snap_db, objs_to_animate_list)
     
-    # Display speed plot
-    speed_win_exists = speed_window.imshow(speed_frame)
+    # Respond to timebar hover, if active
+    if cb_sequencer.is_active("timebar"):
+        
+        # Get relative mouse co-ords
+        mouse_x, mouse_y = bar_hover_callback.mouse_xy()
+        timebar_row_index_hover = int(np.floor(mouse_y * num_classes))
+        hovered_obj_idxs = get_hovered_timebars(mouse_x, timebar_row_index_hover, obj_list)
+        
+        # Highlight all the timebars being hovered & the corresponding trails
+        for each_idx in hovered_obj_idxs:
+            obj_list[each_idx].hover_highlight(display_frame, timebar_frame)
+    
+        # Play an animation if the user clicks on the highlighted timebar section
+        if bar_hover_callback.clicked():            
+            objs_to_animate_list = [obj_list[each_idx] for each_idx in hovered_obj_idxs]
+            show_looping_animation(snap_db, objs_to_animate_list)
     
     # Show final display
-    disp_win_exists = disp_window.imshow(display_frame)
-    
-    # Close if all windows are closed
-    if not (speed_win_exists or disp_win_exists):
+    combined_frame = np.vstack((display_frame, timebar_frame))
+    winexist = disp_window.imshow(combined_frame)
+    if not winexist:
         break
     
     # Break on esc key
@@ -577,11 +663,5 @@ cv2.destroyAllWindows()
 #%% Scrap
 
 # TODO
-# - add better control over smoothing
-# - clean up super hacky implementation
-# - display 'median' max velocity on graphs?
-# - display 'median' avg velocity on graphs?
-# - display units on x/y axis
-# - display total lifetime (if not displaying x axis units)
-# - have hover over graph that highlights corresponding point on trail (and vice versa)
+# - Make this less hacky!
 

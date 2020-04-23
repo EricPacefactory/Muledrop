@@ -468,7 +468,7 @@ class Datetime_Input_Parser:
     def print_dt_str_input_help(cls):
         
         # Build an example datetime
-        example_dt = dt.datetime(2020, 1, 2, 23, 22, 21)
+        example_dt = dt.datetime.now()
         example_dt_str = example_dt.strftime(cls.datetime_format)
         
         print("", 
@@ -482,10 +482,10 @@ class Datetime_Input_Parser:
               "a plus (+) or minus (-) sign in front of the time.",
               "",
               "Notes on relative times:",
-              "  Positive (+) start times will be interpretted relative to the default start time.",
-              "  Negative (-) start times will be intepretted relative to the provided end time.",
-              "  Positive (+) end times will be interpretted relative to the provided start time.",
-              "  Negative (-) end times will be interpretted relative to the default end time.", 
+              "  Plus  (+) start times will be interpretted relative to the default start time.",
+              "  Minus (-) start times will be interpretted relative to the provided end time.",
+              "  Plus  (+) end   times will be interpretted relative to the provided start time.",
+              "  Minus (-) end   times will be interpretted relative to the default end time.", 
               "  Cannot use relative years or months!",
               sep = "\n")
         

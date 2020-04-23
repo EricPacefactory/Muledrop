@@ -54,6 +54,8 @@ from time import perf_counter
 
 from tqdm import tqdm
 
+from local.lib.common.feedback import print_time_taken_ms
+
 from local.lib.ui_utils.cli_selections import Resource_Selector
 
 from local.lib.file_access_utils.rules import build_rule_adb_metadata_report_path
@@ -283,8 +285,7 @@ print("")
 
 # Some timing feedback
 t_end = perf_counter()
-total_processing_time_sec = (t_end - t_start)
-print("", "Finished! Took {:.1f} seconds".format(total_processing_time_sec), sep = "\n")
+print_time_taken_ms(t_start, t_end)
 
 
 # ---------------------------------------------------------------------------------------------------------------------

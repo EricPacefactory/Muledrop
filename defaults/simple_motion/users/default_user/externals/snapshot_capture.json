@@ -8,7 +8,7 @@
     "snapshot_period_hr": 0,
     "snapshot_period_min": 0,
     "snapshot_period_sec": 1.0,
-    "max_dimension_px": 800,
+    "max_dimension_px": 640,
     "jpg_quality": 25,
     "downscale_interpolation": 0
   }
