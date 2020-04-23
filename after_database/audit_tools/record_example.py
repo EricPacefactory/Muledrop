@@ -57,9 +57,15 @@ from tqdm import tqdm
 
 from local.lib.ui_utils.cli_selections import Resource_Selector
 
+from local.lib.common.timekeeper_utils import parse_isoformat_string, fake_datetime_like
+
+from local.lib.file_access_utils.settings import load_recording_info
+
 from local.offline_database.file_database import launch_file_db, close_dbs_if_missing_data
 from local.offline_database.object_reconstruction import Smoothed_Object_Reconstruction as Obj_Recon
 from local.offline_database.classification_reconstruction import set_object_classification_and_colors
+
+from local.eolib.video.text_rendering import position_frame_relative, font_config, simple_text
 
 from local.eolib.video.read_write import Video_Recorder
 
@@ -78,37 +84,40 @@ from local.eolib.utils.quitters import ide_quit
 
 def parse_record_args():
     
+    # Set defaults
     default_output_path = os.path.join("~", "Desktop")
-    default_codec = "avc1"
-    default_recording_ext = "mp4"
+    default_timestamp_pos = None
+    default_relative_timestamp = False
     
     # Set up argument parsing
     ap = argparse.ArgumentParser(formatter_class = argparse.RawTextHelpFormatter)
     ap.add_argument("-o", "--output", default = default_output_path, type = str,
                     help = "\n".join(["Base folder path for the recorded video file.",
                                       "(Default: {})".format(default_output_path)]))
-    ap.add_argument("-x", "--extension", default = default_recording_ext, type = str,
-                    help = "\n".join(["File extension of the recorded video (avi, mp4, mkv, etc.).",
-                            "(Default: {})".format(default_recording_ext)]))
-    ap.add_argument("-c", "--codec", default = default_codec, type = str,
-                    help = "\n".join(["FourCC code used for recording (avc1, X264, XVID, MJPG, mp4v, etc.).",
-                            "(Default: {})".format(default_codec)]))
+    ap.add_argument("-t", "--timestamp_position", default = default_timestamp_pos, type = str,
+                    help = "\n".join(["Set the position of a timestamp to be overlayed on the recording.",
+                                      "Can be set to:",
+                                      "  tl, tr, bl, br",
+                                      "Corresponding to (t)op, (b)ottom, (l)eft and (r)ight.",
+                                      "If not set, a timestamp will not be added."]))
+    ap.add_argument("-r", "--relative_timestamp", default = default_relative_timestamp, action = "store_true",
+                    help = "\n".join(["If enabled, the overlayed timestamp will report relative time",
+                                      "(e.g. video time) as opposed to absolute time.",
+                                      "Note, a timestamp position must be set to see the timestamp!"]))
     
     # Get arg inputs into a dictionary
     args = vars(ap.parse_args())
     
     # Get script arg values
     arg_recording_path = args["output"]
-    arg_file_extension = args["extension"]
-    arg_codec = args["codec"]
+    arg_timestamp_position = args["timestamp_position"]
+    arg_relative_timestamp = args["relative_timestamp"]
     
     # Replace output folder user pathing (~) with actual user path
     expanded_arg_recording_path = os.path.expanduser(arg_recording_path)
     
-    # Make sure file extension has preceeding '.' (i.e. convert 'avi' to '.avi')
-    safe_file_ext = "".join([".", arg_file_extension]).replace("..", ".")
     
-    return expanded_arg_recording_path, safe_file_ext, arg_codec
+    return expanded_arg_recording_path, arg_timestamp_position, arg_relative_timestamp
 
 # .....................................................................................................................
     
@@ -194,9 +203,58 @@ def get_recording_times(snapshot_times_ms_list, effective_timelapse_factor):
 # .....................................................................................................................
 
 # ---------------------------------------------------------------------------------------------------------------------
+#%% Timestamp functions
+
+# .....................................................................................................................
+
+def draw_timestamp(display_frame, snapshot_metadata, fg_config, bg_config, replay_start_dt, use_relative_time, 
+                   text_position = None):
+    
+    # Don't draw the timestamp if there is no position data
+    if text_position is None:
+        return display_frame
+    
+    # For clarity
+    centered = False
+    
+    # Get snapshot timing info
+    datetime_isoformat = snapshot_metadata["datetime_isoformat"]
+    snap_dt = parse_isoformat_string(datetime_isoformat)
+    
+    # Convert timing to 'relative' time, if needed
+    if use_relative_time:
+        snap_dt = (snap_dt - replay_start_dt) + fake_datetime_like(snap_dt)
+    
+    # Draw timestamp with background/foreground to help separate from video background
+    snap_dt_str = snap_dt.strftime("%H:%M:%S")
+    simple_text(display_frame, snap_dt_str, text_position, centered, **bg_config)
+    simple_text(display_frame, snap_dt_str, text_position, centered, **fg_config)
+    
+    return display_frame
+
+# .....................................................................................................................
+    
+def get_timestamp_location(timestamp_position_arg, snap_shape, fg_font_config):
+    
+    # Use simple lookup to get the timestamp positioning
+    position_lut = {"tl": (3, 3), "tr": (-3, 3),
+                    "bl": (3, -1), "br": (-3, -1)}
+    
+    # If we can't get the position (either wasn't provided, or incorrectly specified), then we won't return anything
+    relative_position = position_lut.get(timestamp_position_arg, None)
+    if relative_position is None:
+        return None
+    
+    return position_frame_relative(snap_shape, "00:00:00", relative_position, **fg_font_config)
+
+# .....................................................................................................................
+# .....................................................................................................................
+
+# ---------------------------------------------------------------------------------------------------------------------
 #%% Get script arguments
 
-recording_folder_path, recording_file_ext, recording_codec = parse_record_args()
+recording_folder_path, timestamp_pos_arg, enable_relative_timestamp = parse_record_args()
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Select camera/user
@@ -234,6 +292,7 @@ close_dbs_if_missing_data(snap_db, error_message_if_missing = "No snapshot data 
 # Get the maximum range of the data (based on the snapshots, because that's the most we could show)
 earliest_datetime, latest_datetime = snap_db.get_bounding_datetimes()
 snap_wh = cinfo_db.get_snap_frame_wh()
+snap_width, snap_height = snap_wh
 
 # Ask the user for the range of datetimes to use for selecting data
 user_start_dt, user_end_dt = DTIP.cli_prompt_start_end_datetimes(earliest_datetime, latest_datetime,
@@ -286,6 +345,14 @@ recording_snap_times_ms_list = get_recording_times(snap_times_ms_list, effective
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Set up recording
 
+# Load codec/file extension settings
+recording_info_dict = load_recording_info(project_root_path)
+recording_file_ext = recording_info_dict["file_extension"]
+recording_codec = recording_info_dict["codec"]
+
+# Make sure we add a leading dot to the file extension
+recording_file_ext = "".join([".", recording_file_ext]).replace("..", ".")
+
 # Build pathing to recorded file
 recording_file_path = build_recording_path(recording_folder_path, 
                                            camera_select, 
@@ -302,6 +369,12 @@ vwriter = Video_Recorder(recording_file_path,
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Data playback
+
+# Set up timestamp text config, in case it's needed
+snap_shape = (snap_height, snap_width, 3)
+fg_font_config = font_config(scale = 0.35, color = (255, 255, 255))
+bg_font_config = font_config(scale = 0.35, color = (0, 0, 0), thickness = 2)
+timestamp_xy = get_timestamp_location(timestamp_pos_arg, snap_shape, fg_font_config)
 
 # Some feedback about recording
 print("", 
@@ -323,10 +396,15 @@ try:
     for each_snap_time_ms in recording_snap_times_ms_list:
         
         # Load each snapshot image & draw object annoations over top
+        snap_md = snap_db.load_snapshot_metadata(each_snap_time_ms)
         snap_image, snap_frame_idx = snap_db.load_snapshot_image(each_snap_time_ms)
         for each_obj in obj_list:            
             each_obj.draw_trail(snap_image, snap_frame_idx, each_snap_time_ms)
             each_obj.draw_outline(snap_image, snap_frame_idx, each_snap_time_ms)
+        
+        # Draw timestamp over displayed image, if needed
+        timestamp_image = draw_timestamp(snap_image, snap_md, fg_font_config, bg_font_config, 
+                                         user_start_dt, enable_relative_timestamp, timestamp_xy)
         
         # Record frames
         vwriter.write(snap_image)
@@ -352,4 +430,5 @@ print("", "Done! Took {:.1f} seconds".format(total_time), "", sep="\n")
 
 # TODO
 # - Add ghosting option?
-
+# - clean up recording settings file (ideally, first creation should auto-select codec/file ext!)
+# - consider unifying replay + record tools?

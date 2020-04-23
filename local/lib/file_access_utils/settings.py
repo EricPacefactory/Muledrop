@@ -77,6 +77,11 @@ def build_path_to_pathing_info(project_root_path):
     return build_path_to_settings_folder(project_root_path, "pathing_info.json")
 
 # .....................................................................................................................
+
+def build_path_to_recording_info(project_root_path):
+    return build_path_to_settings_folder(project_root_path, "recording_info.json")
+
+# .....................................................................................................................
 # .....................................................................................................................
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -122,7 +127,7 @@ def save_history(project_root_path, new_config, enable = True):
 
 # .....................................................................................................................
 
-def load_screen_info(project_root_path, file_name = ".screen_info"):
+def load_screen_info(project_root_path):
     
     # Build default parameters for different use cases
     default_screen = {"width": 1920,  "height": 1080, "x_offset": 0, "y_offset": 0}
@@ -180,6 +185,35 @@ def load_pathing_info(project_root_path):
     final_camera_path = expanded_camera_pathing if path_exists else fallback_camera_path
     
     return final_camera_path
+
+# .....................................................................................................................
+# .....................................................................................................................
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Define recording info functions
+
+# .....................................................................................................................
+
+def load_recording_info(project_root_path):
+    
+    # Set default parameters
+    default_codec = "avc1"
+    default_file_ext = "mp4"
+    
+    # Bundle all the default parameters
+    default_config = {"codec": default_codec,
+                      "file_extension": default_file_ext}
+    
+    # Build pathing to recording file and try to load it (or otherwise create default file)
+    file_path = build_path_to_recording_info(project_root_path)
+    recording_info_config = load_or_create_config_json(file_path, default_config,
+                                                       creation_printout = "Creating recording info file:")
+    
+    return recording_info_config
+
+# .....................................................................................................................
+# .....................................................................................................................
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Scrap
