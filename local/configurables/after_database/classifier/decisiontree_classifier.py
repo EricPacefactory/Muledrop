@@ -130,14 +130,16 @@ class Classifier_Stage(Reference_Classifier):
     
     def setup(self, variables_changed_dict):
         
+    
+        tree_classifier, id_to_label_dict = load_classifier_resources(self.cameras_folder_path,
+                                                                      self.camera_select,
+                                                                      error_if_missing = False)
         
-        try:
-            tree_classifier, id_to_label_dict = \
-            load_classifier_resources(self.cameras_folder_path, self.camera_select)
+        data_missing = (id_to_label_dict is None)
+        if not data_missing:
             self._dtree = tree_classifier
             self._id_to_label_dict = id_to_label_dict
-        except FileNotFoundError:
-            pass
+        
         # Check for existing resources
         # ...        
         
@@ -405,13 +407,20 @@ def save_classifier_resources(configurable_ref):
 
 # .....................................................................................................................
 
-def load_classifier_resources(cameras_folder_path, camera_select):
+def load_classifier_resources(cameras_folder_path, camera_select, 
+                              error_if_missing = True):
+    
+    # Initialize outputs
+    tree_classifier = None
+    id_to_label_dict = None
     
     # Check that the folder pathing is valid
     dtree_folder_path = build_dtree_folder_path(cameras_folder_path, camera_select)
     if not os.path.exists(dtree_folder_path):
-        print("", "Error! No classifier folder:", "@ {}".format(dtree_folder_path), "", sep = "\n")
-        raise FileNotFoundError("Couldn't find decision tree model folder!")
+        if error_if_missing:
+            print("", "Error! No classifier folder:", "@ {}".format(dtree_folder_path), "", sep = "\n")
+            raise FileNotFoundError("Couldn't find decision tree model folder!")
+        return tree_classifier, id_to_label_dict
         
     # Get listing of all date folders
     date_folders_list = get_folder_list(dtree_folder_path,
@@ -422,8 +431,10 @@ def load_classifier_resources(cameras_folder_path, camera_select):
     # Error if there are no date folders
     no_date_folders = (len(date_folders_list) < 1)
     if no_date_folders:
-        print("", "Error! No model resources:", "@ {}".format(dtree_folder_path), "", sep = "\n")
-        raise FileNotFoundError("Couldn't find decision tree model resources!")
+        if error_if_missing:
+            print("", "Error! No model resources:", "@ {}".format(dtree_folder_path), "", sep = "\n")
+            raise FileNotFoundError("Couldn't find decision tree model resources!")
+        return tree_classifier, id_to_label_dict
     
     # Warning if more than one date folder exists, since we're only loading the newest
     newest_date_folder = date_folders_list[-1]

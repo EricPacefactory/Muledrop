@@ -96,12 +96,8 @@ from local.eolib.utils.cli_tools import cli_confirm, cli_select_from_list
 def check_for_existing_resources(cameras_folder_path, camera_select):
     
     # Try to load existing classifier resources
-    resources_exist = False
-    try:
-        _, _ = load_classifier_resources(cameras_folder_path, camera_select)
-        resources_exist = True
-    except FileNotFoundError:
-        pass    
+    _, loaded_lut = load_classifier_resources(cameras_folder_path, camera_select, error_if_missing = False)
+    resources_exist = (loaded_lut is not None)
     
     return resources_exist
 
@@ -307,6 +303,9 @@ earliest_datetime, latest_datetime = snap_db.get_bounding_datetimes()
 user_start_dt, user_end_dt = DTIP.cli_prompt_start_end_datetimes(earliest_datetime, latest_datetime,
                                                                  print_help_before_prompt = False,
                                                                  debug_mode = enable_debug_mode)
+
+# Provide feedback about the selected time range
+DTIP.print_start_end_time_range(user_start_dt, user_end_dt)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
