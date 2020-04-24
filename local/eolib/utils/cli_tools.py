@@ -555,6 +555,30 @@ class Datetime_Input_Parser:
             limited_end_dt = start_dt + limited_timedelta
         
         return limited_start_dt, limited_end_dt
+    
+    # .................................................................................................................
+    
+    @classmethod
+    def print_start_end_time_range(cls, selected_start_dt, selected_end_dt):
+        
+        '''
+        Helper function which prints out a selected start/end datetime.
+        Intended for use with the results from calling cli_prompt_start_end_datetimes(...) function
+        '''
+        
+        # Convert datetimes to string format for printing
+        start_dt_str = dt.datetime.strftime(selected_start_dt, cls.datetime_format)
+        end_dt_str = dt.datetime.strftime(selected_end_dt, cls.datetime_format)
+        
+        # Print indicator of start/end timing
+        print("",
+              "--- Selected time range ---",
+              "",
+              "  {} (start)".format(start_dt_str),
+              "  {} (end)".format(end_dt_str),
+              sep = "\n")
+        
+        return
 
     # .................................................................................................................
     # .................................................................................................................
