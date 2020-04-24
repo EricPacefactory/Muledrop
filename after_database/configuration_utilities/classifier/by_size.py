@@ -61,7 +61,7 @@ from local.offline_database.object_reconstruction import Smooth_Hover_Object_Rec
 from local.offline_database.object_reconstruction import Hover_Mapping
 from local.offline_database.object_reconstruction import create_trail_frame_from_object_reconstruction
 from local.offline_database.snapshot_reconstruction import median_background_from_snapshots
-from local.offline_database.classification_reconstruction import create_object_class_dict
+from local.offline_database.classification_reconstruction import create_objects_by_class_dict
 
 from local.lib.ui_utils.local_ui.windows_base import Simple_Window
 
@@ -89,7 +89,7 @@ def width_height_pair_func(obj_recon_ref, frame_idx):
 
 # .....................................................................................................................
 
-def get_data_pair_list(objclass_dict, data_pair_func, print_feedback = True):
+def get_data_pair_list(obj_by_class_dict, data_pair_func, print_feedback = True):
     
     # Initialize output. Should contain keys for each object id, storing all width/height samples in a list
     obj_datapair_lists_dict = {}
@@ -100,7 +100,7 @@ def get_data_pair_list(objclass_dict, data_pair_func, print_feedback = True):
         print("", "Generating data pair lists...", sep = "\n")
     
     # Loop over every object (of every class) and get all data pair samples
-    for each_class_label, each_obj_dict in objclass_dict.items():
+    for each_class_label, each_obj_dict in obj_by_class_dict.items():
         
         # Loop over all object ids
         for each_obj_id, each_obj_recon in each_obj_dict.items():
@@ -214,6 +214,9 @@ user_start_dt, user_end_dt = DTIP.cli_prompt_start_end_datetimes(earliest_dateti
                                                                  print_help_before_prompt = False,
                                                                  debug_mode = enable_debug_mode)
 
+# Provide feedback about the selected time range
+DTIP.print_start_end_time_range(user_start_dt, user_end_dt)
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Create background frame
@@ -237,10 +240,10 @@ obj_list = Obj_Recon.create_reconstruction_list(obj_metadata_generator,
                                                 user_end_dt)
 
 # Organize objects by class label -> then by object id (nested dictionaries)
-objclass_dict = create_object_class_dict(class_db, obj_list)
+obj_id_list, obj_by_class_dict, obj_id_to_class_dict = create_objects_by_class_dict(class_db, obj_list)
 
 # Generate trail hover mapping, for quicker mouse-to-trail lookup
-hover_map = Hover_Mapping(objclass_dict)
+hover_map = Hover_Mapping(obj_by_class_dict)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -252,7 +255,6 @@ trails_background = create_trail_frame_from_object_reconstruction(bg_frame, obj_
 
 #%%
 
-obj_id_list = [each_obj_recon.full_id for each_obj_recon in obj_list]
 sv_labels_dict = load_all_supervised_labels(*pathing_args, obj_id_list)
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -262,7 +264,7 @@ sv_labels_dict = load_all_supervised_labels(*pathing_args, obj_id_list)
 cv2.destroyAllWindows()
 
 # Set up parameter comparison windows
-width_height_lists_dict = get_data_pair_list(objclass_dict, width_height_pair_func)
+width_height_lists_dict = get_data_pair_list(obj_by_class_dict, width_height_pair_func)
 parameter_frame = draw_all_wh_list(width_height_lists_dict)
 param_window = Simple_Window("Width vs Height")
 param_window.move_corner_pixels(800, 50)

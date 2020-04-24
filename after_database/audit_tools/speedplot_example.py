@@ -52,15 +52,13 @@ find_path_to_local()
 import cv2
 import numpy as np
 
-from itertools import cycle
-
 from local.lib.ui_utils.cli_selections import Resource_Selector
 
 from local.offline_database.file_database import launch_file_db, close_dbs_if_missing_data
 from local.offline_database.object_reconstruction import Smooth_Hover_Object_Reconstruction, Hover_Mapping
 from local.offline_database.object_reconstruction import create_trail_frame_from_object_reconstruction
 from local.offline_database.snapshot_reconstruction import median_background_from_snapshots
-from local.offline_database.classification_reconstruction import create_object_class_dict
+from local.offline_database.classification_reconstruction import create_objects_by_class_dict
 
 from local.lib.ui_utils.local_ui.windows_base import Simple_Window
 
@@ -458,6 +456,9 @@ user_start_dt, user_end_dt = DTIP.cli_prompt_start_end_datetimes(earliest_dateti
                                                                  print_help_before_prompt = False,
                                                                  debug_mode = enable_debug_mode)
 
+# Provide feedback about the selected time range
+DTIP.print_start_end_time_range(user_start_dt, user_end_dt)
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Create background frame
@@ -482,10 +483,10 @@ obj_list = Hover_Object.create_reconstruction_list(obj_metadata_generator,
                                                    smoothing_factor = 0.015)
 
 # Organize objects by class label -> then by object id (nested dictionaries)
-objclass_dict = create_object_class_dict(class_db, obj_list)
+obj_id_list, obj_by_class_dict, obj_id_to_class_dict = create_objects_by_class_dict(class_db, obj_list)
 
 # Generate trail hover mapping, for quicker mouse-to-trail lookup
-hover_map = Hover_Mapping(objclass_dict)
+hover_map = Hover_Mapping(obj_by_class_dict)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -544,7 +545,7 @@ while True:
         
         # Highlight the closest trail/timebar segment if the mouse is close enough
         if closest_trail_dist < 0.05:
-            obj_ref = objclass_dict[closest_obj_class][closest_obj_id]
+            obj_ref = obj_by_class_dict[closest_obj_class][closest_obj_id]
             display_frame = obj_ref.highlight_trail(display_frame)
             speed_frame = obj_ref.draw_speed_plot(median_max_velo)
             

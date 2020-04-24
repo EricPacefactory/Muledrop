@@ -299,6 +299,9 @@ user_start_dt, user_end_dt = DTIP.cli_prompt_start_end_datetimes(earliest_dateti
                                                                  print_help_before_prompt = False,
                                                                  debug_mode = enable_debug_mode)
 
+# Provide feedback about the selected time range
+DTIP.print_start_end_time_range(user_start_dt, user_end_dt)
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Load object data

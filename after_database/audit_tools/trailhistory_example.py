@@ -61,7 +61,7 @@ from local.offline_database.object_reconstruction import Smooth_Hover_Object_Rec
 from local.offline_database.object_reconstruction import create_trail_frame_from_object_reconstruction
 from local.offline_database.snapshot_reconstruction import median_background_from_snapshots
 from local.offline_database.classification_reconstruction import set_object_classification_and_colors
-from local.offline_database.classification_reconstruction import create_object_class_dict
+from local.offline_database.classification_reconstruction import create_objects_by_class_dict
 
 from local.lib.ui_utils.local_ui.windows_base import Simple_Window
 
@@ -482,6 +482,9 @@ user_start_dt, user_end_dt = DTIP.cli_prompt_start_end_datetimes(earliest_dateti
                                                                  print_help_before_prompt = False,
                                                                  debug_mode = enable_debug_mode)
 
+# Provide feedback about the selected time range
+DTIP.print_start_end_time_range(user_start_dt, user_end_dt)
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Create background frame
@@ -509,11 +512,10 @@ obj_list = Hover_Object.create_reconstruction_list(obj_metadata_generator,
                                                    timebar_row_height = timebar_row_height)
 
 # Organize objects by class label -> then by object id (nested dictionaries)
-objclass_dict = create_object_class_dict(class_db, obj_list)
+obj_id_list, obj_by_class_dict, obj_id_to_class_dict = create_objects_by_class_dict(class_db, obj_list)
 
 # Generate trail hover mapping, for quicker mouse-to-trail lookup
-hover_map = Hover_Mapping(objclass_dict)
-
+hover_map = Hover_Mapping(obj_by_class_dict)
 
 # Load in classification data, if any
 class_count_dict = set_object_classification_and_colors(class_db, obj_list)
@@ -550,7 +552,7 @@ cb_sequencer = Callback_Sequencer("trails", trail_hover_callback, frame_wh)
 cb_sequencer.add_callback_vstack("timebar", bar_hover_callback, timebar_image_wh)
 
 # Set up main display window
-disp_window = Simple_Window("Display")
+disp_window = Simple_Window("Trailhistory")
 disp_window.attach_callback(cb_sequencer)
 disp_window.move_corner_pixels(50, 50)
 print("", "Press Esc to close", "", sep="\n")
@@ -570,7 +572,7 @@ while True:
         
         # Highlight the closest trail/timebar segment if the mouse is close enough
         if closest_trail_dist < 0.05:
-            obj_ref = objclass_dict[closest_obj_class][closest_obj_id]
+            obj_ref = obj_by_class_dict[closest_obj_class][closest_obj_id]
             obj_ref.hover_highlight(display_frame, timebar_frame)
             
             # Play an animation if the user clicks on the highlighted trail

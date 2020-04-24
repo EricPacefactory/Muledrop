@@ -62,7 +62,7 @@ from local.lib.common.timekeeper_utils import parse_isoformat_string, fake_datet
 from local.offline_database.file_database import launch_file_db, close_dbs_if_missing_data
 from local.offline_database.object_reconstruction import Smoothed_Object_Reconstruction as Obj_Recon
 from local.offline_database.classification_reconstruction import set_object_classification_and_colors
-from local.offline_database.classification_reconstruction import create_object_class_dict
+from local.offline_database.classification_reconstruction import create_objects_by_class_dict
 
 from local.eolib.utils.cli_tools import Datetime_Input_Parser as DTIP
 from local.eolib.utils.colormaps import create_interpolated_colormap
@@ -155,10 +155,10 @@ def parse_replay_args():
 
 # .....................................................................................................................
 
-def get_class_count_lists(snap_db, objclass_dict):
+def get_class_count_lists(snap_db, obj_by_class_dict):
 
     # Get counts for each class separately
-    objclass_count_lists_dict = {each_class_label: [] for each_class_label in objclass_dict.keys()}
+    objclass_count_lists_dict = {each_class_label: [] for each_class_label in obj_by_class_dict.keys()}
     for each_snap_time_ms in snap_times_ms_list:
         
         # Get snapshot timing info
@@ -166,7 +166,7 @@ def get_class_count_lists(snap_db, objclass_dict):
         snap_epoch_ms = snap_md["epoch_ms"]
         
         # Count up all the objects on each frame, for each class label
-        for each_class_label, each_obj_dict in objclass_dict.items():
+        for each_class_label, each_obj_dict in obj_by_class_dict.items():
             objclass_count = 0
             for each_obj_id, each_obj_ref in each_obj_dict.items():
                 is_on_snap = each_obj_ref.exists_at_target_time(snap_epoch_ms)
@@ -184,7 +184,7 @@ def create_density_images(class_db, objclass_count_lists_dict, snap_width,
                           density_bar_height = 16, bar_bg_color = (40, 40, 40)):
     
     # Return a blank image if no class data is available
-    density_images_dict = {each_class_label: None for each_class_label in objclass_dict.keys()}
+    density_images_dict = {each_class_label: None for each_class_label in obj_by_class_dict.keys()}
     if not objclass_count_lists_dict:
         blank_bar = np.full((density_bar_height, snap_width, 3), bar_bg_color, dtype = np.uint8)
         density_images_dict["unclassified"] = blank_bar
@@ -386,6 +386,9 @@ user_start_dt, user_end_dt = DTIP.cli_prompt_start_end_datetimes(earliest_dateti
                                                                  print_help_before_prompt = False,
                                                                  debug_mode = enable_debug_mode)
 
+# Provide feedback about the selected time range
+DTIP.print_start_end_time_range(user_start_dt, user_end_dt)
+
 # Get all the snapshot times we'll need for animation
 snap_times_ms_list = snap_db.get_all_snapshot_times_by_time_range(user_start_dt, user_end_dt)
 num_snaps = len(snap_times_ms_list)
@@ -409,7 +412,7 @@ obj_list = Obj_Recon.create_reconstruction_list(obj_metadata_generator,
                                                 user_end_dt)
 
 # Organize objects by class label -> then by object id (nested dictionaries)
-objclass_dict = create_object_class_dict(class_db, obj_list)
+obj_id_list, obj_by_class_dict, obj_id_to_class_dict = create_objects_by_class_dict(class_db, obj_list)
 
 # Load in classification data, if any
 set_object_classification_and_colors(class_db, obj_list)
@@ -419,7 +422,7 @@ set_object_classification_and_colors(class_db, obj_list)
 #%% Generate density data
 
 # Get counts of each class label over time and generate an image representing the count by color intensity
-objclass_count_lists_dict = get_class_count_lists(snap_db, objclass_dict)
+objclass_count_lists_dict = get_class_count_lists(snap_db, obj_by_class_dict)
 density_images_dict = create_density_images(class_db, objclass_count_lists_dict, snap_width)
 
 # Create a combined image from all the class density images

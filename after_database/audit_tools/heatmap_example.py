@@ -60,7 +60,7 @@ from local.offline_database.file_database import launch_file_db, close_dbs_if_mi
 from local.offline_database.object_reconstruction import Smoothed_Object_Reconstruction as Obj_Recon
 from local.offline_database.object_reconstruction import create_trail_frame_from_object_reconstruction
 from local.offline_database.snapshot_reconstruction import median_background_from_snapshots
-from local.offline_database.classification_reconstruction import create_object_class_dict
+from local.offline_database.classification_reconstruction import create_objects_by_class_dict
 
 from local.lib.ui_utils.local_ui.windows_base import Simple_Window
 
@@ -112,7 +112,7 @@ class Hover_Callback:
 
 # .....................................................................................................................
 
-def build_trail_heatmaps(objclass_dict, final_frame_wh, downscale_factor = 2, trail_thickness = 5):
+def build_trail_heatmaps(obj_by_class_dict, final_frame_wh, downscale_factor = 2, trail_thickness = 5):
     
     # Hard-code scaling
     frame_width, frame_height = final_frame_wh
@@ -125,7 +125,7 @@ def build_trail_heatmaps(objclass_dict, final_frame_wh, downscale_factor = 2, tr
 
     # Create heatmaps for each class separately
     class_heat_frame_dict = {}    
-    for each_class_label, each_obj_dict in objclass_dict.items():
+    for each_class_label, each_obj_dict in obj_by_class_dict.items():
         
         # Create a new blank frame to store heatmap, per class
         class_heat_frame = blank_frame.copy()
@@ -169,7 +169,7 @@ def create_colored_heatmaps_dict(class_heat_frame_dict, final_frame_wh, minimum_
 
 # .....................................................................................................................
 
-def create_heatmap_windows_dict(screen_wh, final_frame_wh, objclass_dict, mouse_callback,
+def create_heatmap_windows_dict(screen_wh, final_frame_wh, obj_by_class_dict, mouse_callback,
                                 x_spacing = 50, y_spacing = 50):
     
     # Get screen & frame dimensions for convenience
@@ -183,7 +183,7 @@ def create_heatmap_windows_dict(screen_wh, final_frame_wh, objclass_dict, mouse_
     
     # Create heatmap windows
     heatmap_window_dict = {}
-    for each_idx, each_class_label in enumerate(objclass_dict.keys()):
+    for each_idx, each_class_label in enumerate(obj_by_class_dict.keys()):
         
         # Calculate y position of each heatmap, so they 'stack' on each other
         y_offset = y_spacing + (2 * y_spacing * each_idx)
@@ -259,6 +259,9 @@ user_start_dt, user_end_dt = DTIP.cli_prompt_start_end_datetimes(earliest_dateti
                                                                  print_help_before_prompt = False,
                                                                  debug_mode = enable_debug_mode)
 
+# Provide feedback about the selected time range
+DTIP.print_start_end_time_range(user_start_dt, user_end_dt)
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Create background frame
@@ -282,7 +285,7 @@ obj_list = Obj_Recon.create_reconstruction_list(obj_metadata_generator,
                                                 user_end_dt)
 
 # Organize objects by class label -> then by object id (nested dictionaries)
-objclass_dict = create_object_class_dict(class_db, obj_list)
+obj_id_list, obj_by_class_dict, obj_id_to_class_dict = create_objects_by_class_dict(class_db, obj_list)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -292,7 +295,7 @@ objclass_dict = create_object_class_dict(class_db, obj_list)
 trails_background = create_trail_frame_from_object_reconstruction(bg_frame, obj_list)
 
 # Generate heatmaps
-class_heat_frame_dict = build_trail_heatmaps(objclass_dict, frame_wh)
+class_heat_frame_dict = build_trail_heatmaps(obj_by_class_dict, frame_wh)
 colored_heat_frame_dict = create_colored_heatmaps_dict(class_heat_frame_dict, frame_wh)
 
 
@@ -305,7 +308,7 @@ mouse_hover = Hover_Callback()
 # Create displays
 bg_window = Simple_Window("Background").move_corner_pixels(50, 50)
 bg_window.attach_callback(mouse_hover)
-heatmap_window_dict = create_heatmap_windows_dict(screen_wh, frame_wh, objclass_dict, mouse_hover)
+heatmap_window_dict = create_heatmap_windows_dict(screen_wh, frame_wh, obj_by_class_dict, mouse_hover)
 
 # Some control feedback (hacky/hard-coded for now)
 print("", "Press Esc to close", "", sep="\n")

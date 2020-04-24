@@ -67,7 +67,7 @@ from local.offline_database.file_database import launch_file_db, close_dbs_if_mi
 from local.offline_database.object_reconstruction import create_trail_frame_from_object_reconstruction
 from local.offline_database.object_reconstruction import object_data_dict_to_list_generator
 from local.offline_database.snapshot_reconstruction import median_background_from_snapshots
-from local.offline_database.classification_reconstruction import create_object_class_dict
+from local.offline_database.classification_reconstruction import create_objects_by_class_dict
 
 from local.configurables.after_database.rules.linecross_rule import Linecross_Rule
 
@@ -95,14 +95,14 @@ def process_all_object_data(rule_ref, object_database, frame_wh, start_time, end
 
 # .....................................................................................................................
 
-def update_rule_results(rule_ref, objclass_dict, snap_db, frame_wh):
+def update_rule_results(rule_ref, obj_by_class_dict, snap_db, frame_wh):
     
     # Start timing, so we have an idea of how fast the rule is + avoid overly fast updates if slow!
     t_start = perf_counter()
     
     # Evaluate rule for each class separately, for easier results management
-    rule_results_per_class_dict = {each_class_label: {} for each_class_label in objclass_dict.keys()}
-    for each_class_label, each_obj_dict in objclass_dict.items():
+    rule_results_per_class_dict = {each_class_label: {} for each_class_label in obj_by_class_dict.keys()}
+    for each_class_label, each_obj_dict in obj_by_class_dict.items():
         rule_results_per_class_dict[each_class_label] = rule_ref.evaluate_all_objects(each_obj_dict, snap_db, frame_wh)
     
     # Get time required to evaluate the rule
@@ -243,6 +243,9 @@ user_start_dt, user_end_dt = DTIP.cli_prompt_start_end_datetimes(earliest_dateti
                                                                  print_help_before_prompt = False,
                                                                  debug_mode = enable_debug_mode)
 
+# Provide feedback about the selected time range
+DTIP.print_start_end_time_range(user_start_dt, user_end_dt)
+
 # Calculate start/end times as epoch ms values for relative event timing
 start_ems = datetime_to_epoch_ms(user_start_dt)
 end_ems = datetime_to_epoch_ms(user_end_dt)
@@ -277,7 +280,7 @@ obj_dict = process_all_object_data(rule_ref, obj_db, frame_wh, user_start_dt, us
 
 # Load in classification data, if any
 obj_list_gen = object_data_dict_to_list_generator(obj_dict)
-objclass_dict = create_object_class_dict(class_db, obj_list_gen)
+obj_id_list, obj_by_class_dict, obj_id_to_class_dict = create_objects_by_class_dict(class_db, obj_list_gen)
 _, _, all_label_colors_dict = class_db.get_label_color_luts()
 
 
@@ -340,7 +343,7 @@ while True:
         rule_ref.reconfigure({"line_entity_list": new_line_entity_list})
         
         # Get new results for all objects (with timing info!)
-        rule_results_per_class, update_time_ms = update_rule_results(rule_ref, objclass_dict, snap_db, frame_wh)
+        rule_results_per_class, update_time_ms = update_rule_results(rule_ref, obj_by_class_dict, snap_db, frame_wh)
         
         # Use update timing to decide if we should try to update the rule UI constantly ('heavy' cpu usage)
         # or if we should wait for the user to let go of the mouse before updating (much lighter!)
