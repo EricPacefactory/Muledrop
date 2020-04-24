@@ -60,16 +60,21 @@ find_path_to_local()
 
 # .....................................................................................................................
 
-def create_object_class_dict(class_database, object_list,
-                             set_object_classification = True):
+def create_objects_by_class_dict(class_database, object_list,
+                                 set_object_classification = True):
     
     '''
     Function which takes in a list of reconstructed objects and 
     returns a dictionary whose keys represent different class labels. 
     Each class label entry holds a list of objects corresponding to that class label.
+    
+    Returns:
+        ordered_object_id_list, object_by_class_dict, object_id_to_class_dict
     '''
     
-    object_class_dict = {}
+    ordered_object_id_list = []
+    object_id_to_class_dict = {}
+    objects_by_class_dict = {}
     for each_obj in object_list:
         
         # Look up the classification data for each object
@@ -77,8 +82,8 @@ def create_object_class_dict(class_database, object_list,
         topclass_label, subclass_label, _, _, attributes_dict = class_database.load_classification_data(obj_id)
         
         # Add an empty list for any non-existant class labels, so we can append objects to it
-        if topclass_label not in object_class_dict:
-            object_class_dict[topclass_label] = {}
+        if topclass_label not in objects_by_class_dict:
+            objects_by_class_dict[topclass_label] = {}
         
         # Update each object with classification & graphics settings, if needed
         if set_object_classification:
@@ -86,10 +91,15 @@ def create_object_class_dict(class_database, object_list,
             each_obj.set_classification(topclass_label, subclass_label, attributes_dict)
             each_obj.set_graphics(outline_color)
         
-        # Finally, add the object to the corresponding class list
-        object_class_dict[topclass_label][obj_id] = each_obj
+        # Finally, add the object to the corresponding class listing and other lookup storage
+        objects_by_class_dict[topclass_label][obj_id] = each_obj
+        ordered_object_id_list.append(obj_id)
+        object_id_to_class_dict[obj_id] = topclass_label
     
-    return object_class_dict
+    # Make sure the ids are in order
+    ordered_object_id_list = sorted(ordered_object_id_list)
+    
+    return ordered_object_id_list, objects_by_class_dict, object_id_to_class_dict
 
 # .....................................................................................................................
 
@@ -116,6 +126,22 @@ def set_object_classification_and_colors(class_database, object_list):
         class_count_dict[topclass_label] += 1
         
     return class_count_dict
+
+# .....................................................................................................................
+    
+def get_object_ref_iter(object_id_list, objects_by_class_dict, object_id_to_class_dict):
+    
+    ''' 
+    Helper function which creates an 'object_list' iterator. 
+    The object_list is an (ordered by object id) list of object reconstructions
+    '''
+    
+    # Return object reconstructions in order of object ID
+    for each_obj_id in object_id_list:
+        each_obj_class = object_id_to_class_dict[each_obj_id]
+        yield objects_by_class_dict[each_obj_class][each_obj_id]
+    
+    return
 
 # .....................................................................................................................
 # .....................................................................................................................
