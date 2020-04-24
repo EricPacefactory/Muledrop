@@ -24,7 +24,7 @@ libsm6 libxext6 libxrender-dev
 #%% Set environment variables
 
 # Create a 'home' folder path to avoid storing everything in the root fs
-ENV HOME                        /home/scv2s
+ENV HOME                        /home/scv2
 
 # Set pathing to the camera configuration folder
 ENV CAMERAS_FOLDER_PATH         $HOME/cameras
