@@ -55,12 +55,15 @@ from tqdm import tqdm
 
 from local.lib.common.timekeeper_utils import parse_isoformat_string, datetime_to_epoch_ms
 from local.lib.common.launch_helpers import delete_existing_report_data
-from local.lib.common.environment import get_dbserver_protocol, get_dbserver_host, get_dbserver_port
+from local.lib.common.environment import get_dbserver_protocol, get_dbserver_port, get_upserver_port
 
 from local.lib.ui_utils.cli_selections import Resource_Selector
 from local.lib.ui_utils.script_arguments import script_arg_builder
 
 from local.online_database.post_to_dbserver import check_server_connection
+
+from local.lib.file_access_utils.settings import create_new_locations_entry, update_locations_info
+from local.lib.file_access_utils.settings import load_locations_info, get_nice_location_names_list
 
 from local.lib.file_access_utils.structures import create_camera_folder_structure
 from local.lib.file_access_utils.reporting import build_camera_info_metadata_report_path
@@ -74,7 +77,7 @@ from local.lib.file_access_utils.read_write import save_jgz
 
 from local.eolib.utils.quitters import ide_quit
 from local.eolib.utils.cli_tools import Datetime_Input_Parser as DTIP
-from local.eolib.utils.cli_tools import cli_select_from_list, cli_prompt_with_defaults, cli_confirm
+from local.eolib.utils.cli_tools import cli_select_from_list, cli_confirm, cli_prompt_with_defaults
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -117,6 +120,12 @@ def parse_restore_args(debug_print = False):
                                           "Allows image data to be 'downsampled'",
                                           "at the expense of a coarser resolution in time.",
                                           "(Default: {})".format(default_skip_n)]))
+    
+    # Add argument for creating new location entries
+    ap_obj.add_argument("-create", "--create_location", default = False, action = "store_true",
+                        help = "\n".join(["Create a new location to download from.",
+                                          "If set, the script will enter a menu prompting for setup",
+                                          "of a new location. The script will close afterwards."]))
     
     # Evaluate args now
     ap_result = vars(ap_obj.parse_args())
@@ -471,6 +480,7 @@ def save_snapshot_images(server_url, cameras_folder_path, camera_select, user_se
 # .....................................................................................................................
 # .....................................................................................................................
 
+
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Get system pathing info
 
@@ -479,22 +489,52 @@ selector = Resource_Selector()
 project_root_path, cameras_folder_path = selector.get_project_pathing()
 user_select = "live"
 
+
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Parse script args
+
+# Get script arguments
+ap_result = parse_restore_args()
+skip_n_snapshots = ap_result["skip_n"]
+dbserver_protocol = ap_result["protocol"]
+create_new_location = ap_result["create_location"]
+
+# Prompt to create a new location entry if needed
+if create_new_location:
+    
+    # Get some default settings
+    default_dbserver_port = get_dbserver_port()
+    default_upserver_port = get_upserver_port()
+    
+    # Ask user to enter location info
+    print("", "----- Enter location info -----", sep = "\n")
+    location_name = cli_prompt_with_defaults("Location name: ", return_type = str)
+    location_host = cli_prompt_with_defaults("IP address: ", return_type = str)
+    location_dbserver_port = cli_prompt_with_defaults("dbserver_port: ", default_dbserver_port, return_type = int)
+    location_upserver_port = cli_prompt_with_defaults("upserver_port: ", default_upserver_port)
+    
+    # Add new location entry and quit
+    new_location_entry = \
+    create_new_locations_entry(location_name, location_host, location_dbserver_port, location_upserver_port)
+    update_locations_info(project_root_path, new_location_entry)
+    ide_quit()
+
+
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Set up access to data server
 
-# Set server connection parameters
-ap_result = parse_restore_args()
-skip_n_snapshots = ap_result["skip_n"]
-server_protocol = ap_result["protocol"]
-default_server_host = get_dbserver_host()
-default_server_port = get_dbserver_port()
+# Get user to select the server to download from
+locations_info_dict = load_locations_info(project_root_path)
+location_names_list = get_nice_location_names_list(locations_info_dict)
+_, location_name_select = cli_select_from_list(location_names_list, "Select location:", default_selection = "local")
 
-# Get user to enter server address
-server_host = cli_prompt_with_defaults("  Enter server ip: ", default_value = default_server_host, return_type = str)
-server_port = cli_prompt_with_defaults("Enter server port: ", default_value = default_server_port, return_type = int)
+# Get dbserver access info
+location_select_dict = locations_info_dict[location_name_select]
+dbserver_host = location_select_dict["host"]
+dbserver_port = location_select_dict["dbserver_port"]
 
 # Build server url
-server_url = "{}://{}:{}".format(server_protocol, server_host, server_port)
+server_url = "{}://{}:{}".format(dbserver_protocol, dbserver_host, dbserver_port)
 
 # Check that the server is accessible before we try requesting data from it
 connection_is_valid = check_server_connection(server_url)
@@ -637,13 +677,6 @@ print("")
 #%% Scrap
 
 # TODO
-# - Add host selection with saving/history
-#   - idea would be to avoid having to input ip address every time
-#   - instead select from know set of hosts (including 'local')
-#   -> a bit complicated, because this would require a 'create new host' option + ability to edit?
-#   -> where does the ip data get saved?
-# - improve snapshot subsampling
-#   - would be better to not download all data, if subsampling
-#   - instead either download all epoch_ms data and subsample that,
-#   ... or implement subsampling on the db server itself (seems better!)
+# - Clean up host/location selection stuff
+#   - new location creation should be handled elsewhere (editor script?)
 

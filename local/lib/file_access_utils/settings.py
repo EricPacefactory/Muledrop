@@ -53,6 +53,8 @@ import platform
 
 from local.lib.file_access_utils.read_write import load_or_create_config_json, update_config_json
 
+from local.lib.common.environment import get_dbserver_port, get_upserver_port
+
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define pathing functions
 
@@ -80,6 +82,11 @@ def build_path_to_pathing_info(project_root_path):
 
 def build_path_to_recording_info(project_root_path):
     return build_path_to_settings_folder(project_root_path, "recording_info.json")
+
+# .....................................................................................................................
+
+def build_path_to_locations_info(project_root_path):
+    return build_path_to_settings_folder(project_root_path, "locations_info.json")
 
 # .....................................................................................................................
 # .....................................................................................................................
@@ -211,6 +218,88 @@ def load_recording_info(project_root_path):
                                                        creation_printout = "Creating recording info file:")
     
     return recording_info_config
+
+# .....................................................................................................................
+# .....................................................................................................................
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Define locations info functions
+
+# .....................................................................................................................
+
+def create_new_locations_entry(location_name, host,
+                               dbserver_port = None, upserver_port = None,
+                               ssh_username = None, ssh_password = None):
+    
+    ''' Helper function used to create new location entries in the locations settings file '''
+    
+    # Make sure variables have the correct data types before saving
+    location_name_str = str(location_name)
+    host_str = str(host)
+    dbserver_port_int = int(dbserver_port if dbserver_port is not None else get_dbserver_port())
+    upserver_port_int = int(upserver_port if upserver_port is not None else get_upserver_port())
+    
+    # Build location entry data
+    location_data_dict = {"host": host_str,
+                          "dbserver_port": dbserver_port_int,
+                          "upserver_port": upserver_port_int,
+                          "ssh_username": ssh_username,
+                          "ssh_password": ssh_password}
+    new_location_entry = {location_name_str: location_data_dict}
+    
+    return new_location_entry
+
+# .....................................................................................................................
+
+def update_locations_info(project_root_path, new_locations_entry):
+    
+    # First load the existing locations data
+    locations_info_dict = load_locations_info(project_root_path)
+    
+    # Make sure we don't already have an existing location with the same name as the new entry
+    existing_location_names = locations_info_dict.keys()
+    new_location_names = new_locations_entry.keys()
+    for each_new_name in new_location_names:
+        if each_new_name in existing_location_names:
+            raise NameError("Can't add new location ({}) name already in use!".format(each_new_name))
+    
+    # If we get here, we're good to update the locations info
+    save_path = build_path_to_locations_info(project_root_path)
+    update_config_json(save_path, new_locations_entry)
+
+# .....................................................................................................................
+
+def load_locations_info(project_root_path):
+    
+    # Set default location entry
+    default_local_location = create_new_locations_entry("local", "localhost")
+    
+    # Build pathing to locations file and try to load it (or otherwise create default file)
+    file_path = build_path_to_locations_info(project_root_path)
+    locations_info_config = load_or_create_config_json(file_path, default_local_location,
+                                                       creation_printout = "Creating locations info file:")
+    
+    return locations_info_config
+
+# .....................................................................................................................
+
+def get_nice_location_names_list(locations_info_dict):
+    
+    ''' Helper function which sorts location names, and will try to place the 'local' entry at the top of the list '''
+    
+    # Separate any 'local' names from the given locations info
+    location_names_set = set(locations_info_dict.keys())
+    possible_local_names_set = {"local", "localhost", "0.0.0.0"}
+    local_set = location_names_set.intersection(possible_local_names_set)
+    remote_set = location_names_set.difference(local_set)
+        
+    # Now build a nicely sorted list of location names, with 'local' at the top
+    local_names_list = sorted(list(local_set))
+    remote_names_list = sorted(list(remote_set))
+    nice_location_names_list = local_names_list + remote_names_list
+    
+    return nice_location_names_list
 
 # .....................................................................................................................
 # .....................................................................................................................
