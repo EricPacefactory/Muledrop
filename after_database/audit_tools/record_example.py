@@ -86,7 +86,7 @@ def parse_record_args():
     
     # Set defaults
     default_output_path = os.path.join("~", "Desktop")
-    default_timestamp_pos = None
+    default_timestamp_pos = "br"
     default_relative_timestamp = False
     
     # Set up argument parsing
@@ -95,11 +95,11 @@ def parse_record_args():
                     help = "\n".join(["Base folder path for the recorded video file.",
                                       "(Default: {})".format(default_output_path)]))
     ap.add_argument("-t", "--timestamp_position", default = default_timestamp_pos, type = str,
-                    help = "\n".join(["Set the position of a timestamp to be overlayed on the recording.",
-                                      "Can be set to:",
-                                      "  tl, tr, bl, br",
+                    help = "\n".join(["Set the position of a timestamp to be overlayed on the replay.",
+                                      "Can be set to: none or tl, tr, bl, br",
                                       "Corresponding to (t)op, (b)ottom, (l)eft and (r)ight.",
-                                      "If not set, a timestamp will not be added."]))
+                                      "If set to 'none', the timestamp will not be added.",
+                                      "(Default: {})".format(default_timestamp_pos)]))
     ap.add_argument("-r", "--relative_timestamp", default = default_relative_timestamp, action = "store_true",
                     help = "\n".join(["If enabled, the overlayed timestamp will report relative time",
                                       "(e.g. video time) as opposed to absolute time.",
@@ -238,7 +238,8 @@ def get_timestamp_location(timestamp_position_arg, snap_shape, fg_font_config):
     
     # Use simple lookup to get the timestamp positioning
     position_lut = {"tl": (3, 3), "tr": (-3, 3),
-                    "bl": (3, -1), "br": (-3, -1)}
+                    "bl": (3, -1), "br": (-3, -1),
+                    "None": None, "none": None}
     
     # If we can't get the position (either wasn't provided, or incorrectly specified), then we won't return anything
     relative_position = position_lut.get(timestamp_position_arg, None)
