@@ -296,7 +296,7 @@ def save_background_metadata(cameras_folder_path, camera_select, user_select, ba
     print("", "Saving background metadata", sep = "\n")
     for each_metadata_dict in tqdm(background_metadata_list):
         bg_epoch_ms = each_metadata_dict["epoch_ms"]
-        file_name = "dlsnap-{}.json.gz".format(bg_epoch_ms)
+        file_name = "dlbggen-{}.json.gz".format(bg_epoch_ms)
         save_path = os.path.join(base_save_folder, file_name)
         save_jgz(save_path, each_metadata_dict)
         
