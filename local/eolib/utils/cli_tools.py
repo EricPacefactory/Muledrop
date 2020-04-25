@@ -424,7 +424,8 @@ class Datetime_Input_Parser:
         
         # Build absolute datetime
         absolute_datetime = dt.datetime(year = abs_year, month = abs_month, day = abs_day,
-                                        hour = abs_hour, minute = abs_min, second = abs_sec)
+                                        hour = abs_hour, minute = abs_min, second = abs_sec,
+                                        tzinfo = base_datetime.tzinfo)
         
         return absolute_datetime
 
