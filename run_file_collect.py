@@ -76,6 +76,7 @@ def parse_run_args(debug_print = False):
                  "video", 
                  "display", 
                  {"threaded_video": {"default": True}}, 
+                 {"threaded_save": {"default": True}},
                  "save_and_keep", 
                  "save_and_delete",
                  "skip_save"]
@@ -157,6 +158,7 @@ def delete_existing_report_data(enable_deletion_prompt, configuration_loader, sa
 
 # Parse script arguments in case we're running automated
 ap_result = parse_run_args()
+threaded_save = ap_result.get("threaded_save", False)
 save_and_keep = ap_result.get("save_keep", False)
 save_and_delete = ap_result.get("save_delete", False)
 skip_save = ap_result.get("skip_save", False)
@@ -177,7 +179,7 @@ if save_data:
 
 # Turn on saving if needed and disable (save) threading to ensure deterministic timing when running files
 loader.toggle_saving(save_data)
-loader.toggle_threaded_saving(False)
+loader.toggle_threaded_saving(threaded_save)
 
 # Configure everything!
 start_timestamp = loader.setup_all()

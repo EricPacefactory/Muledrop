@@ -148,6 +148,7 @@ def _script_arg_function_lut(key_name):
                 "video": _video_arg,
                 "display": _display_arg,
                 "threaded_video": _threaded_video_arg,
+                "threaded_save": _threaded_save_arg,
                 "save_and_keep": _save_and_keep_arg,
                 "save_and_delete": _save_and_delete_arg,
                 "skip_save": _skip_save_arg,
@@ -230,7 +231,19 @@ def _threaded_video_arg(default = False):
     help_text = disable_text if on_by_default else enable_text
     action = "store_false" if on_by_default else "store_true"
     
-    return ("-f", "--threaded_video"), {"default": default, "action": action, "help": help_text}
+    return ("-threaded_video", "--threaded_video"), {"default": default, "action": action, "help": help_text}
+
+# .....................................................................................................................
+
+def _threaded_save_arg(default = False):
+    
+    on_by_default = (default == True)
+    disable_text = "Disable threaded file saving (slower but more stable)"
+    enable_text = "Enable threaded file saving (fast, but may be buggy!)"
+    help_text = disable_text if on_by_default else enable_text
+    action = "store_false" if on_by_default else "store_true"
+    
+    return ("-threaded_save", "--threaded_save"), {"default": default, "action": action, "help": help_text}
 
 # .....................................................................................................................
 

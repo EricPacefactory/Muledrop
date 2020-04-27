@@ -56,7 +56,7 @@ from local.lib.ui_utils.script_arguments import script_arg_builder
 from local.lib.launcher_utils.configuration_loaders import RTSP_Configuration_Loader
 from local.lib.launcher_utils.video_processing_loops import Video_Processing_Loop
 
-from local.lib.common.environment import get_dbserver_host, get_dbserver_port
+from local.lib.common.environment import get_dbserver_protocol, get_dbserver_host, get_dbserver_port
 
 from local.lib.file_access_utils.reporting import build_user_report_path
 
@@ -73,9 +73,10 @@ from local.eolib.utils.cli_tools import cli_confirm
 def parse_run_args(debug_print = False):
     
     # Set default database url
-    db_server_host = get_dbserver_host()
-    db_server_port = get_dbserver_port()
-    default_dbserver_url = "http://{}:{}".format(db_server_host, db_server_port)
+    dbserver_protocol = get_dbserver_protocol()
+    dbserver_host = get_dbserver_host()
+    dbserver_port = get_dbserver_port()
+    default_dbserver_url = "{}://{}:{}".format(dbserver_protocol, dbserver_host, dbserver_port)
     url_help_text = "Specify the url of the db server\n(Default: {})".format(default_dbserver_url)
     
     # Set script arguments for running on streams
@@ -83,6 +84,7 @@ def parse_run_args(debug_print = False):
                  {"user": {"default": "live"}}, 
                  "display",
                  {"threaded_video": {"default": True}}, 
+                 {"threaded_save": {"default": False}},
                  "save_and_keep", 
                  "save_and_delete",
                  "skip_save",
@@ -166,6 +168,7 @@ def delete_existing_report_data(enable_deletion_prompt, configuration_loader, sa
 
 # Parse script arguments and decide if we need to provide any prompts
 ap_result = parse_run_args()
+threaded_save = ap_result.get("threaded_save", False)
 upload_server_url = ap_result.get("url", None)
 save_and_keep = ap_result.get("save_keep", False)
 save_and_delete = ap_result.get("save_delete", False)
@@ -187,7 +190,7 @@ if save_data:
 
 # Turn on saving if needed and enabled threaded i/o on rtps streams, to avoid blocking
 loader.toggle_saving(save_data)
-loader.toggle_threaded_saving(True)
+loader.toggle_threaded_saving(threaded_save)
 
 # Configure everything!
 start_timestamp = loader.setup_all()
