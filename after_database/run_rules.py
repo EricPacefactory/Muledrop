@@ -60,9 +60,9 @@ from local.lib.ui_utils.cli_selections import Resource_Selector
 
 from local.lib.file_access_utils.rules import build_rule_adb_metadata_report_path
 from local.lib.file_access_utils.rules import build_rule_adb_info_report_path
-from local.lib.file_access_utils.rules import load_all_rule_configs, save_rule_info
+from local.lib.file_access_utils.rules import load_all_rule_configs, save_rule_info, save_rule_report_data
 
-from local.offline_database.file_database import launch_file_db, close_dbs_if_missing_data
+from local.offline_database.file_database import launch_file_db, launch_rule_dbs, close_dbs_if_missing_data
 
 from local.configurables.configurable_template import configurable_dot_path
 
@@ -187,21 +187,26 @@ project_root_path, cameras_folder_path = selector.get_project_pathing()
 camera_select, camera_path = selector.camera(debug_mode=enable_debug_mode)
 user_select, _ = selector.user(camera_select, debug_mode=enable_debug_mode)
 
+# For convenience
+pathing_args = (cameras_folder_path, camera_select, user_select)
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Catalog existing data
 
-cinfo_db, rinfo_db, snap_db, obj_db, _, _, rule_db = \
+cinfo_db, snap_db, obj_db, class_db, summary_db = \
 launch_file_db(cameras_folder_path, camera_select, user_select,
                launch_snapshot_db = True,
                launch_object_db = True,
                launch_classification_db = False,
-               launch_summary_db = False,
-               launch_rule_db = True)
+               launch_summary_db = False)
+
+rinfo_db, rule_dbs_dict = launch_rule_dbs(cameras_folder_path, camera_select, user_select)
 
 # Catch missing data
 rinfo_db.close()
-close_dbs_if_missing_data(snap_db, obj_db)
+close_dbs_if_missing_data(snap_db, error_message_if_missing = "No snapshot data in the database!")
+close_dbs_if_missing_data(obj_db, error_message_if_missing = "No object data in the database!")
 
 # Get frame sizing, for rule configuration
 frame_wh = cinfo_db.get_snap_frame_wh()
@@ -269,8 +274,8 @@ for each_obj_id in obj_id_list:
         
         # Save results if needed
         if saving_enabled:
-            rule_db.save_entry(each_rule_name, each_rule_ref.get_rule_type(), each_obj_id, 
-                               rule_results_dict, rule_results_list)
+            save_rule_report_data(*pathing_args, each_rule_name, each_rule_ref.get_rule_type(), 
+                                  each_obj_id, rule_results_dict, rule_results_list)
     
     # Provide some progress feedback (based on objects, not rules!)
     cli_prog_bar.update()

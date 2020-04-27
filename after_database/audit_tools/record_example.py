@@ -274,16 +274,14 @@ user_select, _ = selector.user(camera_select, debug_mode=enable_debug_mode)
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Catalog existing data
 
-cinfo_db, rinfo_db, snap_db, obj_db, class_db, _, _ = \
+cinfo_db, snap_db, obj_db, class_db, summary_db = \
 launch_file_db(cameras_folder_path, camera_select, user_select,
                launch_snapshot_db = True,
                launch_object_db = True,
                launch_classification_db = True,
-               launch_summary_db = False,
-               launch_rule_db = False)
+               launch_summary_db = False)
 
 # Catch missing data
-rinfo_db.close()
 close_dbs_if_missing_data(snap_db, error_message_if_missing = "No snapshot data in the database!")
 
 
@@ -400,7 +398,7 @@ try:
     for each_snap_time_ms in recording_snap_times_ms_list:
         
         # Load each snapshot image & draw object annoations over top
-        snap_md = snap_db.load_snapshot_metadata(each_snap_time_ms)
+        snap_md = snap_db.load_snapshot_metadata_by_ems(each_snap_time_ms)
         snap_image, snap_frame_idx = snap_db.load_snapshot_image(each_snap_time_ms)
         for each_obj in obj_list:            
             each_obj.draw_trail(snap_image, snap_frame_idx, each_snap_time_ms)

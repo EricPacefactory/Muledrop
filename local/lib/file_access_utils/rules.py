@@ -51,7 +51,7 @@ find_path_to_local()
 
 from local.lib.file_access_utils.after_database import build_after_database_configs_folder_path
 from local.lib.file_access_utils.reporting import build_after_database_report_path
-from local.lib.file_access_utils.read_write import load_config_json, save_jgz
+from local.lib.file_access_utils.read_write import load_config_json, save_config_json, save_jgz
 
 from local.eolib.utils.files import get_file_list
 from local.eolib.utils.cli_tools import cli_confirm, cli_select_from_list, cli_prompt_with_defaults
@@ -268,7 +268,7 @@ def save_rule_config(rule_name, configurable_ref, file_dunder = __file__):
     
     # Build pathing to existing configuration file
     save_path = path_to_configuration_file(rule_name, configurable_ref)    
-    save_jgz(save_path, save_data)
+    save_config_json(save_path, save_data)
     relative_save_path = os.path.relpath(save_path, configurable_ref.cameras_folder_path)
     
     return save_path, relative_save_path

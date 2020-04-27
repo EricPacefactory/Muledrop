@@ -72,6 +72,9 @@ def create_objects_by_class_dict(class_database, object_list,
         ordered_object_id_list, object_by_class_dict, object_id_to_class_dict
     '''
     
+    default_subclass_label = ""
+    default_attributes_dict = {}
+    
     ordered_object_id_list = []
     object_id_to_class_dict = {}
     objects_by_class_dict = {}
@@ -79,7 +82,7 @@ def create_objects_by_class_dict(class_database, object_list,
         
         # Look up the classification data for each object
         obj_id = each_obj.full_id
-        topclass_label, subclass_label, _, _, attributes_dict = class_database.load_classification_data(obj_id)
+        topclass_label, topclass_dict = class_database.load_classification_data(obj_id)
         
         # Add an empty list for any non-existant class labels, so we can append objects to it
         if topclass_label not in objects_by_class_dict:
@@ -88,7 +91,7 @@ def create_objects_by_class_dict(class_database, object_list,
         # Update each object with classification & graphics settings, if needed
         if set_object_classification:
             outline_color = class_database.get_label_color(topclass_label)
-            each_obj.set_classification(topclass_label, subclass_label, attributes_dict)
+            each_obj.set_classification(topclass_label, default_subclass_label, default_attributes_dict)
             each_obj.set_graphics(outline_color)
         
         # Finally, add the object to the corresponding class listing and other lookup storage
@@ -108,16 +111,20 @@ def set_object_classification_and_colors(class_database, object_list):
     # Record the number of classes
     class_count_dict = {}
     
+    # Hacky placeholders
+    default_subclass_label = ""
+    default_attributes_dict = {}
+    
     # Load classification for all the objects
     for each_obj in object_list:
     
         # Look up the classification data for each object
         obj_id = each_obj.full_id
-        topclass_label, subclass_label, _, _, attributes_dict = class_database.load_classification_data(obj_id)
+        topclass_label, topclass_dict = class_database.load_classification_data(obj_id)
         outline_color = class_database.get_label_color(topclass_label)
         
         # Update each object with classification & graphics settings
-        each_obj.set_classification(topclass_label, subclass_label, attributes_dict)
+        each_obj.set_classification(topclass_label, default_subclass_label, default_attributes_dict)
         each_obj.set_graphics(outline_color)
         
         # Update class count

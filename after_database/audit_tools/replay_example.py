@@ -162,7 +162,7 @@ def get_class_count_lists(snap_db, obj_by_class_dict):
     for each_snap_time_ms in snap_times_ms_list:
         
         # Get snapshot timing info
-        snap_md = snap_db.load_snapshot_metadata(each_snap_time_ms)
+        snap_md = snap_db.load_snapshot_metadata_by_ems(each_snap_time_ms)
         snap_epoch_ms = snap_md["epoch_ms"]
         
         # Count up all the objects on each frame, for each class label
@@ -354,23 +354,21 @@ selector = Resource_Selector()
 project_root_path, cameras_folder_path = selector.get_project_pathing()
 
 # Select the camera/user to show data for (needs to have saved report data already!)
-camera_select, camera_path = selector.camera(debug_mode=enable_debug_mode)
-user_select, _ = selector.user(camera_select, debug_mode=enable_debug_mode)
+camera_select, camera_path = selector.camera(debug_mode = enable_debug_mode)
+user_select, _ = selector.user(camera_select, debug_mode = enable_debug_mode)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Catalog existing data
 
-cinfo_db, rinfo_db, snap_db, obj_db, class_db, _, _ = \
+cinfo_db, snap_db, obj_db, class_db, summary_db = \
 launch_file_db(cameras_folder_path, camera_select, user_select,
                launch_snapshot_db = True,
                launch_object_db = True,
                launch_classification_db = True,
-               launch_summary_db = False,
-               launch_rule_db = False)
+               launch_summary_db = False)
 
 # Catch missing data
-rinfo_db.close()
 close_dbs_if_missing_data(snap_db, error_message_if_missing = "No snapshot data in the database!")
 
 # Get the maximum range of the data (based on the snapshots, because that's the most we could show)
@@ -500,7 +498,7 @@ while True:
             snap_idx = int(round(mouse_x * num_snaps))
     
     # Load each snapshot image & draw object annoations over top
-    snap_md = snap_db.load_snapshot_metadata(current_snap_time_ms)
+    snap_md = snap_db.load_snapshot_metadata_by_ems(current_snap_time_ms)
     snap_image, snap_frame_idx = snap_db.load_snapshot_image(current_snap_time_ms)    
     for each_obj in obj_list:
         each_obj.draw_trail(snap_image, snap_frame_idx, current_snap_time_ms)

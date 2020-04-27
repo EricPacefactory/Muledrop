@@ -116,12 +116,13 @@ def get_middle_image(object_full_id):
     middle_obj_epoch = int((last_epoch_ms + first_epoch_ms) / 2)
     
     # Get middle snapshot image and frame index, so we can draw the object on it
-    _, closest_middle_snap_epoch, _ = snap_db.get_closest_snapshot_epoch(middle_obj_epoch)
-    snap_image, snap_frame_idx = snap_db.load_snapshot_image(closest_middle_snap_epoch)
+    closest_snaps_dict = snap_db.get_closest_snapshot_epoch(middle_obj_epoch)
+    closest_middle_snap_ems = closest_snaps_dict["closest_epoch_ms"]
+    snap_image, snap_frame_idx = snap_db.load_snapshot_image(closest_middle_snap_ems)
     
     # Draw reconstructed object onto the snapshot
-    snap_image = obj_ref.draw_outline(snap_image, snap_frame_idx, closest_middle_snap_epoch)
-    snap_image = obj_ref.draw_trail(snap_image, snap_frame_idx, closest_middle_snap_epoch)
+    snap_image = obj_ref.draw_outline(snap_image, snap_frame_idx, closest_middle_snap_ems)
+    snap_image = obj_ref.draw_trail(snap_image, snap_frame_idx, closest_middle_snap_ems)
     
     return snap_image
 
@@ -189,17 +190,15 @@ pathing_args = (cameras_folder_path, camera_select, user_select)
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Catalog existing data
 
-cinfo_db, rinfo_db, snap_db, obj_db, _, _, _ = \
+cinfo_db, snap_db, obj_db, class_db, summary_db = \
 launch_file_db(cameras_folder_path, camera_select, user_select,
                check_same_thread = False,
                launch_snapshot_db = True,
                launch_object_db = True,
                launch_classification_db = False,
-               launch_summary_db = False,
-               launch_rule_db = False)
+               launch_summary_db = False)
 
 # Catch missing data
-rinfo_db.close()
 close_dbs_if_missing_data(snap_db, error_message_if_missing = "No snapshot data in the database!")
 close_dbs_if_missing_data(obj_db, error_message_if_missing = "No object trail data in the database!")
 

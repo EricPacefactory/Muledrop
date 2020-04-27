@@ -220,16 +220,14 @@ class Zoneoccupation_Rule(Reference_Rule):
             # Determine the first/last closest snapshot epoch times
             approx_first_epoch_ms = first_epoch_ms + int(first_trail_index * trail_index_to_epoch_ms)
             approx_final_epoch_ms = first_epoch_ms + int(final_trail_index * trail_index_to_epoch_ms)
-            closest_first_snap_ms, _, _ = snapshot_database.get_closest_snapshot_epoch(approx_first_epoch_ms)
-            _, _, closest_final_snap_ms = snapshot_database.get_closest_snapshot_epoch(approx_final_epoch_ms)
             
             # Build each entry and add to the output list
             new_rule_result_entry = {"state": state_str,
                                      "time_elapsed_ms": time_elapsed_ms,
                                      "first_trail_index": first_trail_index,
                                      "final_trail_index": final_trail_index,
-                                     "first_snapshot_epoch_ms": closest_first_snap_ms,
-                                     "final_snapshot_epoch_ms": closest_final_snap_ms}
+                                     "approximate_first_epoch_ms": approx_first_epoch_ms,
+                                     "approximate_final_epoch_ms": approx_final_epoch_ms}
             rule_results_list.append(new_rule_result_entry)
         
         return rule_results_list

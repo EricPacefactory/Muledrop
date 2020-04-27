@@ -165,11 +165,10 @@ class Linecross_Rule(Reference_Rule):
             
             # Find the best snapshot timing for displaying each intersection event
             approximate_epoch_ms = first_epoch_ms + int(trail_index * trail_index_to_epoch_ms)
-            _, closest_snap_ms, _ = snapshot_database.get_closest_snapshot_epoch(approximate_epoch_ms)
             
             # Build output entry and add to output list
             new_result_dict = {"trail_index": trail_index,
-                               "snapshot_epoch_ms": closest_snap_ms,
+                               "approximate_epoch_ms": approximate_epoch_ms,
                                "intersection_point": intersection_point_list,
                                "cross_direction": cross_direction}
             rule_results_list.append(new_result_dict)

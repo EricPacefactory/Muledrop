@@ -81,7 +81,7 @@ def dict_to_human_readable_output(data_dict, sort_keys = True):
 
 # .....................................................................................................................
 
-def fast_json_stringify(data_dict):
+def fast_dict_to_json(data_dict):
     
     ''' 
     Helper function which can be used to avoid importing json in places that don't need file i/o,

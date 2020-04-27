@@ -58,7 +58,7 @@ from local.lib.common.timekeeper_utils import get_local_datetime, datetime_to_ep
 from local.lib.ui_utils.cli_selections import Resource_Selector
 from local.lib.ui_utils.script_arguments import script_arg_builder
 
-from local.offline_database.file_database import launch_file_db, close_dbs_if_missing_data
+from local.offline_database.file_database import launch_file_db, launch_rule_dbs, close_dbs_if_missing_data
 
 from flask import Flask, jsonify, Response
 from flask_cors import CORS
@@ -115,20 +115,26 @@ def initialize_databases(selector_ref, cameras_folder_path, camera_name_list, us
         
         # Launch all the dbs
         try:
-            cinfo_db, rinfo_db, snap_db, obj_db, class_db, summary_db, rule_db = \
+            
+            cinfo_db, snap_db, obj_db, class_db, summary_db = \
             launch_file_db(cameras_folder_path, each_camera, user_select,
                            check_same_thread = False,
                            launch_snapshot_db = True,
                            launch_object_db = True,
                            launch_classification_db = True,
-                           launch_summary_db = True,
-                           launch_rule_db = True)
+                           launch_summary_db = True)
+            
+            rinfo_db, each_camera_rule_dbs_dict = \
+            launch_rule_dbs(cameras_folder_path, each_camera, user_select, 
+                            check_same_thread = False)
+            
         except Exception as err:
             print("",  "", 
                   "Error loading data for camera: {}".format(each_camera),
                   "  Dataset is likely out of date?",
                   "  Search for this error message and raise error for further debugging!",
                   "", sep = "\n")
+            raise err
             
             # For debugging
             if raise_error_message:
@@ -156,7 +162,7 @@ def initialize_databases(selector_ref, cameras_folder_path, camera_name_list, us
         obj_dbs_dict[each_camera] = obj_db
         class_dbs_dict[each_camera] = class_db
         summary_dbs_dict[each_camera] = summary_db
-        rule_dbs_dict[each_camera] = rule_db
+        rule_dbs_dict[each_camera] = each_camera_rule_dbs_dict
         
     return cinfo_dbs_dict, rinfo_dbs_dict, snap_dbs_dict, obj_dbs_dict, class_dbs_dict, summary_dbs_dict, rule_dbs_dict
 
@@ -324,19 +330,8 @@ def get_camera_info():
     
     camera_info_dict = {}
     for each_camera, each_cinfo_db in cinfo_dbs_dict.items():
-        mongo_id, ip_address, time_zone, start_datetime_isoformat, start_epoch_ms, \
-        video_select, video_fps, video_width, video_height, snap_width, snap_height = each_cinfo_db.get_camera_info()
-        camera_info_dict[each_camera] = {"_id": mongo_id,
-                                         "ip_address": ip_address,
-                                         "time_zone": time_zone,
-                                         "start_datetime_isoformat": start_datetime_isoformat,
-                                         "start_epoch_ms": start_epoch_ms,
-                                         "video_select": video_select,
-                                         "video_fps": video_fps,
-                                         "video_width": video_width,
-                                         "video_height": video_height,
-                                         "snapshot_width": snap_width,
-                                         "snapshot_height": snap_height}
+        all_camera_info_list = each_cinfo_db.get_all_camera_info()
+        camera_info_dict[each_camera] = all_camera_info_list
     
     return jsonify(camera_info_dict)
 
@@ -396,7 +391,7 @@ def snapshots_get_metadata(camera_select, epoch_ms):
     
     try:
         snap_db = snap_dbs_dict[camera_select]
-        snapshot_metadata_dict = snap_db.load_snapshot_metadata(epoch_ms)
+        snapshot_metadata_dict = snap_db.load_snapshot_metadata_by_ems(epoch_ms)
     except Exception as err:
         return ("Error: {}".format(err), 404)
     

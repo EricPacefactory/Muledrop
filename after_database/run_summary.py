@@ -59,7 +59,7 @@ from local.lib.common.feedback import print_time_taken_ms
 from local.lib.ui_utils.cli_selections import Resource_Selector
 
 from local.lib.file_access_utils.summary import build_summary_adb_metadata_report_path
-from local.lib.file_access_utils.summary import load_summary_config
+from local.lib.file_access_utils.summary import load_summary_config, save_summary_report_data
 
 from local.offline_database.file_database import launch_file_db, close_dbs_if_missing_data
 
@@ -141,18 +141,17 @@ user_select, _ = selector.user(camera_select, debug_mode=enable_debug_mode)
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Catalog existing data
 
-cinfo_db, rinfo_db, snap_db, obj_db, _, summary_db, _ = \
+cinfo_db, snap_db, obj_db, class_db, summary_db = \
 launch_file_db(cameras_folder_path, camera_select, user_select,
                launch_snapshot_db = True,
                launch_object_db = True,
-               launch_classification_db = False,
-               launch_summary_db = True,
-               launch_rule_db = False)
+               launch_classification_db = True,
+               launch_summary_db = False)
 
 # Catch missing data
 cinfo_db.close()
-rinfo_db.close()
-close_dbs_if_missing_data(snap_db, obj_db)
+close_dbs_if_missing_data(snap_db, error_message_if_missing = "No snapshot data in the database!")
+close_dbs_if_missing_data(obj_db, error_message_if_missing = "No object data in the database!")
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -213,7 +212,7 @@ for each_obj_id in obj_id_list:
     
     # Save results, if needed
     if saving_enabled:
-        summary_db.save_entry(each_obj_id, summary_data_dict)
+        save_summary_report_data(*pathing_args, each_obj_id, summary_data_dict)
 
     # Provide some progress feedback
     cli_prog_bar.update()

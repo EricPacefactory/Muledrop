@@ -169,7 +169,7 @@ def update_event_frame(display_frame, rule_ref, rule_results_per_class_dict, all
                 # Pull out event info
                 cross_direction = each_intersection_result["cross_direction"]
                 intersection_point = each_intersection_result["intersection_point"]
-                snapshot_epoch_ms = each_intersection_result["snapshot_epoch_ms"]
+                approximate_epoch_ms = each_intersection_result["approximate_epoch_ms"]
                 crossed_forward = (cross_direction == "forward")
                 
                 # Draw intersection points
@@ -180,7 +180,7 @@ def update_event_frame(display_frame, rule_ref, rule_results_per_class_dict, all
                 cv2.circle(new_event_frame, circle_pt_px, 4, fg_color, 1, cv2.LINE_AA)
                 
                 # Draw event indicators for every intersection
-                event_timing_frac = calculate_relative_timing(snapshot_epoch_ms)
+                event_timing_frac = calculate_relative_timing(approximate_epoch_ms)
                 event_timing_px = int(round(event_timing_frac * (frame_width - 1)))
                 if crossed_forward:
                     line_pos = ((event_timing_px, half_bar_height), (event_timing_px, end_bar_height))
@@ -216,17 +216,15 @@ user_select, _ = selector.user(camera_select, debug_mode=enable_debug_mode)
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Catalog existing data
 
-cinfo_db, rinfo_db, snap_db, obj_db, class_db, _, rule_db = \
+cinfo_db, snap_db, obj_db, class_db, summary_db = \
 launch_file_db(cameras_folder_path, camera_select, user_select,
                launch_snapshot_db = True,
                launch_object_db = True,
                launch_classification_db = True,
-               launch_summary_db = False,
-               launch_rule_db = True)
+               launch_summary_db = False)
 
 # Catch missing data
-rinfo_db.close()
-close_dbs_if_missing_data(snap_db)
+close_dbs_if_missing_data(snap_db, error_message_if_missing = "No snapshot data in the database!")
 
 # Get frame sizing, for rule sizing/drawing
 frame_wh = cinfo_db.get_snap_frame_wh()

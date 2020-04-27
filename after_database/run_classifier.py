@@ -160,17 +160,15 @@ user_select, _ = selector.user(camera_select, debug_mode=enable_debug_mode)
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Catalog existing data
 
-cinfo_db, rinfo_db, snap_db, obj_db, _, _, _ = \
+cinfo_db, snap_db, obj_db, class_db, summary_db = \
 launch_file_db(cameras_folder_path, camera_select, user_select,
                launch_snapshot_db = True,
                launch_object_db = True,
                launch_classification_db = False,
-               launch_summary_db = False,
-               launch_rule_db = False)
+               launch_summary_db = False)
 
 # Catch missing data
 cinfo_db.close()
-rinfo_db.close()
 close_dbs_if_missing_data(snap_db, error_message_if_missing = "No snapshot data in the database!")
 close_dbs_if_missing_data(obj_db, error_message_if_missing = "No object trail data in the database!")
 

@@ -318,17 +318,15 @@ user_select, _ = selector.user(camera_select, debug_mode=enable_debug_mode)
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Catalog existing data
 
-cinfo_db, rinfo_db, snap_db, obj_db, class_db, _, rule_db = \
+cinfo_db, snap_db, obj_db, class_db, summary_db = \
 launch_file_db(cameras_folder_path, camera_select, user_select,
                launch_snapshot_db = True,
                launch_object_db = True,
                launch_classification_db = True,
-               launch_summary_db = False,
-               launch_rule_db = True)
+               launch_summary_db = False)
 
 # Catch missing data
-rinfo_db.close()
-close_dbs_if_missing_data(snap_db)
+close_dbs_if_missing_data(snap_db, error_message_if_missing = "No snapshot data in the database!")
 
 # Get frame sizing, for rule sizing/drawing
 frame_wh = cinfo_db.get_snap_frame_wh()
