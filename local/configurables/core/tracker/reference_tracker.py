@@ -427,11 +427,12 @@ class Reference_Trackable_Object:
         self.ancestor_id = 0
         self.descendant_id = 0
         
-        # Allocate storage for single-value variables (i.e. no history)
-        self.detection_classification = detection_object.detection_classification
-        self.classification_score = detection_object.classification_score
+        # Allocate storage for single-value variables (i.e. no history
         self.num_samples = 0
         self.num_validation_samples = 0
+        
+        # Allocate storage for real-time classification results (i.e. classification 'before the database')
+        self.before_db_classification = {}
         
         # Allocate storage for historical variables
         self.hull_history = deque([], maxlen = self.max_samples)
@@ -640,6 +641,10 @@ class Reference_Trackable_Object:
         # Bundle tracking data together for clarity
         tracking_data_dict, final_num_samples = self._get_tracking_data(is_final)
         
+        # Hard-code an empty entry for 'after-database classification', which is meant to be filled in later
+        # (after data has already entered the database)
+        after_database_classification = {}
+        
         # Generate json-friendly data to save
         save_data_dict = {"_id": self.full_id,
                           "full_id": self.full_id,
@@ -656,8 +661,8 @@ class Reference_Trackable_Object:
                           "final_epoch_ms": self.final_match_epoch_ms,
                           "final_datetime_isoformat": datetime_to_isoformat_string(self.final_match_datetime),
                           "lifetime_ms": lifetime_ms,
-                          "detection_class": self.detection_classification,
-                          "classification_score": self.classification_score,
+                          "bdb_classifier": self.before_db_classification,
+                          "adb_classifier": after_database_classification,
                           "tracking": tracking_data_dict}
         
         return save_data_dict

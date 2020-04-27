@@ -128,7 +128,7 @@ class Reference_Detection_Object:
     
     # .................................................................................................................
     
-    def __init__(self, contour, detection_classification = "unclassified", classification_score = 0.0):
+    def __init__(self, contour, realtime_classification_dict):
         
         # Get a simplified representation of the contour
         full_hull = cv2.convexHull(contour)
@@ -178,8 +178,8 @@ class Reference_Detection_Object:
         self.xy_center_array = ((self.top_left + self.bot_right) / 2.0)
         
         # Store a property for assigning classifications during detection
-        self.detection_classification = detection_classification
-        self.classification_score = classification_score
+        # (Should be of the form: {"class_label_1": score_1, "class_label_2": score_2, etc.})
+        self.realtime_classification_dict = realtime_classification_dict
         
     # .................................................................................................................
     
@@ -205,6 +205,25 @@ class Reference_Detection_Object:
     def xy_center_tuple(self):
         return tuple(self.xy_center)
 
+    # .................................................................................................................
+    # .................................................................................................................
+
+
+# /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+# /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+class Unclassified_Detection_Object(Reference_Detection_Object):
+    
+    # .................................................................................................................
+    
+    def __init__(self, contour):
+        
+        # Very simple varianet of the reference detection object. Simply hard-codes an empty classification dictionary
+        # (normally, the format should be: {"class_label_1": score_1, "class_label_2": score_2, etc.})
+        no_classification_dict = {}
+        super().__init__(contour, no_classification_dict)
+    
     # .................................................................................................................
     # .................................................................................................................
 

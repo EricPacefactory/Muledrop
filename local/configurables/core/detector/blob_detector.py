@@ -52,7 +52,7 @@ find_path_to_local()
 import cv2
 import numpy as np
 
-from local.configurables.core.detector.reference_detector import Reference_Detector, Reference_Detection_Object
+from local.configurables.core.detector.reference_detector import Reference_Detector, Unclassified_Detection_Object
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
@@ -67,7 +67,7 @@ class Detector_Stage(Reference_Detector):
         super().__init__(input_wh, file_dunder = __file__)
         
         # Set up blob detection sizing (parent class should have already done this, but just in case...)
-        Reference_Detection_Object.set_frame_scaling(*input_wh)
+        Unclassified_Detection_Object.set_frame_scaling(*input_wh)
         
         # Allocate storage for detections on each frame
         self._detection_ref_dict = {}
@@ -195,7 +195,7 @@ class Detector_Stage(Reference_Detector):
         for each_idx, each_contour in enumerate(contour_list):
             
             # Create a blob object for each contour found
-            new_detection = Reference_Detection_Object(each_contour)
+            new_detection = Unclassified_Detection_Object(each_contour)
             
             # Check that the bounding box is correctly sized before adding to list
             goldi_width = (self.min_width_norm < new_detection.width < self.max_width_norm)
