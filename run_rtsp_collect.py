@@ -206,7 +206,8 @@ parallel_post = create_parallel_scheduled_post(upload_server_url, loader.cameras
 
 # Feedback on launch
 enable_disable_txt = ("enabled" if save_data else "disabled")
-print("", "{}  |  Saving {}".format(start_timestamp, enable_disable_txt), sep = "\n")
+enable_thread_save_txt = ("" if not save_data else (" ({})".format("threaded" if threaded_save else "nothread")))
+print("", "{}  |  Saving {}{}".format(start_timestamp, enable_disable_txt, enable_thread_save_txt), sep = "\n")
 
 # Most of the work is done here!
 total_processing_time_sec = main_process.loop(enable_progress_bar = False)
