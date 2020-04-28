@@ -60,7 +60,7 @@ from local.offline_database.file_database import launch_file_db, close_dbs_if_mi
 from local.offline_database.object_reconstruction import Smoothed_Object_Reconstruction as Obj_Recon
 from local.offline_database.object_reconstruction import create_trail_frame_from_object_reconstruction
 from local.offline_database.snapshot_reconstruction import median_background_from_snapshots
-from local.offline_database.classification_reconstruction import create_objects_by_class_dict
+from local.offline_database.classification_reconstruction import create_objects_by_class_dict, get_ordered_object_list
 
 from local.lib.ui_utils.local_ui.windows_base import Simple_Window
 
@@ -276,21 +276,24 @@ frame_wh = (frame_width, frame_height)
 # Get object metadata from the server
 obj_metadata_generator = obj_db.load_metadata_by_time_range(user_start_dt, user_end_dt)
 
-# Create list of 'reconstructed' objects based on object metadata, so we can work/interact with the object data
-obj_list = Obj_Recon.create_reconstruction_list(obj_metadata_generator,
+# Create dictionary of 'reconstructed' objects based on object metadata
+obj_dict = Obj_Recon.create_reconstruction_dict(obj_metadata_generator,
                                                 frame_wh,
                                                 user_start_dt, 
                                                 user_end_dt)
 
 # Organize objects by class label -> then by object id (nested dictionaries)
-obj_id_list, obj_by_class_dict, obj_id_to_class_dict = create_objects_by_class_dict(class_db, obj_list)
+obj_id_list, obj_by_class_dict, obj_id_to_class_dict = create_objects_by_class_dict(class_db, obj_dict)
+
+# Get an ordered list of the objects for drawing
+ordered_obj_list = get_ordered_object_list(obj_id_list, obj_by_class_dict, obj_id_to_class_dict)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Create initial images
 
 # Generate the background display frame, containing all object trails
-trails_background = create_trail_frame_from_object_reconstruction(bg_frame, obj_list)
+trails_background = create_trail_frame_from_object_reconstruction(bg_frame, ordered_obj_list)
 
 # Generate heatmaps
 class_heat_frame_dict = build_trail_heatmaps(obj_by_class_dict, frame_wh)

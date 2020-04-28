@@ -63,7 +63,7 @@ from local.lib.file_access_utils.settings import load_recording_info
 
 from local.offline_database.file_database import launch_file_db, close_dbs_if_missing_data
 from local.offline_database.object_reconstruction import Smoothed_Object_Reconstruction as Obj_Recon
-from local.offline_database.classification_reconstruction import set_object_classification_and_colors
+from local.offline_database.classification_reconstruction import create_objects_by_class_dict, get_ordered_object_list
 
 from local.eolib.video.text_rendering import position_frame_relative, font_config, simple_text
 
@@ -308,14 +308,17 @@ DTIP.print_start_end_time_range(user_start_dt, user_end_dt)
 # Get object metadata from the server
 obj_metadata_generator = obj_db.load_metadata_by_time_range(user_start_dt, user_end_dt)
 
-# Create list of 'reconstructed' objects based on object metadata, so we can work/interact with the object data
-obj_list = Obj_Recon.create_reconstruction_list(obj_metadata_generator,
+# Create dictionary of 'reconstructed' objects based on object metadata
+obj_dict = Obj_Recon.create_reconstruction_dict(obj_metadata_generator,
                                                 snap_wh,
                                                 user_start_dt, 
                                                 user_end_dt)
 
-# Load in classification data, if any
-set_object_classification_and_colors(class_db, obj_list)
+# Organize objects by class label -> then by object id (nested dictionaries)
+obj_id_list, obj_by_class_dict, obj_id_to_class_dict = create_objects_by_class_dict(class_db, obj_dict)
+
+# Get an ordered list of the objects for drawing
+ordered_obj_list = get_ordered_object_list(obj_id_list, obj_by_class_dict, obj_id_to_class_dict)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -400,7 +403,7 @@ try:
         # Load each snapshot image & draw object annoations over top
         snap_md = snap_db.load_snapshot_metadata_by_ems(each_snap_time_ms)
         snap_image, snap_frame_idx = snap_db.load_snapshot_image(each_snap_time_ms)
-        for each_obj in obj_list:            
+        for each_obj in ordered_obj_list:
             each_obj.draw_trail(snap_image, snap_frame_idx, each_snap_time_ms)
             each_obj.draw_outline(snap_image, snap_frame_idx, each_snap_time_ms)
         

@@ -475,12 +475,15 @@ class Object_Reconstruction:
     # .................................................................................................................
     
     @classmethod
-    def create_reconstruction_list(cls, object_metadata_iter, frame_wh, 
+    def create_reconstruction_dict(cls, object_metadata_iter, frame_wh,
                                    global_start_time, global_end_time,
                                    print_feedback = True,
                                    **kwargs):
         
-        ''' Helper function for generating a list of reconstructed objects based on this class '''
+        '''
+        Helper function for generating a dictionary of reconstructed objects based on this class
+        Each key represents an object ID with each entry being an object reconstruction
+        '''
         
         # Some feedback before starting a potentially heavy operation
         if print_feedback:
@@ -488,23 +491,24 @@ class Object_Reconstruction:
             t_start = perf_counter()
         
         # Reconstruct python-usable objects from metadata entries
-        object_list = []
+        recon_dict = {}
         for each_obj_metadata in object_metadata_iter:
             new_reconstruction = cls(each_obj_metadata,
                                      frame_wh,
                                      global_start_time,
                                      global_end_time,
                                      **kwargs)
-            object_list.append(new_reconstruction)
+            obj_id = new_reconstruction.full_id
+            recon_dict[obj_id] = new_reconstruction
             
         # Final feedback
         if print_feedback:
             t_end = perf_counter()
-            num_objects = len(object_list)
+            num_objects = len(recon_dict)
             print("  {} total objects".format(num_objects))
             print_time_taken_ms(t_start, t_end, prepend_newline = False, inset_spaces = 2)
-            
-        return object_list
+        
+        return recon_dict
     
     # .................................................................................................................
     # .................................................................................................................

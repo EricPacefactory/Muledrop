@@ -59,8 +59,7 @@ from local.offline_database.object_reconstruction import Smooth_Hover_Object_Rec
 from local.offline_database.object_reconstruction import create_trail_frame_from_object_reconstruction
 from local.offline_database.object_reconstruction import save_object_to_csv
 from local.offline_database.snapshot_reconstruction import median_background_from_snapshots
-from local.offline_database.classification_reconstruction import set_object_classification_and_colors
-from local.offline_database.classification_reconstruction import create_objects_by_class_dict
+from local.offline_database.classification_reconstruction import create_objects_by_class_dict, get_ordered_object_list
 
 from local.lib.ui_utils.local_ui.windows_base import Simple_Window
 
@@ -303,25 +302,27 @@ class Hover_Object(Smooth_Hover_Object_Reconstruction):
 
 # .....................................................................................................................
 
-def create_timebar_frame_object_reconstruction(example_frame, timebar_row_height, object_list, class_count_dict, 
+def create_timebar_frame_object_reconstruction(example_frame, timebar_row_height, object_by_class_dict, 
                                                bg_color = (40, 40, 40)):
     
     # Figure out image sizing from example frame and number of classes (rows) needed
-    num_classes = len(class_count_dict)
+    num_classes = len(object_by_class_dict)
     bar_width = example_frame.shape[1]
     bar_height = num_classes * timebar_row_height
     
     # Set up blank background timebar to draw in to
     bar_background = np.full((bar_height, bar_width, 3), bg_color, dtype=np.uint8)
     
-    # Draw separator lines between class rows
-    for k in range(num_classes):
-        y_line = k * (timebar_row_height) - 1
+    # Draw each row of object line indicators (by class label)
+    for each_class_idx, (each_class, each_obj_dict) in enumerate(object_by_class_dict.items()):
+        
+        # Draw separator lines between class rows
+        y_line = each_class_idx * (timebar_row_height) - 1
         cv2.line(bar_background, (-10, y_line), (bar_width + 10, y_line), (25, 25, 25), 1)
-    
-    # Draw all object timebars (likely overlapping)
-    for each_obj in object_list:
-        each_obj.draw_trail_timebar(bar_background)
+        
+        # Draw all object timebars (likely overlapping)
+        for each_obj_id, each_obj_ref in each_obj_dict.items():
+            each_obj_ref.draw_trail_timebar(bar_background)
         
     return bar_background
 
@@ -508,7 +509,6 @@ launch_file_db(cameras_folder_path, camera_select, user_select,
 
 # Catch missing data
 cinfo_db.close()
-rinfo_db.close()
 close_dbs_if_missing_data(snap_db, error_message_if_missing = "No snapshot data in the database!")
 close_dbs_if_missing_data(obj_db, error_message_if_missing = "No object trail data in the database!")
 
@@ -546,26 +546,25 @@ timebar_row_height = 30
 # Get object metadata from the server
 obj_metadata_generator = obj_db.load_metadata_by_time_range(user_start_dt, user_end_dt)
 
-# Create list of 'reconstructed' objects based on object metadata, so we can work/interact with the object data
-obj_list = Hover_Object.create_reconstruction_list(obj_metadata_generator,
+# Create dictionary of 'reconstructed' objects based on object metadata
+obj_dict = Hover_Object.create_reconstruction_dict(obj_metadata_generator,
                                                    frame_wh,
                                                    user_start_dt, 
                                                    user_end_dt,
                                                    timebar_row_height = timebar_row_height)
 
 # Organize objects by class label -> then by object id (nested dictionaries)
-obj_id_list, obj_by_class_dict, obj_id_to_class_dict = create_objects_by_class_dict(class_db, obj_list)
+obj_id_list, obj_by_class_dict, obj_id_to_class_dict = create_objects_by_class_dict(class_db, obj_dict)
+
+# Get an ordered list of the objects for drawing
+ordered_obj_list = get_ordered_object_list(obj_id_list, obj_by_class_dict, obj_id_to_class_dict)
 
 # Generate trail hover mapping, for quicker mouse-to-trail lookup
 hover_map = Hover_Mapping(obj_by_class_dict)
 
-
-# Load in classification data, if any
-class_count_dict = set_object_classification_and_colors(class_db, obj_list)
-
 # Tell each object which class row index it is (for timebar)
-class_label_list = list(class_count_dict.keys())
-for each_obj in obj_list:
+class_label_list = list(obj_by_class_dict.keys())
+for each_obj in ordered_obj_list:
     each_obj.set_timebar_row_index(class_label_list)
 num_classes = len(class_label_list)
 
@@ -574,8 +573,8 @@ num_classes = len(class_label_list)
 #%% Create initial images
 
 # Generate the background display frame, containing all object trails
-trails_background = create_trail_frame_from_object_reconstruction(bg_frame, obj_list)
-bar_background = create_timebar_frame_object_reconstruction(bg_frame, timebar_row_height, obj_list, class_count_dict)
+trails_background = create_trail_frame_from_object_reconstruction(bg_frame, ordered_obj_list)
+bar_background = create_timebar_frame_object_reconstruction(bg_frame, timebar_row_height, obj_by_class_dict)
 
 # Get timebar final sizing
 timebar_image_height = bar_background.shape[0]
@@ -633,15 +632,15 @@ while True:
         # Get relative mouse co-ords
         mouse_x, mouse_y = bar_hover_callback.mouse_xy()
         timebar_row_index_hover = int(np.floor(mouse_y * num_classes))
-        hovered_obj_idxs = get_hovered_timebars(mouse_x, timebar_row_index_hover, obj_list)
+        hovered_obj_idxs = get_hovered_timebars(mouse_x, timebar_row_index_hover, ordered_obj_list)
         
         # Highlight all the timebars being hovered & the corresponding trails
         for each_idx in hovered_obj_idxs:
-            obj_list[each_idx].hover_highlight(display_frame, timebar_frame)
+            ordered_obj_list[each_idx].hover_highlight(display_frame, timebar_frame)
     
         # Play an animation if the user clicks on the highlighted timebar section
         if bar_hover_callback.clicked():            
-            objs_to_animate_list = [obj_list[each_idx] for each_idx in hovered_obj_idxs]
+            objs_to_animate_list = [ordered_obj_list[each_idx] for each_idx in hovered_obj_idxs]
             show_looping_animation(snap_db, objs_to_animate_list)
     
     # Show final display
