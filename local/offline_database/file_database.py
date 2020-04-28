@@ -1444,9 +1444,3 @@ if __name__ == "__main__":
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Scrap
 
-'''
-STOPPED HERE
-- NEED TO CONTINUE CLEANING UP FETCH CALLS (GET RID OF ALL OF THEM IN SUB-DBS???)
-- THEN NEED TO UPDATE OFFLINE DB PROBABLY
-- THEN LOOK INTO RULES/SUMMARY CONFIG UTIL + RUNNERS
-'''
