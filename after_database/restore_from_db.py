@@ -53,7 +53,7 @@ import requests
 
 from tqdm import tqdm
 
-from local.lib.common.timekeeper_utils import parse_isoformat_string, datetime_to_epoch_ms
+from local.lib.common.timekeeper_utils import parse_isoformat_string, datetime_to_epoch_ms, get_local_datetime
 from local.lib.common.launch_helpers import delete_existing_report_data
 from local.lib.common.environment import get_dbserver_protocol, get_dbserver_port, get_upserver_port
 
@@ -558,12 +558,17 @@ snap_bounding_times_dict = request_bounding_times(server_url, camera_select)
 bounding_start_dt = parse_isoformat_string(snap_bounding_times_dict["min_datetime_isoformat"])
 bounding_end_dt = parse_isoformat_string(snap_bounding_times_dict["max_datetime_isoformat"])
 
+# We should show the date if it doesn't match the current date (to help indicate a site isn't storing new data)
+local_dt = get_local_datetime()
+show_date_on_input = (bounding_end_dt.date() != local_dt.date())
+
 # Restrict the time range if we get a ton of data
 bounding_start_dt, bounding_end_dt = \
 DTIP.limit_start_end_range(bounding_start_dt, bounding_end_dt, max_timedelta_hours = 10/60)
 
 # Prompt user to select time range to download
-user_start_dt, user_end_dt = DTIP.cli_prompt_start_end_datetimes(bounding_start_dt, bounding_end_dt)
+user_start_dt, user_end_dt = DTIP.cli_prompt_start_end_datetimes(bounding_start_dt, bounding_end_dt,
+                                                                 always_show_date = show_date_on_input)
 
 # Convert user input times to epoch values
 start_epoch_ms = datetime_to_epoch_ms(user_start_dt)
