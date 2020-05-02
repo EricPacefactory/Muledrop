@@ -402,7 +402,7 @@ class Reference_Trackable_Object:
     frame_width = 1
     frame_height = 1
     match_with_speed = False
-    max_samples = 55000
+    max_samples = 40000
     
     # .................................................................................................................
     
