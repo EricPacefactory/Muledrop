@@ -100,7 +100,7 @@ class Base_Video_Reader:
         t2 = perf_counter()
         
         # Get time information for the current frame data
-        curent_frame_index, current_epoch_ms, current_datetime = self._get_time(req_break)
+        curent_frame_index, current_epoch_ms, current_datetime = self._get_time()
         
         # Calculate video capture timing
         read_time_sec = (t2 - t1)
@@ -156,7 +156,7 @@ class Base_Video_Reader:
     
     # .................................................................................................................
     
-    def _get_time(self, request_break):
+    def _get_time(self):
         # Must return the current frame index, the current epoch_ms value and the current datetime
         raise NotImplementedError("Must inherit & implement a time retrival function!")
         
@@ -216,7 +216,7 @@ class Threaded_File_Video_Reader(Base_Video_Reader):
                 self.vcap.set(cv2.CAP_PROP_POS_FRAMES, 0)
             
             # Get time information for the current frame data
-            curent_frame_index, current_epoch_ms, current_datetime = self._get_time(req_break)
+            curent_frame_index, current_epoch_ms, current_datetime = self._get_time()
             
             # Calculate video capture timing
             read_time_sec = (t2 - t1)
@@ -259,15 +259,17 @@ class Threaded_File_Video_Reader(Base_Video_Reader):
     
     # .................................................................................................................
     
-    def _get_time(self, req_break):
+    def _get_time(self):
         
-        # If the video ends, don't bother reading times
-        if req_break:
-            return None, None, None
-        
-        # Get the current time into the video file, since we'll use this as time elapsed/time of day
-        video_time_ms = self.vcap.get(cv2.CAP_PROP_POS_MSEC)
-        video_frame_index = int(self.vcap.get(cv2.CAP_PROP_POS_FRAMES))
+        try:
+            # Get the current time into the video file, since we'll use this as time elapsed/time of day
+            video_time_ms = self.vcap.get(cv2.CAP_PROP_POS_MSEC)
+            video_frame_index = int(self.vcap.get(cv2.CAP_PROP_POS_FRAMES))
+            
+        except Exception:
+            # Handle case where we may have a break request, so that video timing checks don't work
+            video_time_ms = 0.0
+            video_frame_index = -1
         
         # Figure out shared timing parameters
         current_frame_index, current_epoch_ms, current_datetime = self.timekeeper.get_file_timing(video_time_ms, 
@@ -358,15 +360,17 @@ class File_Video_Reader(Base_Video_Reader):
         
     # .................................................................................................................
     
-    def _get_time(self, req_break):
+    def _get_time(self):
         
-        # If the video ends, don't bother reading times
-        if req_break:
-            return None, None, None
-        
-        # Get the current time into the video file, since we'll use this as time elapsed/time of day
-        video_time_ms = self.vcap.get(cv2.CAP_PROP_POS_MSEC)
-        video_frame_index = self.get_current_frame()
+        try:
+            # Get the current time into the video file, since we'll use this as time elapsed/time of day
+            video_time_ms = self.vcap.get(cv2.CAP_PROP_POS_MSEC)
+            video_frame_index = self.get_current_frame()
+            
+        except Exception:
+            # Handle case where we may have a break request, so that video timing checks don't work
+            video_time_ms = 0.0
+            video_frame_index = -1
         
         # Figure out shared timing parameters
         current_frame_index, current_epoch_ms, current_datetime = self.timekeeper.get_file_timing(video_time_ms, 
@@ -424,6 +428,7 @@ class RTSP_Video_Reader(Base_Video_Reader):
         # Get frames
         t1 = t2 = 0.0
         req_break = True
+        rec_frame = False
         while req_break:
             try:
                 t1 = perf_counter()
@@ -433,14 +438,13 @@ class RTSP_Video_Reader(Base_Video_Reader):
                 print("Error reading video capture...")
                 print(err)
             
-            # For convenience
+            # Assume we've disconnected if we don't receive a frame and try to reconnect
             req_break = (not rec_frame)
             if req_break:
-                (rec_frame, frame) =  self._reconnect()
-                req_break = (not rec_frame)
+                self._reconnect()
         
         # Get time information for the current frame data
-        curent_frame_index, current_epoch_ms, current_datetime = self._get_time(req_break)
+        curent_frame_index, current_epoch_ms, current_datetime = self._get_time()
         
         # Calculate video capture timing
         read_time_sec = (t2 - t1)
@@ -468,14 +472,11 @@ class RTSP_Video_Reader(Base_Video_Reader):
     
     def _reconnect(self):
         
-        # Initialize outputs, even though it shouldn't matter...
-        rec_frame = False
-        frame = None
-        
         # Provide some feedback
         print("", "Lost connection to RTSP stream!", sep = "\n")
         
         # Keep trying to reconnect and read frames from the video source
+        rec_frame = False
         while (not rec_frame):
             
             # First, forcefully reset the connection
@@ -486,21 +487,17 @@ class RTSP_Video_Reader(Base_Video_Reader):
             try:
                 (rec_frame, frame) = self.vcap.read()
             except Exception as err:
-                print("Error reconnecting")
+                print("Error reconnecting... {}".format(get_human_readable_timestamp()))
                 print(err)
         
         # Some feedback once we're successful
-        print("  --> Reconnected!")
+        print("  --> Reconnected! ({})".format(get_human_readable_timestamp()))
         
-        return rec_frame, frame
+        return
     
     # .................................................................................................................
     
-    def _get_time(self, req_break):
-        
-        # If the video breaks, don't bother reading times
-        if req_break:
-            return None, None, None
+    def _get_time(self):
         
         # Get the current time info
         current_frame_index, current_epoch_ms, current_datetime = self.timekeeper.get_rtsp_time()
