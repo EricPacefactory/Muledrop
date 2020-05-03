@@ -59,7 +59,7 @@ from itertools import islice
 from time import perf_counter, sleep
 from random import random as unit_random
 
-from local.lib.common.timekeeper_utils import get_human_readable_timestamp
+from local.lib.common.timekeeper_utils import get_human_readable_timestamp, get_local_datetime
 from local.lib.common.environment import get_dbserver_protocol, get_dbserver_host, get_dbserver_port
 
 from local.lib.ui_utils.cli_selections import Resource_Selector
@@ -82,7 +82,7 @@ from local.lib.file_access_utils.rules import build_rule_adb_metadata_report_pat
 
 from local.lib.file_access_utils.read_write import load_jgz
 
-from local.eolib.utils.files import get_file_list_by_age
+from local.eolib.utils.files import get_file_list, split_to_sublists
 from local.eolib.utils.logging import Daily_Logger
 
 
@@ -150,7 +150,12 @@ def sigterm_quit(signal_number, stack_frame):
 
 # .....................................................................................................................
 
-def build_metadata_post_url(server_url, camera_select, collection_name):
+def build_metadata_bulk_post_url(server_url, camera_select, collection_name):
+    return "{}/{}/bdb/metadata/{}".format(server_url, camera_select, collection_name)
+
+# .....................................................................................................................
+
+def build_metadata_single_post_url(server_url, camera_select, collection_name):
     return "{}/{}/bdb/metadata/{}".format(server_url, camera_select, collection_name)
 
 # .....................................................................................................................
@@ -182,8 +187,8 @@ def build_response_string_list(server_url, *messages):
 
 # .....................................................................................................................
 
-def build_response_count_string(data_type, collection_name, 
-                                num_pass, num_fail, num_dupe, num_skip, num_total, total_time_ms):
+def build_response_count_string(data_type, collection_name,
+                                num_pass, num_fail, num_dupe, num_total, total_time_ms):
     
     ''' Helper function which builds post response strings for printing/logging '''
     
@@ -193,8 +198,7 @@ def build_response_count_string(data_type, collection_name,
     pass_str = build_count_str("pass", num_pass)
     fail_str = build_count_str("fail", num_fail)
     dupe_str = build_count_str("dupe", num_dupe)
-    skip_str = build_count_str("skip", num_skip)
-    count_strs = ", ".join([pass_str, fail_str, dupe_str, skip_str])
+    count_strs = ", ".join([pass_str, fail_str, dupe_str])
     
     # Build indicator which includes the total response count + the data type (images/metadata) + collection name
     # Example: "  4 metadata | snapshots  "
@@ -205,7 +209,7 @@ def build_response_count_string(data_type, collection_name,
     time_str = "{:>5.0f}ms".format(total_time_ms)
     
     # Finally, combine all response data together for a single-line output
-    # Example: "  2 pass,   0 fail,   1 dupe,   1 skip  ||    4 metadata | snapshots    ->    77ms"
+    # Example: "  2 pass,   0 fail,   1 dupe  ||    4 metadata | snapshots    ->    77ms"
     response_message = "{}  ||  {}  -> {}".format(count_strs, indicator_str, time_str)
     
     return response_message
@@ -213,104 +217,205 @@ def build_response_count_string(data_type, collection_name,
 # .....................................................................................................................
 # .....................................................................................................................
 
+
 # ---------------------------------------------------------------------------------------------------------------------
-#%% Define posting functions
+#%% Define metadata posting helpers
 
 # .....................................................................................................................
 
-def post_many_metadata_to_server(server_url, camera_select, collection_name, metadata_folder_path, 
-                                 minimum_age_sec = 5.0):
+def bundle_metadata(metadata_file_paths):
     
     '''
-    Helper function which bundles all available metadata into a single (big!) json entry for the database
+    Helper function which bundles all available metadata into
+    groups (subsets) of entries to bulk-insert into the database.
     '''
     
-    # Start timing
-    t1 = perf_counter()
+    # Now build up all data into one list for a bulk insert
+    error_message_list = []
+    data_insert_list = []
+    for each_metadata_path in metadata_file_paths:
+        try:
+            data_insert_list.append(load_jgz(each_metadata_path))
+        
+        except ValueError:
+            # Empty/incorrectly saved files raise value errors
+            error_message_list.append("Metadata loading error:\n{}\n{}".format(each_metadata_path, "Bad json data"))
+            
+        except Exception as err:
+            # In case something unexpected happens, try to log some info
+            error_message_list.append("Metadata loading error:\n{}\n{}".format(each_metadata_path, str(err)))
     
-    # Allocate storage for output counts
+    return data_insert_list, error_message_list
+
+# .....................................................................................................................
+
+def post_metadata_bulk_all(data_insert_list, post_kwargs):
+    
+    ''' Helper function which handles bulk metadata posts, with error handling '''
+    
+    # Initialize outputs
+    bad_url = False
+    posted_successfully = False
+    
+    # Initialize outputs
+    num_files = len(data_insert_list)
     num_success = 0
-    num_failed = 0
     num_duplicate = 0
-    num_ignore = 0
-    num_loaded = 0
+    
+    try:
+        post_response = requests.post(data = ujson.dumps(data_insert_list), **post_kwargs)
+        
+        # For clarity
+        bad_url = (post_response.status_code == 404)
+        posted_successfully = (post_response.status_code == 201)
+        posted_with_duplicates = (post_response.status_code == 405)
+        
+        # Handle success case
+        if posted_successfully:
+            num_success = num_files
+            num_duplicate = 0
+        
+        # Handle counts in duplicate case
+        if posted_with_duplicates:
+            response_dict = post_response.json()
+            num_success = response_dict.get("mongo_response", {}).get("details", {}).get("nInserted", 0)
+            num_duplicate = num_files - num_success
+        
+    except requests.exceptions.Timeout:
+        # Occurs when server doesn't respond in time (timeout value is set in post_kwargs)
+        pass
+        
+    except (requests.ConnectionError, requests.exceptions.ReadTimeout):
+        # Occurs when attempt to connect to the server fails
+        pass
+    
+    return bad_url, num_success, num_duplicate
+
+# .....................................................................................................................
+# .....................................................................................................................
+
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Define image data posting helpers
+
+# .....................................................................................................................
+
+def post_single_image(image_post_url, image_path, post_kwargs):
+    
+    # Initialize outputs
+    bad_url = False
+    posted_successfully = False
+    image_already_exists = False
+    
+    try:
+        
+        with open(image_path, "rb") as image_file:
+            post_response = requests.post(image_post_url, data = image_file, **post_kwargs)
+        
+        # Handle expected response codes
+        bad_url = (post_response.status_code == 404)
+        posted_successfully = (post_response.status_code == 201)
+        image_already_exists = (post_response.status_code == 405)
+    
+    except requests.exceptions.Timeout:
+        # Occurs when server doesn't respond in time (timeout value is set in post_kwargs)
+        pass
+    
+    except (requests.ConnectionError, requests.exceptions.ReadTimeout):
+        # Occurs when attempt to connect to the server fails
+        pass
+    
+    except Exception:
+        pass
+    
+    return bad_url, posted_successfully, image_already_exists
+
+# .....................................................................................................................
+# .....................................................................................................................
+
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Define high-level posting functions
+
+# .....................................................................................................................
+
+def post_all_metadata_to_server(server_url, camera_select, collection_name, metadata_folder_path,
+                                maximum_subset_size = 500, file_age_buffer_sec = 1.0):
+    
+    ''' Helper function for posting all the metadata in a given folder to the server '''
     
     # First get all the metadata file paths from the target folder path
-    sorted_timestamps_list, sorted_paths_list = get_file_list_by_age(metadata_folder_path, 
-                                                                     newest_first = False, 
-                                                                     show_hidden_files = False, 
-                                                                     create_missing_folder = False,
-                                                                     return_full_path = True)
+    sorted_paths_list = get_file_list(metadata_folder_path,
+                                      show_hidden_files = False,
+                                      create_missing_folder = False,
+                                      return_full_path = True,
+                                      sort_list = True)
     
-    # Bail on this if there is no report data, since we'll have nothing to bundle!
-    num_files = len(sorted_paths_list)
-    no_report_data = (num_files == 0)
+    # Bail on this if there is no report data, since we'll have nothing to post!
+    num_files_total = len(sorted_paths_list)
+    no_report_data = (num_files_total == 0)
     if no_report_data:
         response_msg = "No {} metadata to post!".format(collection_name)
         error_msg = ""
         return response_msg, error_msg
     
-    # Figure out which files are 'old enough' to be safe for reading/deleting (i.e. not being actively written)
-    current_timestamp = dt.datetime.now().timestamp()
-    oldest_allowed_timestamp = (current_timestamp - minimum_age_sec)
-    for each_reversed_idx, each_timestamp in enumerate(reversed(sorted_timestamps_list)):
-        if each_timestamp < oldest_allowed_timestamp:
-            break
-    last_valid_entry_index = (num_files - each_reversed_idx)
+    # -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -
     
-    # Now build up all data into one list for one big insert!
-    valid_path_list = []
-    error_message_list = []
-    data_insert_list = []
-    for each_metadata_path in sorted_paths_list[:last_valid_entry_index]:
-        try:
-            data_insert_list.append(load_jgz(each_metadata_path))
-            valid_path_list.append(each_metadata_path)
-            
-        except Exception as err:
-            # In case something goes wrong, just delete the file... Will need better debugging/logging
-            remove_if_possible(each_metadata_path)
-            error_message_list.append("Metadata loading error:\n{}\n{}".format(each_metadata_path, str(err)))
+    # Pause briefly to give the 'newest' files a chance to finish writing
+    newest_file_path = sorted_paths_list[-1]
+    delay_for_newest_file(newest_file_path, file_age_buffer_sec)
     
-    # For clarity
-    post_kwargs = {"headers": {"Content-Type": "application/json"},
+    # Start timing
+    t1 = perf_counter()
+    
+    # Set up posting info
+    bulk_post_url = build_metadata_bulk_post_url(server_url, camera_select, collection_name)
+    post_kwargs = {"url": bulk_post_url,
+                   "headers": {"Content-Type": "application/json"},
                    "auth": ("", ""),
                    "verify": False,
-                   "timeout": 10.0}
+                   "timeout": 15.0}
     
-    # Send it all to the server
-    post_url = build_metadata_post_url(server_url, camera_select, collection_name)
-    post_response = requests.post(post_url, data = ujson.dumps(data_insert_list), **post_kwargs)
+    # Initialize storage for error messages
+    error_message_list = []
+    bad_url_error_message = "Metadata posting to bad url:\n{}".format(bulk_post_url)
     
-    # Delete metadata that is successfully posted or already exists on the server
-    metadata_posted_successfully = (post_response.status_code == 201)
-    metadata_already_exists = (post_response.status_code == 405)
-    if metadata_posted_successfully or metadata_already_exists:
-        for each_metadata_path in valid_path_list:
+    # Allocate storage for output counts
+    total_success = 0
+    total_duplicate = 0
+    
+    # Post metadata in subsets
+    sorted_path_sublists = split_to_sublists(sorted_paths_list, maximum_subset_size)
+    for each_path_sublist in sorted_path_sublists:
+        
+        # Collect groups of metadata entries together for bulk-insert into the database
+        data_insert_list, bundle_error_msg_list = bundle_metadata(each_path_sublist)
+        error_message_list += bundle_error_msg_list
+        
+        # Try to post the bundle of data
+        bad_url, num_success, num_duplicate = post_metadata_bulk_all(data_insert_list, post_kwargs)
+        total_success += num_success
+        total_duplicate += num_duplicate
+        
+        # If we're posting to a bad url, bail on everything!
+        if bad_url:
+            error_message_list.append(bad_url_error_message)
+            break
+        
+        # If we get here, we've reached the db and posted what we could, so now we're done with these files
+        for each_metadata_path in each_path_sublist:
             remove_if_possible(each_metadata_path)
-            num_success += int(metadata_posted_successfully)
-            num_duplicate += int(metadata_already_exists)
-            
-    # Log bad url pathing
-    bad_url = (post_response.status_code == 404)
-    if bad_url:
-        error_message_list.append("Metadata posting to bad url:\n{}".format(post_url))
     
     # End timing
     t2 = perf_counter()
     total_time_ms = int(round(1000 * (t2 - t1)))
     
     # Finally, tally up the results & build a response string to return
-    num_loaded = last_valid_entry_index
-    num_ignore = num_files - num_loaded
-    num_failed = num_loaded - num_success - num_duplicate
-    response_msg = build_response_count_string("metadata", 
+    total_failed = num_files_total - total_success - total_duplicate
+    response_msg = build_response_count_string("metadata",
                                                collection_name,
-                                               num_success, 
-                                               num_failed, 
-                                               num_duplicate, 
-                                               num_ignore, 
-                                               num_files, 
+                                               total_success,
+                                               total_failed,
+                                               total_duplicate,
+                                               num_files_total,
                                                total_time_ms)
     
     # Build error message (if present)
@@ -320,52 +425,52 @@ def post_many_metadata_to_server(server_url, camera_select, collection_name, met
 
 # .....................................................................................................................
 
-def post_many_images_to_server(server_url, camera_select, collection_name, image_folder_path, minimum_age_sec = 5.0):
+def post_all_images_to_server(server_url, camera_select, collection_name, image_folder_path, 
+                               file_age_buffer_sec = 1.0):
     
-    ''' Helper function for posting all the (new enough) images in a given folder to the server '''
-    
-    # Start timing
-    t1 = perf_counter()
-    
-    # Allocate storage for output counts
-    num_success = 0
-    num_failed = 0
-    num_duplicate = 0
+    ''' Helper function for posting all the images in a given folder to the server '''
     
     # First get all the image file paths the target folder path
-    sorted_timestamps_list, sorted_paths_list = get_file_list_by_age(image_folder_path, 
-                                                                     newest_first = False,
-                                                                     show_hidden_files = False,
-                                                                     create_missing_folder = False,
-                                                                     return_full_path = True,
-                                                                     allowable_exts_list = [".jpg"])
+    sorted_paths_list = get_file_list(image_folder_path,
+                                      show_hidden_files = False,
+                                      create_missing_folder = False,
+                                      return_full_path = True,
+                                      sort_list = True,
+                                      allowable_exts_list = [".jpg"])
     
     # Bail on this if there is no image data, since we'll have nothing to bundle!
-    num_files = len(sorted_paths_list)
-    no_report_data = (num_files == 0)
+    num_files_total = len(sorted_paths_list)
+    no_report_data = (num_files_total == 0)
     if no_report_data:
         response_msg = "No {} images to post!".format(collection_name)
         error_msg = ""
         return response_msg, error_msg
     
-    # Figure out which images are 'old enough' to be safe for reading/deleting (i.e. not being actively written)
-    current_timestamp = dt.datetime.now().timestamp()
-    oldest_allowed_timestamp = (current_timestamp - minimum_age_sec)
-    for each_reversed_idx, each_timestamp in enumerate(reversed(sorted_timestamps_list)):
-        if each_timestamp < oldest_allowed_timestamp:
-            break
-    last_valid_entry_index = (num_files - each_reversed_idx)
+    # -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -
     
-    # For clarity
+    # Pause briefly to give the 'newest' files a chance to finish writing
+    newest_file_path = sorted_paths_list[-1]
+    delay_for_newest_file(newest_file_path, file_age_buffer_sec)
+    
+    # Start timing
+    t1 = perf_counter()
+    
+    # Set up posting info
     post_kwargs = {"headers": {"Content-Type": "image/jpeg"},
                    "auth": ("", ""),
                    "verify": False,
-                   "timeout": 10.0}
+                   "timeout": 15.0}
     
-    # Only post the newest images
+    # Initialize storage for error messages
     error_message_list = []
-    load_path_list = islice(sorted_paths_list, last_valid_entry_index)
-    for each_image_path in load_path_list:
+    
+    # Allocate storage for output counts
+    total_success = 0
+    total_duplicate = 0
+    
+    # Post all images
+    error_message_list = []
+    for each_image_path in sorted_paths_list:
         
         # Figure out the image post url
         image_filename = os.path.basename(each_image_path)
@@ -373,47 +478,35 @@ def post_many_images_to_server(server_url, camera_select, collection_name, image
         
         # Build the posting url and send the image
         image_post_url = build_image_post_url(server_url, camera_select, collection_name, image_epoch_ms_str)
+        bad_url, image_post_success, image_post_duplicate = post_single_image(image_post_url, 
+                                                                              each_image_path,
+                                                                              post_kwargs)
         
-        try:
-            with open(each_image_path, "rb") as image_file:
-                post_response = requests.post(image_post_url, data = image_file, **post_kwargs)
-                
-        except Exception as err:
-            
-            # In case something goes wrong, just delete the image data... Will need better debugging/logging
-            remove_if_possible(each_image_path)
-            error_message_list.append("Image posting error:\n{}\n{}".format(each_image_path, str(err)))
-            continue
-            
-        # Delete images that successfully post or already exist on the server
-        image_posted_successfully = (post_response.status_code == 201)
-        image_already_exists = (post_response.status_code == 405)
-        if image_posted_successfully or image_already_exists:
-            remove_if_possible(each_image_path)
-            num_success += int(image_posted_successfully)
-            num_duplicate += int(image_already_exists)
-        
-        # Handle bad url pathing
-        bad_url = (post_response.status_code == 404)
+        # If we're posting to a bad url, bail on everything!
         if bad_url:
-            remove_if_possible(each_image_path)
-            error_message_list.append("Image posting to bad url:\n{}\n{}".format(each_image_path, image_post_url))
+            bad_url_error_message = "Image posting to bad url:\n{}\n{}".format(each_image_path, image_post_url)
+            error_message_list.append(bad_url_error_message)
+            break
+        
+        # Add up total counts
+        total_success += int(image_post_success)
+        total_duplicate += int(image_post_duplicate)
+        
+        # If we get here, we've reached the db and posted what we could, so now we're done with this file
+        remove_if_possible(each_image_path)
     
     # End timing
     t2 = perf_counter()
     total_time_ms = int(round(1000 * (t2 - t1)))
     
     # Finally, tally up the results & build a response string to return
-    num_loaded = last_valid_entry_index
-    num_ignore = num_files - num_loaded
-    num_failed = num_loaded - num_success - num_duplicate
-    response_msg = build_response_count_string("images", 
+    total_failed = num_files_total - total_success - total_duplicate
+    response_msg = build_response_count_string("images",
                                                collection_name,
-                                               num_success, 
-                                               num_failed, 
-                                               num_duplicate, 
-                                               num_ignore, 
-                                               num_files, 
+                                               total_success,
+                                               total_failed,
+                                               total_duplicate,
+                                               num_files_total,
                                                total_time_ms)
     
     # Build error message (if present)
@@ -440,10 +533,11 @@ def post_data_to_server(server_url, cameras_folder_path, camera_select, log_to_f
     
     # Post report metadata
     url_args = (server_url, camera_select)
-    caminfo_md_log, caminfo_md_err = post_many_metadata_to_server(*url_args, "camerainfo", caminfo_metadata_path)
-    bg_md_log, bg_mg_err = post_many_metadata_to_server(*url_args, "backgrounds", bg_metadata_path)
-    snap_md_log, snap_md_err = post_many_metadata_to_server(*url_args, "snapshots", snap_metadata_path)
-    obj_md_log, obj_md_err = post_many_metadata_to_server(*url_args, "objects", obj_metadata_path)
+    caminfo_md_log, caminfo_md_err = post_all_metadata_to_server(*url_args, "camerainfo", caminfo_metadata_path)
+    bg_md_log, bg_mg_err = post_all_metadata_to_server(*url_args, "backgrounds", bg_metadata_path)
+    snap_md_log, snap_md_err = post_all_metadata_to_server(*url_args, "snapshots", snap_metadata_path)
+    obj_md_log, obj_md_err = post_all_metadata_to_server(*url_args, "objects", obj_metadata_path,
+                                                         maximum_subset_size = 100)
     
     # Finish metadata timing
     t2 = perf_counter()
@@ -457,17 +551,17 @@ def post_data_to_server(server_url, cameras_folder_path, camera_select, log_to_f
     # *** to ensure available metadata is always 'behind' available image data on the database
     # *** this avoids the situation where metadata is available that points to a non-existent image
     # Post image data
-    bg_img_log, bg_img_err = post_many_images_to_server(*url_args, "backgrounds", bg_image_path)
-    snap_img_log, snap_img_err = post_many_images_to_server(*url_args, "snapshots", snap_image_path)
+    bg_img_log, bg_img_err = post_all_images_to_server(*url_args, "backgrounds", bg_image_path)
+    snap_img_log, snap_img_err = post_all_images_to_server(*url_args, "snapshots", snap_image_path)
     
     # Finish image timing
     t3 = perf_counter()
     
     # Calculate output timing results
-    metadata_time_taken_ms = 1000 * (t2 - t1)
+    mdata_time_taken_ms = 1000 * (t2 - t1)
     image_time_taken_ms = 1000 * (t3 - t2)
-    timing_response_str = "Metadata took {:.0f} ms, images took {:.0f} ms".format(metadata_time_taken_ms,
-                                                                                  image_time_taken_ms)
+    timing_response_str = "Metadata took {:.0f} ms, images took {:.0f} ms (w/ protect)".format(mdata_time_taken_ms,
+                                                                                               image_time_taken_ms)
     
     # Build complete response string for feedback/logging
     full_error_msg_list = [caminfo_md_err, bg_mg_err, snap_md_err, obj_md_err, bg_img_err, snap_img_err]
@@ -485,6 +579,22 @@ def post_data_to_server(server_url, cameras_folder_path, camera_select, log_to_f
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Automation functions
+
+# .....................................................................................................................
+
+def delay_for_newest_file(newest_file_path, maximum_delay_time_sec = 1.0):
+    
+    # Compare the current time to the newest file time
+    current_timestamp = get_local_datetime().timestamp()
+    file_timestamp = os.path.getmtime(newest_file_path)
+    time_delta_sec = (current_timestamp - file_timestamp)
+    
+    # If the newest file time is very recent, delay a bit to give it time to finish saving (in case it is in-progress)
+    delay_time_sec = (maximum_delay_time_sec - time_delta_sec)
+    if delay_time_sec > 0:
+        sleep(delay_time_sec)
+    
+    return
 
 # .....................................................................................................................
 
@@ -526,6 +636,7 @@ def check_server_connection(server_url):
     try:
         server_response = requests.get(status_check_url, timeout = 10)
         server_is_alive = (server_response.status_code == 200)
+        
     except (requests.ConnectionError, requests.exceptions.ReadTimeout):
         server_is_alive = False
     
@@ -653,5 +764,4 @@ if __name__ == "__main__":
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Scrap
-
 
