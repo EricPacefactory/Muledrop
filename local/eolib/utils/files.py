@@ -238,7 +238,27 @@ def get_file_list(search_folder_path,
     return file_list
 
 # .....................................................................................................................
+
+def split_to_sublists(input_list, maximum_sublist_size = 10):
     
+    '''
+    Helper function which simply breaks the input list into smaller chunks
+    For example:
+        input_list = [1,2,3,4,5,6,7,8,9,10,11,12,13]
+        split_to_sublists(input_list, 3) -> [[1,2,3], [4,5,6], [7,8,9], [10,11,12], [13]]
+    
+    Note: This function returns a generator, but each generated item will be a list (given a list input)
+    '''
+    
+    num_items = len(input_list)
+    for idx1 in range(0, num_items, maximum_sublist_size):
+        idx2 = (idx1 + maximum_sublist_size)
+        yield input_list[idx1:idx2]
+    
+    return
+
+# .....................................................................................................................
+
 def sort_path_list_by_age(path_list, newest_first, return_full_path = True):
     
     '''
