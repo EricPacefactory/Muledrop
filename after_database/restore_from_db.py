@@ -139,7 +139,7 @@ def get_json(request_url, message_on_error = "Error requesting data!"):
     # Request data from the server
     post_response = requests.get(request_url)
     if post_response.status_code != 200:
-        raise SystemError("{}\n@ {}".format(message_on_error, request_url))
+        raise SystemError("{}\n@ {}\n\n{}".format(message_on_error, request_url, post_response.text))
     
     # Convert json response data to python data type
     return_data = post_response.json()
@@ -153,7 +153,7 @@ def get_jpg(request_url, message_on_error = "Error requesting image data!"):
     # Request data from the server
     post_response = requests.get(request_url)
     if post_response.status_code != 200:
-        raise SystemError("{}\n@ {}".format(message_on_error, request_url))
+        raise SystemError("{}\n@ {}\n\n{}".format(message_on_error, request_url, post_response.text))
     
     # Pull image data out of response
     return_data = post_response.content
@@ -235,9 +235,16 @@ def request_caminfo_metadata(server_url, camera_select, start_epoch_ms, end_epoc
     request_url = build_request_url(server_url, camera_select, "camerainfo", 
                                     "get-many-camera-info", "by-time-range",
                                     start_epoch_ms, end_epoch_ms)
+    offline_request_url = build_request_url(server_url, camera_select, "camerainfo", "get-newest-camera-info")
     
     # Grab camera info data
-    many_caminfo_metadata_list = get_json(request_url)
+    try:
+        many_caminfo_metadata_list = get_json(request_url)
+        
+    except SystemError:
+        # Special case for handling issues that arise when data was generated locally
+        single_caminfo_metadata = get_json(offline_request_url)
+        many_caminfo_metadata_list = [single_caminfo_metadata]
     
     return many_caminfo_metadata_list
 
