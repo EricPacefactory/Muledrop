@@ -129,8 +129,8 @@ class Tracker_Stage(Reference_Tracker):
         self.ctrl_spec.attach_slider(
                 "track_history_samples", 
                 label = "Track History", 
-                default_value = 55000,
-                min_value = 3, max_value = 100000,
+                default_value = 25000,
+                min_value = 3, max_value = Reference_Trackable_Object.max_allowable_samples,
                 zero_referenced = True,
                 return_type = int,
                 units = "samples",

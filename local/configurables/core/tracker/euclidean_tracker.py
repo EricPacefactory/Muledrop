@@ -132,7 +132,7 @@ class Tracker_Stage(Reference_Tracker):
                 "track_history_samples", 
                 label = "Track History", 
                 default_value = 55000,
-                min_value = 3, max_value = 100000,
+                min_value = 3, max_value = Smoothed_Trackable_Object.max_allowable_samples,
                 zero_referenced = True,
                 return_type = int,
                 units = "samples",

@@ -403,6 +403,7 @@ class Reference_Trackable_Object:
     frame_height = 1
     match_with_speed = False
     max_samples = 25000
+    max_allowable_samples = 35000
     
     # .................................................................................................................
     
@@ -453,7 +454,7 @@ class Reference_Trackable_Object:
     
     @classmethod
     def set_max_samples(cls, max_samples):
-        cls.max_samples = max_samples
+        cls.max_samples = min(max_samples, cls.max_allowable_samples)
         
     # .................................................................................................................
     
