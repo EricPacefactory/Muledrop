@@ -15,7 +15,7 @@
     "smooth_x": 0.6000000000000001,
     "smooth_y": 0.6000000000000001,
     "track_decay_timeout_ms": 2500,
-    "track_history_samples": 55000,
+    "track_history_samples": 25000,
     "use_fast_fallback_matching": true,
     "validation_decay_timeout_ms": 500,
     "validation_time_ms": 750

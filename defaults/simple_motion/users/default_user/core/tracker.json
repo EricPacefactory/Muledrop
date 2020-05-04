@@ -9,7 +9,7 @@
     "use_fast_fallback_matching": true,
     "max_match_range_x": 0.08,
     "max_match_range_y": 0.09,
-    "track_history_samples": 55000,
+    "track_history_samples": 25000,
     "validation_time_ms": 750,
     "validation_decay_timeout_ms": 500,
     "track_decay_timeout_ms": 2500,
