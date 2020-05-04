@@ -215,12 +215,14 @@ class Reference_Snapshot_Capture(Externals_Configurable_Base):
         
         # Clean up any finished saving threads & save newest metadata internally
         self.latest_snapshot_metadata = latest_snapshot_metadata
+        self._clean_up()
+        
         return snapshot_frame_data, latest_snapshot_metadata
     
     # .................................................................................................................
     
     #SHOULDN'T OVERRIDE
-    def set_snapshot_quality(self, snapshot_jpg_quality_0_to_100):        
+    def set_snapshot_quality(self, snapshot_jpg_quality_0_to_100):
         self._snapshot_jpg_quality = snapshot_jpg_quality_0_to_100
     
     # .................................................................................................................
