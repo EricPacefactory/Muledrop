@@ -65,9 +65,8 @@ from local.lib.file_access_utils.rules import select_rule_to_load, cli_save_rule
 
 from local.offline_database.file_database import launch_file_db, close_dbs_if_missing_data
 from local.offline_database.object_reconstruction import create_trail_frame_from_object_reconstruction
-from local.offline_database.object_reconstruction import object_data_dict_to_list_generator
 from local.offline_database.snapshot_reconstruction import median_background_from_snapshots
-from local.offline_database.classification_reconstruction import create_objects_by_class_dict
+from local.offline_database.classification_reconstruction import create_objects_by_class_dict, get_ordered_object_list
 
 from local.configurables.after_database.rules.linecross_rule import Linecross_Rule
 
@@ -277,9 +276,11 @@ rule_ref.reconfigure(initial_setup_data_dict)
 obj_dict = process_all_object_data(rule_ref, obj_db, frame_wh, user_start_dt, user_end_dt)
 
 # Load in classification data, if any
-obj_list_gen = object_data_dict_to_list_generator(obj_dict)
-obj_id_list, obj_by_class_dict, obj_id_to_class_dict = create_objects_by_class_dict(class_db, obj_list_gen)
+obj_id_list, obj_by_class_dict, obj_id_to_class_dict = create_objects_by_class_dict(class_db, obj_dict)
 _, _, all_label_colors_dict = class_db.get_label_color_luts()
+
+# Get an ordered list of the objects for drawing
+ordered_obj_list = get_ordered_object_list(obj_id_list, obj_by_class_dict, obj_id_to_class_dict)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -316,8 +317,7 @@ event_window.move_corner_pixels(event_window_x_offset, 50)
 #%% Create background frames
 
 # Draw all object trails onto the background frame
-obj_list_gen = object_data_dict_to_list_generator(obj_dict)
-trail_frame = create_trail_frame_from_object_reconstruction(bg_frame, obj_list_gen)
+trail_frame = create_trail_frame_from_object_reconstruction(bg_frame, ordered_obj_list)
 
 # Create initial display frames (which may be modified by user interactions)
 draw_frame = trail_frame.copy()
