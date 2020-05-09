@@ -56,7 +56,7 @@ RUN pip3 install -r requirements.txt
 COPY . .
 
 # Run the upload server! This is a blocking call...
-CMD ["python3", "configuration_utilities/uploader/upload_server.py"]
+CMD ["python3", "-u", "configuration_utilities/uploader/upload_server.py"]
 
 
 # -----------------------------------------------------------------------------
