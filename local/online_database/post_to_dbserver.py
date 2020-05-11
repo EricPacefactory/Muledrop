@@ -754,6 +754,9 @@ if __name__ == "__main__":
     if camera_select is None:
         camera_select, camera_path = selector.camera()
     
+    # Some feedback when running manually
+    print("", "Manually posting data for {}...".format(camera_select), sep = "\n")
+    
     # Only post once when running directly from this script!
     response_list = single_post(arg_server_url, cameras_folder_path, camera_select)
     
