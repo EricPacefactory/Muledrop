@@ -395,7 +395,7 @@ def post_all_background_data(server_url, cameras_folder_path, camera_select, use
     
     # Post image data first, so metadata is guaranteed to reference valid data
     total_img_success, total_img_duplicate, total_img_time_ms, img_error_message_list = \
-    post_all_images_to_server(server_url, collection_name, img_file_paths)
+    post_all_images_to_server(server_url, camera_select, collection_name, img_file_paths)
     
     # Build metadata url & post the data!
     post_url = build_metadata_bulk_post_url(server_url, camera_select, collection_name)
@@ -472,7 +472,7 @@ def post_all_snapshot_data(server_url, cameras_folder_path, camera_select, user_
     
     # Post image data first, so metadata is guaranteed to reference valid data
     total_img_success, total_img_duplicate, total_img_time_ms, img_error_message_list = \
-    post_all_images_to_server(server_url, collection_name, img_file_paths)
+    post_all_images_to_server(server_url, camera_select, collection_name, img_file_paths)
     
     # Build metadata url & post the data!
     post_url = build_metadata_bulk_post_url(server_url, camera_select, collection_name)
@@ -558,7 +558,7 @@ def post_all_metadata_to_server(post_url, metadata_file_paths, maximum_subset_si
 
 # .....................................................................................................................
 
-def post_all_images_to_server(server_url, collection_name, image_file_paths, file_age_buffer_sec = 1.0):
+def post_all_images_to_server(server_url, camera_select, collection_name, image_file_paths, file_age_buffer_sec = 1.0):
     
     ''' Helper function for posting all the images in a given folder to the server '''
     
