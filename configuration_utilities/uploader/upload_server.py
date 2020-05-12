@@ -350,7 +350,7 @@ def launch_rtsp_collect(camera_select, enable_display = False):
     project_root_path, cameras_folder_path = g_selector.get_project_pathing()
     launch_script_name = "run_rtsp_collect.py"
     launch_script_path = os.path.join(project_root_path, launch_script_name)
-    launch_args = [python_interpretter, launch_script_path, "-c", camera_select] + display_arg + save_arg
+    launch_args = [python_interpretter, "-u", launch_script_path, "-c", camera_select] + display_arg + save_arg
     
     # Build pathing to store stdout/stderr logs
     current_epoch_ms = get_utc_epoch_ms()
