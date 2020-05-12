@@ -37,6 +37,10 @@ ENV DBSERVER_PORT               8050
 ENV UPSERVER_HOST               0.0.0.0
 ENV UPSERVER_PORT               8181
 
+# Set variables to control auto-posting
+EVN AUTOPOST_ON_STARTUP         1
+ENV AUTOPOST_PERIOD_MINS        2.5
+
 
 # -----------------------------------------------------------------------------
 #%% Setup python 

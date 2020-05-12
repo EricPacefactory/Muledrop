@@ -59,6 +59,7 @@ from random import random as unit_random
 
 from local.lib.common.timekeeper_utils import get_human_readable_timestamp, get_local_datetime
 from local.lib.common.environment import get_dbserver_protocol, get_dbserver_host, get_dbserver_port
+from local.lib.common.environment import get_autopost_on_startup, get_autopost_period_mins
 
 from local.lib.ui_utils.cli_selections import Resource_Selector
 from local.lib.ui_utils.script_arguments import script_arg_builder
@@ -673,6 +674,27 @@ def delay_for_newest_file(newest_file_path, maximum_delay_time_sec = 1.0):
 
 # .....................................................................................................................
 
+def calculate_sleep_delay_sec(minimum_sleep_sec = 20.0):
+    
+    '''
+    Helper function used to calculate a sleep time (in seconds), used to delay posting
+    Note that the sleep timing can be (partly) controlled through an environment variable,
+    so the timing can be modified while the script is still active!
+    '''
+    
+    # Get delay values
+    post_period_mins = get_autopost_period_mins()
+    post_period_sec = (60.0 * post_period_mins)
+    random_period_sec = max(0.2 * post_period_sec, minimum_sleep_sec)
+    
+    # Generate randomized sleep time
+    random_sleep_sec = (unit_random() * random_period_sec)
+    sleep_time_sec = post_period_sec + random_sleep_sec
+    
+    return sleep_time_sec
+
+# .....................................................................................................................
+
 def remove_if_possible(file_path_to_remove):
     
     ''' Helper function used to delete files that may have already been deleted '''
@@ -720,8 +742,6 @@ def check_server_connection(server_url):
 # .....................................................................................................................
 
 def scheduled_post(server_url, cameras_folder_path, camera_select,
-                   post_period_mins = 2.5,
-                   post_on_startup = True,
                    log_to_file = True):
     
     # Bail if we don't get a valid server url
@@ -735,13 +755,11 @@ def scheduled_post(server_url, cameras_folder_path, camera_select,
     # Create logger to handle saving feedback (or printing to terminal)
     logger = create_logger(cameras_folder_path, camera_select, enabled = log_to_file)
     
-    # Calculate posting period values
-    post_period_sec = (60.0 * post_period_mins)
-    random_period_sec = max(20.0, 0.2 * post_period_sec)
-    
     # If we aren't posting on startup, we need to have an initial sleep period before posting!
+    post_on_startup = get_autopost_on_startup()
     if not post_on_startup:
-        sleep(post_period_sec)
+        sleep_time_sec = calculate_sleep_delay_sec()
+        sleep(sleep_time_sec)
     
     try:
         # Post & sleep & post & sleep & ...
@@ -754,8 +772,7 @@ def scheduled_post(server_url, cameras_folder_path, camera_select,
             logger.log_list(response_list)
             
             # Delay posting regardless of server status
-            random_sleep_sec = (unit_random() * random_period_sec)
-            sleep_time_sec = post_period_sec + random_sleep_sec
+            sleep_time_sec = calculate_sleep_delay_sec()
             sleep(sleep_time_sec)
             
     except SystemExit:
@@ -786,8 +803,6 @@ def single_post(server_url, cameras_folder_path, camera_select):
 # .....................................................................................................................
 
 def create_parallel_scheduled_post(server_url, cameras_folder_path, camera_select,
-                                   post_period_mins = 3.0, 
-                                   post_on_startup = True,
                                    log_to_file = True,
                                    start_on_call = True):
     
@@ -795,8 +810,6 @@ def create_parallel_scheduled_post(server_url, cameras_folder_path, camera_selec
     config_dict = {"server_url": server_url,
                    "cameras_folder_path": cameras_folder_path,
                    "camera_select": camera_select,
-                   "post_period_mins": post_period_mins,
-                   "post_on_startup": post_on_startup,
                    "log_to_file": log_to_file}
     
     # Create a parallel process to run the scheduled post function and start it, if needed
