@@ -52,10 +52,8 @@ find_path_to_local()
 import signal
 import requests
 import ujson
-import datetime as dt
 
 from multiprocessing import Process
-from itertools import islice
 from time import perf_counter, sleep
 from random import random as unit_random
 
@@ -109,7 +107,7 @@ def parse_post_args(debug_print = False):
     
     # Set script arguments for posting camera data (manually)
     args_list = ["camera",
-                 {"url": {"default": default_url, 
+                 {"url": {"default": default_url,
                           "help_text": "Specify the url of the upload server\n(Default: {})".format(default_url)}}]
     
     # Provide some extra information when accessing help text
@@ -236,7 +234,7 @@ def bundle_metadata(metadata_file_paths):
     for each_metadata_path in metadata_file_paths:
         try:
             data_insert_list.append(load_jgz(each_metadata_path))
-        
+            
         except ValueError:
             # Empty/incorrectly saved files raise value errors
             error_message_list.append("Metadata loading error:\n{}\n{}".format(each_metadata_path, "Bad json data"))
@@ -425,7 +423,7 @@ def post_all_metadata_to_server(server_url, camera_select, collection_name, meta
 
 # .....................................................................................................................
 
-def post_all_images_to_server(server_url, camera_select, collection_name, image_folder_path, 
+def post_all_images_to_server(server_url, camera_select, collection_name, image_folder_path,
                                file_age_buffer_sec = 1.0):
     
     ''' Helper function for posting all the images in a given folder to the server '''
@@ -478,7 +476,7 @@ def post_all_images_to_server(server_url, camera_select, collection_name, image_
         
         # Build the posting url and send the image
         image_post_url = build_image_post_url(server_url, camera_select, collection_name, image_epoch_ms_str)
-        bad_url, image_post_success, image_post_duplicate = post_single_image(image_post_url, 
+        bad_url, image_post_success, image_post_duplicate = post_single_image(image_post_url,
                                                                               each_image_path,
                                                                               post_kwargs)
         
@@ -584,6 +582,8 @@ def post_data_to_server(server_url, cameras_folder_path, camera_select, log_to_f
 
 def delay_for_newest_file(newest_file_path, maximum_delay_time_sec = 1.0):
     
+    ''' Helper function used to introduce delays before posting 'new' files, in case they haven't finished writing '''
+    
     # Compare the current time to the newest file time
     current_timestamp = get_local_datetime().timestamp()
     file_timestamp = os.path.getmtime(newest_file_path)
@@ -671,7 +671,7 @@ def scheduled_post(server_url, cameras_folder_path, camera_select,
     try:
         # Post & sleep & post & sleep & ...
         while True:
-                        
+            
             # Post all available data
             response_list = single_post(server_url, cameras_folder_path, camera_select)
             
@@ -688,7 +688,7 @@ def scheduled_post(server_url, cameras_folder_path, camera_select,
         # Catch SIGTERM signals, in case this is running as parallel process that may be terminated
         response_list = build_response_string_list(server_url, "Kill signal received. Posting has been halted!!")
         logger.log_list(response_list)
-        
+    
     return
 
 # .....................................................................................................................
@@ -710,7 +710,7 @@ def single_post(server_url, cameras_folder_path, camera_select):
 
 # .....................................................................................................................
 
-def create_parallel_scheduled_post(server_url, cameras_folder_path, camera_select, 
+def create_parallel_scheduled_post(server_url, cameras_folder_path, camera_select,
                                    post_period_mins = 3.0, 
                                    post_on_startup = True,
                                    log_to_file = True,
@@ -763,7 +763,7 @@ if __name__ == "__main__":
     # Pretend we're logging so we can make use of the same functionality
     logger = create_logger(cameras_folder_path, camera_select, enabled = False)
     logger.log_list(response_list, prepend_empty_line = True)
-    
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Scrap
