@@ -71,13 +71,6 @@ from local.lib.file_access_utils.reporting import build_background_metadata_repo
 from local.lib.file_access_utils.reporting import build_snapshot_image_report_path
 from local.lib.file_access_utils.reporting import build_background_image_report_path
 
-'''
-from local.lib.file_access_utils.classifier import build_classifier_adb_metadata_report_path
-from local.lib.file_access_utils.summary import build_summary_adb_metadata_report_path
-from local.lib.file_access_utils.rules import build_rule_adb_info_report_path
-from local.lib.file_access_utils.rules import build_rule_adb_metadata_report_path
-'''
-
 from local.lib.file_access_utils.read_write import load_jgz
 
 from local.eolib.utils.files import get_file_list, split_to_sublists
@@ -153,13 +146,30 @@ def build_metadata_bulk_post_url(server_url, camera_select, collection_name):
 
 # .....................................................................................................................
 
-def build_metadata_single_post_url(server_url, camera_select, collection_name):
-    return "{}/{}/bdb/metadata/{}".format(server_url, camera_select, collection_name)
+def build_image_post_url(server_url, camera_select, collection_name, image_epoch_ms_str):
+    return "/".join([server_url, camera_select, "bdb", "image", collection_name, image_epoch_ms_str])
 
 # .....................................................................................................................
 
-def build_image_post_url(server_url, camera_select, collection_name, image_epoch_ms_str):
-    return "/".join([server_url, camera_select, "bdb", "image", collection_name, image_epoch_ms_str])
+def get_file_paths_to_post(*parent_folder_paths):
+    
+    ''' Helper function used to get file paths in a consistent style for all data sets '''
+    
+    # Get all files paths for all parent folders provided
+    sorted_file_paths_lists = []
+    for each_parent_folder_path in parent_folder_paths:
+        new_file_path_list = get_file_list(each_parent_folder_path,
+                                           show_hidden_files = False,
+                                           create_missing_folder = False,
+                                           return_full_path = True,
+                                           sort_list = True)
+        sorted_file_paths_lists.append(new_file_path_list)
+    
+    # Special case, return a list of paths directly (rather than list-of-lists of paths) if only one parent given
+    if len(parent_folder_paths) == 1:
+        return sorted_file_paths_lists[0]
+    
+    return sorted_file_paths_lists
 
 # .....................................................................................................................
 # .....................................................................................................................
@@ -177,37 +187,41 @@ def build_response_string_list(server_url, *messages):
     post_datetime_str = get_human_readable_timestamp()
     
     # Build response list
+    reduced_message_iter = (each_message for each_message in messages if len(each_message) > 1)
     response_str_list = \
     ["{} @ {}".format(post_datetime_str, server_url),
-     *messages]
+     *reduced_message_iter]
     
     return response_str_list
 
 # .....................................................................................................................
 
-def build_response_count_string(data_type, collection_name,
-                                num_pass, num_fail, num_dupe, num_total, total_time_ms):
+def build_response_count_string(collection_name, data_type,
+                                num_pass, num_dupe, num_total, total_time_ms):
     
     ''' Helper function which builds post response strings for printing/logging '''
     
+    # Figure out how many posts failed based on inputs
+    num_fail = num_total - num_pass - num_dupe
+    
     # Build strings showing counts of each response outcome
-    # Example: "  2 pass,   0 fail,   1 dupe,   1 skip"
-    build_count_str = lambda count_label, count: "{:>3} {}".format(count, count_label)
+    # Example: "   2 pass,    0 fail,    1 dupe"
+    build_count_str = lambda count_label, count: "{:>4} {}".format(count, count_label)
     pass_str = build_count_str("pass", num_pass)
     fail_str = build_count_str("fail", num_fail)
     dupe_str = build_count_str("dupe", num_dupe)
     count_strs = ", ".join([pass_str, fail_str, dupe_str])
     
     # Build indicator which includes the total response count + the data type (images/metadata) + collection name
-    # Example: "  4 metadata | snapshots  "
-    indicator_str = "{:>3} {:<8} | {:<11}".format(num_total, data_type, collection_name)
+    # Example: "   4 metadata | snapshots  "
+    indicator_str = "{:>4} {:<8} | {:<11}".format(num_total, data_type, collection_name)
     
     # Build timing string
     # Example: "   77ms"
-    time_str = "{:>5.0f}ms".format(total_time_ms)
+    time_str = "{:>6.0f}ms".format(total_time_ms)
     
     # Finally, combine all response data together for a single-line output
-    # Example: "  2 pass,   0 fail,   1 dupe  ||    4 metadata | snapshots    ->    77ms"
+    # Example: "   2 pass,   0 fail,   1 dupe  ||     4 metadata | snapshots    ->     77ms"
     response_message = "{}  ||  {}  -> {}".format(count_strs, indicator_str, time_str)
     
     return response_message
@@ -217,7 +231,7 @@ def build_response_count_string(data_type, collection_name,
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-#%% Define metadata posting helpers
+#%% Define posting helpers
 
 # .....................................................................................................................
 
@@ -247,18 +261,15 @@ def bundle_metadata(metadata_file_paths):
 
 # .....................................................................................................................
 
-def post_metadata_bulk_all(data_insert_list, post_kwargs):
+def bulk_post_metadata(post_kwargs, data_insert_list):
     
     ''' Helper function which handles bulk metadata posts, with error handling '''
     
     # Initialize outputs
     bad_url = False
-    posted_successfully = False
-    
-    # Initialize outputs
-    num_files = len(data_insert_list)
     num_success = 0
     num_duplicate = 0
+    num_total = len(data_insert_list)
     
     try:
         post_response = requests.post(data = ujson.dumps(data_insert_list), **post_kwargs)
@@ -270,14 +281,14 @@ def post_metadata_bulk_all(data_insert_list, post_kwargs):
         
         # Handle success case
         if posted_successfully:
-            num_success = num_files
+            num_success = num_total
             num_duplicate = 0
         
         # Handle counts in duplicate case
         if posted_with_duplicates:
             response_dict = post_response.json()
             num_success = response_dict.get("mongo_response", {}).get("details", {}).get("nInserted", 0)
-            num_duplicate = num_files - num_success
+            num_duplicate = num_total - num_success
         
     except requests.exceptions.Timeout:
         # Occurs when server doesn't respond in time (timeout value is set in post_kwargs)
@@ -290,14 +301,8 @@ def post_metadata_bulk_all(data_insert_list, post_kwargs):
     return bad_url, num_success, num_duplicate
 
 # .....................................................................................................................
-# .....................................................................................................................
 
-# ---------------------------------------------------------------------------------------------------------------------
-#%% Define image data posting helpers
-
-# .....................................................................................................................
-
-def post_single_image(image_post_url, image_path, post_kwargs):
+def single_post_image(image_post_url, image_path, post_kwargs):
     
     # Initialize outputs
     bad_url = False
@@ -330,58 +335,199 @@ def post_single_image(image_post_url, image_path, post_kwargs):
 # .....................................................................................................................
 # .....................................................................................................................
 
+
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Specific posting functions
+
+# .....................................................................................................................
+
+def post_all_camera_info(server_url, cameras_folder_path, camera_select, user_select):
+    
+    # For clarity
+    collection_name = "camerainfo"
+    
+    # Build pathing to all report data
+    md_folder_path = build_camera_info_metadata_report_path(cameras_folder_path, camera_select, user_select)
+    md_file_paths = get_file_paths_to_post(md_folder_path)
+    
+    # Bail if there is no data
+    num_md_files = len(md_file_paths)
+    no_report_data = (num_md_files == 0)
+    if no_report_data:
+        empty_msg = ""
+        return empty_msg, empty_msg
+    
+    # Build url & post the data!
+    post_url = build_metadata_bulk_post_url(server_url, camera_select, collection_name)
+    total_md_success, total_md_duplicate, total_md_time_ms, md_error_message_list = \
+    post_all_metadata_to_server(post_url, md_file_paths)
+    
+    # Build outputs
+    error_msg = "\n".join(md_error_message_list)
+    response_msg = build_response_count_string(collection_name, "metadata",
+                                               total_md_success, total_md_duplicate, num_md_files, total_md_time_ms)
+    
+    return response_msg, error_msg
+
+# .....................................................................................................................
+
+def post_all_background_data(server_url, cameras_folder_path, camera_select, user_select):
+    
+    # For clarity
+    collection_name = "backgrounds"
+    
+    # Build pathing to all report data
+    md_folder_path = build_background_metadata_report_path(cameras_folder_path, camera_select, user_select)
+    img_folder_path = build_background_image_report_path(cameras_folder_path, camera_select, user_select)
+    
+    # Get all metadata paths before images so that the metadata will lag the images on the db
+    # -> This way, we won't have the 'newest' metadata entries posted without corresponding image data!
+    md_file_paths, img_file_paths = get_file_paths_to_post(md_folder_path, img_folder_path)
+    
+    # Bail if there is no data
+    num_md_files = len(md_file_paths)
+    num_img_files = len(img_file_paths)
+    no_report_data = (num_md_files == 0 or num_img_files == 0)
+    if no_report_data:
+        empty_msg = ""
+        return empty_msg, empty_msg, empty_msg
+    
+    # Post image data first, so metadata is guaranteed to reference valid data
+    total_img_success, total_img_duplicate, total_img_time_ms, img_error_message_list = \
+    post_all_images_to_server(server_url, collection_name, img_file_paths)
+    
+    # Build metadata url & post the data!
+    post_url = build_metadata_bulk_post_url(server_url, camera_select, collection_name)
+    total_md_success, total_md_duplicate, total_md_time_ms, md_error_message_list = \
+    post_all_metadata_to_server(post_url, md_file_paths)
+    
+    # Build outputs
+    error_msg = "\n".join(img_error_message_list + md_error_message_list)
+    img_response_msg = build_response_count_string(collection_name, "images",
+                                                   total_img_success,
+                                                   total_img_duplicate,
+                                                   num_img_files,
+                                                   total_img_time_ms)
+    md_response_msg = build_response_count_string(collection_name, "metadata",
+                                                  total_md_success,
+                                                  total_md_duplicate,
+                                                  num_md_files,
+                                                  total_md_time_ms)
+    
+    return img_response_msg, md_response_msg, error_msg
+
+# .....................................................................................................................
+
+def post_all_object_data(server_url, cameras_folder_path, camera_select, user_select):
+    
+    # For clarity
+    collection_name = "objects"
+    
+    # Build pathing to all report data
+    md_folder_path = build_object_metadata_report_path(cameras_folder_path, camera_select, user_select)
+    md_file_paths = get_file_paths_to_post(md_folder_path)
+    
+    # Bail if there is no data
+    num_md_files = len(md_file_paths)
+    no_report_data = (num_md_files == 0)
+    if no_report_data:
+        empty_msg = ""
+        return empty_msg, empty_msg
+    
+    # Build url & post the data!
+    post_url = build_metadata_bulk_post_url(server_url, camera_select, collection_name)
+    total_md_success, total_md_duplicate, total_md_time_ms, md_error_message_list = \
+    post_all_metadata_to_server(post_url, md_file_paths)
+    
+    # Build outputs
+    error_msg = "\n".join(md_error_message_list)
+    response_msg = build_response_count_string(collection_name, "metadata",
+                                               total_md_success, total_md_duplicate, num_md_files, total_md_time_ms)
+    
+    return response_msg, error_msg
+
+# .....................................................................................................................
+
+def post_all_snapshot_data(server_url, cameras_folder_path, camera_select, user_select):
+    
+    # For clarity
+    collection_name = "snapshots"
+    
+    # Build pathing to all report data
+    md_folder_path = build_snapshot_metadata_report_path(cameras_folder_path, camera_select, user_select)
+    img_folder_path = build_snapshot_image_report_path(cameras_folder_path, camera_select, user_select)
+    
+    # Get all metadata paths before images so that the metadata will lag the images on the db
+    # -> This way, we won't have the 'newest' metadata entries posted without corresponding image data!
+    md_file_paths, img_file_paths = get_file_paths_to_post(md_folder_path, img_folder_path)
+    
+    # Bail if there is no data
+    num_md_files = len(md_file_paths)
+    num_img_files = len(img_file_paths)
+    no_report_data = (num_md_files == 0 or num_img_files == 0)
+    if no_report_data:
+        empty_msg = ""
+        return empty_msg, empty_msg, empty_msg
+    
+    # Post image data first, so metadata is guaranteed to reference valid data
+    total_img_success, total_img_duplicate, total_img_time_ms, img_error_message_list = \
+    post_all_images_to_server(server_url, collection_name, img_file_paths)
+    
+    # Build metadata url & post the data!
+    post_url = build_metadata_bulk_post_url(server_url, camera_select, collection_name)
+    total_md_success, total_md_duplicate, total_md_time_ms, md_error_message_list = \
+    post_all_metadata_to_server(post_url, md_file_paths)
+    
+    # Build outputs
+    error_msg = "\n".join(img_error_message_list + md_error_message_list)
+    img_response_msg = build_response_count_string(collection_name, "images",
+                                                   total_img_success,
+                                                   total_img_duplicate,
+                                                   num_img_files,
+                                                   total_img_time_ms)
+    md_response_msg = build_response_count_string(collection_name, "metadata",
+                                                  total_md_success,
+                                                  total_md_duplicate,
+                                                  num_md_files,
+                                                  total_md_time_ms)
+    
+    return img_response_msg, md_response_msg, error_msg
+
+# .....................................................................................................................
+# .....................................................................................................................
+
+
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define high-level posting functions
 
 # .....................................................................................................................
 
-def post_all_metadata_to_server(server_url, camera_select, collection_name, metadata_folder_path,
-                                maximum_subset_size = 500, file_age_buffer_sec = 1.0):
+def post_all_metadata_to_server(post_url, metadata_file_paths, maximum_subset_size = 500, file_age_buffer_sec = 1.0):
     
     ''' Helper function for posting all the metadata in a given folder to the server '''
     
-    # First get all the metadata file paths from the target folder path
-    sorted_paths_list = get_file_list(metadata_folder_path,
-                                      show_hidden_files = False,
-                                      create_missing_folder = False,
-                                      return_full_path = True,
-                                      sort_list = True)
+    # Set up posting info
+    per_bundle_timeout_sec = max(10.0, (maximum_subset_size * 0.5))
+    post_kwargs = {"url": post_url,
+                   "headers": {"Content-Type": "application/json"},
+                   "auth": ("", ""),
+                   "verify": False,
+                   "timeout": per_bundle_timeout_sec}
     
-    # Bail on this if there is no report data, since we'll have nothing to post!
-    num_files_total = len(sorted_paths_list)
-    no_report_data = (num_files_total == 0)
-    if no_report_data:
-        response_msg = "No {} metadata to post!".format(collection_name)
-        error_msg = ""
-        return response_msg, error_msg
-    
-    # -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -
+    # Initialize outputs
+    total_success = 0
+    total_duplicate = 0
+    error_message_list = []
     
     # Pause briefly to give the 'newest' files a chance to finish writing
-    newest_file_path = sorted_paths_list[-1]
+    newest_file_path = metadata_file_paths[-1]
     delay_for_newest_file(newest_file_path, file_age_buffer_sec)
     
     # Start timing
     t1 = perf_counter()
     
-    # Set up posting info
-    bulk_post_url = build_metadata_bulk_post_url(server_url, camera_select, collection_name)
-    post_kwargs = {"url": bulk_post_url,
-                   "headers": {"Content-Type": "application/json"},
-                   "auth": ("", ""),
-                   "verify": False,
-                   "timeout": 15.0}
-    
-    # Initialize storage for error messages
-    error_message_list = []
-    bad_url_error_message = "Metadata posting to bad url:\n{}".format(bulk_post_url)
-    
-    # Allocate storage for output counts
-    total_success = 0
-    total_duplicate = 0
-    
     # Post metadata in subsets
-    sorted_path_sublists = split_to_sublists(sorted_paths_list, maximum_subset_size)
+    sorted_path_sublists = split_to_sublists(metadata_file_paths, maximum_subset_size)
     for each_path_sublist in sorted_path_sublists:
         
         # Collect groups of metadata entries together for bulk-insert into the database
@@ -389,12 +535,13 @@ def post_all_metadata_to_server(server_url, camera_select, collection_name, meta
         error_message_list += bundle_error_msg_list
         
         # Try to post the bundle of data
-        bad_url, num_success, num_duplicate = post_metadata_bulk_all(data_insert_list, post_kwargs)
+        bad_url, num_success, num_duplicate = bulk_post_metadata(post_kwargs, data_insert_list)
         total_success += num_success
         total_duplicate += num_duplicate
         
         # If we're posting to a bad url, bail on everything!
         if bad_url:
+            bad_url_error_message = "Metadata posting to bad url:\n{}".format(post_url)
             error_message_list.append(bad_url_error_message)
             break
         
@@ -406,69 +553,36 @@ def post_all_metadata_to_server(server_url, camera_select, collection_name, meta
     t2 = perf_counter()
     total_time_ms = int(round(1000 * (t2 - t1)))
     
-    # Finally, tally up the results & build a response string to return
-    total_failed = num_files_total - total_success - total_duplicate
-    response_msg = build_response_count_string("metadata",
-                                               collection_name,
-                                               total_success,
-                                               total_failed,
-                                               total_duplicate,
-                                               num_files_total,
-                                               total_time_ms)
-    
-    # Build error message (if present)
-    error_msg = "\n".join(error_message_list)
-    
-    return response_msg, error_msg
+    return total_success, total_duplicate, total_time_ms, error_message_list
 
 # .....................................................................................................................
 
-def post_all_images_to_server(server_url, camera_select, collection_name, image_folder_path,
-                               file_age_buffer_sec = 1.0):
+def post_all_images_to_server(server_url, collection_name, image_file_paths, file_age_buffer_sec = 1.0):
     
     ''' Helper function for posting all the images in a given folder to the server '''
     
-    # First get all the image file paths the target folder path
-    sorted_paths_list = get_file_list(image_folder_path,
-                                      show_hidden_files = False,
-                                      create_missing_folder = False,
-                                      return_full_path = True,
-                                      sort_list = True,
-                                      allowable_exts_list = [".jpg"])
+    # Set up posting info
+    per_image_timeout_sec = 15.0
+    post_kwargs = {"headers": {"Content-Type": "image/jpeg"},
+                   "auth": ("", ""),
+                   "verify": False,
+                   "timeout": per_image_timeout_sec}
     
-    # Bail on this if there is no image data, since we'll have nothing to bundle!
-    num_files_total = len(sorted_paths_list)
-    no_report_data = (num_files_total == 0)
-    if no_report_data:
-        response_msg = "No {} images to post!".format(collection_name)
-        error_msg = ""
-        return response_msg, error_msg
-    
-    # -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -
+    # Initialize storage for outputs
+    error_message_list = []
+    total_success = 0
+    total_duplicate = 0
     
     # Pause briefly to give the 'newest' files a chance to finish writing
-    newest_file_path = sorted_paths_list[-1]
+    newest_file_path = image_file_paths[-1]
     delay_for_newest_file(newest_file_path, file_age_buffer_sec)
     
     # Start timing
     t1 = perf_counter()
     
-    # Set up posting info
-    post_kwargs = {"headers": {"Content-Type": "image/jpeg"},
-                   "auth": ("", ""),
-                   "verify": False,
-                   "timeout": 15.0}
-    
-    # Initialize storage for error messages
-    error_message_list = []
-    
-    # Allocate storage for output counts
-    total_success = 0
-    total_duplicate = 0
-    
     # Post all images
     error_message_list = []
-    for each_image_path in sorted_paths_list:
+    for each_image_path in image_file_paths:
         
         # Figure out the image post url
         image_filename = os.path.basename(each_image_path)
@@ -476,13 +590,13 @@ def post_all_images_to_server(server_url, camera_select, collection_name, image_
         
         # Build the posting url and send the image
         image_post_url = build_image_post_url(server_url, camera_select, collection_name, image_epoch_ms_str)
-        bad_url, image_post_success, image_post_duplicate = post_single_image(image_post_url,
+        bad_url, image_post_success, image_post_duplicate = single_post_image(image_post_url,
                                                                               each_image_path,
                                                                               post_kwargs)
         
         # If we're posting to a bad url, bail on everything!
         if bad_url:
-            bad_url_error_message = "Image posting to bad url:\n{}\n{}".format(each_image_path, image_post_url)
+            bad_url_error_message = "({}) Image posting to bad url:\n@ {}".format(image_filename, image_post_url)
             error_message_list.append(bad_url_error_message)
             break
         
@@ -497,20 +611,7 @@ def post_all_images_to_server(server_url, camera_select, collection_name, image_
     t2 = perf_counter()
     total_time_ms = int(round(1000 * (t2 - t1)))
     
-    # Finally, tally up the results & build a response string to return
-    total_failed = num_files_total - total_success - total_duplicate
-    response_msg = build_response_count_string("images",
-                                               collection_name,
-                                               total_success,
-                                               total_failed,
-                                               total_duplicate,
-                                               num_files_total,
-                                               total_time_ms)
-    
-    # Build error message (if present)
-    error_msg = "\n".join(error_message_list)
-    
-    return response_msg, error_msg
+    return total_success, total_duplicate, total_time_ms, error_message_list
 
 # .....................................................................................................................
 
@@ -523,50 +624,23 @@ def post_data_to_server(server_url, cameras_folder_path, camera_select, log_to_f
     hard_coded_user_select = "live"
     camera_pathing_args = (cameras_folder_path, camera_select, hard_coded_user_select)
     
-    # Build pathing to all report data that needs to get to the database
-    caminfo_metadata_path = build_camera_info_metadata_report_path(*camera_pathing_args)
-    bg_metadata_path = build_background_metadata_report_path(*camera_pathing_args)
-    snap_metadata_path = build_snapshot_metadata_report_path(*camera_pathing_args)
-    obj_metadata_path = build_object_metadata_report_path(*camera_pathing_args)
+    # Post each data set
+    caminfo_log, caminfo_err = post_all_camera_info(server_url, *camera_pathing_args)
+    bg_img_log, bg_md_log, bg_err = post_all_background_data(server_url, *camera_pathing_args)
+    obj_log, obj_err = post_all_object_data(server_url, *camera_pathing_args)
+    snap_img_log, snap_md_log, snap_err = post_all_snapshot_data(server_url, *camera_pathing_args)
     
-    # Post report metadata
-    url_args = (server_url, camera_select)
-    caminfo_md_log, caminfo_md_err = post_all_metadata_to_server(*url_args, "camerainfo", caminfo_metadata_path)
-    bg_md_log, bg_mg_err = post_all_metadata_to_server(*url_args, "backgrounds", bg_metadata_path)
-    snap_md_log, snap_md_err = post_all_metadata_to_server(*url_args, "snapshots", snap_metadata_path)
-    obj_md_log, obj_md_err = post_all_metadata_to_server(*url_args, "objects", obj_metadata_path,
-                                                         maximum_subset_size = 100)
-    
-    # Finish metadata timing
+    # Finish timing
     t2 = perf_counter()
-    
-    # Build pathing to all image data that needs to be sent to the database
-    bg_image_path = build_background_image_report_path(*camera_pathing_args)
-    snap_image_path = build_snapshot_image_report_path(*camera_pathing_args)
-    
-    # *** Important:
-    # *** Images should be posted AFTER metadata
-    # *** to ensure available metadata is always 'behind' available image data on the database
-    # *** this avoids the situation where metadata is available that points to a non-existent image
-    # Post image data
-    bg_img_log, bg_img_err = post_all_images_to_server(*url_args, "backgrounds", bg_image_path)
-    snap_img_log, snap_img_err = post_all_images_to_server(*url_args, "snapshots", snap_image_path)
-    
-    # Finish image timing
-    t3 = perf_counter()
-    
-    # Calculate output timing results
-    mdata_time_taken_ms = 1000 * (t2 - t1)
-    image_time_taken_ms = 1000 * (t3 - t2)
-    timing_response_str = "Metadata took {:.0f} ms, images took {:.0f} ms (w/ protect)".format(mdata_time_taken_ms,
-                                                                                               image_time_taken_ms)
+    total_time_taken_ms = int(round(1000 * (t2 - t1)))
+    timing_response_str = "Took {:.0f} ms total (w/ protect)".format(total_time_taken_ms)
     
     # Build complete response string for feedback/logging
-    full_error_msg_list = [caminfo_md_err, bg_mg_err, snap_md_err, obj_md_err, bg_img_err, snap_img_err]
+    full_error_msg_list = [caminfo_err, bg_err, obj_err, snap_err]
     reduced_error_msg_list = [each_msg for each_msg in full_error_msg_list if each_msg != ""]
     response_list = build_response_string_list(server_url,
-                                               caminfo_md_log, bg_md_log, snap_md_log, obj_md_log,
-                                               bg_img_log, snap_img_log,
+                                               snap_img_log, bg_img_log,
+                                               caminfo_log, bg_md_log, obj_log, snap_md_log,
                                                timing_response_str,
                                                *reduced_error_msg_list)
     
@@ -574,6 +648,7 @@ def post_data_to_server(server_url, cameras_folder_path, camera_select, log_to_f
 
 # .....................................................................................................................
 # .....................................................................................................................
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Automation functions
@@ -767,4 +842,5 @@ if __name__ == "__main__":
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Scrap
+
 
