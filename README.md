@@ -70,11 +70,19 @@ This command will create a docker image (called realtime_image) with all depende
 
 From anywhere:
 
-`docker run -d --network="host" -v /tmp/realtime:/home/scv2/cameras --name realtime realtime_image`
+```
+docker run -d \
+--network="host" \
+-v /tmp/realtime:/home/scv2/cameras \
+--name realtime \
+realtime_image
+```
 
-This command will start up a container running the realtime system. To check that it is working. The easiest way to confirm the system is running is by going to the control server url (default: `localhost:8181`).
+This command will start up a container running the realtime system. The easiest way to confirm the system is running is by going to the control server url (default: `localhost:8181`).
 
 Note that running the realtime system through docker (manually) is often an inconvenient way to use the system. When manually running/reconfiguring files, it is easier to install the system locally!
+
+Also note that the run command above will map persistent data (camera configs) into a temporary folder (`/tmp/realtime`), this may be fine for testing/experimentation, but beware of data loss.
 
 ---
 
@@ -85,12 +93,6 @@ Note that running the realtime system through docker (manually) is often an inco
 `AUTOPOST_PERIOD_MINS` = 1
 
 `CAMERAS_FOLDER_PATH` = (none, defaults to the project foot folder)
-
-`MONGO_PROTOCOL` = 1
-
-`MONGO_HOST` = localhost
-
-`MONGO_PORT` = 27017
 
 `DBSERVER_PROTOCOL` = http
 
@@ -103,8 +105,6 @@ Note that running the realtime system through docker (manually) is often an inco
 `CTRLSERVER_HOST` = 0.0.0.0
 
 `CTRLSERVER_PORT` = 8181
-
-
 
 ---
 
