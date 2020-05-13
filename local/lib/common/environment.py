@@ -124,18 +124,18 @@ def get_dbserver_port():
 
 # .....................................................................................................................
 
-def get_upserver_protocol():
-    return os.environ.get("UPSERVER_PROTOCOL", "http")
+def get_control_server_protocol():
+    return os.environ.get("CTRLSERVER_PROTOCOL", "http")
 
 # .....................................................................................................................
 
-def get_upserver_host():
-    return os.environ.get("UPSERVER_HOST", "0.0.0.0")
+def get_control_server_host():
+    return os.environ.get("CTRLSERVER_HOST", "0.0.0.0")
 
 # .....................................................................................................................
 
-def get_upserver_port():
-    return int(os.environ.get("UPSERVER_PORT", 8181))
+def get_control_server_port():
+    return int(os.environ.get("CTRLSERVER_PORT", 8181))
 
 # .....................................................................................................................
 # .....................................................................................................................

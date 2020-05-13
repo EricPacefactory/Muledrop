@@ -55,7 +55,7 @@ from tqdm import tqdm
 
 from local.lib.common.timekeeper_utils import parse_isoformat_string, datetime_to_epoch_ms, get_local_datetime
 from local.lib.common.launch_helpers import delete_existing_report_data
-from local.lib.common.environment import get_dbserver_protocol, get_dbserver_port, get_upserver_port
+from local.lib.common.environment import get_dbserver_protocol, get_dbserver_port, get_control_server_port
 
 from local.lib.ui_utils.cli_selections import Resource_Selector
 from local.lib.ui_utils.script_arguments import script_arg_builder
@@ -233,9 +233,9 @@ def request_caminfo_metadata(server_url, camera_select, start_epoch_ms, end_epoc
     
     # Build route for requesting all camera info metadata
     request_url = build_request_url(server_url, camera_select, "camerainfo", 
-                                    "get-many-camera-info", "by-time-range",
+                                    "get-many-metadata", "by-time-range",
                                     start_epoch_ms, end_epoch_ms)
-    offline_request_url = build_request_url(server_url, camera_select, "camerainfo", "get-newest-camera-info")
+    offline_request_url = build_request_url(server_url, camera_select, "camerainfo", "get-metadata")
     
     # Grab camera info data
     try:
@@ -511,18 +511,18 @@ if create_new_location:
     
     # Get some default settings
     default_dbserver_port = get_dbserver_port()
-    default_upserver_port = get_upserver_port()
+    default_control_server_port = get_control_server_port()
     
     # Ask user to enter location info
     print("", "----- Enter location info -----", sep = "\n")
     location_name = cli_prompt_with_defaults("Location name: ", return_type = str)
     location_host = cli_prompt_with_defaults("IP address: ", return_type = str)
     location_dbserver_port = cli_prompt_with_defaults("dbserver_port: ", default_dbserver_port, return_type = int)
-    location_upserver_port = cli_prompt_with_defaults("upserver_port: ", default_upserver_port)
+    location_control_server_port = cli_prompt_with_defaults("control_server_port: ", default_control_server_port)
     
     # Add new location entry and quit
     new_location_entry = \
-    create_new_locations_entry(location_name, location_host, location_dbserver_port, location_upserver_port)
+    create_new_locations_entry(location_name, location_host, location_dbserver_port, location_control_server_port)
     update_locations_info(project_root_path, new_location_entry)
     ide_quit()
 

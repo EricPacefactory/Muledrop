@@ -58,7 +58,7 @@ import subprocess
 from waitress import serve as wsgi_serve
 
 from local.lib.common.timekeeper_utils import get_utc_epoch_ms, get_human_readable_timestamp
-from local.lib.common.environment import get_upserver_protocol, get_upserver_host, get_upserver_port
+from local.lib.common.environment import get_control_server_protocol, get_control_server_host, get_control_server_port
 
 from local.lib.ui_utils.cli_selections import Resource_Selector
 from local.lib.ui_utils.script_arguments import script_arg_builder
@@ -86,9 +86,9 @@ from time import sleep
 def parse_upload_args(debug_print = False):
     
     # Set defaults
-    default_protocol = get_upserver_protocol()
-    default_host = get_upserver_host()
-    default_port = get_upserver_port()
+    default_protocol = get_control_server_protocol()
+    default_host = get_control_server_host()
+    default_port = get_control_server_port()
     
     # Set arg help text
     protocol_help_text = "Specify the protocol of the upload server\n(Default: {})".format(default_protocol)

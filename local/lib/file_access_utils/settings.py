@@ -53,7 +53,7 @@ import platform
 
 from local.lib.file_access_utils.read_write import load_or_create_config_json, update_config_json
 
-from local.lib.common.environment import get_dbserver_port, get_upserver_port
+from local.lib.common.environment import get_dbserver_port, get_control_server_port
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define pathing functions
@@ -229,7 +229,7 @@ def load_recording_info(project_root_path):
 # .....................................................................................................................
 
 def create_new_locations_entry(location_name, host,
-                               dbserver_port = None, upserver_port = None,
+                               dbserver_port = None, control_server_port = None,
                                ssh_username = None, ssh_password = None):
     
     ''' Helper function used to create new location entries in the locations settings file '''
@@ -238,12 +238,12 @@ def create_new_locations_entry(location_name, host,
     location_name_str = str(location_name)
     host_str = str(host)
     dbserver_port_int = int(dbserver_port if dbserver_port is not None else get_dbserver_port())
-    upserver_port_int = int(upserver_port if upserver_port is not None else get_upserver_port())
+    control_server_port_int = int(control_server_port if control_server_port is not None else get_control_server_port())
     
     # Build location entry data
     location_data_dict = {"host": host_str,
                           "dbserver_port": dbserver_port_int,
-                          "upserver_port": upserver_port_int,
+                          "control_server_port": control_server_port_int,
                           "ssh_username": ssh_username,
                           "ssh_password": ssh_password}
     new_location_entry = {location_name_str: location_data_dict}

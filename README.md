@@ -54,7 +54,59 @@ Note that each of these scripts can be called with a `-d` flag, which will enabl
 
 By default, all camera data will be placed in a folder called `cameras` located in the root project folder. This can be problematic if using file syncing software (e.g. Dropbox), since the data saved from analyzing cameras can be quite heavy. To avoid this, a settings file exists which stores the pathing to the cameras folder (per computer), which can be modified to point at some other location (outside of an auto-sync'd folder for example). The file can be found under `settings/pathing_info.json` from the root project folder. Note that the folder and file are created after first creating a camera using the editor utilities, so try that first if you can't find the file.
 
-## 
+## Docker (manual use)
+
+The realtime system can be (manually) launched through docker using the following instructions.
+
+#### Build:
+
+From inside the realtime folder:
+
+`docker build -t realtime_image -f ./build/docker/Dockerfile .`
+
+This command will create a docker image (called realtime_image) with all dependencies installed.
+
+#### Run:
+
+From anywhere:
+
+`docker run -d --network="host" -v /tmp/realtime:/home/scv2/cameras --name realtime realtime_image`
+
+This command will start up a container running the realtime system. To check that it is working. The easiest way to confirm the system is running is by going to the control server url (default: `localhost:8181`).
+
+Note that running the realtime system through docker (manually) is often an inconvenient way to use the system. When manually running/reconfiguring files, it is easier to install the system locally!
+
+---
+
+## Environment variables:
+
+`AUTOPOST_ON_STARTUP` = 1
+
+`AUTOPOST_PERIOD_MINS` = 1
+
+`CAMERAS_FOLDER_PATH` = (none, defaults to the project foot folder)
+
+`MONGO_PROTOCOL` = 1
+
+`MONGO_HOST` = localhost
+
+`MONGO_PORT` = 27017
+
+`DBSERVER_PROTOCOL` = http
+
+`DBSERVER_HOST` = localhost
+
+`DBSERVER_PORT` = 8050
+
+`CTRLSERVER_PROTOCOL` = http
+
+`CTRLSERVER_HOST` = 0.0.0.0
+
+`CTRLSERVER_PORT` = 8181
+
+
+
+---
 
 ## MAJOR TODOs
 
