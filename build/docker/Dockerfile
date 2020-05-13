@@ -1,8 +1,8 @@
 # -----------------------------------------------------------------------------
 #%% Base setup
 
-# Start ubuntu-python base
-FROM pybase_image
+# Start with ubuntu-python base
+FROM pacefactory/scv2_ubuntupython_base:1.0.0
 
 
 # -----------------------------------------------------------------------------
@@ -33,9 +33,9 @@ ENV CAMERAS_FOLDER_PATH         $HOME/cameras
 ENV DBSERVER_HOST               localhost
 ENV DBSERVER_PORT               8050
 
-# Set variables for launching the config server
-ENV UPSERVER_HOST               0.0.0.0
-ENV UPSERVER_PORT               8181
+# Set variables for launching the control server
+ENV CTRLSERVER_HOST               0.0.0.0
+ENV CTRLSERVER_PORT               8181
 
 # Set variables to control auto-posting
 ENV AUTOPOST_ON_STARTUP         1
