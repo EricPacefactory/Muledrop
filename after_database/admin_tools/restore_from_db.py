@@ -235,7 +235,7 @@ def request_caminfo_metadata(server_url, camera_select, start_epoch_ms, end_epoc
     request_url = build_request_url(server_url, camera_select, "camerainfo", 
                                     "get-many-metadata", "by-time-range",
                                     start_epoch_ms, end_epoch_ms)
-    offline_request_url = build_request_url(server_url, camera_select, "camerainfo", "get-metadata")
+    offline_request_url = build_request_url(server_url, camera_select, "camerainfo", "get-all-camera-info")
     
     # Grab camera info data
     try:
