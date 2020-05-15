@@ -185,12 +185,12 @@ class Snapshot_Capture(Reference_Snapshot_Capture):
             need_new_snapshot = (current_epoch_ms > self._next_snapshot_time_ms)
             
         except TypeError:
-            # Exception thrown on first eval, since we don't have a next_snapshot_time_m to evaluate
+            # Exception thrown on first eval, since we don't have a next_snapshot_time_ms to evaluate
             need_new_snapshot = True
         
         # Update the next snapshot time if we need a snapshot
         if need_new_snapshot:
-            self._update_next_snapshot_time(current_epoch_ms, current_datetime)
+            self._next_snapshot_time_ms = self._calculate_next_snapshot_time_ms(current_epoch_ms, current_datetime)
         
         return need_new_snapshot
     
@@ -206,18 +206,24 @@ class Snapshot_Capture(Reference_Snapshot_Capture):
     
     # .................................................................................................................
     
-    def _update_next_snapshot_time(self, current_epoch_ms, current_datetime):
+    def _calculate_next_snapshot_time_ms(self, current_epoch_ms, current_datetime):
         
         try:
             # Update next snapshot time based on snapshot period
-            prev_snapshot_time_ms = self._next_snapshot_time_ms
-            self._next_snapshot_time_ms = prev_snapshot_time_ms + self._total_snapshot_period_ms
+            # (add to the previous 'next_time' instead of the current time, so we don't accumulate timing errors)
+            next_snapshot_time_ms = self._next_snapshot_time_ms + self._total_snapshot_period_ms
             
         except TypeError:
             
-            # Will get an error on first run, since previous snapshot time doesn't exist yet!
-            prev_snapshot_time_ms = current_epoch_ms
-            self._next_snapshot_time_ms = prev_snapshot_time_ms + self._total_snapshot_period_ms
+            # Will get an error on first run, since the value of '_next_snapshot_time_ms' doesn't exist yet!
+            next_snapshot_time_ms = current_epoch_ms + self._total_snapshot_period_ms
+        
+        # Check that the newly calculated time isn't already in the past
+        # (may happen if the camera disconnects or hangs for a while)
+        if next_snapshot_time_ms < current_epoch_ms:
+            next_snapshot_time_ms = current_epoch_ms + self._total_snapshot_period_ms
+        
+        return next_snapshot_time_ms
     
     # .................................................................................................................
     # .................................................................................................................
