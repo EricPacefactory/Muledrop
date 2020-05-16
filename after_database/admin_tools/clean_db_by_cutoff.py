@@ -190,7 +190,7 @@ def request_bounding_times(server_url, camera_select):
 
 # .....................................................................................................................
 
-def print_response_feedback(response_dict, collection_name):
+def get_results_string(response_dict, collection_name):
     
     '''
     Helper function for printing deletion feedback 
@@ -211,19 +211,14 @@ def print_response_feedback(response_dict, collection_name):
     '''
     
     # Pull out the raw data we want to print
-    delete_datetime = response_dict.get("deletion_datetime", "unknown delete date!")
+    #delete_datetime = response_dict.get("deletion_datetime", "unknown delete date!")
     time_taken_ms = response_dict.get("time_taken_ms", -1)
     num_deleted = response_dict.get("mongo_response", {}).get("deleted_count", -1)
     
     # Print in nicer format
-    print("",
-          "Results for {}:".format(collection_name),
-          "  Deletion cut-off date: {}".format(delete_datetime),
-          "  Number of files deleted: {}".format(num_deleted),
-          "  Took {} ms".format(time_taken_ms),
-          sep = "\n")
+    results_string = "{} entries deleted, took {} ms".format(num_deleted, time_taken_ms)
     
-    return
+    return results_string
 
 # .....................................................................................................................
 # .....................................................................................................................
@@ -274,16 +269,24 @@ if not connection_is_valid:
 
 # First get a list of available cameras from the server
 camera_names_list = request_camera_list(server_url)
+camera_select_all = "ALL"
+augmented_camera_names_list = [camera_select_all] + camera_names_list
 
 # Prompt user to select which camera they'd like to delete data from
-select_idx, camera_select = cli_select_from_list(camera_names_list, "Select camera:")
+select_idx, user_camera_select = cli_select_from_list(augmented_camera_names_list,
+                                                      "Select camera:",
+                                                      zero_indexed = True)
+
+# Handle 'all' camera selection
+selected_all_cameras = (user_camera_select == camera_select_all)
+single_camera_select = user_camera_select if not selected_all_cameras else camera_names_list[-1]
 
 # Request info about the time range from the database
-snap_bounding_times_dict = request_bounding_times(server_url, camera_select)
+snap_bounding_times_dict = request_bounding_times(server_url, single_camera_select)
 bounding_start_dt = parse_isoformat_string(snap_bounding_times_dict["min_datetime_isoformat"])
 bounding_end_dt = parse_isoformat_string(snap_bounding_times_dict["max_datetime_isoformat"])
 print("",
-      "Data at {} ranges from:".format(camera_select),
+      "Data at {} ranges from:".format(single_camera_select),
       "{} (start)".format(bounding_start_dt),
       "{} (end)".format(bounding_end_dt),
       sep = "\n")
@@ -297,38 +300,48 @@ seconds_to_be_deleted = (selected_deletion_dt - bounding_start_dt).total_seconds
 days_to_be_deleted = max(0, (seconds_to_be_deleted / (60 * 60 * 24)))
 user_confirm_delete = cli_confirm("Will delete {:.1f} days of data. Are you sure?".format(days_to_be_deleted))
 if not user_confirm_delete:
-    print("", "Deletion at {} cancelled!".format(camera_select))
+    print("", "Deletion cancelled!")
     ide_quit()
     
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Start sending deletion requests!
 
-# Bundle shared parhing/selection args
-url_args = (server_url, camera_select, days_to_keep)
-
-# Build urls
-caminfo_url = build_delete_camerainfo_url(*url_args)
-backgrounds_url = build_delete_backgrounds_url(*url_args)
-object_url = build_delete_objects_url(*url_args)
-snapshots_url = build_delete_snapshots_url(*url_args)
-
-# Start requesting deletes!
-print("", "Deleting camera info...", sep = "\n")
-caminfo_delete_response = get_json(caminfo_url, "Error deleting camera info")
-print_response_feedback(caminfo_delete_response, "camera info")
-
-print("", "Deleting backgrounds...", sep = "\n")
-backgrounds_delete_response = get_json(backgrounds_url, "Error deleting backgrounds")
-print_response_feedback(backgrounds_delete_response, "backgrounds")
-
-print("", "Deleting objects...", sep = "\n")
-objects_delete_response = get_json(object_url, "Error deleting objects")
-print_response_feedback(objects_delete_response, "objects")
-
-print("", "Deleting snapshots...", sep = "\n")
-snapshots_delete_response = get_json(snapshots_url, "Error deleting snapshots")
-print_response_feedback(snapshots_delete_response, "snapshots")
+cameras_to_process = camera_names_list if selected_all_cameras else [user_camera_select]
+for each_camera_select in cameras_to_process:
+    
+    # Some feedback
+    print("", "Processing camera: {}".format(each_camera_select), sep = "\n")
+    
+    # Bundle shared parhing/selection args
+    url_args = (server_url, each_camera_select, days_to_keep)
+    
+    # Build urls
+    caminfo_url = build_delete_camerainfo_url(*url_args)
+    backgrounds_url = build_delete_backgrounds_url(*url_args)
+    object_url = build_delete_objects_url(*url_args)
+    snapshots_url = build_delete_snapshots_url(*url_args)
+    
+    # Start requesting deletes!
+    print("  Deleting camera info... ")
+    caminfo_delete_response = get_json(caminfo_url, "Error deleting camera info")
+    caminfo_result_str = get_results_string(caminfo_delete_response, "camera info")
+    print("    {}".format(caminfo_result_str))
+    
+    print("  Deleting backgrounds... ")
+    backgrounds_delete_response = get_json(backgrounds_url, "Error deleting backgrounds")
+    backgrounds_result_str = get_results_string(backgrounds_delete_response, "backgrounds")
+    print("    {}".format(backgrounds_result_str))
+    
+    print("  Deleting objects... ")
+    objects_delete_response = get_json(object_url, "Error deleting objects")
+    objects_result_str = get_results_string(objects_delete_response, "objects")
+    print("    {}".format(objects_result_str))
+    
+    print("  Deleting snapshots... ")
+    snapshots_delete_response = get_json(snapshots_url, "Error deleting snapshots")
+    snapshots_results_str = get_results_string(snapshots_delete_response, "snapshots")
+    print("    {}".format(snapshots_results_str))
 
 
 # ---------------------------------------------------------------------------------------------------------------------
