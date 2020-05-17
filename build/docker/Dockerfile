@@ -60,13 +60,13 @@ RUN pip3 install -r requirements.txt
 COPY . .
 
 # Run the upload server! This is a blocking call...
-CMD ["python3", "-u", "configuration_utilities/uploader/upload_server.py"]
+CMD ["python3", "-u", "configuration_utilities/control/control_server.py"]
 
 
 # -----------------------------------------------------------------------------
 # To use manually:
 
-# From outside realtime project directory:
-# sudo docker build -t realtime_image -f ./realtime/build/docker/Dockerfile ./realtime
+# From the realtime root project directory:
+# sudo docker build -t realtime_image -f ./build/docker/Dockerfile .
 # sudo docker run -d --network="host" -v /tmp/realtime:/home/scv2/cameras --name realtime_container realtime_image
 

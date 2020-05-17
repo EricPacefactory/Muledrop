@@ -83,7 +83,7 @@ from time import sleep
 
 # .....................................................................................................................
 
-def parse_upload_args(debug_print = False):
+def parse_control_args(debug_print = False):
     
     # Set defaults
     default_protocol = get_control_server_protocol()
@@ -91,9 +91,9 @@ def parse_upload_args(debug_print = False):
     default_port = get_control_server_port()
     
     # Set arg help text
-    protocol_help_text = "Specify the protocol of the upload server\n(Default: {})".format(default_protocol)
-    host_help_text = "Specify the host of the upload server\n(Default: {})".format(default_host)
-    port_help_text = "Specify the port of the upload server\n(Default: {})".format(default_port)
+    protocol_help_text = "Specify the protocol of the control server\n(Default: {})".format(default_protocol)
+    host_help_text = "Specify the host of the control server\n(Default: {})".format(default_host)
+    port_help_text = "Specify the port of the control server\n(Default: {})".format(default_port)
     
     # Set script arguments for running files
     args_list = [{"display": {"default": False, "help_text": "Enable display during data collection"}},
@@ -103,7 +103,7 @@ def parse_upload_args(debug_print = False):
                  {"port": {"default": default_port, "help_text": port_help_text}}]
     
     # Provide some extra information when accessing help text
-    script_description = "Launch a server for handling configuration file uploads."
+    script_description = "Launch a server for handling camera control"
     
     # Build & evaluate script arguments!
     ap_result = script_arg_builder(args_list,
@@ -423,7 +423,7 @@ def launch_file_collect(camera_select, user_select, video_select,
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Parse input args
 
-ap_result = parse_upload_args()
+ap_result = parse_control_args()
 
 
 # ---------------------------------------------------------------------------------------------------------------------
