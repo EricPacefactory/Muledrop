@@ -90,7 +90,7 @@ Also note that the run command above will map persistent data (camera configs) i
 
 `AUTOPOST_ON_STARTUP` = 1
 
-`AUTOPOST_PERIOD_MINS` = 1
+`AUTOPOST_PERIOD_MINS` = 2.5
 
 `CAMERAS_FOLDER_PATH` = (none, defaults to the project foot folder)
 
