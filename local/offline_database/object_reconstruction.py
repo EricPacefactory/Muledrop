@@ -58,7 +58,7 @@ from scipy.interpolate import UnivariateSpline
 from scipy.spatial import cKDTree
 
 from local.lib.common.feedback import print_time_taken_ms
-from local.lib.common.timekeeper_utils import time_to_epoch_ms
+from local.lib.common.timekeeper_utils import any_time_type_to_epoch_ms
 
 from local.eolib.utils.read_write import save_csv_dict
 
@@ -87,8 +87,8 @@ class Object_Reconstruction:
         self.end_ems = self.metadata["final_epoch_ms"]
         
         # Store global start/end times, used for relative timing calculations
-        self.global_start_ems = time_to_epoch_ms(global_start_time)
-        self.global_end_ems = time_to_epoch_ms(global_end_time)
+        self.global_start_ems = any_time_type_to_epoch_ms(global_start_time)
+        self.global_end_ems = any_time_type_to_epoch_ms(global_end_time)
         self.global_length_ems = self.global_end_ems - self.global_start_ems
         
         # Store relative timing (normalized values, based on global time range)

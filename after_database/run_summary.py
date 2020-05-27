@@ -58,6 +58,7 @@ from local.lib.common.feedback import print_time_taken_ms
 
 from local.lib.ui_utils.cli_selections import Resource_Selector
 
+from local.lib.file_access_utils.structures import create_missing_folder_path
 from local.lib.file_access_utils.summary import build_summary_adb_metadata_report_path
 from local.lib.file_access_utils.summary import load_summary_config, save_summary_report_data
 
@@ -104,7 +105,7 @@ def delete_existing_summary_data(enable_deletion_prompt,
     
     # Build pathing to summary data
     summary_data_folder = build_summary_adb_metadata_report_path(cameras_folder_path, camera_select, user_select)
-    os.makedirs(summary_data_folder, exist_ok = True)
+    create_missing_folder_path(summary_data_folder)
     
     # Check if data already exists
     existing_file_count, _, total_file_size_mb, _ = get_total_folder_size(summary_data_folder)

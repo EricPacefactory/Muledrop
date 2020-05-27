@@ -52,7 +52,9 @@ find_path_to_local()
 from local.lib.file_access_utils.after_database import build_after_database_configs_folder_path
 from local.lib.file_access_utils.reporting import build_after_database_report_path
 from local.lib.file_access_utils.resources import build_base_resources_path
-from local.lib.file_access_utils.read_write import save_config_json, load_config_json, save_jgz, load_jgz
+from local.lib.file_access_utils.json_read_write import save_config_json, load_config_json
+from local.lib.file_access_utils.metadata_read_write import save_json_metadata
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% General Pathing functions
@@ -257,16 +259,11 @@ def save_classifier_config(configurable_ref, file_dunder = __file__):
 
 def save_classifier_report_data(cameras_folder_path, camera_select, user_select, report_data_dict):
     
-    # Get object id from the report data
-    object_full_id = report_data_dict["full_id"]
-    
     # Build pathing to save
-    save_file_name = create_classifier_report_file_name(object_full_id)
     save_folder_path = build_classifier_adb_metadata_report_path(cameras_folder_path, camera_select, user_select)
-    save_file_path = os.path.join(save_folder_path, save_file_name)
     
     # Save!
-    save_jgz(save_file_path, report_data_dict, create_missing_folder_path = True)
+    save_json_metadata(save_folder_path, report_data_dict)
 
 # .....................................................................................................................
     
@@ -314,7 +311,8 @@ def new_classifier_report_entry(object_full_id,
     # Figure out the 'best estimate' for the subclass label, defaulting to whatever the topclass is...
     subclass_label, _ = get_highest_score_label(subclass_dict, "")
     
-    return {"full_id": object_full_id,
+    return {"_id": object_full_id,
+            "full_id": object_full_id,
             "topclass_label": topclass_label,
             "subclass_label": subclass_label,
             "topclass_dict": topclass_dict,

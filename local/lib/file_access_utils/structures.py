@@ -286,6 +286,25 @@ def build_cameras_tree(cameras_folder, show_hidden = False):
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Helper functions
+
+# .....................................................................................................................
+
+def create_missing_folder_path(folder_path):
+    
+    ''' Helper function which creates missing folder paths '''
+    
+    os.makedirs(folder_path, exist_ok = True)
+
+# .....................................................................................................................
+
+def create_missing_folders_from_file(file_path):
+    
+    ''' Helper function which creates the folder pathing needed for a given file path '''
+    
+    folder_path = os.path.dirname(file_path)
+    os.makedirs(folder_path, exist_ok = True)
+    
+    return folder_path
     
 # .....................................................................................................................
     

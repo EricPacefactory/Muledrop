@@ -52,7 +52,7 @@ find_path_to_local()
 from local.lib.ui_utils.cli_selections import Resource_Selector
 
 from local.lib.file_access_utils.summary import build_summary_config_path
-from local.lib.file_access_utils.read_write import load_config_json, save_config_json
+from local.lib.file_access_utils.json_read_write import load_config_json, save_config_json
 
 from local.configurables.after_database.summary.minimal_summary import Summary_Stage
 

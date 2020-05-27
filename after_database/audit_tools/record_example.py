@@ -57,8 +57,9 @@ from tqdm import tqdm
 
 from local.lib.ui_utils.cli_selections import Resource_Selector
 
-from local.lib.common.timekeeper_utils import parse_isoformat_string, fake_datetime_like
+from local.lib.common.timekeeper_utils import isoformat_to_datetime, fake_datetime_like
 
+from local.lib.file_access_utils.structures import create_missing_folder_path
 from local.lib.file_access_utils.settings import load_recording_info
 
 from local.offline_database.file_database import launch_file_db, close_dbs_if_missing_data
@@ -159,7 +160,7 @@ def build_recording_path(base_path, camera_select, user_select, timelapse_factor
     
     # Build full folder pathing
     recording_folder = os.path.join(base_path, "safety-cv-exports", "recordings")
-    os.makedirs(recording_folder, exist_ok = True)
+    create_missing_folder_path(recording_folder)
     
     # Build timelapse str, if it isn't just 1
     tl_str = "" 
@@ -219,7 +220,7 @@ def draw_timestamp(display_frame, snapshot_metadata, fg_config, bg_config, repla
     
     # Get snapshot timing info
     datetime_isoformat = snapshot_metadata["datetime_isoformat"]
-    snap_dt = parse_isoformat_string(datetime_isoformat)
+    snap_dt = isoformat_to_datetime(datetime_isoformat)
     
     # Convert timing to 'relative' time, if needed
     if use_relative_time:

@@ -51,6 +51,8 @@ find_path_to_local()
 
 from shutil import rmtree
 
+from local.lib.file_access_utils.structures import create_missing_folder_path
+
 from local.lib.file_access_utils.reporting import build_user_report_path
 
 from local.eolib.utils.files import get_total_folder_size
@@ -92,7 +94,7 @@ def delete_existing_report_data(cameras_folder_path, camera_select, user_select,
     
     # Build pathing to report data
     report_data_folder = build_user_report_path(cameras_folder_path, camera_select, user_select)
-    os.makedirs(report_data_folder, exist_ok = True)
+    create_missing_folder_path(report_data_folder)
     
     # Check if data already exists
     existing_file_count, _, total_file_size_mb, _ = get_total_folder_size(report_data_folder)

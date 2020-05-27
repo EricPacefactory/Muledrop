@@ -51,7 +51,7 @@ find_path_to_local()
 
 import platform
 
-from local.lib.file_access_utils.read_write import load_or_create_config_json, update_config_json
+from local.lib.file_access_utils.json_read_write import load_or_create_config_json, update_config_json
 
 from local.lib.common.environment import get_dbserver_port, get_control_server_port
 
@@ -140,7 +140,7 @@ def load_screen_info(project_root_path):
     default_screen = {"width": 1920,  "height": 1080, "x_offset": 0, "y_offset": 0}
     default_controls = {"max_columns": 3,  "max_width": 500, "column_spacing": 20, "row_spacing": 250,
                         "x_padding": 20, "y_padding": 20, "empty_height": 30}
-    default_displays = {"max_width": None, "max_height": None, 
+    default_displays = {"max_width": 1280, "max_height": 720, 
                         "top_left_x": 40, "top_left_y": 175, "reserved_vertical": 150}
     default_feedback = {"width": 300, "x_padding": 20, "y_padding": 20, "row_spacing": 20}
     

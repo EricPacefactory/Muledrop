@@ -51,7 +51,8 @@ find_path_to_local()
 
 from local.lib.file_access_utils.after_database import build_after_database_configs_folder_path
 from local.lib.file_access_utils.reporting import build_after_database_report_path
-from local.lib.file_access_utils.read_write import load_config_json, save_config_json, save_jgz
+from local.lib.file_access_utils.json_read_write import load_config_json, save_config_json
+from local.lib.file_access_utils.metadata_read_write import save_jsongz_metadata
 
 from local.eolib.utils.files import get_file_list
 from local.eolib.utils.cli_tools import cli_confirm, cli_select_from_list, cli_prompt_with_defaults
@@ -101,16 +102,6 @@ def create_safe_rule_name(rule_name):
     return rule_name.strip().replace(" ", "_")
 
 # .....................................................................................................................
-
-def create_rule_report_file_name(object_full_id):
-    return "rule-{}.json.gz".format(object_full_id)
-
-# .....................................................................................................................
-
-def create_rule_info_file_name(rule_name):
-    return "{}.json.gz".format(rule_name)
-
-# .....................................................................................................................
 # .....................................................................................................................
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -131,9 +122,8 @@ def save_rule_info(cameras_folder_path, camera_select, user_select, rule_refs_di
         rule_info_dict = each_rule_ref.get_rule_info(each_rule_name)
         
         # Get pathing to where to save each rule's info file & save it!
-        save_file_name = create_rule_info_file_name(each_rule_name)
-        save_path = build_rule_adb_info_report_path(cameras_folder_path, camera_select, user_select, save_file_name)
-        save_jgz(save_path, rule_info_dict, create_missing_folder_path = True)
+        save_path = build_rule_adb_info_report_path(cameras_folder_path, camera_select, user_select)
+        save_jsongz_metadata(save_path, rule_info_dict, create_missing_folder_path = True)
     
     return
 
@@ -157,21 +147,20 @@ def save_rule_report_data(cameras_folder_path, camera_select, user_select, rule_
     ''' Function which saves rule reporting data (as opposed to config data!) '''
     
     # Build pathing to save
-    save_file_name = create_rule_report_file_name(object_full_id)
-    save_file_path = build_rule_adb_metadata_report_path(cameras_folder_path, camera_select, user_select, 
-                                                         rule_name, save_file_name)
+    save_file_path = build_rule_adb_metadata_report_path(cameras_folder_path, camera_select, user_select, rule_name)
     
     # Bundle data and save
     save_data = new_rule_report_entry(object_full_id, rule_type, rule_results_dict, rule_results_list)
-    save_jgz(save_file_path, save_data, create_missing_folder_path = True)
+    save_jsongz_metadata(save_file_path, save_data)
     
 # .....................................................................................................................
     
 def new_rule_report_entry(object_full_id, rule_type, rule_results_dict, rule_results_list):
     
     ''' Helper function for creating properly formatted evalutaed rule entries '''
-    
-    return {"full_id": object_full_id, 
+    rule_break_timing_ems = None
+    return {"_id": rule_break_timing_ems,
+            "full_id": object_full_id, 
             "rule_type": rule_type, 
             "num_violations": len(rule_results_list),
             "rule_results_dict": rule_results_dict,

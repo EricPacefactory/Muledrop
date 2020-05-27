@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Thu Sep 26 13:03:40 2019
+Created on Tue May 26 11:11:11 2020
 
 @author: eo
 """
@@ -55,7 +55,8 @@ from local.lib.launcher_utils.video_processing_loops import Background_Capture_V
 from local.lib.ui_utils.display_specification import Input_Display, Background_Display
 
 from local.configurables.externals.background_capture._helper_functions import Stats_Display
-    
+
+
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define displays
 
@@ -65,8 +66,8 @@ class Custom_Stats_Display(Stats_Display):
     
     def _max_ram_usage_mb(self, configurable_ref, ram_mb_per_frame):
         
-        # Median can load many capture images into RAM!
-        max_frame_count = configurable_ref.max_captures_to_use
+        # Rolling average loads 2 frames (1 capture + 1 newest generated background)
+        max_frame_count = 2
         
         return ram_mb_per_frame * max_frame_count
 
@@ -78,7 +79,8 @@ class Custom_Stats_Display(Stats_Display):
 #%% Main
 
 # Make all required selections and setup/configure everything
-loader = Reconfigurable_Background_Capture_Loader("averaging_backgroundcapture")
+loader = Reconfigurable_Background_Capture_Loader("rollingaverage_backgroundcapture")
+loader.ask_to_reset_resources()
 configurable_ref = loader.setup_all(__file__)
 
 # Set up object to handle all video processing

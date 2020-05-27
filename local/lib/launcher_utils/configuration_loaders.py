@@ -59,16 +59,21 @@ from local.lib.ui_utils.script_arguments import script_arg_builder
 
 from local.lib.launcher_utils.video_setup import File_Video_Reader, Threaded_File_Video_Reader, RTSP_Video_Reader
 from local.lib.launcher_utils.core_bundle_loader import Core_Bundle
+from local.lib.launcher_utils.resource_initialization import initialize_background_and_framerate_from_file
+from local.lib.launcher_utils.resource_initialization import initialize_background_and_framerate_from_rtsp
 
 from local.configurables.configurable_template import configurable_dot_path
 
+from local.lib.file_access_utils.structures import create_missing_folder_path
 from local.lib.file_access_utils.pid_files import save_pid_file, clear_all_pid_files, clear_one_pid_file
 from local.lib.file_access_utils.externals import build_externals_folder_path
 from local.lib.file_access_utils.reporting import build_camera_info_metadata_report_path
+from local.lib.file_access_utils.resources import reset_capture_folder, reset_generate_folder
 from local.lib.file_access_utils.video import Playback_Access, load_rtsp_config
 from local.lib.file_access_utils.screen_info import Screen_Info
-from local.lib.file_access_utils.read_write import load_config_json, save_config_json, save_jgz
-from local.lib.file_access_utils.read_write import dict_to_human_readable_output
+from local.lib.file_access_utils.json_read_write import load_config_json, save_config_json
+from local.lib.file_access_utils.json_read_write import dict_to_human_readable_output
+from local.lib.file_access_utils.metadata_read_write import save_jsongz_metadata
 
 from local.eolib.utils.cli_tools import cli_confirm
 from local.eolib.utils.function_helpers import dynamic_import_from_module
@@ -97,6 +102,7 @@ class File_Configuration_Loader:
         self.video_wh = None
         self.video_fps = None
         self.video_type = None
+        self.estimated_video_fps = None
         self.playback_settings = None
         
         # Allocate storage for core processing bundle
@@ -200,6 +206,22 @@ class File_Configuration_Loader:
         video_width, video_height = self.video_wh
         snap_width, snap_height = self.snapcap.get_snapshot_wh()
         
+        # Load all core config data for reporting
+        core_configs_dict = {}
+        for each_stage_name, each_core_stage in self.core_bundle.core_ref_dict.items():
+            access_info_dict, setup_data_dict = each_core_stage.get_data_to_save()
+            core_configs_dict[each_stage_name] = {"access_info": access_info_dict, "setup_data": setup_data_dict}
+        
+        # Load all externals config data for reporting
+        externals_configs_dict = {}
+        externals_load_zip = zip(["snapshots", "backgrounds", "objects"], [self.snapcap, self.bgcap, self.objcap])
+        for each_stage_name, each_ext_stage in externals_load_zip:
+            access_info_dict, setup_data_dict = each_ext_stage.get_data_to_save()
+            externals_configs_dict[each_stage_name] = {"access_info": access_info_dict, "setup_data": setup_data_dict}
+        
+        # Bundle camera configs for convenience
+        camera_configs_dict = {"core": core_configs_dict, "externals": externals_configs_dict}
+        
         # Bundle info for saving
         caminfo_id = start_epoch_ms
         camera_info_dict = {"_id": caminfo_id,
@@ -208,20 +230,21 @@ class File_Configuration_Loader:
                             "start_datetime_isoformat": start_dt_str,
                             "start_epoch_ms": start_epoch_ms,
                             "video_select": self.video_select,
-                            "video_fps": self.video_fps,
+                            "reported_video_fps": self.video_fps,
+                            "estimated_video_fps": self.estimated_video_fps,
                             "video_width": video_width,
                             "video_height": video_height,
                             "snapshot_width": snap_width,
-                            "snapshot_height": snap_height}
+                            "snapshot_height": snap_height,
+                            "configuration": camera_configs_dict}
         
         # Build pathing to the camera reporting folder & save
         if self.saving_enabled:
-            camera_info_file_name = "caminfo-{}.json.gz".format(caminfo_id)
-            camera_info_file_path = build_camera_info_metadata_report_path(self.cameras_folder_path,
-                                                                           self.camera_select,
-                                                                           self.user_select,
-                                                                           camera_info_file_name)
-            save_jgz(camera_info_file_path, camera_info_dict, create_missing_folder_path = True)
+            camera_info_folder_path = build_camera_info_metadata_report_path(self.cameras_folder_path,
+                                                                             self.camera_select,
+                                                                             self.user_select)
+            create_missing_folder_path(camera_info_folder_path)
+            save_jsongz_metadata(camera_info_folder_path, camera_info_dict)
         
         return
         
@@ -265,9 +288,6 @@ class File_Configuration_Loader:
         new_bgcap.toggle_resource_saving(self.saving_enabled)
         new_bgcap.toggle_threaded_saving(self.threading_enabled)
         
-        # Make sure we always have a background image on startup
-        new_bgcap.generate_on_startup(self.vreader)
-        
         # Finally, store background capture for re-use
         self.bgcap = new_bgcap
         
@@ -286,8 +306,7 @@ class File_Configuration_Loader:
         new_snapcap.reconfigure(setup_data_dict)
         
         # Enable/disable saving behaviors
-        new_snapcap.toggle_image_saving(self.saving_enabled)
-        new_snapcap.toggle_metadata_saving(self.saving_enabled)
+        new_snapcap.toggle_report_saving(self.saving_enabled)
         new_snapcap.toggle_threaded_saving(self.threading_enabled)
         
         # Finally, store snapshot capture for re-use
@@ -312,7 +331,7 @@ class File_Configuration_Loader:
         new_objcap.reconfigure(setup_data_dict)
         
         # Enable/disable saving behaviors
-        new_objcap.toggle_metadata_saving(self.saving_enabled)
+        new_objcap.toggle_report_saving(self.saving_enabled)
         new_objcap.toggle_threaded_saving(self.threading_enabled)
         
         # Finally, store object capture for re-use
@@ -351,7 +370,26 @@ class File_Configuration_Loader:
     
     # .................................................................................................................
     
+    def setup_resources(self):
+        
+        # Make sure we always have a background image before doing anything else
+        framerate_estimate = initialize_background_and_framerate_from_file(self.cameras_folder_path,
+                                                                           self.camera_select,
+                                                                           self.vreader,
+                                                                           force_capture_reset = self.saving_enabled)
+        
+        # Store framerate estimate, which can report with camera info
+        self.estimated_video_fps = framerate_estimate
+        
+        return
+    
+    # .................................................................................................................
+    
     def setup_all(self):
+        
+        # Set up access to video & make sure we have all resource before loading any other configs
+        self.setup_video_reader()
+        self.setup_resources()
         
         # Get human readable timestamp for feedback
         start_timestamp = get_human_readable_timestamp()
@@ -360,7 +398,6 @@ class File_Configuration_Loader:
         self._save_pid_file(start_timestamp)
         
         # Setup all main processing components
-        self.setup_video_reader()
         self.setup_core_bundle()
         self.setup_externals()
         self.get_screen_info()
@@ -519,6 +556,20 @@ class RTSP_Configuration_Loader(File_Configuration_Loader):
         return self.vreader
     
     # .................................................................................................................
+    
+    def setup_resources(self):
+        
+        # Make sure we always have a background image before doing anything else
+        framerate_estimate = initialize_background_and_framerate_from_rtsp(self.cameras_folder_path,
+                                                                           self.camera_select,
+                                                                           self.vreader)
+        
+        # Store framerate estimate, which can report with camera info
+        self.estimated_video_fps = framerate_estimate
+        
+        return
+    
+    # .................................................................................................................
     # .................................................................................................................
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -607,11 +658,14 @@ class Reconfigurable_Loader(File_Configuration_Loader):
     
     def setup_all(self, file_dunder):
         
+        # Set up access to video & make sure we have all resource before loading any other configs
+        self.setup_video_reader()
+        self.setup_resources()
+        
         # Store configuration utility info
         self.record_configuration_utility(file_dunder)
         
         # Setup all main processing components
-        self.setup_video_reader()
         self.setup_playback_access()
         self.setup_core_bundle()
         self.setup_externals()
@@ -815,8 +869,7 @@ class Reconfigurable_Snapshot_Capture_Loader(Reconfigurable_Loader):
         new_snapcap.reconfigure(setup_data_dict)
         
         # Enable/disable saving behaviors
-        new_snapcap.toggle_image_saving(self.saving_enabled)
-        new_snapcap.toggle_metadata_saving(self.saving_enabled)
+        new_snapcap.toggle_report_saving(self.saving_enabled)
         new_snapcap.toggle_threaded_saving(self.threading_enabled)
         
         # Finally, store snapshot capture for re-use
@@ -847,6 +900,9 @@ class Reconfigurable_Background_Capture_Loader(Reconfigurable_Loader):
         # Will need to turn on saving in order to properly use background capture during config!
         self.toggle_saving(True)
         self.toggle_threaded_saving(False)
+        
+        # Always reset captures
+        reset_capture_folder(self.cameras_folder_path, self.camera_select)
     
     # .................................................................................................................
     
@@ -873,16 +929,6 @@ class Reconfigurable_Background_Capture_Loader(Reconfigurable_Loader):
               "  Data saving (background capture & generated images) will be enabled for configuration purposes!",
               sep = "\n")
         
-        # Ask to delete existing background data to avoid messing up results from different bgcap implementations
-        user_confirm_delete = cli_confirm("Delete existing background data?")
-        new_bgcap.clear_resources(user_confirm_delete)
-        
-        # Make sure we always have a background image on startup
-        user_confirm_generate = False
-        if not user_confirm_delete:
-            user_confirm_generate = cli_confirm("Generate initial background from full video source?")
-        new_bgcap.generate_on_startup(self.vreader, force_generate = user_confirm_generate)
-        
         # Finally, store background capture for re-use
         self.bgcap = new_bgcap
         
@@ -890,6 +936,22 @@ class Reconfigurable_Background_Capture_Loader(Reconfigurable_Loader):
         self.configurable_ref = self.bgcap
         
         return self.bgcap
+    
+    # .................................................................................................................
+    
+    def ask_to_reset_resources(self):
+        
+        '''
+        Helper function intended to help ensure a 'clean' starting point when running background configs
+        This is especially useful in cases where existing background data is used to generate future backgrounds
+        '''
+        
+        # Make sure user confirms resource reset
+        user_confirm_reset = cli_confirm("Reset existing background resources?")
+        if user_confirm_reset:
+            reset_generate_folder(self.cameras_folder_path, self.camera_select)
+        
+        return user_confirm_reset
     
     # .................................................................................................................
     # .................................................................................................................
@@ -926,7 +988,7 @@ class Reconfigurable_Object_Capture_Loader(Reconfigurable_Loader):
         new_objcap.reconfigure(setup_data_dict)
         
         # Enable/disable saving behaviors
-        new_objcap.toggle_metadata_saving(self.saving_enabled)
+        new_objcap.toggle_report_saving(self.saving_enabled)
         new_objcap.toggle_threaded_saving(self.threading_enabled)
         
         # Finally, store the object capture

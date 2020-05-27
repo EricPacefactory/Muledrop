@@ -223,6 +223,12 @@ class Configurable_Base:
         '''
         Function which returns a json-friendly output describing the current
         configuration settings (i.e. settings that can be controlled) of this object
+        
+        Inputs:
+            None!
+        
+        Outputs:
+            save_draw_json, nosave_draw_json, save_slider_json, nosave_slider_json, invisible_vars_set
         '''
         
         # Grab variable name info from the control specs
@@ -260,8 +266,11 @@ class Configurable_Base:
         Function used to get the data/info needed to save this configurable.
         Not responsible for providing file pathing or actually performing the save however!
         
-        No inputs
-        Returns: access_info_dict, setup_data_dict
+        Inputs:
+            None!
+            
+        Outputs: 
+            access_info_dict, setup_data_dict
         '''
         
         # Grab relevant data for saving

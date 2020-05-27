@@ -51,7 +51,8 @@ find_path_to_local()
 
 from local.lib.file_access_utils.after_database import build_after_database_configs_folder_path
 from local.lib.file_access_utils.reporting import build_after_database_report_path
-from local.lib.file_access_utils.read_write import load_config_json, save_jgz
+from local.lib.file_access_utils.json_read_write import load_config_json
+from local.lib.file_access_utils.metadata_read_write import save_jsongz_metadata
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -72,17 +73,6 @@ def build_summary_adb_metadata_report_path(cameras_folder_path, camera_select, u
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-#%% File naming functions
-
-# .....................................................................................................................
-
-def create_summary_report_file_name(object_full_id):
-    return "summary-{}.json.gz".format(object_full_id)
-
-# .....................................................................................................................
-# .....................................................................................................................
-
-# ---------------------------------------------------------------------------------------------------------------------
 #%% Data access functions
 
 # .....................................................................................................................
@@ -90,13 +80,11 @@ def create_summary_report_file_name(object_full_id):
 def save_summary_report_data(cameras_folder_path, camera_select, user_select, object_full_id, summary_data_dict):
     
     # Build pathing to save
-    save_file_name = create_summary_report_file_name(object_full_id)
     save_folder_path = build_summary_adb_metadata_report_path(cameras_folder_path, camera_select, user_select)
-    save_file_path = os.path.join(save_folder_path, save_file_name)
     
     # Bundle data and save
     save_data = new_summary_report_entry(object_full_id, summary_data_dict)
-    save_jgz(save_file_path, save_data, create_missing_folder_path = True)
+    save_jsongz_metadata(save_folder_path, save_data)
     
 # .....................................................................................................................
     
@@ -104,7 +92,7 @@ def new_summary_report_entry(object_full_id, summary_data_dict):
     
     ''' Helper function for creating properly formatted summary entries '''
     
-    return {"full_id": object_full_id, **summary_data_dict}
+    return {"_id": object_full_id, "full_id": object_full_id, **summary_data_dict}
 
 # .................................................................................................................
     

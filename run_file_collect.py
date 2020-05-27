@@ -58,6 +58,7 @@ from local.lib.ui_utils.script_arguments import script_arg_builder
 from local.lib.launcher_utils.configuration_loaders import File_Configuration_Loader
 from local.lib.launcher_utils.video_processing_loops import Video_Processing_Loop
 
+from local.lib.file_access_utils.structures import create_missing_folder_path
 from local.lib.file_access_utils.reporting import build_user_report_path
 
 from local.eolib.utils.files import get_total_folder_size
@@ -72,12 +73,11 @@ def parse_run_args(debug_print = False):
     
     # Set script arguments for running files
     args_list = ["camera",
-                 "user", 
-                 "video", 
-                 "display", 
-                 {"threaded_video": {"default": True}}, 
-                 {"threaded_save": {"default": True}},
-                 "save_and_keep", 
+                 "user",
+                 "video",
+                 "display",
+                 {"threaded_video": {"default": True}},
+                 "save_and_keep",
                  "save_and_delete",
                  "skip_save"]
     
@@ -129,7 +129,7 @@ def delete_existing_report_data(enable_deletion_prompt, configuration_loader, sa
     
     # Build pathing to report data
     report_data_folder = build_user_report_path(cameras_folder_path, camera_select, user_select)
-    os.makedirs(report_data_folder, exist_ok = True)
+    create_missing_folder_path(report_data_folder)
     
     # Check if data already exists
     existing_file_count, _, total_file_size_mb, _ = get_total_folder_size(report_data_folder)
@@ -158,11 +158,13 @@ def delete_existing_report_data(enable_deletion_prompt, configuration_loader, sa
 
 # Parse script arguments in case we're running automated
 ap_result = parse_run_args()
-threaded_save = ap_result.get("threaded_save", False)
 save_and_keep = ap_result.get("save_keep", False)
 save_and_delete = ap_result.get("save_delete", False)
 skip_save = ap_result.get("skip_save", False)
 provide_prompts = (not (save_and_keep or save_and_delete))
+
+# Hard-code threaded saving off, when running on files (ensures deterministic timing)
+threaded_save = False
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Setup
@@ -177,7 +179,7 @@ save_data = save_data_prompt(provide_prompts, skip_save)
 if save_data:
     delete_existing_report_data(provide_prompts, loader, save_and_keep)
 
-# Turn on saving if needed and disable (save) threading to ensure deterministic timing when running files
+# Turn on/off saving & threaded saving
 loader.toggle_saving(save_data)
 loader.toggle_threaded_saving(threaded_save)
 

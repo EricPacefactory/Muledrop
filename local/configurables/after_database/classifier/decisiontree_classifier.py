@@ -62,7 +62,7 @@ from local.lib.common.timekeeper_utils import get_filesafe_date
 from local.lib.common.feedback import print_time_taken_ms
 
 from local.lib.file_access_utils.classifier import build_model_resources_path
-from local.lib.file_access_utils.read_write import save_config_json, load_config_json
+from local.lib.file_access_utils.json_read_write import save_config_json, load_config_json
 
 from local.offline_database.object_reconstruction import Smoothed_Object_Reconstruction as Obj_Recon
 

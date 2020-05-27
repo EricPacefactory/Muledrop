@@ -49,11 +49,9 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
-import datetime as dt
-
 import requests
 
-from local.lib.common.timekeeper_utils import parse_isoformat_string, get_local_datetime
+from local.lib.common.timekeeper_utils import isoformat_to_datetime, get_local_datetime
 from local.lib.common.environment import get_dbserver_protocol
 
 from local.lib.ui_utils.cli_selections import Resource_Selector
@@ -177,12 +175,14 @@ def seconds_to_readable_time_string(num_seconds):
 
 # .....................................................................................................................
 
-def get_json(request_url, message_on_error = "Error requesting data!"):
+def get_json(request_url, message_on_error = "Error requesting data!", raise_error = True):
     
     # Request data from the server
     post_response = requests.get(request_url)
     if post_response.status_code != 200:
-        raise SystemError("{}\n@ {}".format(message_on_error, request_url))
+        if raise_error:
+            raise SystemError("{}\n@ {}".format(message_on_error, request_url))
+        return None
     
     # Convert json response data to python data type
     return_data = post_response.json()
@@ -268,8 +268,8 @@ for each_camera_name in camera_names_list:
     snap_dt_isoformat = newest_snap_metadata["datetime_isoformat"]
     
     # Convert isoformat times to datetime objects for convenience
-    camera_start_dt = parse_isoformat_string(camera_start_dt_isoformat)
-    snap_dt = parse_isoformat_string(snap_dt_isoformat)
+    camera_start_dt = isoformat_to_datetime(camera_start_dt_isoformat)
+    snap_dt = isoformat_to_datetime(snap_dt_isoformat)
     
     # Get 'time since' newest entries
     camera_lifetime_sec = (current_dt - camera_start_dt).total_seconds()

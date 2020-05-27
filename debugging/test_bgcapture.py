@@ -54,6 +54,7 @@ import cv2
 from local.lib.ui_utils.cli_selections import Resource_Selector
 from local.lib.ui_utils.local_ui.windows_base import Simple_Window
 from local.lib.launcher_utils.video_setup import File_Video_Reader
+from local.lib.launcher_utils.resource_initialization import initialize_background_and_framerate_from_file
 
 #from local.configurables.externals.background_capture.passthrough_backgroundcapture import Background_Capture
 #from local.configurables.externals.background_capture.averaging_backgroundcapture import Background_Capture
@@ -94,8 +95,12 @@ video_type = vreader.video_type
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Load background capture
 
-saving_enabled = cli_confirm("Save background data?", default_response = False)
+saving_enabled = cli_confirm("Save resource data?", default_response = True, debug_mode = True)
 threading_enabled = False
+
+# Make sure we have a starting background
+framerate_estimate = initialize_background_and_framerate_from_file(cameras_folder_path, camera_select, vreader,
+                                                                   force_capture_reset = saving_enabled)
 
 externals_config = {"cameras_folder_path": cameras_folder_path,
                     "camera_select": camera_select,
@@ -104,17 +109,17 @@ externals_config = {"cameras_folder_path": cameras_folder_path,
                     "video_wh": video_wh}
 
 bgcap = Background_Capture(**externals_config)
-bgcap.reconfigure({"capture_period_mins": 0.1, "update_weighting": 0.5})
-bgcap.toggle_report_saving(saving_enabled)
+bgcap.reconfigure({"capture_period_hr": 0, "capture_period_min": 0, "capture_period_sec": 20})
+bgcap.reconfigure({"generation_trigger_after_n_captures": 1, "max_ram_usage_mb": 19})
+bgcap.toggle_report_saving(True)
 bgcap.toggle_resource_saving(saving_enabled)
 bgcap.toggle_threaded_saving(threading_enabled)
 
-bgcap.set_max_capture_count(50)
-bgcap.set_max_generated_count(10)
+bgcap.set_max_capture_count(20)
+bgcap.set_max_generate_count(5)
 bgcap.set_png_compression(0)
-bgcap.set_jpg_quality(25)
+bgcap.set_jpg_quality(50)
 
-bgcap.generate_on_startup(vreader)
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Set up displays
@@ -137,7 +142,7 @@ while True:
     # Frame reading
     
     # Grab frames from the video source (with timing information for each frame!)
-    req_break, input_frame, read_time_sec, current_frame_index, current_epoch_ms, current_datetime = vreader.read()
+    req_break, input_frame, read_time_sec, *fed_time_args = vreader.read()
     if req_break:
         break
     
@@ -145,15 +150,14 @@ while True:
     # Get background image
     
     # Handle background capture stage
-    background_image, background_was_updated = bgcap.run(input_frame, 
-                                                         current_frame_index, current_epoch_ms, current_datetime)
+    background_image, background_was_updated = bgcap.run(input_frame, *fed_time_args)
     
     # .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
     # Display
     
     input_window.imshow(input_frame)
     bg_window.imshow(background_image)
-    keypress = cv2.waitKey(10)
+    keypress = cv2.waitKey(5)
     if keypress == 27:
         break
 
@@ -161,7 +165,10 @@ while True:
 # Deal with video clean-up
 vreader.release()
 cv2.destroyAllWindows()
+bgcap.close({}, *fed_time_args)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Scrap
+
+

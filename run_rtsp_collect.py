@@ -58,6 +58,7 @@ from local.lib.launcher_utils.video_processing_loops import Video_Processing_Loo
 
 from local.lib.common.environment import get_dbserver_protocol, get_dbserver_host, get_dbserver_port
 
+from local.lib.file_access_utils.structures import create_missing_folder_path
 from local.lib.file_access_utils.reporting import build_user_report_path
 
 from local.online_database.post_to_dbserver import create_parallel_scheduled_post
@@ -84,7 +85,7 @@ def parse_run_args(debug_print = False):
                  {"user": {"default": "live"}}, 
                  "display",
                  {"threaded_video": {"default": True}}, 
-                 {"threaded_save": {"default": False}},
+                 {"threaded_save": {"default": True}},
                  "save_and_keep", 
                  "save_and_delete",
                  "skip_save",
@@ -139,7 +140,7 @@ def delete_existing_report_data(enable_deletion_prompt, configuration_loader, sa
     
     # Build pathing to report data
     report_data_folder = build_user_report_path(cameras_folder_path, camera_select, user_select)
-    os.makedirs(report_data_folder, exist_ok = True)
+    create_missing_folder_path(report_data_folder)
     
     # Check if data already exists
     existing_file_count, _, total_file_size_mb, _ = get_total_folder_size(report_data_folder)

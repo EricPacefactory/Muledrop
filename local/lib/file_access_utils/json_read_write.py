@@ -50,8 +50,6 @@ find_path_to_local()
 #%% Imports
 
 import json
-import ujson
-import gzip
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -78,28 +76,6 @@ def dict_to_human_readable_output(data_dict, sort_keys = True):
     ''' Helper function which can be used to avoid importing json in places that don't need file i/o '''
     
     return json.dumps(data_dict, indent = 2, sort_keys = sort_keys)
-
-# .....................................................................................................................
-
-def fast_dict_to_json(data_dict):
-    
-    ''' 
-    Helper function which can be used to avoid importing json in places that don't need file i/o,
-    same as 'dict_to_human_readable_output' but intended for internal use. Should be faster
-    '''
-    
-    return ujson.dumps(data_dict)
-
-# .....................................................................................................................
-
-def fast_json_to_dict(json_string_data):
-    
-    ''' 
-    Helper function which can be used to avoid importing json in places that don't need file i/o.
-    Converts python data to json strings. Does not perform data type conversions!
-    '''
-    
-    return ujson.loads(json_string_data)
 
 # .....................................................................................................................
 # .....................................................................................................................
@@ -162,7 +138,8 @@ def save_config_json(save_path, json_data, create_missing_folder_path = False):
         raise err
         
     # Create the parent folder, if needed
-    create_missing_folder_for_file(save_path)
+    if create_missing_folder_path:
+        create_missing_folder_for_file(save_path)
     
     with open(save_path, "w") as out_file:
         json.dump(json_data, out_file, indent = 2, sort_keys = True)
@@ -246,71 +223,6 @@ def update_config_json(save_path, update_json_entry):
     save_config_json(save_path, load_dict)
     
     return load_dict
-
-# .....................................................................................................................
-# .....................................................................................................................
-    
-
-# ---------------------------------------------------------------------------------------------------------------------
-#%% Define gzip i/o functions
-
-# .....................................................................................................................
-
-def save_jgz(save_path, json_data, double_precision = 3,
-             sort_keys = False, check_validity = False, create_missing_folder_path = False):
-    
-    '''
-    Function which saves json files. File pathing should have a .json.gz extension!
-    Inputs:
-        save_path -> String. Path to where the json file should be saved.
-                     
-        json_data -> Dictionary. Data to be saved, must be valid json (e.g. use .tolist() on numpy arrays)
-                  
-        sort_keys -> Boolean. If true, json_data keys will be sorted in storage.
-        
-        check_validity -> Boolean. If true, will first attempt to convert data to a string (within python)
-                          This may fail (as a TypeError for example). This prevents the creation of an
-                          invalid/incomplete json file, which would cause errors on loading otherwise.
-                          However, this will have a detrimental effect on performance!
-        
-        create_missing_folder_path -> Boolean. If true, the folder pathing to the given file will be checked,
-                                      and if missing, will be created
-    Outputs:
-        Nothing
-    '''
-    
-    # Try converting to json to watch for errors, if needed
-    if check_validity:
-        _ = ujson.dumps(json_data)
-    
-    # Create the parent folder, if needed
-    if create_missing_folder_path:
-        create_missing_folder_for_file(save_path)
-        
-    # Use gzip compression if needed
-    with gzip.open(save_path, "wt", encoding = "ascii") as out_file:
-        ujson.dump(json_data, out_file, sort_keys = sort_keys, double_precision = double_precision)
-    
-    return
-
-# .....................................................................................................................
-
-def load_jgz(load_path):
-    
-    '''
-    Function which loads a gzipped json file from a specified loading path.
-    Inputs:
-        load_path -> String. Path to file to be loaded. Expects gzipped files (i.e. ending with .json.gz!)
-        
-    Outputs:
-        json_data
-    '''
-    
-    # Use gzip to unzip the json data before loading
-    with gzip.open(load_path, 'rt') as in_file:
-        json_data = ujson.load(in_file)
-    
-    return json_data
 
 # .....................................................................................................................
 # .....................................................................................................................

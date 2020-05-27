@@ -58,6 +58,7 @@ from local.lib.common.feedback import print_time_taken_ms
 
 from local.lib.ui_utils.cli_selections import Resource_Selector
 
+from local.lib.file_access_utils.structures import create_missing_folder_path
 from local.lib.file_access_utils.rules import build_rule_adb_metadata_report_path
 from local.lib.file_access_utils.rules import build_rule_adb_info_report_path
 from local.lib.file_access_utils.rules import load_all_rule_configs, save_rule_info, save_rule_report_data
@@ -142,11 +143,11 @@ def delete_existing_rule_data(enable_deletion_prompt,
     
     # Build pathing to rule data
     rule_metadata_report_folder = build_rule_adb_metadata_report_path(cameras_folder_path, camera_select, user_select)
-    os.makedirs(rule_metadata_report_folder, exist_ok = True)
+    create_missing_folder_path(rule_metadata_report_folder)
     
     # Build pathing to rule info data
     rule_info_report_folder = build_rule_adb_info_report_path(cameras_folder_path, camera_select, user_select)
-    os.makedirs(rule_info_report_folder, exist_ok = True)
+    create_missing_folder_path(rule_info_report_folder)
     
     # Check if data already exists
     existing_metadata_file_count, _, total_metadata_file_size_mb, _ = get_total_folder_size(rule_metadata_report_folder)

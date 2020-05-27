@@ -95,8 +95,48 @@ class Base_Video_Reader:
 
         # Get frames (with timing)
         t1 = perf_counter()
-        (rec_frame, frame) = self.vcap.read()
+        rec_frame, frame = self.vcap.read()
         req_break = not rec_frame
+        t2 = perf_counter()
+        
+        # Get time information for the current frame data
+        curent_frame_index, current_epoch_ms, current_datetime = self._get_time()
+        
+        # Calculate video capture timing
+        read_time_sec = (t2 - t1)
+        
+        return req_break, frame, read_time_sec, curent_frame_index, current_epoch_ms, current_datetime
+    
+    # .................................................................................................................
+    
+    def no_decode_read(self):
+        
+        ''' 
+        Read frames without decoding.
+        Meant to be used if the frame may be discarded, since it avoids having the cpu decode the frame
+        Once the frame is needed, call decode_read()
+        '''
+        
+        # Read in a frame, but don't decode it
+        rec_frame = self.vcap.grab()
+        req_break = (not rec_frame)
+        
+        return req_break
+    
+    # .................................................................................................................
+    
+    def decode_read(self):
+        
+        '''
+        Function used to return the decoded result after calling no_decode_read()
+        Calling no_decode_read() followed by decode_read() is equivalent to read(), 
+        but if frames are being skipped, skipping the decode_read() call can speed things up considerably!
+        '''
+        
+        # Get frames (with timing)
+        t1 = perf_counter()
+        rec_frame, frame = self.vcap.retrieve()
+        req_break = (not rec_frame)
         t2 = perf_counter()
         
         # Get time information for the current frame data
@@ -256,6 +296,16 @@ class Threaded_File_Video_Reader(Base_Video_Reader):
             pass
         
         return req_break, frame, read_time_sec, curent_frame_index, current_epoch_ms, current_datetime
+    
+    # .................................................................................................................
+    
+    def no_decode_read(self):
+        raise NotImplementedError("Can't run no decode read on threaded file video reader yet")
+        
+        # .................................................................................................................
+    
+    def decode_read(self):
+        raise NotImplementedError("Can't run decode read on threaded file video reader yet")
     
     # .................................................................................................................
     
@@ -424,7 +474,9 @@ class RTSP_Video_Reader(Base_Video_Reader):
     # .................................................................................................................
     
     def read(self):
-
+        
+        ''' Re-implement normal read behaviour, but with reconnecting attempts '''
+        
         # Get frames
         t1 = t2 = 0.0
         req_break = True
@@ -433,6 +485,38 @@ class RTSP_Video_Reader(Base_Video_Reader):
             try:
                 t1 = perf_counter()
                 (rec_frame, frame) = self.vcap.read()
+                t2 = perf_counter()
+            except Exception as err:
+                print("Error reading video capture...")
+                print(err)
+            
+            # Assume we've disconnected if we don't receive a frame and try to reconnect
+            req_break = (not rec_frame)
+            if req_break:
+                self._reconnect()
+        
+        # Get time information for the current frame data
+        curent_frame_index, current_epoch_ms, current_datetime = self._get_time()
+        
+        # Calculate video capture timing
+        read_time_sec = (t2 - t1)
+        
+        return req_break, frame, read_time_sec, curent_frame_index, current_epoch_ms, current_datetime
+    
+    # .................................................................................................................
+    
+    def decode_read(self):
+        
+        ''' Re-implement decode_read behaviour, but with reconnecting attempts '''
+        
+        # Get frames
+        t1 = t2 = 0.0
+        req_break = True
+        rec_frame = False
+        while req_break:
+            try:
+                t1 = perf_counter()
+                rec_frame, frame = self.vcap.retrieve()
                 t2 = perf_counter()
             except Exception as err:
                 print("Error reading video capture...")

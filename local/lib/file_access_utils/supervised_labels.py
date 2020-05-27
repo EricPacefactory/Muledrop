@@ -51,7 +51,8 @@ find_path_to_local()
 
 from local.lib.file_access_utils.reporting import build_after_database_report_path
 from local.lib.file_access_utils.classifier import reserved_unclassified_label, reserved_notrain_label
-from local.lib.file_access_utils.read_write import save_jgz, load_jgz
+from local.lib.file_access_utils.json_read_write import save_config_json, load_config_json
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% General Pathing functions
@@ -175,7 +176,7 @@ def save_single_supervised_label(cameras_folder_path, camera_select, user_select
     save_name = create_supervised_label_file_name(object_full_id)
     save_path = os.path.join(svlabels_folder_path, save_name)
     
-    return save_jgz(save_path, supervised_label_entry, check_validity = True)
+    return save_config_json(save_path, supervised_label_entry)
 
 # .....................................................................................................................
     
@@ -222,7 +223,7 @@ def load_single_supervised_label(cameras_folder_path, camera_select, user_select
     
     # Load the supervised labelling data, if present, otherwise use the default
     if file_exists:
-        single_object_entry = load_jgz(load_file_path)
+        single_object_entry = load_config_json(load_file_path)
     else:
         single_object_entry = create_supervised_label_entry(object_id, default_label_if_missing)
     

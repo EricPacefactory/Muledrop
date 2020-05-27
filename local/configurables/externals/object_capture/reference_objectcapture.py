@@ -53,7 +53,7 @@ import numpy as np
 
 from local.configurables.configurable_template import Externals_Configurable_Base
 
-from local.lib.file_access_utils.reporting import Object_Metadata_Report_Saver
+from local.lib.file_access_utils.reporting import Object_Report_Data_Saver
 
 from collections import deque
 
@@ -73,19 +73,21 @@ class Reference_Object_Capture(Externals_Configurable_Base):
         super().__init__(cameras_folder_path, camera_select, user_select, 
                          video_select, video_wh, file_dunder = file_dunder)
         
-        # Store state config
-        self.metadata_saving_enabled = None
-        self.threading_enabled = None
+        # Store object saving config
+        self.report_saving_enabled = None
+        self.threaded_saving_enabled = None
+        self._json_double_precision = None
         
         # Allocate storage for configuration data sets (used only to inspect behavior during config)
         self._config_dead_ids = deque([], maxlen = 10)
         
-        # Create object to handle saving data
-        self.metadata_saver = Object_Metadata_Report_Saver(cameras_folder_path, camera_select, user_select)
+        # Allocate storage for the data saver object which handles file i/o
+        self._report_data_saver = None
         
         # Set default behaviour states
-        self.toggle_metadata_saving(True)
-        self.toggle_threaded_saving(True)
+        self.toggle_threaded_saving(False)
+        self.toggle_report_saving(False)
+        self.set_json_double_precision(3)
         
         # Store unwarping info
         self.enable_unwarp = enable_preprocessor_unwarp
@@ -95,8 +97,7 @@ class Reference_Object_Capture(Externals_Configurable_Base):
     
     def __repr__(self):
         
-        repr_strs = ["Object Capture ({})".format(self.script_name),
-                     "  Metadata folder: {}".format(self.metadata_saver.relative_data_path())]
+        repr_strs = ["Object Capture ({})".format(self.script_name)]
         
         return "\n".join(repr_strs)
     
@@ -119,19 +120,20 @@ class Reference_Object_Capture(Externals_Configurable_Base):
         # Make sure file i/o is finished
         print("Closing object capture...", end="")
         self.run(final_stage_outputs, final_frame_index, final_epoch_ms, final_datetime)
-        self.metadata_saver.close()
+        self._report_data_saver.close()
         print(" Done!")
     
     # .................................................................................................................
     
     # SHOULDN'T OVERRIDE
-    def toggle_metadata_saving(self, enable_metadata_saving):
+    def toggle_report_saving(self, enable_data_saving):
         
-        ''' Function used to disable metadata saving. Useful during testing/configuration '''
+        ''' Function used to disable saving. Useful during testing/configuration '''
         
-        self.metadata_saving_enabled = enable_metadata_saving
-        self.metadata_saver.toggle_saving(self.metadata_saving_enabled)
-        
+        # Re-initialize the saver with new settings
+        self.report_saving_enabled = enable_data_saving
+        self._report_data_saver = self._initialize_report_data_saver()
+    
     # .................................................................................................................
     
     # SHOULDN'T OVERRIDE
@@ -143,9 +145,16 @@ class Reference_Object_Capture(Externals_Configurable_Base):
         or otherwise used during file evaluation, to force deterministic save timing
         '''
         
-        self.threading_enabled = enable_threaded_saving
-        self.metadata_saver.toggle_threading(self.threading_enabled)
-        
+        # Re-initialize the saver with new settings
+        self.threaded_saving_enabled = enable_threaded_saving
+        self._report_data_saver = self._initialize_report_data_saver()
+    
+    # .................................................................................................................
+    
+    #SHOULDN'T OVERRIDE
+    def set_json_double_precision(self, json_double_precision):
+        self._json_double_precision = json_double_precision
+    
     # .................................................................................................................
     
     # SHOULDN'T OVERRIDE. Instead override modify_metadata(), dying_save_condition()
@@ -175,11 +184,27 @@ class Reference_Object_Capture(Externals_Configurable_Base):
         # Put stage output data in more convenient variables
         tracked_object_dict, dead_id_list = self._get_run_data(stage_outputs)
         
-        # Save all objects that are about to lose tracking (dead_ids)
-        self._save_dying(tracked_object_dict, dead_id_list, current_frame_index, current_epoch_ms, current_datetime)
-
-        # Clean up any finished saving threads
-        self._clean_up()
+        # Save any object that is about to be removed from tracking (dead_ids)
+        for each_id in dead_id_list:
+            
+            # Grab object reference so we can access it's data
+            obj_ref = tracked_object_dict[each_id]
+            obj_metadata = obj_ref.get_object_save_data()
+            
+            # Check if we need to save this object
+            need_to_save_object = self.dying_save_condition(obj_metadata,
+                                                            current_frame_index, current_epoch_ms, current_datetime)
+            
+            # If we get here, generate the save name & save the data!
+            if need_to_save_object:
+                self._save_report_data(obj_metadata, current_frame_index, current_epoch_ms, current_datetime)
+            
+            # Store data in configuration mode, if needed
+            if self.configure_mode:
+                new_dead_entry = (each_id, need_to_save_object)
+                self._config_dead_ids.append(new_dead_entry)
+        
+        return
     
     # .................................................................................................................
     
@@ -208,7 +233,7 @@ class Reference_Object_Capture(Externals_Configurable_Base):
     # SHOULDN'T OVERRIDE
     def _get_run_data(self, stage_outputs):
         
-        ''' Function which splits stage outputs into more convenient variables for use in the run function '''
+        ''' Helper function which splits stage outputs into more convenient variables for use in the run function '''
         
         # Get object dictionary and dead id list so we can grab objects that are disappearing
         tracker_stage = stage_outputs.get("tracker", {})
@@ -216,36 +241,6 @@ class Reference_Object_Capture(Externals_Configurable_Base):
         dead_id_list = tracker_stage.get("dead_id_list", [])
         
         return tracked_object_dict, dead_id_list
-    
-    # .................................................................................................................
-    
-    # SHOULDN'T OVERRIDE. Instead override dying_save_condition()
-    def _save_dying(self, tracked_object_dict, dead_id_list,
-                     current_frame_index, current_epoch_ms, current_datetime):
-        
-        ''' Function which handles the triggering of metadata-saving for dying objects '''
-        
-        # Save any object that is about to be removed from tracking
-        for each_id in dead_id_list:
-            
-            # Grab object reference so we can access it's data
-            obj_ref = tracked_object_dict[each_id]
-            obj_metadata = self._get_object_metadata(obj_ref)
-            
-            # Check if we need to save this object
-            need_to_save_object = self.dying_save_condition(obj_metadata,
-                                                            current_frame_index, current_epoch_ms, current_datetime)
-            
-            # If we get here, generate the save name & save the data!
-            if need_to_save_object:
-                self._save_object_metadata(obj_metadata, current_frame_index, current_epoch_ms, current_datetime)
-                
-            # Store data in configuration mode, if needed
-            if self.configure_mode:
-                new_dead_entry = (each_id, need_to_save_object)
-                self._config_dead_ids.append(new_dead_entry)
-                
-        pass
     
     # .................................................................................................................
     
@@ -272,12 +267,9 @@ class Reference_Object_Capture(Externals_Configurable_Base):
     # .................................................................................................................
     
     # SHOULDN'T OVERRIDE
-    def _save_object_metadata(self, object_metadata, current_frame_index, current_epoch_ms, current_datetime):
+    def _save_report_data(self, object_metadata, current_frame_index, current_epoch_ms, current_datetime):
         
         ''' Function which handles the actual saving of object metadata '''
-        
-        # Get the save name
-        save_name = self._create_save_name(object_metadata)
         
         # Unwarp the object metadata, if needed
         if self.enable_unwarp:
@@ -287,43 +279,26 @@ class Reference_Object_Capture(Externals_Configurable_Base):
         final_object_metadata = self.modify_metadata(object_metadata,
                                                      current_frame_index, current_epoch_ms, current_datetime)
         
-        # Have the metadata saver handle the actual (possibly threaded) file i/o
-        self.metadata_saver.save_json_gz(save_name, final_object_metadata)
+        # Get (unique!) file name and have the report saver handle the i/o
+        object_file_name = object_metadata["_id"]
+        self._report_data_saver.save_data(file_save_name_no_ext = object_file_name,
+                                          metadata_dict = final_object_metadata,
+                                          json_double_precision = self._json_double_precision)
         
-    # .................................................................................................................
-    
-    # SHOULDN'T OVERRIDE
-    def _get_object_metadata(self, object_ref):
-        
-        ''' Function which grabs object metadata for convenience '''
-        
-        return object_ref.get_object_save_data()
+        return
     
     # .................................................................................................................
     
     # SHOULDN'T OVERRIDE
-    def _create_save_name(self, object_metadata):
+    def _initialize_report_data_saver(self):
         
-        '''
-        Function for generating object metadata file names. Needs to follow a standard format so other scripts
-        can properly interpret the name. Do not change unless absolutely sure!!!
-        '''
+        ''' Helper function used to set/reset the data saving object with new settings '''
         
-        # Build the final save name (with no file ext)
-        obj_id = object_metadata["_id"]
-        save_name = "obj-{}".format(obj_id)
-        
-        return save_name
-    
-    # .................................................................................................................
-    
-    # SHOULDN'T OVERRIDE
-    def _clean_up(self):
-        
-        ''' Function used to clean up saving threads '''
-        
-        # Remove any saving threads that have finished
-        self.metadata_saver.clean_up()
+        return Object_Report_Data_Saver(self.cameras_folder_path, 
+                                        self.camera_select, 
+                                        self.user_select,
+                                        self.report_saving_enabled,
+                                        self.threaded_saving_enabled)
     
     # .................................................................................................................
     # .................................................................................................................

@@ -49,9 +49,14 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
+import cv2
 import numpy as np
 
+from time import perf_counter
+
 from local.lib.ui_utils.display_specification import Display_Window_Specification
+
+from local.lib.file_access_utils.threaded_read_write import encode_jpg_data
 
 from local.eolib.video.text_rendering import simple_text
 
@@ -80,11 +85,11 @@ class Snap_Display(Display_Window_Specification):
         new_snap_available = (new_snap_image is not None)
         if new_snap_available:
             
-            # Apply jpg encoding to image data, to show compression effects
-            snapshot_frame_data, _, _ = \
-            configurable_ref.image_saver.apply_jpg_quality(new_snap_image, configurable_ref._snapshot_jpg_quality)
+            # Perform encode/decode so that the quality of the snapshot (after jpg compression) can be seen
+            encoded_jpg = encode_jpg_data(new_snap_image, configurable_ref._snapshot_jpg_quality)
+            decoded_jpg = cv2.imdecode(encoded_jpg, cv2.IMREAD_COLOR)
             
-            return snapshot_frame_data
+            return decoded_jpg
         
         return None
         
@@ -137,12 +142,17 @@ class Snap_Stats_Display(Display_Window_Specification):
         if elapsed_snap_time_sec <= 0.001:
             return None
         
-        # Apply jpg encoding to image data, to show compression effects
-        jpg_image, jpg_image_size_bytes, jpg_comp_time_sec = \
-        configurable_ref.image_saver.apply_jpg_quality(new_snap_image, configurable_ref._snapshot_jpg_quality)
+        # Perform encode with timing
+        t1 = perf_counter()
+        encoded_jpg = encode_jpg_data(new_snap_image, configurable_ref._snapshot_jpg_quality)
+        t2 = perf_counter()
+        
+        # Get some important stats
+        jpg_comp_time_sec = (t2 - t1)
+        jpg_image_size_bytes = encoded_jpg.nbytes
         
         # Crunch some numbers for useful stats printout
-        jpg_height, jpg_width = jpg_image.shape[0:2]
+        jpg_height, jpg_width = new_snap_image.shape[0:2]
         jpg_image_size_kb = (jpg_image_size_bytes / self._kb_multiplier)
         ms_to_compress = (1000 * jpg_comp_time_sec)
         byte_rate = (jpg_image_size_bytes / elapsed_snap_time_sec)

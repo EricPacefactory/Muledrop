@@ -49,34 +49,82 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
-from local.lib.file_access_utils.threaded_read_write import Image_Saver, Metadata_Saver
+from local.lib.common.timekeeper_utils import datetime_to_isoformat_string
+
+from local.lib.file_access_utils.threaded_read_write import Threaded_JPG_and_JSON_Saver
+from local.lib.file_access_utils.threaded_read_write import Nonthreaded_JPG_and_JSON_Saver
+from local.lib.file_access_utils.threaded_read_write import Threaded_Compressed_JSON_Saver
+from local.lib.file_access_utils.threaded_read_write import Nonthreaded_Compressed_JSON_Saver
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Classes
 
-class Image_Report_Saver(Image_Saver):
+class Background_Report_Data_Saver:
+    
+    '''
+    Helper class which simply selects between different types (e.g. threaded/non-threaded) of saving
+    implementation for background data. Also handles save pathing.
+    Note this class is also responsible for enabling/disabling saving
+    '''
     
     # .................................................................................................................
     
-    def __init__(self, cameras_folder_path, camera_select, user_select, image_folder_name = "files",
-                 *, lock = None):
+    def __init__(self, cameras_folder_path, camera_select, user_select, 
+                 saving_enabled = True, threading_enabled = True):
         
-        # Store special variable used to generate the saving folder path
-        self.image_folder_name = image_folder_name
+        # Store inputs
+        self.cameras_folder_path = cameras_folder_path
+        self.camera_select = camera_select
+        self.user_select = user_select
+        self.saving_enabled = saving_enabled
+        self.threading_enabled = threading_enabled
         
-        # Inherit from base class
-        super().__init__(cameras_folder_path, camera_select, user_select, 
-                         saving_enabled = True,
-                         threading_enabled = True, 
-                         lock = lock)
-
+        # Build saving paths
+        pathing_args = (cameras_folder_path, camera_select, user_select)
+        self.image_save_folder_path = build_background_image_report_path(*pathing_args)
+        self.metadata_save_folder_path = build_background_metadata_report_path(*pathing_args)
+        
+        # Initialize saver object & pathing as needed
+        self._data_saver = None
+        if self.saving_enabled:
+            
+            # Make sure the save folders exist
+            os.makedirs(self.image_save_folder_path, exist_ok = True)
+            os.makedirs(self.metadata_save_folder_path, exist_ok = True)
+            
+            # Select between different types of saving implementations
+            if self.threading_enabled:
+                self._data_saver = Threaded_JPG_and_JSON_Saver(thread_name = "backgrounds-report",
+                                                               jpg_folder_path = self.image_save_folder_path,
+                                                               json_folder_path = self.metadata_save_folder_path)
+            else:
+                self._data_saver = Nonthreaded_JPG_and_JSON_Saver(jpg_folder_path = self.image_save_folder_path,
+                                                                  json_folder_path = self.metadata_save_folder_path)
+        
+        pass
+    
     # .................................................................................................................
     
-    def _build_data_folder_path(self):        
-        return build_image_report_path(self.cameras_folder_path,
-                                       self.camera_select,
-                                       self.user_select,
-                                       self.image_folder_name)
+    def save_data(self, *, file_save_name_no_ext, image_data, metadata_dict, jpg_quality_0_to_100, 
+                  json_double_precision = 0):
+        
+        # Only save data if enabled
+        if self.saving_enabled:
+            self._data_saver.save_data(file_save_name_no_ext, image_data, metadata_dict,
+                                       jpg_quality_0_to_100, json_double_precision)
+        
+        return
+    
+    # .................................................................................................................
+    
+    def close(self):
+        
+        # Close data saver if needed
+        if self.saving_enabled:
+            self._data_saver.close()
+        
+        return
     
     # .................................................................................................................
     # .................................................................................................................
@@ -85,30 +133,67 @@ class Image_Report_Saver(Image_Saver):
 # =====================================================================================================================
 # =====================================================================================================================
 
-class Image_Metadata_Report_Saver(Metadata_Saver):
+
+class Object_Report_Data_Saver:
+    
+    '''
+    Helper class which simply selects between different types (e.g. threaded/non-threaded) of saving
+    implementation for object data. Also handles save pathing.
+    Note this class is also responsible for enabling/disabling saving
+    '''
     
     # .................................................................................................................
     
-    def __init__(self, cameras_folder_path, camera_select, user_select, image_folder_name,
-                 *, lock = None):
+    def __init__(self, cameras_folder_path, camera_select, user_select, 
+                 saving_enabled = True, threading_enabled = True):
         
-        # Store image folder name, so we create the proper pathing on initialization
-        self.image_folder_name = image_folder_name
+        # Store inputs
+        self.cameras_folder_path = cameras_folder_path
+        self.camera_select = camera_select
+        self.user_select = user_select
+        self.saving_enabled = saving_enabled
+        self.threading_enabled = threading_enabled
         
-        # Inherit from base class
-        super().__init__(cameras_folder_path, camera_select, user_select,
-                         saving_enabled = True,
-                         threading_enabled = True,
-                         lock = lock)
+        # Build saving paths
+        pathing_args = (cameras_folder_path, camera_select, user_select)
+        self.metadata_save_folder_path = build_object_metadata_report_path(*pathing_args)
         
+        # Initialize saver object & pathing as needed
+        self._data_saver = None
+        if self.saving_enabled:
+            
+            # Make sure the save folder exists
+            os.makedirs(self.metadata_save_folder_path, exist_ok = True)
+            
+            # Select between different types of saving implementations
+            if self.threading_enabled:
+                self._data_saver = Threaded_Compressed_JSON_Saver(thread_name = "objects",
+                                                                  jsongz_folder_path = self.metadata_save_folder_path)
+            else:
+                self._data_saver = Nonthreaded_Compressed_JSON_Saver(jsongz_folder_path = self.metadata_save_folder_path)
+        
+        pass
+    
     # .................................................................................................................
     
-    def _build_data_folder_path(self):
-        return build_metadata_report_path(self.cameras_folder_path, 
-                                          self.camera_select, 
-                                          self.user_select, 
-                                          self.image_folder_name)
+    def save_data(self, *, file_save_name_no_ext, metadata_dict, json_double_precision = 3):
         
+        # Only save data if enabled
+        if self.saving_enabled:
+            self._data_saver.save_data(file_save_name_no_ext, metadata_dict, json_double_precision)
+        
+        return
+    
+    # .................................................................................................................
+    
+    def close(self):
+        
+        # Close data saver if needed
+        if self.saving_enabled:
+            self._data_saver.close()
+        
+        return
+    
     # .................................................................................................................
     # .................................................................................................................
 
@@ -117,28 +202,75 @@ class Image_Metadata_Report_Saver(Metadata_Saver):
 # =====================================================================================================================
 
 
-class Object_Metadata_Report_Saver(Metadata_Saver):
+class Snapshot_Report_Data_Saver:
+    
+    '''
+    Helper class which simply selects between different types (e.g. threaded/non-threaded) of saving
+    implementation for snapshot data. Also handles save pathing.
+    Note this class is also responsible for enabling/disabling saving
+    '''
     
     # .................................................................................................................
     
-    def __init__(self, cameras_folder_path, camera_select, user_select,
-                 threading_enabled = True, saving_enabled = True, *, lock = None):
+    def __init__(self, cameras_folder_path, camera_select, user_select, 
+                 saving_enabled = True, threading_enabled = True):
         
-        # Inherit from base class
-        super().__init__(cameras_folder_path, camera_select, user_select,
-                         saving_enabled = saving_enabled,
-                         threading_enabled = threading_enabled, 
-                         lock = lock)
+        # Store inputs
+        self.cameras_folder_path = cameras_folder_path
+        self.camera_select = camera_select
+        self.user_select = user_select
+        self.saving_enabled = saving_enabled
+        self.threading_enabled = threading_enabled
         
+        # Build saving paths
+        pathing_args = (cameras_folder_path, camera_select, user_select)
+        self.image_save_folder_path = build_snapshot_image_report_path(*pathing_args)
+        self.metadata_save_folder_path = build_snapshot_metadata_report_path(*pathing_args)
+        
+        # Initialize saver object & pathing as needed
+        self._data_saver = None
+        if self.saving_enabled:
+            
+            # Make sure the save folders exist
+            os.makedirs(self.image_save_folder_path, exist_ok = True)
+            os.makedirs(self.metadata_save_folder_path, exist_ok = True)
+            
+            # Select between different types of saving implementations
+            if self.threading_enabled:
+                self._data_saver = Threaded_JPG_and_JSON_Saver(thread_name = "snapshots",
+                                                               jpg_folder_path = self.image_save_folder_path,
+                                                               json_folder_path = self.metadata_save_folder_path)
+            else:
+                self._data_saver = Nonthreaded_JPG_and_JSON_Saver(jpg_folder_path = self.image_save_folder_path,
+                                                                  json_folder_path = self.metadata_save_folder_path)
+        
+        pass
+    
     # .................................................................................................................
     
-    def _build_data_folder_path(self):
-        return build_object_metadata_report_path(self.cameras_folder_path,
-                                                 self.camera_select,
-                                                 self.user_select)
+    def save_data(self, *, file_save_name_no_ext, image_data, metadata_dict, jpg_quality_0_to_100, 
+                  json_double_precision = 0):
         
+        # Only save data if enabled
+        if self.saving_enabled:
+            self._data_saver.save_data(file_save_name_no_ext, image_data, metadata_dict,
+                                       jpg_quality_0_to_100, json_double_precision)
+        
+        return
+    
+    # .................................................................................................................
+    
+    def close(self):
+        
+        # Close data saver if needed
+        if self.saving_enabled:
+            self._data_saver.close()
+        
+        return
+    
     # .................................................................................................................
     # .................................................................................................................
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% General pathing functions
@@ -157,7 +289,7 @@ def build_user_report_path(cameras_folder, camera_select, user_select, *path_joi
     return os.path.join(base_path, user_select, *path_joins)
 
 # .....................................................................................................................
-    
+
 def build_image_report_path(cameras_folder, camera_select, user_select, *path_joins):
     ''' Build pathing to user-specific image data reporting folder for a given camera '''
     return build_user_report_path(cameras_folder, camera_select, user_select, "images", *path_joins)
@@ -186,27 +318,27 @@ def build_camera_info_metadata_report_path(cameras_folder, camera_select, user_s
     return build_metadata_report_path(cameras_folder, camera_select, user_select, "camera_info", *path_joins)
 
 # .....................................................................................................................
-    
+
 def build_snapshot_image_report_path(cameras_folder, camera_select, user_select):
     return build_image_report_path(cameras_folder, camera_select, user_select, "snapshots")
 
 # .....................................................................................................................
-    
+
 def build_snapshot_metadata_report_path(cameras_folder, camera_select, user_select):
     return build_metadata_report_path(cameras_folder, camera_select, user_select, "snapshots")
 
 # .....................................................................................................................
-    
+
 def build_background_image_report_path(cameras_folder, camera_select, user_select):
     return build_image_report_path(cameras_folder, camera_select, user_select, "backgrounds")
 
 # .....................................................................................................................
-    
+
 def build_background_metadata_report_path(cameras_folder, camera_select, user_select):
     return build_metadata_report_path(cameras_folder, camera_select, user_select, "backgrounds")
 
 # .....................................................................................................................
-    
+
 def build_object_metadata_report_path(cameras_folder, camera_select, user_select):
     return build_metadata_report_path(cameras_folder, camera_select, user_select, "objects")
 
@@ -219,23 +351,34 @@ def build_after_database_report_path(cameras_folder, camera_select, user_select,
 # .....................................................................................................................
 
 
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Helper functions
+
+# .....................................................................................................................
+
+def create_image_metadata(current_frame_index, current_epoch_ms, current_datetime):
     
+    '''
+    Helper function used to provide consistent metadata formatting for saved images (snaps & backgrounds)
+    Returns a dictionary representing a single metadata entry for an image at the given time
+    '''
+    
+    datetime_isoformat = datetime_to_isoformat_string(current_datetime)    
+    metadata_dict = {"_id": current_epoch_ms,
+                     "datetime_isoformat": datetime_isoformat,
+                     "frame_index": current_frame_index,
+                     "epoch_ms": current_epoch_ms}
+    
+    return metadata_dict
+
+# .....................................................................................................................
+# .....................................................................................................................
+
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Demo
 
 if __name__ == "__main__":
-    
-    example_cameras_folder = os.path.expanduser("~/Desktop/example_test")
-    example_camera_select = "fake_camera"
-    example_user_select = "Nobody"
-    
-    omd_saver = Object_Metadata_Report_Saver(example_cameras_folder, example_camera_select, example_user_select)
-    imd_saver = Image_Metadata_Report_Saver(example_cameras_folder, example_camera_select, example_user_select, "snapshots")
-
-    print("Example saving paths:",
-          omd_saver._data_folder_path,
-          imd_saver._data_folder_path,
-          sep="\n")
+    pass
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Scrap

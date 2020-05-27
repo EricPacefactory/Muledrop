@@ -59,6 +59,7 @@ from local.lib.common.feedback import print_time_taken_sec
 
 from local.lib.ui_utils.cli_selections import Resource_Selector
 
+from local.lib.file_access_utils.structures import create_missing_folder_path
 from local.lib.file_access_utils.classifier import build_classifier_adb_metadata_report_path
 from local.lib.file_access_utils.classifier import load_classifier_config
 from local.lib.file_access_utils.classifier import new_classifier_report_entry
@@ -107,7 +108,7 @@ def delete_existing_classification_data(enable_deletion_prompt,
     
     # Build pathing to classification data
     class_data_folder = build_classifier_adb_metadata_report_path(cameras_folder_path, camera_select, user_select)
-    os.makedirs(class_data_folder, exist_ok = True)
+    create_missing_folder_path(class_data_folder)
     
     # Check if data already exists
     existing_file_count, _, total_file_size_mb, _ = get_total_folder_size(class_data_folder)

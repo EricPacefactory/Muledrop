@@ -53,7 +53,7 @@ import requests
 
 from tqdm import tqdm
 
-from local.lib.common.timekeeper_utils import parse_isoformat_string, datetime_to_epoch_ms, get_local_datetime
+from local.lib.common.timekeeper_utils import isoformat_to_datetime, datetime_to_epoch_ms, get_local_datetime
 from local.lib.common.launch_helpers import delete_existing_report_data
 from local.lib.common.environment import get_dbserver_protocol, get_dbserver_port, get_control_server_port
 
@@ -65,7 +65,7 @@ from local.online_database.post_to_dbserver import check_server_connection
 from local.lib.file_access_utils.settings import create_new_locations_entry, update_locations_info
 from local.lib.file_access_utils.settings import load_locations_info, get_nice_location_names_list
 
-from local.lib.file_access_utils.structures import create_camera_folder_structure
+from local.lib.file_access_utils.structures import create_camera_folder_structure, create_missing_folder_path
 from local.lib.file_access_utils.reporting import build_camera_info_metadata_report_path
 from local.lib.file_access_utils.reporting import build_snapshot_metadata_report_path
 from local.lib.file_access_utils.reporting import build_object_metadata_report_path
@@ -73,7 +73,7 @@ from local.lib.file_access_utils.reporting import build_background_metadata_repo
 from local.lib.file_access_utils.reporting import build_snapshot_image_report_path
 from local.lib.file_access_utils.reporting import build_background_image_report_path
 
-from local.lib.file_access_utils.read_write import save_jgz
+from local.lib.file_access_utils.metadata_read_write import save_json_metadata, save_jsongz_metadata
 
 from local.eolib.utils.quitters import ide_quit
 from local.eolib.utils.cli_tools import Datetime_Input_Parser as DTIP
@@ -237,6 +237,9 @@ def request_caminfo_metadata(server_url, camera_select, start_epoch_ms, end_epoc
                                     start_epoch_ms, end_epoch_ms)
     offline_request_url = build_request_url(server_url, camera_select, "camerainfo", "get-all-camera-info")
     
+    # HACK FOR OLDER VERSIONS
+    request_url = offline_request_url
+    
     # Grab camera info data
     try:
         many_caminfo_metadata_list = get_json(request_url)
@@ -254,16 +257,13 @@ def save_caminfo_metadata(cameras_folder_path, camera_select, user_select, camin
     
     # Make sure the camera info metadata reporting folder exists
     base_save_folder = build_camera_info_metadata_report_path(cameras_folder_path, camera_select, user_select)
-    os.makedirs(base_save_folder, exist_ok = True)
+    create_missing_folder_path(base_save_folder)
     
     # Loop through all the requested metadata and save back into the filesystem
     print("", "Saving camera info metadata", sep = "\n")
     for each_metadata_dict in tqdm(caminfo_metadata_list):
-        caminfo_start_epoch_ms = each_metadata_dict["start_epoch_ms"]
-        file_name = "dlcaminfo-{}.json.gz".format(caminfo_start_epoch_ms)
-        save_path = os.path.join(base_save_folder, file_name)
-        save_jgz(save_path, each_metadata_dict)
-        
+        save_jsongz_metadata(base_save_folder, each_metadata_dict)
+    
     return
 
 # .....................................................................................................................
@@ -306,15 +306,12 @@ def save_background_metadata(cameras_folder_path, camera_select, user_select, ba
     
     # Make sure the background metadata reporting folder exists
     base_save_folder = build_background_metadata_report_path(cameras_folder_path, camera_select, user_select)
-    os.makedirs(base_save_folder, exist_ok = True)
+    create_missing_folder_path(base_save_folder)
     
     # Loop through all the requested metadata and save back into the filesystem
     print("", "Saving background metadata", sep = "\n")
     for each_metadata_dict in tqdm(background_metadata_list):
-        bg_epoch_ms = each_metadata_dict["epoch_ms"]
-        file_name = "dlbggen-{}.json.gz".format(bg_epoch_ms)
-        save_path = os.path.join(base_save_folder, file_name)
-        save_jgz(save_path, each_metadata_dict)
+        save_json_metadata(base_save_folder, each_metadata_dict)
         
     return
 
@@ -324,7 +321,7 @@ def save_background_images(server_url, cameras_folder_path, camera_select, user_
     
     # Make sure the image reporting folder exists
     base_save_folder = build_background_image_report_path(cameras_folder_path, camera_select, user_select)
-    os.makedirs(base_save_folder, exist_ok = True)
+    create_missing_folder_path(base_save_folder)
         
     # Loop through all the requested metadata and request + save the correspond images
     print("", "Saving background images", sep = "\n")
@@ -386,14 +383,12 @@ def save_object_metadata(cameras_folder_path, camera_select, user_select, object
     
     # Make sure the metadata reporting folder exists
     base_save_folder = build_object_metadata_report_path(cameras_folder_path, camera_select, user_select)
-    os.makedirs(base_save_folder, exist_ok = True)
+    create_missing_folder_path(base_save_folder)
     
     # Loop through all the requested metadata and save back into the filesystem
     print("", "Saving object metadata", sep = "\n")
     for each_obj_id, each_metadata_dict in tqdm(object_metadata_dict.items()):
-        file_name = "dlobj-{}.json.gz".format(each_obj_id)
-        save_path = os.path.join(base_save_folder, file_name)
-        save_jgz(save_path, each_metadata_dict)
+        save_jsongz_metadata(base_save_folder, each_metadata_dict)
         
     return
 
@@ -445,16 +440,13 @@ def save_snapshot_metadata(cameras_folder_path, camera_select, user_select, snap
     
     # Make sure the metadata reporting folder exists
     base_save_folder = build_snapshot_metadata_report_path(cameras_folder_path, camera_select, user_select)
-    os.makedirs(base_save_folder, exist_ok = True)
+    create_missing_folder_path(base_save_folder)
     
     # Loop through all the requested metadata and save back into the filesystem
     print("", "Saving snapshot metadata", sep = "\n")
     for each_metadata_dict in tqdm(snapshot_metadata_list):
-        snap_epoch_ms = each_metadata_dict["epoch_ms"]
-        file_name = "dlsnap-{}.json.gz".format(snap_epoch_ms)
-        save_path = os.path.join(base_save_folder, file_name)
-        save_jgz(save_path, each_metadata_dict)
-        
+        save_json_metadata(base_save_folder, each_metadata_dict)
+    
     return
 
 # .....................................................................................................................
@@ -463,7 +455,7 @@ def save_snapshot_images(server_url, cameras_folder_path, camera_select, user_se
     
     # Make sure the image reporting folder exists
     base_save_folder = build_snapshot_image_report_path(cameras_folder_path, camera_select, user_select)
-    os.makedirs(base_save_folder, exist_ok = True)
+    create_missing_folder_path(base_save_folder)
         
     # Loop through all the requested metadata and request + save the correspond images
     print("", "Saving snapshot images", sep = "\n")
@@ -562,8 +554,8 @@ select_idx, camera_select = cli_select_from_list(camera_names_list, "Select came
 
 # Request info about the time range from the database
 snap_bounding_times_dict = request_bounding_times(server_url, camera_select)
-bounding_start_dt = parse_isoformat_string(snap_bounding_times_dict["min_datetime_isoformat"])
-bounding_end_dt = parse_isoformat_string(snap_bounding_times_dict["max_datetime_isoformat"])
+bounding_start_dt = isoformat_to_datetime(snap_bounding_times_dict["min_datetime_isoformat"])
+bounding_end_dt = isoformat_to_datetime(snap_bounding_times_dict["max_datetime_isoformat"])
 
 # We should show the date if it doesn't match the current date (to help indicate a site isn't storing new data)
 local_dt = get_local_datetime()

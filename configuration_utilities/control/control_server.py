@@ -55,6 +55,8 @@ import zipfile
 import shutil
 import subprocess
 
+from time import sleep
+
 from waitress import serve as wsgi_serve
 
 from local.lib.common.timekeeper_utils import get_utc_epoch_ms, get_human_readable_timestamp
@@ -63,6 +65,7 @@ from local.lib.common.environment import get_control_server_protocol, get_contro
 from local.lib.ui_utils.cli_selections import Resource_Selector
 from local.lib.ui_utils.script_arguments import script_arg_builder
 
+from local.lib.file_access_utils.structures import create_missing_folder_path, create_missing_folders_from_file
 from local.lib.file_access_utils.shared import build_camera_path
 from local.lib.file_access_utils.reporting import build_base_report_path
 from local.lib.file_access_utils.logging import make_log_folder
@@ -76,7 +79,6 @@ from flask_cors import CORS
 
 from local.eolib.utils.quitters import ide_catcher
 
-from time import sleep
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define functions
@@ -276,7 +278,7 @@ def copy_uploaded_config_data(unzip_folder_path, camera_name):
         # Create missing parent directories
         relative_parent_path = os.path.relpath(each_parent_dir, unzipped_camera_folder)
         absolute_parent_path = os.path.join(real_camera_path, relative_parent_path)
-        os.makedirs(absolute_parent_path, exist_ok = True)
+        create_missing_folder_path(absolute_parent_path)
         
         # Copy every file over from the unzipped data, and record the file pathing
         for each_file in each_file_list:
@@ -357,8 +359,8 @@ def launch_rtsp_collect(camera_select, enable_display = False):
     log_filename = "{}.log".format(current_epoch_ms)    
     camera_stdout_log = build_stdout_log_path(cameras_folder_path, camera_select, log_filename)
     camera_stderr_log = build_stderr_log_path(cameras_folder_path, camera_select, log_filename)
-    os.makedirs(os.path.dirname(camera_stdout_log), exist_ok = True)
-    os.makedirs(os.path.dirname(camera_stderr_log), exist_ok = True)
+    create_missing_folders_from_file(camera_stdout_log)
+    create_missing_folders_from_file(camera_stderr_log)
     
     # Launch script as a separate/detached process (with logging), which will run & close independent of the server
     with open(camera_stdout_log, "w") as stdout_file:
@@ -402,8 +404,8 @@ def launch_file_collect(camera_select, user_select, video_select,
     log_filename = "{}.log".format(current_epoch_ms)    
     camera_stdout_log = build_stdout_log_path(cameras_folder_path, camera_select, log_filename)
     camera_stderr_log = build_stderr_log_path(cameras_folder_path, camera_select, log_filename)
-    os.makedirs(os.path.dirname(camera_stdout_log), exist_ok = True)
-    os.makedirs(os.path.dirname(camera_stderr_log), exist_ok = True)
+    create_missing_folders_from_file(camera_stdout_log)
+    create_missing_folders_from_file(camera_stderr_log)
     
     # Launch script as a separate/detached process (with logging), which will run & close independent of the server
     with open(camera_stdout_log, "w") as stdout_file:

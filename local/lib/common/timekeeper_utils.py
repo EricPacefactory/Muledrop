@@ -53,6 +53,8 @@ import time
 import datetime as dt
 import numpy as np
 
+from random import random as unit_random
+
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
 
@@ -160,7 +162,312 @@ class Timekeeper:
 
     # .................................................................................................................
     # .................................................................................................................
+
+
+# =====================================================================================================================
+# =====================================================================================================================
+
+
+class Periodic_Polled_Timer:
     
+    '''
+    Class which instantiates a polled timer which goes off based on some specified period of time
+    '''
+    
+    # .................................................................................................................
+    
+    def __init__(self, trigger_on_first_check = True):
+        
+        ''' 
+        Initialize a new timer. 
+        Note that the trigger timing for this timer must still be set using the set_trigger_period(...) function!
+        
+        Use the check_trigger(...) function to check for timer updates
+        
+        Use the enable_randomness(...) or disable_randomness() functions to add a random amount to each cycle
+        
+        Use the get_next_trigger_time_ms() function to manually inspect the next trigger time
+        '''
+        
+        # Store bookkeeping variables
+        self._trigger_on_first_check = trigger_on_first_check
+        self._trigger_period_ms = 1
+        self._next_trigger_time_ms = None
+        
+        # Store randomness variables
+        self._enable_randomness = False
+        self._max_random_offset_ms = None
+    
+    # .................................................................................................................
+    
+    def __repr__(self):
+        
+        repr_str_list = ["Periodic Trigger Object",
+                         "  Trigger on first check: {}".format(self._trigger_on_first_check),
+                         "     Trigger period (ms): {}".format(self._trigger_period_ms),
+                         "  Next trigger time (ms): {}".format(self.get_next_trigger_time_ms())]
+        
+        return "\n".join(repr_str_list)
+    
+    # .................................................................................................................
+    
+    def reset_timer(self, trigger_on_first_check = None):
+        
+        '''
+        Function used to forcefully reset the trigger
+        
+        Inputs:
+            trigger_on_first_check -> Boolean or None. 
+                                      If None, behavior reverts to setting provided during object init
+                                      Otherwise if True, trigger will go off on next trigger check
+        
+        Outputs:
+            None!
+        '''
+        
+        # Re-use the trigger on first check setting (from init) if we aren't explicitly provided with a new setting
+        if trigger_on_first_check is None:
+            trigger_on_first_check = self._trigger_on_first_check
+        
+        self._next_trigger_time_ms = None
+    
+    # .................................................................................................................
+    
+    def set_trigger_period(self, hours = 0, minutes = 0, seconds = 0, milliseconds = 0):
+        
+        ''' Function used to update the trigger period after already initializing the object '''
+        
+        # Sanity check
+        total_millis = convert_to_milliseconds(hours, minutes, seconds, milliseconds)
+        if total_millis < 1:
+            raise ValueError("Can't set trigger period to be less than 1 millisecond! Got {} ms".format(total_millis))
+        
+        self._trigger_period_ms = total_millis
+        
+        return self
+    
+    # .................................................................................................................
+    
+    def enable_randomness(self, hours = 0, minutes = 0, seconds = 0, milliseconds = 0):
+        
+        '''
+        Function used to include a random offset to the trigger timing 
+        The random offset will be a positive value between zero and the total time given as input to this function.
+        '''
+        
+        # Sanity check
+        total_millis = convert_to_milliseconds(hours, minutes, seconds, milliseconds)
+        if total_millis < 1:
+            raise ValueError("Can't set random period to be less than 1 millisecond! Got {} ms".format(total_millis))
+            
+        # If we get here, we can safely enable randomness
+        self._enable_randomness = True
+        self._max_random_offset_ms = total_millis
+        
+        return self
+    
+    # .................................................................................................................
+    
+    def disable_randomness(self):
+        
+        ''' Function to turn off any existing randomness settings (i.e. reset to default deterministic behavior)'''
+        
+        self._enable_randomness = False
+    
+    # .................................................................................................................
+    
+    def get_next_trigger_time_ms(self):        
+        return self._next_trigger_time_ms
+    
+    # .................................................................................................................
+    
+    def check_trigger(self, current_epoch_ms):
+        
+        '''
+        Function used to check if the periodic trigger has gone off (given a current epoch_ms timing)
+        Handles initial call scenario, where a 'next trigger time' may not have been set yet
+        Behaviour depends on 'trigger_on_first_check' setting when initializing the object!
+        
+        Inputs:
+            current_epoch_ms --> (Integer) The current time as an epoch value in milliseconds
+        
+        Outputs:
+            new_trigger --> (Boolean) Returns true based on a periodic timer, otherwise false
+        '''
+        
+        # Wrap in try/except, since first evaluation will fail
+        try:
+            new_trigger = (current_epoch_ms > self._next_trigger_time_ms)
+            
+        except TypeError:
+            # Exception thrown on first eval, since we don't have a _next_trigger_time_ms to evaluate
+            if self._trigger_on_first_check:
+                new_trigger = True
+            else:
+                new_trigger = False
+                self._update_next_trigger_time_ms(current_epoch_ms)
+        
+        # If the trigger goes off, we'll need to update our next trigger time to avoid repeat triggers!
+        if new_trigger:
+            self._update_next_trigger_time_ms(current_epoch_ms)
+        
+        return new_trigger
+    
+    # .................................................................................................................
+
+    def _update_next_trigger_time_ms(self, current_epoch_ms):
+    
+        '''
+        Function which calculates a new value for the next trigger time.
+        Handles initial call scenario, where a 'previous' trigger time may not exist
+        '''
+        
+        # When this function is called, we can assume the existing 'next trigger time' is in the past
+        previous_trigger_time_ms = self._next_trigger_time_ms
+        
+        # Figure out what the trigger period should be, with randomness if needed
+        trigger_period_ms = self._trigger_period_ms
+        if self._enable_randomness:
+            random_offset_ms = int(round(self._max_random_offset_ms * unit_random()))
+            trigger_period_ms += random_offset_ms
+            
+        try:
+            # Update next time using previous time instead of current epoch timing, to avoid drifting errors
+            new_next_trigger_time_ms = previous_trigger_time_ms + trigger_period_ms
+            
+        except TypeError:        
+            # May get an error if the previous trigger time doesn't exist yet (i.e. on first-run)
+            new_next_trigger_time_ms = current_epoch_ms + trigger_period_ms
+        
+        # Check that the newly calculated time isn't already in the past
+        # (may happen if the camera disconnects or hangs for a while)
+        if new_next_trigger_time_ms < current_epoch_ms:
+            new_next_trigger_time_ms = current_epoch_ms + trigger_period_ms
+        
+        self._next_trigger_time_ms = new_next_trigger_time_ms
+    
+    # .................................................................................................................
+    # .................................................................................................................
+
+
+# =====================================================================================================================
+# =====================================================================================================================
+
+
+class Periodic_Polled_Integer_Counter:
+    
+    '''
+    Class which instantiates a polled counter which repeatedly goes off after a set number of counts
+    '''
+    
+    # .................................................................................................................
+    
+    def __init__(self, reset_after_n_counts = 5, reset_on_first_check = True):
+        
+        # Allocate storage for bookkeeping variables
+        self._counter = None
+        self._reset_after_n_counts = None
+        self._reset_on_first_check = reset_on_first_check
+        
+        # Set the initial count reset value, so we can make consistent use of setting logic
+        self.set_count_reset_value(reset_after_n_counts)
+    
+    # .................................................................................................................
+    
+    def __repr__(self):
+        
+        repr_str_list = ["Periodic Interger Counter",
+                         "  Reset on first check: {}".format(self._reset_on_first_check),
+                         "         Current count: {}".format(self.get_current_count())]
+        
+        return "\n".join(repr_str_list)
+    
+    # .................................................................................................................
+    
+    def reset_counter(self, reset_on_first_check = None):
+        
+        '''
+        Function used to forcefully reset the counter
+        
+        Inputs:
+            trigger_on_first_check -> Boolean or None. 
+                                      If None, behavior reverts to setting provided during object init
+                                      Otherwise if True, trigger will go off on next update_count check
+        
+        Outputs:
+            None!
+        '''
+        
+        # Re-use the trigger on first check setting (from init) if we aren't explicitly provided with a new setting
+        if reset_on_first_check is None:
+            reset_on_first_check = self._reset_on_first_check
+        
+        self._counter = None
+    
+    # .................................................................................................................
+    
+    def set_count_reset_value(self, new_reset_value):
+        
+        '''
+        Function used to update the reset count after already initializing the object
+        Note that this value will be the number of counts between reset events
+        For example, using a value of 3 and triggering on the first check would give the following sequence:
+            0 (Trigger), 1, 2, 3
+            4 (Trigger), 5, 6, 7
+            8 (Trigger), 9, 10, 11
+            12 (Trigger), ...
+        
+        As a result of this behavior, a value of 0 or 1 will cause the trigger to go off on every update!
+        A value of 2 will cause an update every-other count etc...
+        '''
+        
+        # Sanity check
+        if new_reset_value < 0:
+            raise ValueError("Can't have negative count reset values!")
+        
+        self._reset_after_n_counts = new_reset_value
+    
+    # .................................................................................................................
+    
+    def get_current_count(self):
+        return self._counter
+    
+    # .................................................................................................................
+    
+    def update_count(self):
+        
+        '''
+        Function used to increment the counter and check if the trigger has gone off
+        Handles initial call scenario, where a 'next trigger' may not have been set yet
+        Behaviour depends on 'reset_on_first_check' setting when initializing the object!
+        
+        Outputs:
+            count_reset --> (Boolean) Returns true based on reaching a periodic count, otherwise false
+        '''
+        
+        # Wrap in try/except, since first evaluation will fail
+        try:            
+            self._counter += 1
+            count_reset = (self._counter >= self._reset_after_n_counts)
+            
+        except TypeError:
+            # Exception thrown on first eval, since we don't have a counter value to evaluate
+            if self._reset_on_first_check:
+                count_reset = True
+            else:
+                count_reset = False
+                self._counter = 1
+        
+        # Reset everytime we reach the count trigger
+        if count_reset:
+            self._counter = 0
+        
+        return count_reset
+    
+    # .................................................................................................................
+    # .................................................................................................................
+
+
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define functions
 
@@ -185,6 +492,34 @@ def get_local_datetime():
 def get_utc_epoch_ms():
     
     return datetime_to_epoch_ms(get_utc_datetime())
+
+# .....................................................................................................................
+
+def get_local_tzinfo():
+    
+    ''' Function which returns a local tzinfo object. Accounts for daylight savings '''
+    
+    # Figure out utc offset for local time, accounting for daylight savings
+    is_daylight_savings = time.localtime().tm_isdst
+    utc_offset_sec = time.altzone if is_daylight_savings else time.timezone
+    utc_offset_delta = dt.timedelta(seconds = -utc_offset_sec)
+    
+    return dt.timezone(offset = utc_offset_delta)
+    
+# .....................................................................................................................
+
+def get_utc_tzinfo():
+    
+    ''' Convenience function which returns a utc tzinfo object '''
+    
+    return dt.timezone.utc
+
+# .....................................................................................................................
+# .....................................................................................................................
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+#%% String conversion functions
 
 # .....................................................................................................................
 
@@ -260,35 +595,15 @@ def get_filesafe_time(input_datetime = None):
     return file_safe_time_str
 
 # .....................................................................................................................
-
-def get_local_tzinfo():
-    
-    ''' Function which returns a local tzinfo object. Accounts for daylight savings '''
-    
-    # Figure out utc offset for local time, accounting for daylight savings
-    is_daylight_savings = time.localtime().tm_isdst
-    utc_offset_sec = time.altzone if is_daylight_savings else time.timezone
-    utc_offset_delta = dt.timedelta(seconds = -utc_offset_sec)
-    
-    return dt.timezone(offset = utc_offset_delta)
-    
 # .....................................................................................................................
 
-def get_utc_tzinfo():
-    
-    ''' Convenience function which returns a utc tzinfo object '''
-    
-    return dt.timezone.utc
-
-# .....................................................................................................................
-# .....................................................................................................................
 
 # ---------------------------------------------------------------------------------------------------------------------
-#%% Conversion functions
+#%% Isoformat conversion functions
 
 # .....................................................................................................................
 
-def parse_isoformat_string(isoformat_datetime_str):
+def isoformat_to_datetime(isoformat_datetime_str):
     
     '''
     Function for parsing isoformat strings
@@ -324,6 +639,24 @@ def parse_isoformat_string(isoformat_datetime_str):
 
 # .....................................................................................................................
 
+def isoformat_to_epoch_ms(datetime_isoformat_string):
+    
+    '''
+    Helper function which first converts an isoformat datetime string into a python datetime object
+    then converts the datetime object into an epoch_ms value
+    '''
+    
+    return datetime_to_epoch_ms(isoformat_to_datetime(datetime_isoformat_string))
+
+# .....................................................................................................................
+# .....................................................................................................................
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Datetime conversion functions
+
+# .....................................................................................................................
+
 def datetime_to_isoformat_string(input_datetime):
     
     '''
@@ -346,35 +679,64 @@ def datetime_to_epoch_ms(input_datetime):
 
 # .....................................................................................................................
 
-def epoch_ms_to_utc_datetime(epoch_ms):
-    
-    ''' Function which converts a millisecond epoch value into a utc datetime object '''
-    
-    epoch_sec = epoch_ms / 1000.0
-    return dt.datetime.utcfromtimestamp(epoch_sec).replace(tzinfo = dt.timezone.utc)
-
-# .....................................................................................................................
-    
-def isoformat_to_epoch_ms(datetime_isoformat_string):
-    
-    ''' 
-    Helper function which first converts an isoformat datetime string into a python datetime object
-    then converts the datetime object into an epoch_ms value
-    '''
-    
-    return datetime_to_epoch_ms(parse_isoformat_string(datetime_isoformat_string))
-
-# .....................................................................................................................
-
 def local_datetime_to_utc_datetime(local_datetime):
     
     ''' Convenience function for converting datetime objects from local timezones to utc '''
     
     return (local_datetime - local_datetime.utcoffset()).replace(tzinfo = get_utc_tzinfo())
 
+# .....................................................................................................................
+# .....................................................................................................................
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Epoch conversion functions
+
+# .....................................................................................................................
+
+def epoch_ms_to_utc_datetime(epoch_ms):
+    
+    ''' Function which converts a millisecond epoch value into a utc datetime object '''
+    
+    epoch_sec = epoch_ms / 1000.0
+    return dt.datetime.utcfromtimestamp(epoch_sec).replace(tzinfo = get_utc_tzinfo())
+
+# .....................................................................................................................
+
+def epoch_ms_to_local_datetime(epoch_ms):
+    
+    ''' Function which converts a millisecond epoch value into a datetime object with the local timezone '''
+    
+    epoch_sec = epoch_ms / 1000.0
+    return dt.datetime.fromtimestamp(epoch_sec).replace(tzinfo = get_local_tzinfo())
+
+# .....................................................................................................................
+
+def epoch_ms_to_utc_isoformat(epoch_ms):
+    
+    '''
+    Helper function which first converts an epoch_ms value into a python datetime object
+    then converts the datetime object into an isoformat string
+    The result will use a UTC timezone
+    '''
+    
+    return datetime_to_isoformat_string(epoch_ms_to_utc_datetime(epoch_ms))
+
+# .....................................................................................................................
+
+def epoch_ms_to_local_isoformat(epoch_ms):
+    
+    '''
+    Helper function which first converts an epoch_ms value into a python datetime object
+    then converts the datetime object into an isoformat string
+    The result will use the local timezone
+    '''
+    
+    return datetime_to_isoformat_string(epoch_ms_to_local_datetime(epoch_ms))
+
 # .................................................................................................................
 
-def time_to_epoch_ms(time_value):
+def any_time_type_to_epoch_ms(time_value):
     
     # Decide how to handle the input time value based on it's type
     value_type = type(time_value)
@@ -403,6 +765,20 @@ def time_to_epoch_ms(time_value):
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Misc functions
+
+# .....................................................................................................................
+
+def convert_to_milliseconds(hours = 0, minutes = 0, seconds = 0, milliseconds = 0):
+    
+    ''' Function used to convert time amounts given in hours/minutes/seconds/milliseconds to just milliseconds '''
+    
+    # Convert units down to milliseconds
+    hours_as_minutes = (hours * 60.0)
+    minutes_as_seconds = ((minutes + hours_as_minutes) * 60.0)
+    seconds_as_millis = ((seconds + minutes_as_seconds) * 1000.0)
+    total_millis = int(round(milliseconds + seconds_as_millis))
+    
+    return total_millis
 
 # .....................................................................................................................
 
@@ -435,10 +811,17 @@ def fake_datetime_like(reference_datetime,
 if __name__ == "__main__":
     
     ll = get_local_datetime()
-    print(get_human_readable_timestamp(ll))
+    print("Local datetime:", get_human_readable_timestamp(ll))
     
     uu = get_utc_datetime()
-    print(get_human_readable_timestamp(uu))
+    print("UTC Datetime:", get_human_readable_timestamp(uu))
+    
+    # Example counter behaviour
+    print("", "Counter example:", sep = "\n")
+    example_counter = Periodic_Polled_Integer_Counter(reset_after_n_counts = 2, reset_on_first_check = True)
+    for k in range(15):
+        trigger_event = example_counter.update_count()
+        print(k, trigger_event)
 
 
 # ---------------------------------------------------------------------------------------------------------------------

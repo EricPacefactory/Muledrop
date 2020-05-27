@@ -58,7 +58,7 @@ from local.lib.ui_utils.script_arguments import script_arg_builder
 
 from local.lib.file_access_utils.externals import build_externals_folder_path
 from local.lib.file_access_utils.core import get_ordered_core_sequence, build_core_folder_path
-from local.lib.file_access_utils.read_write import load_config_json
+from local.lib.file_access_utils.json_read_write import load_config_json
 
 from local.eolib.utils.files import get_file_list, get_folder_list
 from local.eolib.utils.cli_tools import cli_confirm, cli_select_from_list, clear_terminal, clean_error_quit

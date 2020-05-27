@@ -54,6 +54,8 @@ import numpy as np
 
 from local.lib.ui_utils.cli_selections import Resource_Selector
 
+from local.lib.file_access_utils.structures import create_missing_folder_path
+
 from local.offline_database.file_database import launch_file_db, close_dbs_if_missing_data
 from local.offline_database.object_reconstruction import Smooth_Hover_Object_Reconstruction, Hover_Mapping
 from local.offline_database.object_reconstruction import create_trail_frame_from_object_reconstruction
@@ -456,7 +458,7 @@ def build_base_saving_folder():
     
     # Build full folder pathing
     saving_folder = os.path.join(base_path, "safety-cv-exports", "csv", camera_specific_folder)
-    os.makedirs(saving_folder, exist_ok = True)
+    create_missing_folder_path(saving_folder)
     
     return saving_folder
 

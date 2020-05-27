@@ -51,388 +51,378 @@ find_path_to_local()
 
 import queue
 import threading
-import cv2
 
-from time import perf_counter
+from time import sleep
 
-from local.lib.file_access_utils.read_write import save_config_json, save_jgz
-
-from local.eolib.utils.files import get_file_list, get_file_list_by_age
+from local.lib.file_access_utils.metadata_read_write import encode_json_data, write_encoded_json
+from local.lib.file_access_utils.metadata_read_write import encode_jsongz_data, write_encoded_jsongz
+from local.lib.file_access_utils.image_read_write import encode_jpg_data, encode_png_data
+from local.lib.file_access_utils.image_read_write import write_encoded_jpg, write_encoded_png
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-#%% Worker classes
+#%% Background Resource savers
 
-class Threaded_Worker:
+class Threaded_PNG_Saver:
     
     # .................................................................................................................
     
-    def __init__(self, threading_enabled = True, run_as_daemon = True, lock = None):
+    def __init__(self, *, thread_name, png_folder_path):
         
-        # Store behavior flags
-        self.threading_enabled = threading_enabled
-        self._run_as_daemon = run_as_daemon
-        self._lock = lock
-        self._lock_available = (lock is not None)
+        # Store inputs
+        self.thread_name = thread_name
+        self.png_folder_path = png_folder_path
         
-        # Allocate storage for keeping track of threads
-        self._thread_list = []
+        # For clarity
+        max_queue_size = 250
+        auto_kill_when_main_thread_closes = True
+        
+        # Set up threading resources
+        self._data_queue = queue.Queue(max_queue_size)
+        self._run_thread_event = threading.Event()
+        thread_args = (png_folder_path, self._data_queue, self._run_thread_event)
+        
+        # Start saving thread
+        self._thread_ref = threading.Thread(name = thread_name,
+                                            target = self._wait_for_data_to_save,
+                                            args = thread_args,
+                                            daemon = auto_kill_when_main_thread_closes)
+        
+        # Start the thread
+        self._run_thread_event.set()
+        self._thread_ref.start()
     
     # .................................................................................................................
     
-    def toggle_threading(self, enable_threading):
-        self.threading_enabled = enable_threading
-    
-    # .................................................................................................................
-    
-    def is_working(self):
-        
-        ''' Function used to check if any threads are active '''
-        
-        # Check if any threads are active
-        for each_thread in self._thread_list:
-            if each_thread.is_alive(): 
-                return True
-            
-        return False
-    
-    # .................................................................................................................
-    
-    def launch_as_thread(self, function_to_thread, *function_args, **function_kwargs):
+    def save_data(self, file_save_name_no_ext, image_data, png_compression_0_to_9 = 0):
         
         '''
-        Function for launching a given function on a separate thread. The function should be passed by name
-        (without calling, i.e. no parenthesis), along with any positional args or key-word args.
-        This object will automatically keep track of threads, but the clean_up() function should be called
-        to clear out these records over time.
-        
-        Inputs:
-            function_to_thread -> Function. Pass in without executing (no parenthesis)
-            
-            *function_args -> Any type. Positional arguments for the function. 
-                              Pass in each argument separate with commas
-                              (do not bundle these as a list/tuple)
-                              
-            **function_kwargs -> Any type. Key-word arguments for the function. 
-                                 Pass in using the normal style: keyword = value
-                                 (do not bundle these as a dictionary)
-        
-        Outputs:
-            None
+        Function which handles 'saving' of data (at least from the callers perspective)
+        Actually bundles data and passes it to the savng thread to handle actual file i/o
         '''
         
-        # Create thread
-        func_to_run = self._lock_function(function_to_thread) if self._lock_available else function_to_thread
-        new_func_thread = threading.Thread(target = func_to_run,
-                                           args = function_args,
-                                           kwargs = function_kwargs,
-                                           daemon = self._run_as_daemon)
+        # Encode data for saving
+        encoded_png_data = encode_png_data(image_data, png_compression_0_to_9)
         
-        # Start the threaded function call & add thread to the list for clean-up
-        new_func_thread.start()
-        self._thread_list.append(new_func_thread)
+        # Bundle everything needed for saving
+        bundled_data = (file_save_name_no_ext, encoded_png_data)
         
-        # Wait for thread to finish if threading is actually disabled
-        if not self.threading_enabled:
-            new_func_thread.join()
+        # Now place bundled data in the queue for the thread to deal with
+        # Note: we aren't actually saving (depsite the function name), we're just passing data to the thread to save!
+        self._data_queue.put(bundled_data, block = True, timeout = None)
+        
+        return
     
     # .................................................................................................................
     
-    def clean_up(self):
+    def _wait_for_data_to_save(self, image_save_folder_path, data_queue_ref, run_thread_event_ref):
         
-        ''' Function for clearing out finished threads. No inputs/outputs '''
-        
-        # Figure out which threads are safe to remove
-        rem_threads_idx = []
-        for each_idx, each_thread in enumerate(self._thread_list):
-            if each_thread.is_alive(): continue
-            each_thread.join()
-            rem_threads_idx.append(each_idx)
-        
-        # Remove finished threads from our list so we can stop tracking them
-        for each_idx in reversed(rem_threads_idx):
-            del self._thread_list[each_idx]
+        # Loop until something stops us
+        while True:
             
+            # Save all data from the queue when it's available
+            while not data_queue_ref.empty():
+                
+                # Get data from queue
+                file_save_name_no_ext, encoded_png_data = data_queue_ref.get()
+                
+                # Save image data
+                write_encoded_png(image_save_folder_path, file_save_name_no_ext, encoded_png_data)
+            
+            # Check if we need to stop
+            got_shutdown_signal = (not run_thread_event_ref.is_set())
+            if got_shutdown_signal and data_queue_ref.empty():
+                break
+            
+            # Wait a bit so we aren't completely hammering this thread
+            sleep(0.5)
+        
+        return
+    
     # .................................................................................................................
     
     def close(self):
         
-        ''' Function which blocks execution while waiting for all threads to finish. No inputs/outputs '''
+        # Clear event to trigger thread to close
+        self._run_thread_event.clear()
+        print("DEBUG - Clearing control event ({})".format(self.thread_name))
         
-        # Wait for all threads to finish & clean up
-        for each_thread in self._thread_list:
-            each_thread.join()
-            
-        self.clean_up()
+        # Now wait for thread to close (may take a moment if still saving data)
+        self._thread_ref.join(10.0)
         
+        print("DEBUG - Thread joined! All done ({})".format(self.thread_name))
+        
+        return
+    
+    # .................................................................................................................
+    # .................................................................................................................
+
+
+
+class Nonthreaded_PNG_Saver:
+    
     # .................................................................................................................
     
-    def _lock_function(self, function_to_call):
+    def __init__(self, *, png_folder_path):
         
-        def _locked_call(*function_args, **function_kwargs):
+        # Store inputs
+        self.png_folder_path = png_folder_path
+    
+    # .................................................................................................................
+    
+    def save_data(self, file_save_name_no_ext, image_data, png_compression_0_to_9 = 0):
+        
+        # Encode data for saving
+        encoded_png_data = encode_png_data(image_data, png_compression_0_to_9)
+        
+        # Save image data
+        write_encoded_png(self.png_folder_path, file_save_name_no_ext, encoded_png_data)
+        
+        return
+    
+    # .................................................................................................................
+    
+    def close(self):
+        
+        print("DEBUG - Nothing to close on non-threaded object saver!")
+        
+        return
+    
+    # .................................................................................................................
+    # .................................................................................................................
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Object Report data Savers
+
+
+class Threaded_Compressed_JSON_Saver:
+    
+    # .................................................................................................................
+    
+    def __init__(self, *, thread_name, jsongz_folder_path):
+        
+        # Store inputs
+        self.thread_name = thread_name
+        self.jsongz_folder_path = jsongz_folder_path
+        
+        # For clarity
+        max_queue_size = 250
+        auto_kill_when_main_thread_closes = True
+        
+        # Set up threading resources
+        self._data_queue = queue.Queue(max_queue_size)
+        self._run_thread_event = threading.Event()
+        thread_args = (jsongz_folder_path, self._data_queue, self._run_thread_event)
+        
+        # Start saving thread
+        self._thread_ref = threading.Thread(name = thread_name,
+                                            target = self._wait_for_data_to_save,
+                                            args = thread_args,
+                                            daemon = auto_kill_when_main_thread_closes)
+        
+        # Start the thread
+        self._run_thread_event.set()
+        self._thread_ref.start()
+    
+    # .................................................................................................................
+    
+    def save_data(self, file_save_name_no_ext, metadata_dict, json_double_precision = 3):
+        
+        '''
+        Function which handles 'saving' of data (at least from the callers perspective)
+        Actually bundles data and passes it to the savng thread to handle actual file i/o
+        '''
+        
+        # Encode data for saving
+        encoded_json_data = encode_jsongz_data(metadata_dict, json_double_precision)
+        
+        # Bundle everything needed for saving
+        bundled_data = (file_save_name_no_ext, encoded_json_data)
+        
+        # Now place bundled data in the queue for the thread to deal with
+        # Note: we aren't actually saving (depsite the function name), we're just passing data to the thread to save!
+        self._data_queue.put(bundled_data, block = True, timeout = None)
+        
+        return
+    
+    # .................................................................................................................
+    
+    def _wait_for_data_to_save(self, metadata_save_folder_path, data_queue_ref, run_thread_event_ref):
+        
+        # Loop until something stops us
+        while True:
             
-            # Make sure we lock out other threads if possible
-            self._lock.acquire()
-            
-            # Call the function with whatever arguments it needs and place it's results into the queue for later access
-            function_to_call(*function_args, **function_kwargs)
-            
-            # Unlock so other threads can continue
-            self._lock.release()
+            # Save all data from the queue when it's available
+            while not data_queue_ref.empty():
                 
-            return
-    
-        return _locked_call
+                # Get data from queue
+                file_save_name_no_ext, encoded_jsongz_data = data_queue_ref.get()
+                
+                # Save metadata with compression
+                write_encoded_jsongz(metadata_save_folder_path, file_save_name_no_ext, encoded_jsongz_data)
+            
+            # Check if we need to stop
+            got_shutdown_signal = (not run_thread_event_ref.is_set())
+            if got_shutdown_signal and data_queue_ref.empty():
+                break
+            
+            # Wait a bit so we aren't completely hammering this thread
+            sleep(0.5)     
+        
+        return
     
     # .................................................................................................................
-    # .................................................................................................................
+    
+    def close(self):
+        
+        # Clear event to trigger thread to close
+        self._run_thread_event.clear()
+        print("DEBUG - Clearing control event ({})".format(self.thread_name))
+        
+        # Now wait for thread to close (may take a moment if still saving data)
+        self._thread_ref.join(10.0)
+        
+        print("DEBUG - Thread joined! All done ({})".format(self.thread_name))
+        
+        return
     
     # .................................................................................................................
     # .................................................................................................................
 
 
 
-class Parallel_Function(Threaded_Worker):
+class Nonthreaded_Compressed_JSON_Saver:
     
     # .................................................................................................................
     
-    def __init__(self, function_to_thread, queue_size = 10, threading_enabled = True, *, lock = None):
+    def __init__(self, *, jsongz_folder_path):
         
-        '''
-        Class used to launch a function call as a parallel (threaded) worker process.
-        The return value of the function will be placed in a queue as it finishes
-        
-        Useful methods:
-            
-            launch_as_thread() -> Call with function args/kwargs to launch the function on a separate thread
-                                  (with optional thread lock around start/end of the function)
-                                
-            data_is_available() -> Call to check if new function results are available
-            
-            get_new_data() -> Non-blocking call to retrieve new data. Note that this can fail if no data is available!
-            
-            get_new_data_blocking() -> Same as get_new_data(), but blocks until data is available
-            
-            is_working() -> Check if an unfinished function call is currently running
-            
-            toggle_threading() -> Use to turn threading on or off
-            
-            clean_up() -> If auto-clean up is not used when getting data, 
-                          this must be called to get rid of finished threads!
-        '''
-        
-        # Inherit from parent class
-        super().__init__(threading_enabled, lock = lock)
-        
-        # Store function to thread
-        self._function_to_thread = function_to_thread
-        
-        # Store threading data access variables
-        self._queue_size = queue_size
-        self._results_queue = queue.Queue(queue_size)
+        # Store inputs
+        self.jsongz_folder_path = jsongz_folder_path
     
     # .................................................................................................................
     
-    def __call__(self, *function_args, **function_kwargs):
+    def save_data(self, file_save_name_no_ext, metadata_dict, json_double_precision = 3):
         
-        ''' Convenience version of launch_as_thread() '''
+        # Encode data for saving
+        encoded_jsongz_data = encode_jsongz_data(metadata_dict, json_double_precision)
         
-        self.launch_as_thread(*function_args, **function_kwargs)
+        # Save metadata with compression
+        write_encoded_jsongz(self.jsongz_folder_path, file_save_name_no_ext, encoded_jsongz_data)
+        
+        return
     
     # .................................................................................................................
     
-    # OVERRIDNG FROM PARENT!
-    def launch_as_thread(self, *function_args, **function_kwargs):
+    def close(self):
         
-        # Create saving thread
-        new_func_thread = threading.Thread(target = self._locked_wrapper,
-                                           args = function_args,
-                                           kwargs = function_kwargs,
-                                           daemon = True)
+        print("DEBUG - Nothing to close on non-threaded object saver!")
         
-        # Start the threaded function call & add it to the list to keep track of it
-        new_func_thread.start()
-        self._thread_list.append(new_func_thread)
-        
-        # Wait for thread to finish if threading is actually disabled
-        if not self.threading_enabled:
-            new_func_thread.join()
-            
-    # .................................................................................................................
-    
-    def data_is_available(self):
-        return (not self._results_queue.empty())
-    
-    # .................................................................................................................
-    
-    def get_new_data(self, error_if_missing = True, return_if_missing = None, auto_clean_up = True):
-        
-        ''' 
-        Function for retrieving new data from the threaded background worker. Non-blocking
-        Worker is not guarenteed to have data available! Check availablity with data_is_available() function
-        
-        Inputs:
-            error_if_missing -> Boolean. If true, an IOError is raised if no data is available. Otherwise,
-                                the returned data is determined by the other input argument...
-            
-            return_if_missing -> Any type. Data to return if the worker has nothing available
-            
-            auto_clean_up -> Boolean. If true, the interal clean_up() function is called after retrieving data
-            
-        Outputs:
-            newest_data
-        '''
-        
-        try:
-            new_results = self._results_queue.get_nowait()
-            if auto_clean_up:
-                self.clean_up()
-            
-        except queue.Empty:
-            if error_if_missing:
-                raise IOError("No data in worker queue!")
-            new_results = return_if_missing
-        
-        return new_results
-    
-    # .................................................................................................................
-    
-    def get_new_data_blocking(self, timeout_sec = None, error_on_timeout = True, return_on_timeout = None,
-                              auto_clean_up = True):
-        
-        ''' 
-        A blocking version of the get_new_data() function
-        
-        Inputs:
-            timeout_sec -> Float or None. If a number is provided, function will block for at most, this
-                           number of seconds before failing. If None, blocks forever
-                           
-            error_on_timeout -> Boolean. If true, and IOError is raised if no data is available before timeout.
-                                Otherwise returns data based on the final function argument...
-                                
-            return_on_timeout -> Any type. Data to return if no data is available before timeout
-            
-            auto_clean_up -> Boolean. If true, the interal clean_up() function is called after retrieving data
-        '''
-        
-        try:
-            new_results = self._results_queue.get(block = True, timeout = timeout_sec)
-            if auto_clean_up:
-                self.clean_up()
-            
-        except queue.Empty:            
-            if error_on_timeout:
-                raise IOError("No data in worker queue!")
-            new_results = return_on_timeout
-        
-        return new_results
-    
-    # .................................................................................................................
-    
-    def _locked_wrapper(self, *args, **kwargs):
-        
-        # Make sure we lock out other threads if possible
-        if self._lock_available:
-            self._lock.acquire()
-        
-        # Call the function with whatever arguments it needs and place it's results into the queue for later access
-        new_results = self._function_to_thread(*args, **kwargs)
-        self._results_queue.put(new_results)
-        
-        # Unlock so other threads can continue
-        if self._lock_available:
-            self._lock.release()
+        return
     
     # .................................................................................................................
     # .................................................................................................................
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-#%% Saver classes
+#%% Background/Snapshot Report Data Savers
 
-class Data_Access(Threaded_Worker):
+class Threaded_JPG_and_JSON_Saver:
     
     # .................................................................................................................
     
-    def __init__(self, cameras_folder_path, camera_select, user_select,
-                 create_folder_if_missing = True, threading_enabled = True,
-                 *, lock = None):
+    def __init__(self, *, thread_name, jpg_folder_path, json_folder_path):
         
-        # Inherit from parent class. Gives access to threading functionality (if needed)
-        super().__init__(threading_enabled, lock = lock)
+        # Store inputs
+        self.thread_name = thread_name
+        self.jpg_folder_path = jpg_folder_path
+        self.json_folder_path = json_folder_path
         
-        # Store all required pathing info for re-use
-        self.cameras_folder_path = cameras_folder_path
-        self.camera_select = camera_select
-        self.user_select = user_select
+        # For clarity
+        max_queue_size = 250
+        auto_kill_when_main_thread_closes = True
         
-        # Create base saving path
-        self._data_folder_path = self._build_data_folder_path()
-        if create_folder_if_missing:
-            os.makedirs(self._data_folder_path, exist_ok = True)
+        # Set up threading resources
+        self._data_queue = queue.Queue(max_queue_size)
+        self._run_thread_event = threading.Event()
+        thread_args = (jpg_folder_path, json_folder_path, self._data_queue, self._run_thread_event)
+        
+        # Start saving thread
+        self._thread_ref = threading.Thread(name = thread_name,
+                                            target = self._wait_for_data_to_save,
+                                            args = thread_args,
+                                            daemon = auto_kill_when_main_thread_closes)
+        
+        # Start the thread
+        self._run_thread_event.set()
+        self._thread_ref.start()
     
     # .................................................................................................................
     
-    def _build_data_folder_path(self):
+    def save_data(self, file_save_name_no_ext, image_data, metadata_dict, 
+                  jpg_quality_0_to_100 = 25, json_double_precision = 3):
         
-        class_name = self.__class__.__name__
-        error_msg = "Need to override _build_data_folder_path() in sub-class! ({})".format(class_name)
+        '''
+        Function which handles 'saving' of data (at least from the callers perspective)
+        Actually bundles data and passes it to the savng thread to handle actual file i/o
+        '''
         
-        raise NotImplementedError(error_msg)
+        # Encode data for saving
+        encoded_jpg_data = encode_jpg_data(image_data, jpg_quality_0_to_100)
+        encoded_json_data = encode_json_data(metadata_dict, json_double_precision)
         
+        # Bundle everything needed for saving
+        bundled_data = (file_save_name_no_ext, encoded_jpg_data, encoded_json_data)
+        
+        # Now place bundled data in the queue for the thread to deal with
+        # Note: we aren't actually saving (depsite the function name), we're just passing data to the thread to save!
+        self._data_queue.put(bundled_data, block = True, timeout = None)
+        
+        return
+    
     # .................................................................................................................
     
-    def relative_data_path(self, start_path = None):
+    def _wait_for_data_to_save(self, image_save_folder_path, metadata_save_folder_path,
+                               data_queue_ref, run_thread_event_ref):
         
-        ''' Function for providing a string representing the relative path to this objects data folder '''
-        
-        if start_path is None:
-            start_path = self.cameras_folder_path
-        
-        return os.path.relpath(self._data_folder_path, start_path)
-    
-    # .................................................................................................................
-    
-    def list_file_paths(self, sort_chronologically = True, allowable_exts_list = []):
-        
-        ''' 
-        Function which provides a list of file paths at the data path
-        Various inputs allow for different ways of sorting the resulting pathings
-        
-        Inputs:
-            sort_chronologically -> Boolean. If true, results are sorted by file creation time. Newest first.
+        # Loop until something stops us
+        while True:
             
-        Outputs:
-            file_path_list -> List. Full file paths with optional sorting        
-        '''        
+            # Save all data from the queue when it's available
+            while not data_queue_ref.empty():
+                
+                # Get data from queue
+                file_save_name_no_ext, encoded_jpg_data, encoded_json_data = data_queue_ref.get()
+                
+                # Save image data
+                write_encoded_jpg(image_save_folder_path, file_save_name_no_ext, encoded_jpg_data)
+                write_encoded_json(metadata_save_folder_path, file_save_name_no_ext, encoded_json_data)
+            
+            # Check if we need to stop
+            got_shutdown_signal = (not run_thread_event_ref.is_set())
+            if got_shutdown_signal and data_queue_ref.empty():
+                break
+            
+            # Wait a bit so we aren't completely hammering this thread
+            sleep(0.5)
         
-        if sort_chronologically:
-            sorted_ages, file_path_list = get_file_list_by_age(self._data_folder_path, 
-                                                               newest_first = True,
-                                                               show_hidden_files = False, 
-                                                               create_missing_folder = False,
-                                                               return_full_path = True,
-                                                               allowable_exts_list = allowable_exts_list)
-        else:
-            file_path_list = get_file_list(self._data_folder_path, 
-                                           show_hidden_files = False, 
-                                           create_missing_folder = False,
-                                           return_full_path = True, 
-                                           sort_list = False,
-                                           allowable_exts_list = allowable_exts_list)
-        
-        return file_path_list
+        return
     
     # .................................................................................................................
     
-    def clear_existing_data(self, allowable_exts_list = []):
+    def close(self):
         
-        ''' Function which deletes target files from the access path '''
+        # Clear event to trigger thread to close
+        self._run_thread_event.clear()
+        print("DEBUG - Clearing control event ({})".format(self.thread_name))
         
-        # Get a list of files, with possible extension filtering, then ask the os to delete them all!
-        existing_file_paths = self.list_file_paths(False, allowable_exts_list)
-        for each_path in existing_file_paths:
-            os.remove(each_path)
+        # Now wait for thread to close (may take a moment if still saving data)
+        self._thread_ref.join(10.0)
+        
+        print("DEBUG - Thread joined! All done ({})".format(self.thread_name))
+        
+        return
     
     # .................................................................................................................
     # .................................................................................................................
@@ -442,313 +432,50 @@ class Data_Access(Threaded_Worker):
 # =====================================================================================================================
 
 
-class Image_Saver(Data_Access):
+class Nonthreaded_JPG_and_JSON_Saver:
     
     # .................................................................................................................
     
-    def __init__(self, cameras_folder_path, camera_select, user_select,
-                 saving_enabled = True, create_save_folder_if_missing = True, threading_enabled = True,
-                 *, lock = None):
+    def __init__(self, *, jpg_folder_path, json_folder_path):
         
-        # Inherit from base class
-        super().__init__(cameras_folder_path, camera_select, user_select,
-                         create_folder_if_missing = create_save_folder_if_missing,
-                         threading_enabled = threading_enabled,
-                         lock = lock)
-        
-        # Store saving settings
-        self.saving_enabled = saving_enabled
-        
-    # .................................................................................................................
-    
-    def toggle_saving(self, enable_saving):
-        self.saving_enabled = enable_saving
+        # Store inputs
+        self.jpg_folder_path = jpg_folder_path
+        self.json_folder_path = json_folder_path
     
     # .................................................................................................................
     
-    def apply_jpg_quality(self, image_data, save_quality_0_to_100):
+    def save_data(self, file_save_name_no_ext, image_data, metadata_dict,
+                  jpg_quality_0_to_100 = 25, json_double_precision = 3):
         
-        '''
-        Function which applies jpg compression to input image data (numpy array) and returns the result
-        Also returns the time required to perform conversion & data size
-        '''
+        # Encode data for saving
+        encoded_jpg_data = encode_jpg_data(image_data, jpg_quality_0_to_100)
+        encoded_json_data = encode_json_data(metadata_dict, json_double_precision)
         
-        # Convert image data to a jpg with specified quality and time it!
-        t1 = perf_counter()
-        jpg_quality_arg = (cv2.IMWRITE_JPEG_QUALITY, save_quality_0_to_100)
-        _, jpg_image = cv2.imencode(".jpg", image_data, jpg_quality_arg)
-        t2 = perf_counter()
+        # Save data
+        write_encoded_jpg(self.jpg_folder_path, file_save_name_no_ext, encoded_jpg_data)
+        write_encoded_json(self.json_folder_path, file_save_name_no_ext, encoded_json_data)
         
-        # Get outputs
-        processing_time_sec = t2 - t1
-        image_size_bytes = jpg_image.nbytes
-        output_image = cv2.imdecode(jpg_image, cv2.IMREAD_COLOR)
-        
-        return output_image, image_size_bytes, processing_time_sec
-    
+        return
+
     # .................................................................................................................
     
-    def apply_png_compression(self, image_data, save_compression_0_to_9):
+    def close(self):
         
-        '''
-        Function which applies png compression to input image data (numpy array) and returns the result
-        Also returns the time required to perform conversion & data size
-        '''
+        print("DEBUG - Nothing to close on non-threaded snapshot saver!")
         
-        # Convert image data to a jpg with specified quality and time it!
-        t1 = perf_counter()
-        png_compression_arg = (cv2.IMWRITE_PNG_COMPRESSION, save_compression_0_to_9)   
-        _, png_image = cv2.imencode(".jpg", image_data, png_compression_arg)
-        t2 = perf_counter()
-        
-        # Get outputs
-        processing_time_sec = t2 - t1
-        image_size_bytes = png_image.nbytes
-        output_image = cv2.imdecode(png_image, cv2.IMREAD_COLOR)
-        
-        return output_image, image_size_bytes, processing_time_sec
-    
-    # .................................................................................................................
-    
-    def save_jpg(self, file_save_name_no_ext, image_data, save_quality_0_to_100 = 20):
-        
-        '''
-        Saves jpg files to the save path created during class initialization
-        
-        Inputs:
-            file_save_name_no_ext -> String. Name of file to save. Extension (.jpg) will be added automatically
-            
-            image_data -> Numpy array. Image data to save
-            
-            save_quality_0_to_100 -> Controls trade-off between image quality and file size. 
-                                     Also affects saving time
-        
-        Testing results for sample image @ 1280x720:
-        (Timing results vary based on image content & cpu speed. Mostly provided for relative comparison)
-                            Quality 0  |    Quality 25  |   Quality 50  |   Quality 75  |   Quality 100
-          File size (kb)    23              77              116             168             686
-         Time taken (ms)    4.1             4.8             5.3             6.3             11
-         (Note: Saving times were highly variable, even across a 1000 sample average!)
-        '''
-        
-        # Skip saving if disabled
-        if not self.saving_enabled:
-            return None
-        
-        # Build file save pathing
-        save_file_name = "".join([file_save_name_no_ext, ".jpg"])
-        save_file_path = os.path.join(self._data_folder_path, save_file_name)
-        
-        # Build the (somewhat obscure) jpg quality argument
-        jpg_quality_arg = (cv2.IMWRITE_JPEG_QUALITY, save_quality_0_to_100)
-        
-        # Save image, with threading (if enabled)
-        threaded_func = cv2.imwrite
-        self.launch_as_thread(threaded_func, save_file_path, image_data, jpg_quality_arg)
-        
-        return save_file_path
-    
-    # .................................................................................................................
-    
-    def save_png(self, file_save_name_no_ext, image_data, save_compression_0_to_9 = 0):
-        
-        '''
-        Saves png files to the save path created during class initialization
-        
-        Inputs:
-            file_save_name_no_ext -> String. Name of file to save. Extension (.png) will be added automatically
-            
-            image_data -> Numpy array. Image data to save
-            
-            compression_level_0_to_9 -> Controls trade-off between file size and saving time.
-                                        Doesn't affect image quality! (png is lossless)
-        
-        Testing results for sample image @ 1280x720:
-        (Timing results vary based on image content & cpu speed. Mostly provided for relative comparison)
-                            Compression 0  |    Compression 5  |    Compression 9
-          File size (MB)    2.8                 1.2                 1.1
-         Time taken (ms)    45                  137                 780
-        '''
-        
-        # Skip saving if disabled
-        if not self.saving_enabled:
-            return None
-        
-        # Build file save pathing
-        save_file_name = "".join([file_save_name_no_ext, ".png"])
-        save_file_path = os.path.join(self._data_folder_path, save_file_name)
-        
-        # Build the (somewhat obscure) png compression argument
-        png_compression_arg = (cv2.IMWRITE_PNG_COMPRESSION, save_compression_0_to_9)   
-        
-        # Save image, with threading (if enabled)
-        threaded_func = cv2.imwrite
-        self.launch_as_thread(threaded_func, save_file_path, image_data, png_compression_arg)
-        
-        return save_file_path
+        return
     
     # .................................................................................................................
     # .................................................................................................................
 
-
-# =====================================================================================================================
-# =====================================================================================================================
-
-
-class Metadata_Saver(Data_Access):
-    
-    # .................................................................................................................
-    
-    def __init__(self, cameras_folder_path, camera_select, user_select,
-                 saving_enabled = True, create_save_folder_if_missing = True, threading_enabled = True,
-                 *, lock = None):
-        
-        # Inherit from base class
-        super().__init__(cameras_folder_path, camera_select, user_select,
-                         create_folder_if_missing = create_save_folder_if_missing,
-                         threading_enabled = threading_enabled, 
-                         lock = lock)
-        
-        # Store saving settings
-        self.saving_enabled = saving_enabled
-    
-    # .................................................................................................................
-    
-    def toggle_saving(self, enable_saving):
-        self.saving_enabled = enable_saving
-    
-    # .................................................................................................................
-    
-    def save_json(self, file_save_name_no_ext, json_data):
-        
-        # Skip saving if disabled
-        if not self.saving_enabled:
-            return None
-        
-        # Build file save pathing
-        save_file_name = "".join([file_save_name_no_ext, ".json"])
-        save_file_path = os.path.join(self._data_folder_path, save_file_name)
-        
-        # Save json data
-        self.launch_as_thread(save_config_json, save_file_path, json_data)
-        
-        return save_file_path
-    
-    # .................................................................................................................
-    
-    def save_json_gz(self, file_save_name_no_ext, json_data):
-        
-        # Skip saving if disabled
-        if not self.saving_enabled:
-            return None
-        
-        # Build file save pathing
-        save_file_name = "".join([file_save_name_no_ext, ".json.gz"])
-        save_file_path = os.path.join(self._data_folder_path, save_file_name)
-        
-        # Save json data with gzip compression
-        self.launch_as_thread(save_jgz, save_file_path, json_data)
-        
-        return save_file_path
-    
-    # .................................................................................................................
-    # .................................................................................................................
-
-
-# ---------------------------------------------------------------------------------------------------------------------
-#%% Loader classes
-
-class Data_Loader(Data_Access):
-    
-    # .................................................................................................................
-    
-    def __init__(self, cameras_folder_path, camera_select, user_select,
-                 saving_enabled = True, create_load_folder_if_missing = True, threading_enabled = True,
-                 *, lock = None):
-        
-        # Inherit from base class
-        super().__init__(cameras_folder_path, camera_select, user_select,
-                         create_folder_if_missing = create_load_folder_if_missing,
-                         threading_enabled = threading_enabled,
-                         lock = lock)
-        
-    # .................................................................................................................
-    # .................................................................................................................
-    
-
-class Image_Loader(Data_Loader):
-    
-    # .................................................................................................................
-    
-    def __init__(self, cameras_folder_path, camera_select, user_select,
-                 threading_enabled = True, saving_enabled = True, create_load_folder_if_missing = True,
-                 *, lock = None):
-        
-        # Inherit from base class
-        super().__init__(cameras_folder_path, camera_select, user_select,
-                         threading_enabled = threading_enabled, 
-                         saving_enabled = saving_enabled,
-                         create_load_folder_if_missing = create_load_folder_if_missing,
-                         lock = lock)
-       
-    # .................................................................................................................
-    
-    def load_from_path(self, load_path, error_if_none = True):
-        
-        # Load whatever is at the given path
-        load_image = cv2.imread(load_path)
-        
-        # OpenCV load image function doesn't give errors when loading non-image files or files-in-progress
-        # ... instead it just returns None, which we may want to check
-        if (load_image is None) and error_if_none:
-            raise FileNotFoundError("\n\nError loading image:\n{}".format(load_path))
-            
-        return load_image
-        
-    # .................................................................................................................
-    
-    def load_image(self, file_load_name_with_ext):
-        
-        # Build png name & path to file for loading
-        load_path = os.path.join(self._data_folder_path, file_load_name_with_ext)
-        
-        return self.load_from_path(load_path)
-    
-    # .................................................................................................................
-    
-    def load_jpg(self, file_load_name_no_ext):
-        
-        # Build png name & path to file for loading
-        load_name = "{}{}".format(file_load_name_no_ext, ".jpg")
-        load_path = os.path.join(self._data_folder_path, load_name)
-        
-        return self.load_from_path(load_path)
-    
-    # .................................................................................................................
-    
-    def load_png(self, file_load_name_no_ext):
-        
-        # Build png name & path to file for loading
-        load_name = "{}{}".format(file_load_name_no_ext, ".png")
-        load_path = os.path.join(self._data_folder_path, load_name)
-        
-        return self.load_from_path(load_path)
-    
-    # .................................................................................................................
-    # .................................................................................................................
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define functions
 
-def create_new_thread_lock():
-    
-    ''' 
-    Simple helper function to avoid having to import threading library elsewhere. 
-    Returns a Lock object 
-    Use .acquire() & .release() around threaded code to block multiple threads from being active at the same time
-    '''
-    
-    return threading.Lock()
+# .....................................................................................................................
+
+# .....................................................................................................................
+# .....................................................................................................................
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Demo
@@ -759,4 +486,9 @@ if __name__ == "__main__":
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Scrap
+
+# TODO
+# - unify threaded savers into a single class!
+# - unify non-threaded savers as well
+# - maybe unify both into a single class?
 

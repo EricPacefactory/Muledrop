@@ -53,7 +53,7 @@ import datetime as dt
 
 import requests
 
-from local.lib.common.timekeeper_utils import parse_isoformat_string, get_local_datetime
+from local.lib.common.timekeeper_utils import isoformat_to_datetime, get_local_datetime
 from local.lib.common.environment import get_dbserver_protocol
 
 from local.lib.ui_utils.cli_selections import Resource_Selector
@@ -283,8 +283,8 @@ single_camera_select = user_camera_select if not selected_all_cameras else camer
 
 # Request info about the time range from the database
 snap_bounding_times_dict = request_bounding_times(server_url, single_camera_select)
-bounding_start_dt = parse_isoformat_string(snap_bounding_times_dict["min_datetime_isoformat"])
-bounding_end_dt = parse_isoformat_string(snap_bounding_times_dict["max_datetime_isoformat"])
+bounding_start_dt = isoformat_to_datetime(snap_bounding_times_dict["min_datetime_isoformat"])
+bounding_end_dt = isoformat_to_datetime(snap_bounding_times_dict["max_datetime_isoformat"])
 print("",
       "Data at {} ranges from:".format(single_camera_select),
       "{} (start)".format(bounding_start_dt),

@@ -54,10 +54,25 @@ from local.lib.launcher_utils.video_processing_loops import Background_Capture_V
 
 from local.lib.ui_utils.display_specification import Input_Display, Background_Display
 
-from local.configurables.externals.background_capture._helper_functions import Capture_Display
+from local.configurables.externals.background_capture._helper_functions import Stats_Display
+
     
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define displays
+
+class Custom_Stats_Display(Stats_Display):
+    
+    # .................................................................................................................
+    
+    def _max_ram_usage_mb(self, configurable_ref, ram_mb_per_frame):
+        
+        # Median can load many capture images into RAM!
+        max_frame_count = configurable_ref.max_captures_to_use
+        
+        return ram_mb_per_frame * max_frame_count
+
+    # .................................................................................................................
+    # .................................................................................................................
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -70,9 +85,9 @@ configurable_ref = loader.setup_all(__file__)
 # Set up object to handle all video processing
 main_process = \
 Background_Capture_Video_Loop(loader,
-                              ordered_display_list = [Input_Display(1, 2, 2),
-                                                      Background_Display(0, 2, 2, limit_wh = False),
-                                                      Capture_Display(2, 2, 2)])
+                              ordered_display_list = [Input_Display(1, 2, 2, limit_wh = True),
+                                                      Background_Display(0, 2, 2, limit_wh = True),
+                                                      Custom_Stats_Display(2, 2, 2)])
 
 # Most of the work is done here!
 main_process.loop()

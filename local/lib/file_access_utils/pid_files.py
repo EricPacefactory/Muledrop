@@ -55,7 +55,7 @@ import signal
 from time import sleep
 
 from local.lib.file_access_utils.logging import build_pid_folder_path
-from local.lib.file_access_utils.read_write import save_config_json, load_config_json
+from local.lib.file_access_utils.json_read_write import save_config_json, load_config_json
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Classes

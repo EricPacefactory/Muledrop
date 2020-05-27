@@ -72,7 +72,7 @@ from local.lib.file_access_utils.reporting import build_background_metadata_repo
 from local.lib.file_access_utils.reporting import build_snapshot_image_report_path
 from local.lib.file_access_utils.reporting import build_background_image_report_path
 
-from local.lib.file_access_utils.read_write import load_jgz
+from local.lib.file_access_utils.metadata_read_write import load_metadata
 
 from local.eolib.utils.files import get_file_list, split_to_sublists
 from local.eolib.utils.logging import Daily_Logger
@@ -248,7 +248,7 @@ def bundle_metadata(metadata_file_paths):
     data_insert_list = []
     for each_metadata_path in metadata_file_paths:
         try:
-            data_insert_list.append(load_jgz(each_metadata_path))
+            data_insert_list.append(load_metadata(each_metadata_path))
             
         except ValueError:
             # Empty/incorrectly saved files raise value errors

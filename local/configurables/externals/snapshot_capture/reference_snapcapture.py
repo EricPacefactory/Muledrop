@@ -51,9 +51,7 @@ find_path_to_local()
 
 from local.configurables.configurable_template import Externals_Configurable_Base
 
-from local.lib.common.timekeeper_utils import datetime_to_isoformat_string
-
-from local.lib.file_access_utils.reporting import Image_Report_Saver, Image_Metadata_Report_Saver
+from local.lib.file_access_utils.reporting import Snapshot_Report_Data_Saver, create_image_metadata
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -70,9 +68,8 @@ class Reference_Snapshot_Capture(Externals_Configurable_Base):
                          file_dunder = file_dunder)
         
         # Store snapshotting config
-        self.image_saving_enabled = None
-        self.metadata_saving_enabled = None
-        self.threading_enabled = None
+        self.report_saving_enabled = None
+        self.threaded_saving_enabled = None
         self._snapshot_jpg_quality = None
         
         # Allocate storage for reference info
@@ -81,24 +78,19 @@ class Reference_Snapshot_Capture(Externals_Configurable_Base):
         # Allocate storage for most recent snapshot info
         self.latest_snapshot_metadata = None
         
-        # Create objects to handle saving data
-        saver_args = (cameras_folder_path, camera_select, user_select, "snapshots")
-        self.image_saver = Image_Report_Saver(*saver_args)        
-        self.image_metadata_saver = Image_Metadata_Report_Saver(*saver_args)
+        # Allocate storage for the data saver object which handles file i/o
+        self._report_data_saver = None
         
         # Set default behaviour states
-        self.toggle_image_saving(True)
-        self.toggle_metadata_saving(True)
-        self.toggle_threaded_saving(True)
+        self.toggle_threaded_saving(False)
+        self.toggle_report_saving(False)
         self.set_snapshot_quality(25)
         
     # .................................................................................................................
     
     def __repr__(self):
         
-        repr_strs = ["Snapshot Capture ({})".format(self.script_name),
-                     "  Metadata folder: {}".format(self.image_metadata_saver.relative_data_path()),
-                     "     Image folder: {}".format(self.image_saver.relative_data_path())]
+        repr_strs = ["Snapshot Capture ({})".format(self.script_name)]
         
         return "\n".join(repr_strs)
     
@@ -120,29 +112,19 @@ class Reference_Snapshot_Capture(Externals_Configurable_Base):
         
         # Make sure file i/o is finished
         print("Closing snapshot capture...", end="")
-        self.image_saver.close()
-        self.image_metadata_saver.close()
+        self._report_data_saver.close()
         print(" Done!")
     
     # .................................................................................................................
     
     # SHOULDN'T OVERRIDE
-    def toggle_image_saving(self, enable_image_saving):
+    def toggle_report_saving(self, enable_data_saving):
         
-        ''' Function used to disable image saving. Useful during testing/configuration '''
+        ''' Function used to disable saving. Useful during testing/configuration '''
         
-        self.image_saving_enabled = enable_image_saving        
-        self.image_saver.toggle_saving(self.image_saving_enabled)
-        
-    # .................................................................................................................
-    
-    # SHOULDN'T OVERRIDE
-    def toggle_metadata_saving(self, enable_metadata_saving):
-        
-        ''' Function used to disable metadata saving. Useful during testing/configuration '''
-        
-        self.metadata_saving_enabled = enable_metadata_saving
-        self.image_metadata_saver.toggle_saving(self.metadata_saving_enabled)
+        # Re-initialize the saver with new settings
+        self.report_saving_enabled = enable_data_saving
+        self._report_data_saver = self._initialize_report_data_saver()
         
     # .................................................................................................................
     
@@ -150,14 +132,23 @@ class Reference_Snapshot_Capture(Externals_Configurable_Base):
     def toggle_threaded_saving(self, enable_threaded_saving):
         
         ''' 
-        Function used to enable or disable threading of image/metadata saving. 
+        Function used to enable or disable threading of data saving. 
         Mostly useful for testing out functionality (and avoiding complications from threading),
         or otherwise used during file evaluation, to force deterministic save timing
         '''
         
-        self.threading_enabled = enable_threaded_saving
-        self.image_saver.toggle_threading(self.threading_enabled)
-        self.image_metadata_saver.toggle_threading(self.threading_enabled)
+        # Re-initialize the saver with new settings
+        self.threaded_saving_enabled = enable_threaded_saving
+        self._report_data_saver = self._initialize_report_data_saver()
+    
+    # .................................................................................................................
+    
+    #SHOULDN'T OVERRIDE
+    def set_snapshot_quality(self, snapshot_jpg_quality_0_to_100):
+        
+        ''' Function used to change the jpg compression quality for all saved snapshots '''
+        
+        self._snapshot_jpg_quality = snapshot_jpg_quality_0_to_100
     
     # .................................................................................................................
     
@@ -202,28 +193,17 @@ class Reference_Snapshot_Capture(Externals_Configurable_Base):
         #   *** If we get here, we're saving a snapshot! ***
         # ////////////////////////////////////////////////////
         
-        # Update snapshot metadata, based on timing info
-        latest_snapshot_metadata = self._create_snapshot_metadata(current_frame_index,
-                                                                  current_epoch_ms,
-                                                                  current_datetime)
-        
-        # Retrieve latest snapshot data
+        # Create snapshot image from the input frame data
         snapshot_frame_data = self.create_snapshot_image(input_frame)
         
-        # Trigger (threaded) saving of data
-        self._save_report_data(snapshot_frame_data, latest_snapshot_metadata)
+        # Trigger saving of data
+        latest_snapshot_metadata = self._save_report_data(snapshot_frame_data,
+                                                          current_frame_index, current_epoch_ms, current_datetime)
         
         # Clean up any finished saving threads & save newest metadata internally
         self.latest_snapshot_metadata = latest_snapshot_metadata
-        self._clean_up()
         
         return snapshot_frame_data, latest_snapshot_metadata
-    
-    # .................................................................................................................
-    
-    #SHOULDN'T OVERRIDE
-    def set_snapshot_quality(self, snapshot_jpg_quality_0_to_100):
-        self._snapshot_jpg_quality = snapshot_jpg_quality_0_to_100
     
     # .................................................................................................................
     
@@ -254,83 +234,35 @@ class Reference_Snapshot_Capture(Externals_Configurable_Base):
     
     # .................................................................................................................
     
-    # SHOULDN'T OVERRIDE!
-    def _create_snapshot_names(self, snapshot_metadata):
-        
-        '''
-        Function for generating snapshot file names. Needs to follow a standard format so other scripts
-        can properly interpret the name. Do not change unless absolutely sure!!!
-        '''
-        
-        snap_id = snapshot_metadata["_id"]
-        snapshot_image_name = str(snap_id)
-        snapshot_metadata_name = "snap-{}".format(snap_id)
-        
-        return snapshot_image_name, snapshot_metadata_name
-    
-    # .................................................................................................................
-    
     # SHOULDN'T OVERRIDE
-    def _create_snapshot_metadata(self, current_frame_index, current_epoch_ms, current_datetime):
+    def _save_report_data(self, snapshot_image_data, current_frame_index, current_epoch_ms, current_datetime):
         
-        '''
-        Function for generate snapshot metadata. Needs to follow a standard format so other scripts
-        can properly interpret the data. Do not change unless absolutely sure!!!
-        '''
+        ''' Function which handles saving of image & metadata '''
         
-        # Roll over counters each day, to avoid giant counter numbers
-        if current_datetime.day != self.current_day:
-            self.current_day = current_datetime.day
-            self._reset_counters()
+        # Generate metadata for the given timing
+        snapshot_metadata = create_image_metadata(current_frame_index, current_epoch_ms, current_datetime)
         
-        # Get info saved into snapshot metadata
-        snapshot_time_isoformat = datetime_to_isoformat_string(current_datetime)
-            
-        # Build metadata
-        snapshot_metadata = {"_id": current_epoch_ms,
-                             "datetime_isoformat": snapshot_time_isoformat,
-                             "frame_index": current_frame_index,
-                             "epoch_ms": current_epoch_ms}
+        # Get (unique!) file name and have the report saver handle the i/o
+        snapshot_file_name = snapshot_metadata["_id"]
+        self._report_data_saver.save_data(file_save_name_no_ext = snapshot_file_name,
+                                          image_data = snapshot_image_data,
+                                          metadata_dict = snapshot_metadata,
+                                          jpg_quality_0_to_100 = self._snapshot_jpg_quality)
         
         return snapshot_metadata
     
     # .................................................................................................................
     
-    # MAY OVERRIDE
-    def _reset_counters(self):
-        
-        ''' Function used to reset counters if needed (e.g. rewinding video files and/or changing real-time dates) '''
-        
-        pass
-    
-    # .................................................................................................................
-    
     # SHOULDN'T OVERRIDE
-    def _save_report_data(self, snapshot_image_data, snapshot_metadata):
+    def _initialize_report_data_saver(self):
         
-        ''' Function which handles saving of image & metadata '''
+        ''' Helper function used to set/reset the data saving object with new settings '''
         
-        # Build snapshot names from metadata
-        snapshot_image_name, snapshot_metadata_name = self._create_snapshot_names(snapshot_metadata)
-        
-        # Have reporting object handle image saving
-        self.image_saver.save_jpg(file_save_name_no_ext = snapshot_image_name,
-                                  image_data = snapshot_image_data,
-                                  save_quality_0_to_100 = self._snapshot_jpg_quality)
-        
-        self.image_metadata_saver.save_json_gz(file_save_name_no_ext = snapshot_metadata_name,
-                                               json_data = snapshot_metadata.copy())
-    
-    # .................................................................................................................
-    
-    # SHOULDN'T OVERRIDE
-    def _clean_up(self):
-        
-        ''' Function used to clean up saving threads '''
-        
-        # Remove any saving threads that have finished
-        self.image_saver.clean_up()
-        self.image_metadata_saver.clean_up()
+        return Snapshot_Report_Data_Saver(self.cameras_folder_path, 
+                                          self.camera_select, 
+                                          self.user_select,
+                                          self.report_saving_enabled,
+                                          self.threaded_saving_enabled)
     
     # .................................................................................................................
     # .................................................................................................................

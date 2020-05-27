@@ -1,6 +1,0 @@
-{
-  "unclassified": [0, 255, 255],
-  "no train": [0, 0, 0],
-  "background": [255, 255, 255],
-  "incomplete": [0, 100, 255]
-}

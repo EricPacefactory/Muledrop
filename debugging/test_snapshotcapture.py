@@ -109,8 +109,7 @@ externals_config = {"cameras_folder_path": cameras_folder_path,
 # Load & configure snapshots
 snapcap = Snapshot_Capture(**externals_config)
 snapcap.reconfigure()
-snapcap.toggle_image_saving(saving_enabled)
-snapcap.toggle_metadata_saving(saving_enabled)
+snapcap.toggle_report_saving(saving_enabled)
 snapcap.toggle_threaded_saving(threading_enabled)
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -163,6 +162,7 @@ while True:
 # Deal with video clean-up
 vreader.release()
 cv2.destroyAllWindows()
+snapcap.close(current_frame_index, current_epoch_ms, current_datetime)
 
 
 # ---------------------------------------------------------------------------------------------------------------------

@@ -57,7 +57,7 @@ from local.lib.ui_utils.cli_selections import Resource_Selector
 
 from local.lib.ui_utils.local_ui.windows_base import Simple_Window
 
-from local.lib.common.timekeeper_utils import parse_isoformat_string, fake_datetime_like
+from local.lib.common.timekeeper_utils import isoformat_to_datetime, fake_datetime_like
 
 from local.offline_database.file_database import launch_file_db, close_dbs_if_missing_data
 from local.offline_database.object_reconstruction import Smoothed_Object_Reconstruction as Obj_Recon
@@ -246,7 +246,7 @@ def draw_timestamp(display_frame, snapshot_metadata, fg_config, bg_config, repla
     
     # Get snapshot timing info
     datetime_isoformat = snapshot_metadata["datetime_isoformat"]
-    snap_dt = parse_isoformat_string(datetime_isoformat)
+    snap_dt = isoformat_to_datetime(datetime_isoformat)
     
     # Convert timing to 'relative' time, if needed
     if use_relative_time:

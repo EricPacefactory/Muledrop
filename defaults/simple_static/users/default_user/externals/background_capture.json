@@ -6,12 +6,11 @@
   },
   "setup_data": {
     "capture_period_hr": 0,
-    "capture_period_min": 15,
+    "capture_period_min": 5,
     "capture_period_sec": 0,
-    "generation_period_hr": 1,
-    "generation_period_min": 0,
-    "generation_period_sec": 0,
+    "generation_trigger_after_n_captures": 6,
+    "min_captures_to_use": 5,
     "max_captures_to_use": 25,
-    "min_captures_to_use": 5
+    "max_ram_usage_mb": 150
   }
 }

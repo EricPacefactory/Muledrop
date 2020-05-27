@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Thu Sep 19 10:05:16 2019
+Created on Sat May 23 11:16:07 2020
 
 @author: eo
 """
@@ -49,12 +49,11 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
-import numpy as np
+from cv2 import addWeighted as cv2_add_weighted
 
 from local.configurables.externals.background_capture.reference_backgroundcapture import Reference_Background_Capture
-from local.configurables.externals.background_capture._helper_functions import load_all_valid_captures
-from local.configurables.externals.background_capture._helper_functions import check_frame_loading_ram_limits
 
+from local.configurables.externals.background_capture._helper_functions import load_newest_image_from_iter
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
@@ -69,9 +68,8 @@ class Background_Capture(Reference_Background_Capture):
         super().__init__(cameras_folder_path, camera_select, user_select, video_select, video_wh, 
                          file_dunder = __file__)
         
-        # Allocate storage for pre-calculated values
-        self._ram_limited_min_captures_to_use = None
-        self._ram_limited_max_captures_to_use = None
+        # Allocate storage for total capture time
+        self._total_capture_period_sec = None
         
         # .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . Control Group 1 .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
         
@@ -114,66 +112,28 @@ class Background_Capture(Reference_Background_Capture):
         
         self.ctrl_spec.new_control_group("Generation Controls")
         
-        self.generation_trigger_after_n_captures = \
+        self.update_weighting = \
         self.ctrl_spec.attach_slider(
-                "generation_trigger_after_n_captures",
-                label = "Generation Every N Captures",
-                default_value = 6,
-                min_value = 1, max_value = 50,
-                return_type = int,
+                "update_weighting",
+                label = "Weighting for Newest Capture",
+                default_value = 0.15,
+                min_value = 0.01, max_value = 1.0, step_size = 1/100,
                 zero_referenced = True,
-                units = "count",
-                tooltip = ["A new background will be generated after this many captures.",
-                           "For example, if the capture period is set to be 5 minutes, and this value",
-                           "is set to 3, then a new background will be generated (roughly)",
-                           "every 15 minutes (5 minutes * 3 captures)."])
-        
-        self.min_captures_to_use = \
-        self.ctrl_spec.attach_slider(
-                "min_captures_to_use",
-                label = "Minimum Captures Per Update",
-                default_value = 7,
-                min_value = 3, max_value = 50,
-                zero_referenced = True,
-                return_type = int,
-                units = "samples",
-                tooltip = "Minimum number of captures to use when generating new background images")
-        
-        self.max_captures_to_use = \
-        self.ctrl_spec.attach_slider(
-                "max_captures_to_use",
-                label = "Maximum Captures Per Update",
-                default_value = 25,
-                min_value = 3, max_value = 50,
-                zero_referenced = True,
-                return_type = int,
-                units = "samples",
-                tooltip = "Maximum number of captures to use when generating new background images")
-        
-        self.max_ram_usage_mb = \
-        self.ctrl_spec.attach_slider(
-                "max_ram_usage_mb",
-                label = "Maximum RAM Usage",
-                default_value = 250,
-                min_value = 50, max_value = 2000,
-                zero_referenced = True,
-                return_type = int,
-                units = "Megabytes",
-                tooltip = ["Maximum amount of RAM to use when generating a new background.",
-                           "Note that this setting works by limiting the number of captures that are used.",
-                           "Therefore, this setting may override the 'Min/Max Captures Per Update' settings!"])
+                return_type = float,
+                units = "weighting",
+                tooltip = ["Weighting applied to the newest capture image when calculating the rolling average.",
+                           "The inverse of this weight (i.e. 1.0 - weight) will be the weighting applied to",
+                           "the previously generated image to form the rolling average result."])
     
     # .................................................................................................................
     
     def setup(self, variables_changed_dict):
         
-        # Get RAM limited settings
-        self._check_ram_limiting()
+        # Rolling average updates after every capture!
+        self.set_generate_trigger(1)
         
         # Update parent class settings
-        self.set_max_capture_count(self.max_captures_to_use)
         self.set_capture_period(self.capture_period_hr, self.capture_period_min, self.capture_period_sec)
-        self.set_generate_trigger(self.generation_trigger_after_n_captures)
         
         # Reset capture/generate timing, in case we're being re-configured
         self.reset()
@@ -189,55 +149,33 @@ class Background_Capture(Reference_Background_Capture):
         new_background_image = None
         
         # Bail if we don't have enough captures
-        not_enough_captures = (number_of_captures < self._ram_limited_min_captures_to_use)
+        not_enough_captures = (number_of_captures < 1)
         if not_enough_captures:
             return new_background_image
         
-        # Load in all valid sized capture images (if something goes wrong with loading enough captures, then bail)
-        max_captures = self._ram_limited_max_captures_to_use
-        frame_stack = load_all_valid_captures(capture_image_iter, max_captures, target_width, target_height)        
-        not_enough_captures = (len(frame_stack) < self._ram_limited_min_captures_to_use)
-        if not_enough_captures:
+        # Load the newest capture
+        loaded_capture, newest_capture = load_newest_image_from_iter(capture_image_iter)
+        if not loaded_capture:
+            print("Error loading newest capture image for rolling average background!")
             return new_background_image
         
-        # Finally, try to create a background image by taking the mean of corresponding pixels along all captures
+        # Load the newest generated background
+        loaded_generate, newest_generate = load_newest_image_from_iter(generate_image_iter)
+        if not loaded_generate:
+            print("Error loading newest generated image for rolling average background!")
+            return new_background_image
+        
+        # Finally, try to average the newest capture and generated image together
         try:
-            new_background_image = np.uint8(np.round(np.mean(frame_stack, axis = 0)))
+            previous_weighting = 1.0 - self.update_weighting
+            new_background_image = cv2_add_weighted(newest_capture, self.update_weighting,
+                                                    newest_generate, previous_weighting, 0.0)
             
         except Exception as err:
-            print("Error generating averaged background!")
+            print("Error generating rolling average background!")
             print(err)
         
         return new_background_image
-    
-    # .................................................................................................................
-    
-    def _check_ram_limiting(self):
-        
-        # Figure out how many captures we're allowed to used base on RAM usage setting        
-        max_captures_allowed_by_ram = check_frame_loading_ram_limits(self.max_ram_usage_mb, self.video_wh)
-        
-        # Set ram limited minimum, with warning
-        self._ram_limited_min_captures_to_use = min(max_captures_allowed_by_ram, self.min_captures_to_use)
-        if self._ram_limited_min_captures_to_use < self.min_captures_to_use:
-            print("",
-                  "WARNING:",
-                  "  Minimum capture limit is being limited by RAM constraints!",
-                  "  Originally set to: {}".format(self.min_captures_to_use),
-                  "      Overriding to: {}".format(self._ram_limited_min_captures_to_use),
-                  sep = "\n")
-        
-        # Set ram limited maximum, with warning
-        self._ram_limited_max_captures_to_use = min(max_captures_allowed_by_ram, self.max_captures_to_use)
-        if self._ram_limited_max_captures_to_use < self.max_captures_to_use:
-            print("",
-                  "WARNING:",
-                  "  Maximum capture limit is being limited by RAM constraints!",
-                  "  Originally set to: {}".format(self.max_captures_to_use),
-                  "      Overriding to: {}".format(self._ram_limited_max_captures_to_use),
-                  sep = "\n")
-        
-        return
     
     # .................................................................................................................
     # .................................................................................................................

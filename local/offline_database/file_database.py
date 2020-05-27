@@ -55,7 +55,7 @@ import numpy as np
 
 from time import perf_counter
 
-from local.lib.common.timekeeper_utils import time_to_epoch_ms, parse_isoformat_string
+from local.lib.common.timekeeper_utils import any_time_type_to_epoch_ms, isoformat_to_datetime
 
 from local.lib.file_access_utils.reporting import build_camera_info_metadata_report_path
 from local.lib.file_access_utils.reporting import build_snapshot_image_report_path
@@ -74,7 +74,7 @@ from local.lib.file_access_utils.rules import build_rule_adb_metadata_report_pat
 from local.lib.file_access_utils.rules import build_rule_adb_info_report_path
 from local.lib.file_access_utils.rules import new_rule_report_entry
 
-from local.lib.file_access_utils.read_write import load_jgz, fast_dict_to_json, fast_json_to_dict
+from local.lib.file_access_utils.metadata_read_write import fast_dict_to_json, fast_json_to_dict, load_metadata
 
 from local.eolib.utils.files import get_file_list, get_folder_list
 
@@ -616,8 +616,8 @@ class Snap_DB(File_DB):
         max_dt_isoformat = self._fetchone_item(select_max_cmd, return_if_missing = -1)
         
         # Finally, convert datetime isoformat strings back to datetime objects
-        min_dt = parse_isoformat_string(min_dt_isoformat)
-        max_dt = parse_isoformat_string(max_dt_isoformat)
+        min_dt = isoformat_to_datetime(min_dt_isoformat)
+        max_dt = isoformat_to_datetime(max_dt_isoformat)
         
         return min_dt, max_dt
     
@@ -626,8 +626,8 @@ class Snap_DB(File_DB):
     def get_all_snapshot_times_by_time_range(self, start_time, end_time):
         
         # Convert input times to epoch values
-        start_epoch_ms = time_to_epoch_ms(start_time)
-        end_epoch_ms = time_to_epoch_ms(end_time)
+        start_epoch_ms = any_time_type_to_epoch_ms(start_time)
+        end_epoch_ms = any_time_type_to_epoch_ms(end_time)
         
         # Build command string for getting all snapshot times between start/end
         select_cmd = "SELECT epoch_ms FROM {} WHERE epoch_ms BETWEEN {} and {}".format(self._table_name, 
@@ -672,7 +672,7 @@ class Snap_DB(File_DB):
         '''
         
         # Convert time input into an epoch_ms value to search database
-        target_epoch_ms = time_to_epoch_ms(target_time)
+        target_epoch_ms = any_time_type_to_epoch_ms(target_time)
         
         # Build selection commands
         ceil_select_cmd = """
@@ -819,8 +819,8 @@ class Object_DB(File_DB):
     def get_object_ids_by_time_range(self, start_time, end_time):
         
         # Convert time values into epoch_ms values for searching
-        start_epoch_ms = time_to_epoch_ms(start_time)
-        end_epoch_ms = time_to_epoch_ms(end_time)
+        start_epoch_ms = any_time_type_to_epoch_ms(start_time)
+        end_epoch_ms = any_time_type_to_epoch_ms(end_time)
         
         # Build selection commands
         select_cmd = """
@@ -842,7 +842,7 @@ class Object_DB(File_DB):
     def get_ids_at_target_time(self, target_time):
         
         # Convert time value into epoch_ms value to search database
-        target_epoch_ms = time_to_epoch_ms(target_time)
+        target_epoch_ms = any_time_type_to_epoch_ms(target_time)
         
         # Build selection commands
         select_cmd = """
@@ -1168,7 +1168,7 @@ def post_from_folder_path(folder_path, database):
     # Loop over every file path in the given folder and send the data to the database
     metdata_path_list = get_file_list(folder_path, return_full_path = True, sort_list = True)
     for each_file_path in metdata_path_list:
-        metadata_dict = load_jgz(each_file_path)
+        metadata_dict = load_metadata(each_file_path)
         database.add_entry(metadata_dict)
     
     # End timing
