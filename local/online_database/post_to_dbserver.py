@@ -741,8 +741,7 @@ def check_server_connection(server_url):
 
 # .....................................................................................................................
 
-def scheduled_post(server_url, cameras_folder_path, camera_select,
-                   log_to_file = True):
+def scheduled_post(server_url, cameras_folder_path, camera_select, log_to_file = True):
     
     # Bail if we don't get a valid server url
     invalid_url = (server_url in {"", "None", "none", None})
@@ -774,11 +773,23 @@ def scheduled_post(server_url, cameras_folder_path, camera_select,
             # Delay posting regardless of server status
             sleep_time_sec = calculate_sleep_delay_sec()
             sleep(sleep_time_sec)
-            
+        
     except SystemExit:
         
         # Catch SIGTERM signals, in case this is running as parallel process that may be terminated
         response_list = build_response_string_list(server_url, "Kill signal received. Posting has been halted!!")
+        logger.log_list(response_list)
+        
+    except KeyboardInterrupt:
+        
+        # Catch keyboard cancels, in case this is running as parallel process that may be terminated
+        response_list = build_response_string_list(server_url, "Keyboard cancel! Posting has been halted!!")
+        logger.log_list(response_list)
+        
+    except Exception as err:
+        
+        # Handle any unexpected errors, so that we 'gracefully' get out of this function
+        response_list = build_response_string_list(server_url, "Unknown error! Closing...", str(err))
         logger.log_list(response_list)
     
     return

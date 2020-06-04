@@ -95,38 +95,6 @@ def adjust_aspect_ratio(input_wh, ar_adjustment_factor):
     needs_ar_adjustment = (width_needs_adjustment or height_needs_adjustment)
     
     return needs_ar_adjustment, adjusted_wh    
-    
-# .....................................................................................................................
-
-def max_dimension_downscale(input_wh, max_dimension_px):
-    
-    '''
-    Function used to calculate the (fixed aspect ratio) frame sizing
-    where the largest side of the frame is max_dimension_px pixels in length
-    
-    For example, if given inputs:
-        input_wh = (1280, 720)
-        max_dimension_px = 640
-    
-    Then returns:
-        needs_downscaling = True, downscale_wh = (640, 360)
-    '''
-    
-    # First figure out how much we would need to independently scale sides to acheive max dimension length
-    input_width, input_height = input_wh
-    width_rescale_factor = max_dimension_px / input_width
-    height_rescale_factor = max_dimension_px / input_height
-    
-    # Now pick the larger of the two scaling factors and calculate the resulting downscaled size
-    shared_rescale_factor = min(1.0, width_rescale_factor, height_rescale_factor)
-    downscale_width = int(round(shared_rescale_factor * input_width))
-    downscale_height = int(round(shared_rescale_factor * input_height))
-    downscale_wh = (downscale_width, downscale_height)
-
-    # Finally, decide where downscaling is actually needed (i.e. in case the input frame is already small enough)
-    needs_downscaling = (shared_rescale_factor < 1.0)
-    
-    return needs_downscaling, downscale_wh
 
 # .....................................................................................................................
 

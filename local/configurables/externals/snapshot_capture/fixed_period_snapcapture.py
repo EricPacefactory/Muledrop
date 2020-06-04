@@ -51,8 +51,10 @@ find_path_to_local()
 
 import cv2
 
+from local.lib.common.timekeeper_utils import Periodic_Polled_Timer
+from local.lib.common.images import max_dimension_downscale
+
 from local.configurables.externals.snapshot_capture.reference_snapcapture import Reference_Snapshot_Capture
-from local.configurables.externals.snapshot_capture._helper_functions import max_dimension_downscale
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -68,11 +70,12 @@ class Snapshot_Capture(Reference_Snapshot_Capture):
         super().__init__(cameras_folder_path, camera_select, user_select, video_select, video_wh, 
                          file_dunder = __file__)
         
-        # Allocate storage for fixed-frequency (over time) snapshots settings
+        # Allocate storage for periodic timer used to trigger snapshot capture
+        self._snap_timer = Periodic_Polled_Timer()
+        
+        # Allocate storage for pre-calculated values
         self._enable_downscale = None
         self._downscale_wh = None
-        self._next_snapshot_time_ms = None
-        self._total_snapshot_period_ms = None
         
         # .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . Control Group 1 .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
         
@@ -115,7 +118,7 @@ class Snapshot_Capture(Reference_Snapshot_Capture):
         self.ctrl_spec.attach_slider(
                 "max_dimension_px", 
                 label = "Max Dimension", 
-                default_value = 800,
+                default_value = 640,
                 min_value = 100, max_value = 1280,
                 units = "pixels",
                 return_type = int,
@@ -149,8 +152,10 @@ class Snapshot_Capture(Reference_Snapshot_Capture):
     
     def reset(self):
         
-        # Reset timing, so snapshots can continue to run
-        self._next_snapshot_time_ms = None
+        # Reset timing, so snapshots can continue to run        
+        self._snap_timer.reset_timer()
+        
+        return
         
     # .................................................................................................................
     
@@ -161,17 +166,16 @@ class Snapshot_Capture(Reference_Snapshot_Capture):
     
     def setup(self, variables_changed_dict):
         
-        # Pre-calculate the total number of seconds to wait between snapshots
-        snap_min_from_hours = self.snapshot_period_hr * 60
-        snap_sec_from_mins = (self.snapshot_period_min + snap_min_from_hours) * 60
-        total_snapshot_period_sec = max(0.001, self.snapshot_period_sec + snap_sec_from_mins)
-        self._total_snapshot_period_ms = int(round(1000 * total_snapshot_period_sec))
-        
         # Pre-calculate the downscaled frame size (if we need it)
         self._enable_downscale, self._downscale_wh = max_dimension_downscale(self.video_wh, self.max_dimension_px)
         
         # Update jpg quality settings
         self.set_snapshot_quality(self.jpg_quality)
+        
+        # Update timer trigger period
+        self._snap_timer.set_trigger_period(hours = self.snapshot_period_hr,
+                                            minutes = self.snapshot_period_min,
+                                            seconds = self.snapshot_period_sec)
         
         # Force reset, for nicer configuration interactions
         self.reset()
@@ -180,17 +184,8 @@ class Snapshot_Capture(Reference_Snapshot_Capture):
     
     def trigger_snapshot(self, input_frame, current_frame_index, current_epoch_ms, current_datetime):
         
-        # Wrap in try/except, since first evaluation will fail
-        try:
-            need_new_snapshot = (current_epoch_ms > self._next_snapshot_time_ms)
-            
-        except TypeError:
-            # Exception thrown on first eval, since we don't have a next_snapshot_time_ms to evaluate
-            need_new_snapshot = True
-        
-        # Update the next snapshot time if we need a snapshot
-        if need_new_snapshot:
-            self._next_snapshot_time_ms = self._calculate_next_snapshot_time_ms(current_epoch_ms, current_datetime)
+        # Have timer object handle timing logic!
+        need_new_snapshot = self._snap_timer.check_trigger(current_epoch_ms)
         
         return need_new_snapshot
     
@@ -203,27 +198,6 @@ class Snapshot_Capture(Reference_Snapshot_Capture):
             return cv2.resize(snapshot_frame, dsize=self._downscale_wh, interpolation = self.downscale_interpolation)
         
         return snapshot_frame
-    
-    # .................................................................................................................
-    
-    def _calculate_next_snapshot_time_ms(self, current_epoch_ms, current_datetime):
-        
-        try:
-            # Update next snapshot time based on snapshot period
-            # (add to the previous 'next_time' instead of the current time, so we don't accumulate timing errors)
-            next_snapshot_time_ms = self._next_snapshot_time_ms + self._total_snapshot_period_ms
-            
-        except TypeError:
-            
-            # Will get an error on first run, since the value of '_next_snapshot_time_ms' doesn't exist yet!
-            next_snapshot_time_ms = current_epoch_ms + self._total_snapshot_period_ms
-        
-        # Check that the newly calculated time isn't already in the past
-        # (may happen if the camera disconnects or hangs for a while)
-        if next_snapshot_time_ms < current_epoch_ms:
-            next_snapshot_time_ms = current_epoch_ms + self._total_snapshot_period_ms
-        
-        return next_snapshot_time_ms
     
     # .................................................................................................................
     # .................................................................................................................

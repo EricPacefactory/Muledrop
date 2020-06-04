@@ -5,9 +5,8 @@
     "configuration_utility": "rolling_average"
   },
   "setup_data": {
-    "capture_period_hr": 0,
-    "capture_period_min": 30,
-    "capture_period_sec": 0,
+    "capture_period_hr": 1,
+    "capture_period_min": 0,
     "update_weighting": 0.15
   }
 }

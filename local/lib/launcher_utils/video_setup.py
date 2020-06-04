@@ -91,6 +91,15 @@ class Base_Video_Reader:
     
     # .................................................................................................................
     
+    @property
+    def class_name(self):
+        
+        ''' Returns the name of the class of this object '''
+        
+        return self.__class__.__name__
+    
+    # .................................................................................................................
+    
     def read(self):
 
         # Get frames (with timing)
@@ -187,18 +196,21 @@ class Base_Video_Reader:
     # .................................................................................................................
     
     def get_current_frame(self):
-        raise NotImplementedError("Must inherit & implement a frame index retrival function!")
+        msg = "Must inherit & implement a frame index retrival function! ({})".format(self.class_name)
+        raise NotImplementedError(msg)
         
     # .................................................................................................................
     
     def set_current_frame(self, frame_index):
-        raise NotImplementedError("Must inherit & implement a frame index setting function!")
+        msg = "Must inherit & implement a frame index setting function! ({})".format(self.class_name)
+        raise NotImplementedError(msg)
     
     # .................................................................................................................
     
     def _get_time(self):
         # Must return the current frame index, the current epoch_ms value and the current datetime
-        raise NotImplementedError("Must inherit & implement a time retrival function!")
+        msg = "Must inherit & implement a time retrival function! ({})".format(self.class_name)
+        raise NotImplementedError(msg)
         
     # .................................................................................................................
     
@@ -229,6 +241,9 @@ class Threaded_File_Video_Reader(Base_Video_Reader):
         self._frame_queue = queue.Queue(64)
         self._thread_on = None
         self._thread_ref = None
+        
+        # Allocate storage for keeping tracking of current frame from a 'synchronous' perspective
+        self._sync_frame_index = 0
         
         # Inherit from parent
         super().__init__(video_source, 
@@ -292,6 +307,10 @@ class Threaded_File_Video_Reader(Base_Video_Reader):
                 req_break, frame, read_time_sec, curent_frame_index, current_epoch_ms, current_datetime = \
                 self._frame_queue.get(block = True, timeout = 0.5)
                 read_frames = False
+            
+            # Store frame index for 'synchronous' use
+            self._sync_frame_index = curent_frame_index
+            
         except queue.Empty:
             pass
         
@@ -349,6 +368,27 @@ class Threaded_File_Video_Reader(Base_Video_Reader):
         
         # Re-launch the threaded reader!
         self._start_videocapture()
+        
+    # .................................................................................................................
+    
+    def get_current_frame(self):
+        return self._sync_frame_index
+    
+    # .................................................................................................................
+    
+    def set_current_frame(self, frame_index):
+        
+        # Set the current frame, but make sure we've locked the video capture while doing so
+        self._thread_lock.acquire()
+        
+        # Set the capture to a specific frame, then update the 'sync' frame index and clear the queue data
+        set_return = self.vcap.set(cv2.CAP_PROP_POS_FRAMES, frame_index)
+        self._sync_frame_index = self.vcap.get(cv2.CAP_PROP_POS_FRAMES)
+        self._clear_frame_queue()
+        
+        self._thread_lock.release()
+        
+        return set_return
     
     # .................................................................................................................
 

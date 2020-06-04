@@ -50,6 +50,7 @@ find_path_to_local()
 #%% Imports
 
 from local.lib.file_access_utils.shared import build_user_folder_path
+from local.lib.file_access_utils.logging import build_configurables_log_path
 from local.lib.file_access_utils.json_read_write import save_config_json
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -67,6 +68,18 @@ def build_config_save_path(cameras_folder, camera_select, user_select, stage_nam
     ''' Function which builds the pathing for loading/saving a specific core config file '''    
     config_file_name = "".join([stage_name, ".json"])
     return build_core_folder_path(cameras_folder, camera_select, user_select, config_file_name)
+
+# .....................................................................................................................
+
+def build_core_logging_folder_path(cameras_folder_path, camera_select, stage_name):
+    return build_configurables_log_path(cameras_folder_path, camera_select, "core", stage_name)
+
+# .....................................................................................................................
+# .....................................................................................................................
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Pathing functions
 
 # .....................................................................................................................
 

@@ -145,12 +145,9 @@ class Threaded_PNG_Saver:
         
         # Clear event to trigger thread to close
         self._run_thread_event.clear()
-        print("DEBUG - Clearing control event ({})".format(self.thread_name))
         
         # Now wait for thread to close (may take a moment if still saving data)
         self._thread_ref.join(10.0)
-        
-        print("DEBUG - Thread joined! All done ({})".format(self.thread_name))
         
         return
     
@@ -183,9 +180,7 @@ class Nonthreaded_PNG_Saver:
     # .................................................................................................................
     
     def close(self):
-        
-        print("DEBUG - Nothing to close on non-threaded object saver!")
-        
+        # Nothing to close on non-threaded saver
         return
     
     # .................................................................................................................
@@ -278,12 +273,9 @@ class Threaded_Compressed_JSON_Saver:
         
         # Clear event to trigger thread to close
         self._run_thread_event.clear()
-        print("DEBUG - Clearing control event ({})".format(self.thread_name))
         
         # Now wait for thread to close (may take a moment if still saving data)
         self._thread_ref.join(10.0)
-        
-        print("DEBUG - Thread joined! All done ({})".format(self.thread_name))
         
         return
     
@@ -316,8 +308,6 @@ class Nonthreaded_Compressed_JSON_Saver:
     # .................................................................................................................
     
     def close(self):
-        
-        print("DEBUG - Nothing to close on non-threaded object saver!")
         
         return
     
@@ -365,7 +355,7 @@ class Threaded_JPG_and_JSON_Saver:
         
         '''
         Function which handles 'saving' of data (at least from the callers perspective)
-        Actually bundles data and passes it to the savng thread to handle actual file i/o
+        Actually bundles data and passes it to the saving thread to handle actual file i/o
         '''
         
         # Encode data for saving
@@ -376,7 +366,7 @@ class Threaded_JPG_and_JSON_Saver:
         bundled_data = (file_save_name_no_ext, encoded_jpg_data, encoded_json_data)
         
         # Now place bundled data in the queue for the thread to deal with
-        # Note: we aren't actually saving (depsite the function name), we're just passing data to the thread to save!
+        # Note: we aren't actually saving (despite the function name), we're just passing data to the thread to save!
         self._data_queue.put(bundled_data, block = True, timeout = None)
         
         return
@@ -415,12 +405,9 @@ class Threaded_JPG_and_JSON_Saver:
         
         # Clear event to trigger thread to close
         self._run_thread_event.clear()
-        print("DEBUG - Clearing control event ({})".format(self.thread_name))
         
         # Now wait for thread to close (may take a moment if still saving data)
         self._thread_ref.join(10.0)
-        
-        print("DEBUG - Thread joined! All done ({})".format(self.thread_name))
         
         return
     
@@ -460,8 +447,6 @@ class Nonthreaded_JPG_and_JSON_Saver:
     # .................................................................................................................
     
     def close(self):
-        
-        print("DEBUG - Nothing to close on non-threaded snapshot saver!")
         
         return
     

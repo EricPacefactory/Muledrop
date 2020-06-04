@@ -68,8 +68,10 @@ class Background_Capture(Reference_Background_Capture):
         super().__init__(cameras_folder_path, camera_select, user_select, video_select, video_wh, 
                          file_dunder = __file__)
         
-        # Allocate storage for total capture time
-        self._total_capture_period_sec = None
+        # Update parent class settings with hard-coded values, specific to rolling average
+        self.set_max_capture_count(3)
+        self.set_max_generate_count(3)
+        self.set_generate_trigger(1)
         
         # .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . Control Group 1 .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
         
@@ -90,23 +92,12 @@ class Background_Capture(Reference_Background_Capture):
         self.ctrl_spec.attach_slider(
                 "capture_period_min", 
                 label = "Capture Period (M)", 
-                default_value = 5,
+                default_value = 10,
                 min_value = 0, max_value = 60,
                 return_type = int,
                 zero_referenced = True,
                 units = "minutes",
                 tooltip = "Number of minutes to wait between saving captures")
-        
-        self.capture_period_sec = \
-        self.ctrl_spec.attach_slider(
-                "capture_period_sec", 
-                label = "Capture Period (S)", 
-                default_value = 0,
-                min_value = 0, max_value = 60,
-                return_type = int,
-                zero_referenced = True,
-                units = "seconds",
-                tooltip = "Number of seconds to wait between saving captures")        
         
         # .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . Control Group 2 .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
         
@@ -129,11 +120,9 @@ class Background_Capture(Reference_Background_Capture):
     
     def setup(self, variables_changed_dict):
         
-        # Rolling average updates after every capture!
-        self.set_generate_trigger(1)
-        
         # Update parent class settings
-        self.set_capture_period(self.capture_period_hr, self.capture_period_min, self.capture_period_sec)
+        capture_period_sec = 0
+        self.set_capture_period(self.capture_period_hr, self.capture_period_min, capture_period_sec)
         
         # Reset capture/generate timing, in case we're being re-configured
         self.reset()

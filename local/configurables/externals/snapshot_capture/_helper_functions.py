@@ -196,36 +196,6 @@ class Snap_Stats_Display(Display_Window_Specification):
 
 # .....................................................................................................................
 
-def max_dimension_downscale(video_wh, max_dimension_px):
-    
-    '''
-    Function used to calculate the (fixed aspect ratio) frame sizing
-    where the largest side of the frame is max_dimension_px pixels in length
-    
-    For example, if given inputs:
-        video_wh = (1280, 720)
-        max_dimension_px = 640
-    
-    Then returns:
-        needs_downscaling = True, downscale_wh = (640, 360)
-    '''
-    
-    # First figure out how much we would need to independently scale sides to acheive max dimension length
-    video_width, video_height = video_wh
-    width_rescale_factor = max_dimension_px / video_width
-    height_rescale_factor = max_dimension_px / video_height
-    
-    # Now pick the larger of the two scaling factors and calculate the resulting downscaled size
-    shared_rescale_factor = min(1.0, width_rescale_factor, height_rescale_factor)
-    downscale_width = int(round(shared_rescale_factor * video_width))
-    downscale_height = int(round(shared_rescale_factor * video_height))
-    downscale_wh = (downscale_width, downscale_height)
-
-    # Finally, decide where downscaling is actually needed (i.e. in case the input frame is already small enough)
-    needs_downscaling = (shared_rescale_factor < 1.0)
-    
-    return needs_downscaling, downscale_wh
-
 # .....................................................................................................................
 # .....................................................................................................................
 

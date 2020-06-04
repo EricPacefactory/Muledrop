@@ -52,14 +52,13 @@ find_path_to_local()
 import cv2
 import numpy as np
 
-from functools import partial
+from local.lib.common.images import scale_factor_downscale
 
 from local.configurables.core.foreground_extractor.reference_fgextractor import Reference_FG_Extractor
-from local.configurables.core.foreground_extractor._helper_functions import blank_binary_frame_from_input_wh
-from local.configurables.core.foreground_extractor._helper_functions import partial_fast_blur, partial_grayscale
-from local.configurables.core.foreground_extractor._helper_functions import partial_resize_by_dimensions
-from local.configurables.core.foreground_extractor._helper_functions import partial_threshold
-from local.configurables.core.foreground_extractor._helper_functions import Frame_Deck_LIFO, calculate_scaled_wh
+
+from local.configurables.core.foreground_extractor._helper_functions import Frame_Deck_LIFO
+from local.configurables.core.foreground_extractor._helper_functions import get_2d_kernel
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
@@ -73,13 +72,19 @@ class FG_Extractor_Stage(Reference_FG_Extractor):
         # Inherit reference functionality
         super().__init__(input_wh, file_dunder = __file__)
         
+        # Allocate space for altered frame sizing
+        self.output_w = None
+        self.output_h = None
+        
         # Allocate space for frame decks
         self._flow_deck = None
         self._max_deck_length = 10
         self._max_kernel_size = 15
         
         # Allocate space for dervied variables
-        self._proc_func_list = None
+        self._scaled_mask_image = None
+        self._downscale_wh = None
+        self._blur_kernel = None
         
         # llocate storage for variables used to remove processing functions (to improve performance)
         self._enable_downscale = False
@@ -94,10 +99,20 @@ class FG_Extractor_Stage(Reference_FG_Extractor):
         self.ctrl_spec.attach_slider(
                 "downscale_factor", 
                 label = "Downscaling", 
-                default_value = 0.15,
+                default_value = 0.50,
                 min_value = 0.1, max_value = 1.0, step_size = 1/100,
                 return_type = float,
                 zero_referenced = True)
+        
+        self.downscale_interpolation = \
+        self.ctrl_spec.attach_menu(
+                "downscale_interpolation", 
+                label = "Downscaling Interpolation", 
+                default_value = "Nearest",
+                option_label_value_list = [("Nearest", cv2.INTER_NEAREST),
+                                           ("Bilinear", cv2.INTER_LINEAR),
+                                           ("Cubic", cv2.INTER_CUBIC)],
+                tooltip = "Set the interpolation style for pixels sampled at fractional indices")
         
         self.threshold = \
         self.ctrl_spec.attach_slider(
@@ -210,13 +225,19 @@ class FG_Extractor_Stage(Reference_FG_Extractor):
     
     def reset(self):
         
-        # Clear out frame decks, since we don't want to include frames across a reset
-        self._flow_deck = None
-        self._setup_decks(self.downscale_factor)
+        # Clear out frame decks, since we don't want to sum up frames across a reset
+        self._setup_decks(reset_all = True)
         
     # .................................................................................................................
     
     def setup(self, variables_changed_dict):
+        
+        # Pre-calculate derived settings
+        self._downscale_wh = scale_factor_downscale(self.input_wh, self.downscale_factor)
+        self._blur_kernel = get_2d_kernel(self.blur_size)
+        
+        # Update 'output' dimensions
+        self.output_w, self.output_h = self._downscale_wh
         
         # Set up enablers
         self._enable_downscale = (self.downscale_factor < 1.0)
@@ -225,94 +246,83 @@ class FG_Extractor_Stage(Reference_FG_Extractor):
         self._enable_threshold = (self.threshold > 0)     
         
         # Set up frame decks if needed
-        self._setup_decks(self.downscale_factor)
+        self._flow_deck = self._setup_decks()
+        if "downscale_factor" in variables_changed_dict.keys():
+            self._update_decks()
         
-        # Build the processing function list
-        self._proc_func_list = self._build_foreground_extractor()
-        
+        return
+    
     # .................................................................................................................
     
-    def _setup_decks(self, scaling_factor = 1.0):
+    def _setup_decks(self, reset_all = False):
         
         # Get the input frame size, so we can initialize decks with the right sizing
-        _, (scaled_width, scaled_height) = calculate_scaled_wh(self.input_wh, scaling_factor)
-        gray_shape = (scaled_width, scaled_height)
+        scaled_width, scaled_height = scale_factor_downscale(self.input_wh, self.downscale_factor)
+        gray_shape = (scaled_height, scaled_width)
         deck_length = 1 + self._max_deck_length 
         
-        # Se tup the flow deck if needed
-        if self._flow_deck is None:
+        # Initialize the summation deck if needed
+        flow_deck = self._flow_deck
+        if flow_deck is None or reset_all:
             flow_deck = Frame_Deck_LIFO(deck_length)
             flow_deck.initialize_missing_from_shape(gray_shape)
-            self._flow_deck = flow_deck
         
-        # Resize the deck contents if the scaling factor changes
-        resize_func = partial_resize_by_dimensions(scaled_width, scaled_height, cv2.INTER_NEAREST)
-        
-        self._flow_deck.modify_all(resize_func)
-        
+        return flow_deck
+    
     # .................................................................................................................
     
-    def apply_fg_extraction(self, frame):
-        try:
-            
-            # Run through all the foreground processing functions in the list!
-            new_frame = frame.copy()
-            for each_func in self._proc_func_list:
-                new_frame = each_func(new_frame)            
-                
-            return new_frame
+    def _update_decks(self):
         
-        except Exception as err:
-            print("{}: FRAME ERROR".format(self.script_name))
-            print(err)
-            return blank_binary_frame_from_input_wh(self.input_wh)
+        # For simplicity
+        resize_kwargs = {"dsize": self._downscale_wh, "interpolation": self.downscale_interpolation}
         
+        # Update summation frames
+        for each_idx, each_frame in self._flow_deck.iterate_all():
+            new_frame = cv2.resize(each_frame, **resize_kwargs)
+            self._flow_deck.modify_one(each_idx, new_frame)
+        
+        return
+    
     # .................................................................................................................
     
-    def update_background(self, preprocessed_background_frame, bg_update):
-        # No background processing        
-        return None
+    def process_current_frame(self, frame):
         
-    # .................................................................................................................
-    
-    def _build_foreground_extractor(self):
+        # Apply downscaling
+        if self._enable_downscale:
+            frame = cv2.resize(frame, dsize = self._downscale_wh, interpolation = self.downscale_interpolation)
         
-        # For disabling processing steps
-        passthru = lambda frame: frame
+        # Apply blurring
+        if self._enable_blur:
+            frame = cv2.blur(frame, self._blur_kernel)
         
-        # Downscale if needed
-        _, downscale_wh = calculate_scaled_wh(self.input_wh, self.downscale_factor)
-        downscale_func = partial_resize_by_dimensions(*downscale_wh, cv2.INTER_NEAREST)
+        # Convert to grayscale
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         
-        # Blur the image
-        blur_func = partial_fast_blur(self.blur_size)
-        
-        # Grayscale 
-        gray_func = partial_grayscale()
+        # Store frame in deck
+        prev_frame = self._flow_deck.add_and_read_newest(frame, self.flow_depth)
         
         # Apply optical flow
-        flow_func = partial_self_flow(self._flow_deck, self.flow_depth,
-                                      self.of_pyr_scale, 
-                                      self.of_levels, 
-                                      self.of_winsize, 
-                                      self.of_iterations, 
-                                      self.of_poly_n, 
-                                      self.of_poly_sigma, 
-                                      self.of_flags,
-                                      self.of_output_scale)
+        frame = apply_optical_flow(frame, prev_frame, self.of_output_scale,
+                                   self.of_pyr_scale, 
+                                   self.of_levels, 
+                                   self.of_winsize, 
+                                   self.of_iterations, 
+                                   self.of_poly_n, 
+                                   self.of_poly_sigma, 
+                                   self.of_flags)
         
-        # Threshold
-        thresh_func = partial_threshold(self.threshold)
+        # Apply thresholding
+        if self._enable_threshold:
+            _, frame = cv2.threshold(frame, self.threshold, 255, cv2.THRESH_BINARY)
         
-        # Create function call list
-        func_list = [downscale_func if self._enable_downscale else passthru,
-                     blur_func if self._enable_blur else passthru, 
-                     gray_func, 
-                     flow_func if self._enable_flow else passthru,
-                     thresh_func if self._enable_threshold else passthru]
-        
-        return func_list
-        
+        return frame
+    
+    # .................................................................................................................
+    
+    def process_background_frame(self, bg_frame):
+        # Do nothing, since we don't use a background for frame-to-frame differences
+        return 0
+    
     # .................................................................................................................
     # .................................................................................................................
 
@@ -321,48 +331,33 @@ class FG_Extractor_Stage(Reference_FG_Extractor):
 
 # .....................................................................................................................
 
-def partial_self_flow(deck_ref, backward_index,
-                      pyr_scale, levels, winsize, iterations, poly_n, poly_sigma, flags,
-                      output_scale):
+def apply_optical_flow(curr_frame, prev_frame, output_scale,
+                       pyr_scale, levels, winsize, iterations, poly_n, poly_sigma, flags):
     
-    # Gather all the settings for cleanliness
-    optflow_config = {"pyr_scale": pyr_scale,
-                      "levels": levels,
-                      "winsize": winsize,
-                      "iterations": iterations,
-                      "poly_n": poly_n,
-                      "poly_sigma": poly_sigma,
-                      "flags": flags}
+    # Generate optical flow image output
+    flow_uv = cv2.calcOpticalFlowFarneback(prev_frame, curr_frame,
+                                           flow = None,
+                                           pyr_scale = pyr_scale,
+                                           levels = levels,
+                                           winsize = winsize,
+                                           iterations = iterations,
+                                           poly_n = poly_n,
+                                           poly_sigma = poly_sigma,
+                                           flags = flags)
     
-    # Create function which loads up the frame deck then reads a previous frame from it to apply absdiff
-    def _update_deck_oflow(frame, difference_index, frame_deck, optical_flow_config):
-        
-        # Update frame deck, then grab a previous frame for absdiff
-        prev_frame = frame_deck.add_and_read_newest(frame, difference_index)  
-
-        flow_uv = cv2.calcOpticalFlowFarneback(prev_frame, frame, None, **optical_flow_config)
-        #cv2.calcOpticalFlowFarneback(prev, next, flow, pyr_scale, levels, 
-        #                             winsize, iterations, poly_n, poly_sigma, flags)
-        
-        # Convert optical flow u/v values to magnitude and angle
-        mag, ang = cv2.cartToPolar(flow_uv[:, :, 0], flow_uv[:, :, 1])
-        
-        frame_height, frame_width = frame.shape
-        hsv_frame = np.full((frame_height, frame_width, 3), 255, dtype=np.uint8)
-        
-        hsv_frame[:, :, 0] = ang * (180 / np.pi) * (1/2)
-        hsv_frame[:, :, 2] = np.clip(mag * output_scale, 0, 255) #cv2.normalize(mag, None, 0, 255, cv2.NORM_MINMAX)
-        bgr_frame = cv2.cvtColor(hsv_frame, cv2.COLOR_HSV2BGR)
-        
-        return bgr_frame
+    # Convert optical flow u/v values to magnitude and angle
+    mag, ang = cv2.cartToPolar(flow_uv[:, :, 0], flow_uv[:, :, 1])
     
-    # Set up partial function ahead of time for convenience
-    self_flow_func = partial(_update_deck_oflow, 
-                             difference_index = backward_index,
-                             frame_deck = deck_ref,
-                             optical_flow_config = optflow_config)
+    # Create hsv image from optical flow data
+    frame_height, frame_width = curr_frame.shape[0:2]
+    hsv_frame = np.full((frame_height, frame_width, 3), 255, dtype=np.uint8)
     
-    return self_flow_func
+    # Convert optical flow output into a bgr image for viewing
+    hsv_frame[:, :, 0] = ang * (180 / np.pi) * (1/2)
+    hsv_frame[:, :, 2] = np.clip(mag * output_scale, 0, 255) #cv2.normalize(mag, None, 0, 255, cv2.NORM_MINMAX)
+    bgr_frame = cv2.cvtColor(hsv_frame, cv2.COLOR_HSV2BGR)
+    
+    return bgr_frame
 
 # .....................................................................................................................
 # .....................................................................................................................

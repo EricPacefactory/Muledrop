@@ -186,6 +186,11 @@ def build_resources_folder_path(cameras_folder, camera_select, *path_joins):
     return build_camera_path(cameras_folder, camera_select, "resources", *path_joins)
 
 # .....................................................................................................................
+
+def build_logging_folder_path(cameras_folder_path, camera_select, *path_joins):
+    return build_camera_path(cameras_folder_path, camera_select, "logs", *path_joins)
+
+# .....................................................................................................................
 # .....................................................................................................................
 
 # ---------------------------------------------------------------------------------------------------------------------

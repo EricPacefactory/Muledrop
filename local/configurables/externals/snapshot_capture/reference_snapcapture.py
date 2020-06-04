@@ -111,8 +111,12 @@ class Reference_Snapshot_Capture(Externals_Configurable_Base):
         ''' Function called after video processing completes or is cancelled early '''
         
         # Make sure file i/o is finished
-        print("Closing snapshot capture...", end="")
+        print("Closing snapshot capture...", end = "")
+        
+        self._logger.log("Closing: Shutting down report data saver...")
         self._report_data_saver.close()
+        self._logger.log("Closing: Report saver closed!")
+        
         print(" Done!")
     
     # .................................................................................................................

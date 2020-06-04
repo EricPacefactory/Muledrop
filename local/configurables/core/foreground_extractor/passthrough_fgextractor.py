@@ -50,7 +50,6 @@ find_path_to_local()
 #%% Imports
 
 from local.configurables.core.foreground_extractor.reference_fgextractor import Reference_FG_Extractor
-from local.configurables.core.foreground_extractor._helper_functions import blank_binary_frame_from_input_wh
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
@@ -64,9 +63,6 @@ class FG_Extractor_Stage(Reference_FG_Extractor):
         # Inherit reference functionality
         super().__init__(input_wh, file_dunder = __file__)
         
-        # Allocate storage for a blank frame that will be re-used for the passthrough output
-        self._blank_frame = None
-        
     # .................................................................................................................
         
     def reset(self):
@@ -76,28 +72,24 @@ class FG_Extractor_Stage(Reference_FG_Extractor):
     # .................................................................................................................
     
     def setup(self, variables_changed_dict):
+        # Passthrough does nothing
+        pass
+    
+    # .................................................................................................................
+    
+    # OVERRIDE FOR SPEED
+    def run(self, preprocessed_frame, preprocessed_bg_frame, bg_update):
         
-        # Create the required blank (binary) frame for passthrough output
-        self._blank_frame = blank_binary_frame_from_input_wh(self.input_wh)
-        
-    # .................................................................................................................
-    
-    def apply_fg_extraction(self, frame):
-        try:
-            return self._blank_frame
-        except Exception as err:
-            print("{}: FRAME ERROR".format(self.script_name))
-            print(err)
-            return frame
-    
-    # .................................................................................................................
-    
-    def update_background(self, preprocessed_background_frame, bg_update):
-        # No background processing
-        return None
+        # Passthru does nothing, returns a blank binary frame
+        # -> Override speeds up passthru by ~20 times!
+        return {"binary_frame_1ch": self._blank_frame, 
+                "preprocessed_frame": preprocessed_frame,
+                "preprocessed_bg_frame": preprocessed_bg_frame,
+                "bg_update": bg_update}
     
     # .................................................................................................................
     # .................................................................................................................
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define functions

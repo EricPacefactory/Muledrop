@@ -53,7 +53,6 @@ import cv2
 import numpy as np
 
 from collections import deque
-from functools import partial
 
 from local.lib.ui_utils.display_specification import Display_Window_Specification
 
@@ -199,46 +198,61 @@ class Frame_Deck_LIFO:
     
     # .................................................................................................................
     
+    def sum_from_deck(self, num_to_sum):
+        
+        # Gather all the frames needed for summing
+        frame_list = [self.read_newest(each_idx) for each_idx in range(1 + num_to_sum)]
+        
+        # Sum up all frames, with extra bits to avoid overflow
+        summed_frame = np.sum(frame_list, axis = 0, dtype = np.float32)
+        
+        # Force returned result to be a 'proper' uint8 image
+        return np.uint8(np.clip(summed_frame, 0, 255))
+    
+    # .................................................................................................................
+    
     def modify_all(self, frame_modifier_callback):
+        
+        ''' Function use to apply a callback to all frames in the deck '''
+        
         for each_idx, each_frame in enumerate(self.deck):
             new_frame = frame_modifier_callback(each_frame)
             self.deck[each_idx] = new_frame
     
     # .................................................................................................................
+    
+    def modify_one(self, deck_index, new_frame):
+        
+        '''
+        Helper function which allows overwriting a specific frame in the deck
+        Intended for use with 'iterate_all() function
+        '''
+        
+        self.deck[deck_index] = new_frame
+    
+    # .................................................................................................................
+    
+    def iterate_all(self):
+        
+        '''
+        Function which returns an iterator, used to make modifications to all frames in the deck
+        Intended to be used with the 'modify_one' function.
+        Example usage:
+            for each_idx, each_frame in frame_deck.iterate_all():
+                new_frame = each_frame + 1
+                frame_deck.modify_one(each_idx, new_frame)
+        '''
+        
+        for each_idx, each_frame in enumerate(self.deck):
+            yield each_idx, each_frame
+        
+        return
+    
+    # .................................................................................................................
     # .................................................................................................................
 
+
 # ---------------------------------------------------------------------------------------------------------------------
-#%% Define general functions
-
-# .....................................................................................................................
-
-def blank_binary_frame_from_input_wh(input_wh):
-    return np.zeros((input_wh[1], input_wh[0]), dtype=np.uint8)
-
-# .....................................................................................................................
-
-def blank_binary_frame_from_frame(frame):
-    frame_height, frame_width, frame_channels = frame.shape
-    return np.zeros((frame_height, frame_width), dtype=np.uint8)
-
-# .....................................................................................................................
-
-def calculate_scaled_wh(input_wh, scaling_factor):
-        
-        # Get the input frame size, so we can initialize decks with the right sizing
-        input_width, input_height = input_wh
-        scale_width = int(round(input_width * scaling_factor))
-        scale_height = int(round(input_height * scaling_factor))
-        
-        # Bundle the sizes for convenience
-        original_wh = input_wh
-        scaled_wh = (scale_width, scale_height)
-        
-        return original_wh, scaled_wh
-
-# .....................................................................................................................
-# .....................................................................................................................
-
 #%% Define drawing functions
 
 # .....................................................................................................................
@@ -280,100 +294,82 @@ def draw_outlines(display_frame, stage_outputs, configurable_ref):
 # .....................................................................................................................
 # .....................................................................................................................
 
+
 # ---------------------------------------------------------------------------------------------------------------------
-#%% Define partialing functions
+#%% Define setup helpers
     
 # .....................................................................................................................
 
-def partial_grayscale():    
-    return partial(cv2.cvtColor, code = cv2.COLOR_BGR2GRAY)
+def get_2d_kernel(kernel_size_1d):
+    
+    ''' Helper function which converts an integer kernel size into a tuple of odd values for x/y '''
+        
+    return odd_tuplify(kernel_size_1d, one_maps_to = 3)
 
 # .....................................................................................................................
 
-def partial_norm_grayscale():
-    return partial(np.max, axis = 2)
-
-# .....................................................................................................................
+def create_morphology_element(morphology_shape, kernel_size_1d):
     
-def partial_fast_blur(kernel_size):
+    '''
+    Helper function which builds a morphology structuring element (i.e. a kernel) based on a shape and size
     
-    # Get odd sized tuple for defining the (square) blur kernel
-    blur_kernel_xy = odd_tuplify(kernel_size, one_maps_to = 3)
-    return partial(cv2.blur, ksize = blur_kernel_xy)
-
-# .....................................................................................................................
-
-def partial_threshold(threshold):
+    Inputs:
+        morphology_shape --> (One of cv2.MORPH_RECT, cv2.MORPH_CROSS or cv2.MORPH_ELLIPSE) Determines the shape
+                             of the morphology kernel
+                             
+        kernel_size_1d --> (Integer) Specifies the number of pixels (acting like a radius) that sets the total
+                           size of the morphology element
     
-    # Create function that pulls out the frame index (index 1) from the OCV threshold function output
-    def _threshold_indexed(frame, threshold_value):
-        return cv2.threshold(frame, threshold_value, 255, cv2.THRESH_BINARY)[1]
-    
-    # Set up partial function ahead of time for convenience
-    thresh_func = partial(_threshold_indexed, threshold_value = threshold)
-    
-    return thresh_func
-
-# .....................................................................................................................
-
-def partial_mask_image(mask_image):
-    return partial(cv2.bitwise_and, src2 = mask_image)
-
-# .....................................................................................................................
-
-def partial_morphology(kernel_size, operation, shape):
+    Outputs:
+        morphology_element (for use in cv2.morphologyEx function)
+    '''
     
     # Get odd sized tuple for defining the (square) morphology kernel
-    morph_kernel_xy = odd_tuplify(kernel_size, one_maps_to = 3)
+    kernel_size_2d = get_2d_kernel(kernel_size_1d)
     
     # Create the structure element
-    morph_elem = cv2.getStructuringElement(shape, morph_kernel_xy)
-    
-    # Set up partial function ahead of time for convenience
-    morph_func = partial(cv2.morphologyEx,
-                         op = operation,
-                         kernel = morph_elem)
-    
-    return morph_func
+    return cv2.getStructuringElement(morphology_shape, kernel_size_2d)
 
 # .....................................................................................................................
 
-def partial_self_sum(deck_ref, num_to_sum):
+def create_mask_image(mask_wh, mask_zones_list):
     
-    # Create function which updates the frame deck then grabs a set of frames to sum up (historically)
-    def _update_deck_selfsum(frame, num_to_sum, frame_deck):
+    '''
+    Helper function which creates a mask image given a target width/height and list of zones to mask
+    Note that the zones are interpretted as being 'masked out' (i.e. blacked out)
+    Also note that the zones themselves should be specified using normalized co-ordinates.
+    '''
         
-        # Update frame deck with the new frame
-        frame_deck.add(frame)
+    # Get the input frame size, so we can create a mask with the right size
+    mask_width, mask_height = mask_wh
+    frame_scaling = np.float32(((mask_width - 1), (mask_height - 1)))
+    
+    # Calculate the scaling factor needed to pixelize mask point locations
+    frame_scaling = np.float32(((mask_width - 1), (mask_height - 1)))
+    
+    # Create an empty (bright) mask image (i.e. fully passes everything through)
+    mask_image = np.full((mask_height, mask_width), 255, dtype=np.uint8)
+    mask_fill = 0
+    mask_line_type = cv2.LINE_8
+    
+    # Draw masked zones to black-out regions
+    for each_zone in mask_zones_list:
         
-        # Get frames to sum
-        frame_list = [frame_deck.read_newest(frame_idx) for frame_idx in range(1 + num_to_sum)]
+        # Don't try to draw anything when given empty entities!
+        if each_zone == []:
+            continue
         
-        # Numpy: np.sum(a, axis, dtype)
-        summed_frame = np.sum(frame_list, axis=0, dtype = np.uint16)
-        return np.uint8(np.clip(summed_frame, 0, 255))
+        # Draw a filled (dark) polygon for each masking zone
+        each_zone_array = np.float32(each_zone)
+        mask_list_px = np.int32(np.round(each_zone_array * frame_scaling))
+        cv2.fillPoly(mask_image, [mask_list_px], mask_fill, mask_line_type)
+        cv2.polylines(mask_image, [mask_list_px], True, mask_fill, 1, mask_line_type)
     
-    # Set up partial function ahead of time for convenience
-    self_sum_func = partial(_update_deck_selfsum,
-                            num_to_sum = num_to_sum,
-                            frame_deck = deck_ref)
-    
-    return self_sum_func
-
-# .....................................................................................................................
-    
-def partial_resize_by_dimensions(frame_width, frame_height, interpolation = cv2.INTER_LINEAR):
-    scaled_wh = (frame_width, frame_height)
-    return partial(cv2.resize,
-                   dsize = scaled_wh,
-                   interpolation = interpolation)
-
-# .....................................................................................................................
-    
-# .....................................................................................................................
+    return mask_image
 
 # .....................................................................................................................
 # .....................................................................................................................
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Demo

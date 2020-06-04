@@ -65,13 +65,13 @@ class Background_Capture(Reference_Background_Capture):
         super().__init__(cameras_folder_path, camera_select, user_select, video_select, video_wh, 
                          file_dunder = __file__)
         
-        # Passthrough has no controls!
-        
-        # Update parent class settings
+        # Update parent class settings with hard-coded values
         self.set_max_capture_count(3)
         self.set_max_generate_count(3)
         self.set_capture_period(hours = 24)
         self.set_generate_trigger(every_n_captures = 1000)
+        
+        # Passthrough has no controls!
     
     # .................................................................................................................
     

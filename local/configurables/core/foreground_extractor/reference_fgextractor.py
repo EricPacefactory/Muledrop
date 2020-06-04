@@ -49,8 +49,9 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
+from local.lib.common.images import blank_frame_from_frame_wh
+
 from local.configurables.configurable_template import Core_Configurable_Base
-from local.configurables.core.foreground_extractor._helper_functions import blank_binary_frame_from_input_wh
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
@@ -63,6 +64,14 @@ class Reference_FG_Extractor(Core_Configurable_Base):
         
         # Inherit from parent class
         super().__init__(input_wh, file_dunder = file_dunder)
+        
+        # Allocate storage for background image data
+        self._clean_bg_frame = None
+        self._processed_bg_frame = None
+        
+        # Allocate storage for blanked-out frame, if needed
+        self._blank_frame = blank_frame_from_frame_wh(self.input_wh)
+        
         
         # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         #   Inherited classes must have __init__(input_wh) as arguments!
@@ -98,46 +107,127 @@ class Reference_FG_Extractor(Core_Configurable_Base):
         #   - Need to return a binary frame (i.e. only a single 'color' channel)
         
         # Update stored background before trying to process frame data
-        self.update_background(preprocessed_bg_frame, bg_update)
+        self._update_internal_background_frame(preprocessed_bg_frame, bg_update)
         
         # Make sure binary frame data is returned (i.e. only has a single channel)
-        binary_frame_1ch = self.apply_fg_extraction(preprocessed_frame)
+        binary_frame_1ch = self._apply_fg_extraction(preprocessed_frame)
         
         return {"binary_frame_1ch": binary_frame_1ch, 
                 "preprocessed_frame": preprocessed_frame,
                 "preprocessed_bg_frame": preprocessed_bg_frame,
                 "bg_update": bg_update}
-            
+    
     # .................................................................................................................
     
-    # SHOULD OVERRIDE
-    def apply_fg_extraction(self, frame):
+    # SHOULDN'T OVERRIDE
+    def get_internal_background_frame(self):
         
         '''
-        Should return a single-channel binary frame!
+        Helper function, used to accessed internal copy of the most recent background frame,
+        with any processing already applied
+        '''
+        
+        return self._processed_bg_frame
+    
+    # .................................................................................................................
+    
+    # SHOULDN'T OVERRIDE
+    def apply_background_processing(self):
+        
+        '''
+        Function used to apply any processing to the 'clean' background image
+        The result is stored internally.
+        Also intended for use during configuration, where settings may be updated that 
+        require the background itself to be updated for proper functioning
+        '''
+        
+        # Apply background processing to the clean frame data & store it for use in fg-extraction
+        if self._clean_bg_frame is not None:
+            new_bg_frame = self._clean_bg_frame.copy()
+            self._processed_bg_frame = self.process_background_frame(new_bg_frame)
+        
+        return
+    
+    # .................................................................................................................
+    
+    # SHOULDN'T OVERRIDE. Instead override process_current_frame(...) function
+    def _apply_fg_extraction(self, frame):
+        
+        '''
+        Main fg-extractor function
+        Applies processing on every frame
+        Should return a single-channel binary frame
         '''
         
         try:
-            return blank_binary_frame_from_input_wh(self.input_wh)
+            # Perform all frame processing on each new frame (as a copy, so we don't mess up the original!)
+            return self.process_current_frame(frame.copy())
+            
         except Exception as err:
+            # If an error occurs, print it out for debugging
             print("{}: FRAME ERROR".format(self.script_name))
             print(err)
-            return frame
+            
+            # If we're inside a config tool, crash with the error, so it's easier to trace
+            if self.configure_mode:
+                raise err
+        
+        return self._blank_frame
     
     # .................................................................................................................
     
-    # SHOULD OVERRIDE IF BG NEEDS SOME (DETERMINISTIC) PROCESSING BEFORE STORAGE (ex: blurring)
-    def update_background(self, preprocessed_background_frame, bg_update):
+    # SHOULDN'T OVERRIDE
+    def _update_internal_background_frame(self, preprocessed_background_frame, bg_update):
+        
+        '''
+        Function used to manage the internal background image, which may/may not be needed for fg-extraction
+        '''
         
         # Don't do anything if there is no background frame
-        if not bg_update:
-            return
+        if bg_update or (self._processed_bg_frame is None):
             
-        # Place background processing here (also need to handle storage)
-        print("Background updated! Calling update_background() @ {}".format(self.script_name))
+            # Store the 'clean' background for reference & apply processing update
+            self._clean_bg_frame = preprocessed_background_frame.copy()
+            self.apply_background_processing()
+        
+        return
+    
+    # .................................................................................................................
+    
+    # SHOULD OVERRIDE
+    def process_current_frame(self, frame):
+        
+        '''
+        Main function to override in sub-classes
+        This function should perform necessary foreground-extraction on each incoming frame
+        The function should return single-channel binary frame
+        '''
+        
+        # Place frame processing here. Should return a single-channel binary image!
+        print("Current frame processed! Calling process_current_frame() @ {}".format(self.script_name))
+        
+        return self._blank_frame
+    
+    # .................................................................................................................
+    
+    # SHOULD OVERRIDE
+    def process_background_frame(self, bg_frame):
+        
+        '''
+        Main function to override in sub-classes
+        This function is meant to perform any pre-processing on incoming background frames needed
+        to make use of the background for performing fg-extraction.
+        If a background image is not needed, then this function can be overrided and return the incoming frame
+        '''
+        
+        # Place background processing here
+        print("Background updated! Calling update_internal_background_copy() @ {}".format(self.script_name))
+        
+        return bg_frame
     
     # .................................................................................................................
     # .................................................................................................................
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define functions
@@ -155,5 +245,3 @@ if __name__ == "__main__":
 #%% Scrap
 
 
-
-    

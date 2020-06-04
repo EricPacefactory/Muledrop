@@ -918,7 +918,7 @@ class Reconfigurable_Background_Capture_Loader(Reconfigurable_Loader):
         new_bgcap.reconfigure(setup_data_dict)
         
         # Enable/disable saving behaviors
-        new_bgcap.toggle_report_saving(self.saving_enabled)
+        new_bgcap.toggle_report_saving(False)
         new_bgcap.toggle_resource_saving(self.saving_enabled)
         new_bgcap.toggle_threaded_saving(self.threading_enabled)
         

@@ -49,6 +49,7 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
+import cv2
 import numpy as np
 
 from time import perf_counter
@@ -284,14 +285,18 @@ def _generate_initial_background_from_file(video_reader_ref, max_ram_usage_MB = 
         
         max_ram_usage_MB --> (Integer/Float) The maximum amount of RAM (in megabytes) that can be
                              used when generating the initial background image
+    
+    Outputs:
+        file_generated_background (np.uint8 array)
     '''
     
     # Get video info
     video_width, video_height = video_reader_ref.video_wh
     total_frames = video_reader_ref.total_frames
     
-    # Get current frame, so we can reset the file after we're done
-    initial_video_frame_index = video_reader_ref.get_current_frame()
+    # Set up a separate video reader to handle capture 
+    # (to avoid any threading or weird behavior on provided reader)
+    temp_vreader = cv2.VideoCapture(video_reader_ref.video_source)
     
     # Figure out how many frames we can use given the RAM limit
     num_bytes_per_pixel = 3
@@ -321,16 +326,19 @@ def _generate_initial_background_from_file(video_reader_ref, max_ram_usage_MB = 
     
     # Grab all target frames to use for generating the background
     frame_stack = []
-    for each_frame_index in target_frame_index_array:        
-        video_reader_ref.set_current_frame(each_frame_index)
-        req_break, new_frame, read_time_sec, *fed_time_args = video_reader_ref.read()
-        if req_break:
+    for each_frame_index in target_frame_index_array:
+        temp_vreader.set(cv2.CAP_PROP_POS_FRAMES, each_frame_index)
+        rec_frame, new_frame = temp_vreader.read()
+        if not rec_frame:
             print("",
                   "WARNING:",
                   "  Video frames ended unexpectedly... Background may be poorly formed",
                   sep = "\n")
             break
         frame_stack.append(new_frame)
+    
+    # Close our (hacky-ish) video reader
+    temp_vreader.release()
     
     # Generate background using all loaded frame data
     file_generated_background = _generate_background_from_median(frame_stack)
@@ -342,9 +350,6 @@ def _generate_initial_background_from_file(video_reader_ref, max_ram_usage_MB = 
           "Done generating initial background!",
           "  Took {:.1f} seconds".format(generate_time_sec),
           sep = "\n")
-    
-    # Finally, reset the video so we don't interfere with the original playback
-    video_reader_ref.set_current_frame(initial_video_frame_index)
     
     return file_generated_background
 
@@ -443,6 +448,7 @@ def _generate_background_from_median(list_of_frames):
 # .....................................................................................................................
 # .....................................................................................................................
 
+
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Demo 
     
@@ -454,7 +460,3 @@ if __name__ == "__main__":
 #%% Scrap
 
 
-'''
-STOPPED HERE
-- SHOULD PROBABLY ADD POLLED TIMER TO OTHER CONFIGURABLES (LIKE SNAPSHOT SAVER?)
-'''

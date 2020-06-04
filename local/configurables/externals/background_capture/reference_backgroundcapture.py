@@ -83,7 +83,7 @@ class Reference_Background_Capture(Externals_Configurable_Base):
     def __init__(self, cameras_folder_path, camera_select, user_select, video_select, video_wh, *, file_dunder):
         
         # Inherit from base class
-        super().__init__(cameras_folder_path, camera_select, user_select, video_select, video_wh, 
+        super().__init__(cameras_folder_path, camera_select, user_select, video_select, video_wh,
                          file_dunder = file_dunder)
         
         # Store state config
@@ -131,14 +131,16 @@ class Reference_Background_Capture(Externals_Configurable_Base):
         background_available = \
         check_for_valid_background(cameras_folder_path, camera_select, *video_wh, print_feedback_on_existing = False)
         if not background_available:
-            raise FileNotFoundError("Can't initialize background capture, no initial background image found!")        
+            error_msg = "Can't initialize background capture, no initial background image found!"
+            self._logger.log(error_msg)
+            raise FileNotFoundError(error_msg)
         
         # Build pathing to captures/generation folders and make sure they exist
         self._capture_folder_path = build_background_capture_folder_path(cameras_folder_path, camera_select)
         self._generate_folder_path = build_background_generate_folder_path(cameras_folder_path, camera_select)
         create_missing_folder_path(self._capture_folder_path)
         create_missing_folder_path(self._generate_folder_path)
-
+    
     # .................................................................................................................
     
     # MAY OVERRIDE
@@ -163,12 +165,18 @@ class Reference_Background_Capture(Externals_Configurable_Base):
         print("Closing background capture...", end="")
         
         # Shutdown threaded savers
+        self._logger.log("Closing: Shutting down report & capture data savers...")
         self._report_data_saver.close()
         self._capture_data_saver.close()
+        self._logger.log("Closing: Report & capture savers closed!")
         
         # Shutdown the parallel background creator, if it exists
         if self._parallel_process is not None:
-            self._parallel_process.join(15)
+            wait_seconds = 15
+            warn_msg = "Closing: Parallel generation still running. Waiting {} seconds...".format(wait_seconds)
+            self._logger.log(warn_msg)
+            self._parallel_process.join(wait_seconds)
+            self._logger.log("Closing: Parallel generation closed!")
         
         print(" Done!")
     
@@ -210,12 +218,14 @@ class Reference_Background_Capture(Externals_Configurable_Base):
         self._report_data_saver = self._initialize_report_data_saver()
         self._capture_data_saver = self._initialize_capture_data_saver()
         
-        # When using threaded saving, make the capture random to help avoid synchronization across multiple cameras
-        # (only expected to be enabled when running on RTSP or when system behavior must be deterministic)
+        # When using threaded saving, make the capture is random to help avoid synchronization across multiple cameras
+        # (only expected to be enabled when running on RTSP)
         if enable_threaded_saving:
             self._capture_timer.enable_randomness(seconds = 5)
         else:
             self._capture_timer.disable_randomness()
+        
+        return
     
     # .................................................................................................................
     
@@ -293,7 +303,7 @@ class Reference_Background_Capture(Externals_Configurable_Base):
     # MAY OVERRIDE, but better to override generate_background_from_resources() function
     def run(self, input_frame, current_frame_index, current_epoch_ms, current_datetime):
         
-        ''' 
+        '''
         Main function! Generates backgrounds from regularly captured frames of the scene
         Note: Must output a valid background_frame regardless of whether a new frame was generated or not!)
         
@@ -305,7 +315,7 @@ class Reference_Background_Capture(Externals_Configurable_Base):
             current_epoch_ms -> Integer. Current epoch time, in mlliseconds
             
             current_datetime -> Datetime object. Current datetime (interpretation depends on files vs rtsp)
-            
+        
         Outputs:
             background_frame (np array), background_was_updated (boolean)
         '''
@@ -317,7 +327,7 @@ class Reference_Background_Capture(Externals_Configurable_Base):
         # Check if we need to load a new background frame (from generation)
         need_to_load_new_background = self._trigger_load_new_background()
         if need_to_load_new_background:
-            print("DEBUG: Loading newest background!")
+            
             # Load the new background data
             image_height, image_width = input_frame.shape[0:2]
             new_background_image = self._load_newest_background(image_width, image_height)
@@ -338,13 +348,11 @@ class Reference_Background_Capture(Externals_Configurable_Base):
         need_new_capture = self._trigger_capture(input_frame, current_epoch_ms)
         if not need_new_capture:
             return background_image, background_was_updated
-        else:
-            print("DEBUG: Need to capture current frame")
         
         # Check if we need to generate a new background frame
         need_new_generate = self._trigger_generate(current_epoch_ms)
         if need_new_generate:
-            print("DEBUG: Need to generate a new background!")
+            self._logger.log("Update: Need to generate a new background!")
         
         return background_image, background_was_updated
     
@@ -383,19 +391,18 @@ class Reference_Background_Capture(Externals_Configurable_Base):
         
         # Delay a small amount to help ensure newest capture is saved
         if threading_enabled:
-            print("DEBUG: Entering forced BG GEN Sleep")
             sleep(4.0)
         
         # Set up generator to grab captures that are available. Bail if there aren't any
         num_captures, capture_image_iter = load_background_captures_iter(cameras_folder_path, camera_select)
         if num_captures == 0:
-            print("DEBUG: Trying to generate background but no captures available")
+            self._logger.log("Error: Trying to generate background but no captures available")
             return
         
         # Set up generator to grab existing generated images that are available. Bail if there aren't any
         num_generates, generate_image_iter = load_background_generates_iter(cameras_folder_path, camera_select)
         if num_generates == 0:
-            print("DEBUG: Trying to generate background but no generates available")
+            self._logger.log("Error: Trying to generate background but no generates available")
             return
         
         t1 = perf_counter()
@@ -408,7 +415,10 @@ class Reference_Background_Capture(Externals_Configurable_Base):
                                                                        target_width,
                                                                        target_height)
         t2 = perf_counter()
-        print("DEBUG: BG GEN TOOK {:.0f} ms".format(1000 * (t2 - t1)))
+        
+        # Log timing
+        self._logger.log("Update: BG Generation took {:.0f} ms".format(1000 * (t2 - t1)))
+        
         # Save the newly generated image, assuming it's valid and of the right shape
         valid_image = (new_background_image is not None)
         if valid_image:
@@ -469,7 +479,9 @@ class Reference_Background_Capture(Externals_Configurable_Base):
         # Load image data
         loaded_background_image = load_newest_generated_background(self.cameras_folder_path, self.camera_select)
         if loaded_background_image is None:
-            raise ValueError("Error loading background data!")
+            error_msg = "Error loading background data!"
+            self._logger.log(error_msg)
+            raise ValueError(error_msg)
         
         # Make sure the background shape is correct
         loaded_height, loaded_width = loaded_background_image.shape[0:2]
@@ -479,6 +491,7 @@ class Reference_Background_Capture(Externals_Configurable_Base):
             error_msg_list = ["Loaded background has the wrong dimensions!",
                               "  Required: {} x {}".format(loaded_width, loaded_height),
                               "    Loaded: {} x {}".format(target_width, target_height)]
+            self._logger.log_list(error_msg_list)
             error_msg = "\n".join(error_msg_list)
             raise AttributeError(error_msg)
         
@@ -516,12 +529,13 @@ class Reference_Background_Capture(Externals_Configurable_Base):
             process_exit_code = self._parallel_process.exitcode
             process_finished_successfully = (process_exit_code == 0)
             if not process_finished_successfully:
-                print("", 
-                      "ERROR:",
-                      "Parallel background generation exited with an error!",
-                      "  Got exit code: {}".format(process_exit_code),
-                      "",
-                      sep = "\n")
+                error_msg_list = ["", 
+                                  "ERROR:",
+                                  "Parallel background generation exited with an error!",
+                                  "  Got exit code: {}".format(process_exit_code),
+                                  ""]
+                self._logger.log_list(error_msg_list)
+                print(*error_msg_list, sep = "\n")
                 self._parallel_process.terminate()
             
             # Wait for the process to join, then delete the reference to it
@@ -590,7 +604,10 @@ class Reference_Background_Capture(Externals_Configurable_Base):
         if process_exists:
             needed_to_wait = (self._parallel_process.is_alive())
             if needed_to_wait:
-                print("DEBUG: Blocking execution until parallel process finishes....")
+                self._logger.log_list(["Warning: Blocking execution until parallel process finishes....",
+                                       "--> This only happens if either the background generation is being",
+                                       "    called too often, or if it takes too long. May want to reduce",
+                                       "    background capture/generation frequency"])
                 self._parallel_process.join()        
         
         return needed_to_wait
@@ -658,7 +675,7 @@ class Reference_Background_Capture(Externals_Configurable_Base):
         
         return Background_Resources_Data_Saver(self.cameras_folder_path,
                                                self.camera_select,
-                                               self.report_saving_enabled,
+                                               self.resource_saving_enabled,
                                                self.threaded_saving_enabled)
     
     # .................................................................................................................

@@ -79,7 +79,7 @@ class Rolling_BG_Display(Display_Window_Specification):
                 current_frame_index, current_epoch_ms, current_datetime):
         
         # Pull the rolling background out of the configurable
-        rolling_background_frame = configurable_ref._rolling_bg_frame_uint8
+        rolling_background_frame = configurable_ref._clean_rolling_bg_uint8
         
         # Scale it to the display size
         display_height, display_width = stage_outputs["preprocessor"]["preprocessed_frame"].shape[0:2]

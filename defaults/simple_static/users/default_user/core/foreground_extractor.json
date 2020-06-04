@@ -20,6 +20,6 @@
     "pre_morph_size": 1,
     "summation_depth": 2,
     "threshold": 40,
-    "use_norm_diff": true
+    "use_max_diff": true
   }
 }

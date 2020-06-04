@@ -49,6 +49,8 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
+from local.lib.file_access_utils.shared import build_logging_folder_path
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Classes
@@ -88,21 +90,15 @@ def make_log_folder(log_path, make_parent_folder = True):
 
 # .....................................................................................................................
 
-def build_base_log_path(cameras_folder_path, camera_select, *path_joins):
-    ''' Build pathing to logging folder for a given camera '''    
-    return os.path.join(cameras_folder_path, camera_select, "logs", *path_joins)
-
-# .....................................................................................................................
-
 def build_configurables_log_path(cameras_folder_path, camera_select, *path_joins):
     ''' Build pathing to the configurables logging folder for a given camera '''
-    return build_base_log_path(cameras_folder_path, camera_select, "configurables", *path_joins)
+    return build_logging_folder_path(cameras_folder_path, camera_select, "configurables", *path_joins)
 
 # .....................................................................................................................
 
 def build_system_log_path(cameras_folder_path, camera_select, *path_joins):
     ''' Build pathing to the system logging folder for a given camera '''
-    return build_base_log_path(cameras_folder_path, camera_select, "system", *path_joins)
+    return build_logging_folder_path(cameras_folder_path, camera_select, "system", *path_joins)
 
 # .....................................................................................................................
 

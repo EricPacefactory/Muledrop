@@ -51,8 +51,10 @@ find_path_to_local()
 
 import cv2
 
+from local.lib.common.timekeeper_utils import Periodic_Polled_Integer_Counter
+from local.lib.common.images import max_dimension_downscale
+
 from local.configurables.externals.snapshot_capture.reference_snapcapture import Reference_Snapshot_Capture
-from local.configurables.externals.snapshot_capture._helper_functions import max_dimension_downscale
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -68,9 +70,11 @@ class Snapshot_Capture(Reference_Snapshot_Capture):
         super().__init__(cameras_folder_path, camera_select, user_select, video_select, video_wh, 
                          file_dunder = __file__)
         
+        # Allocate storage for frame counter used to determine when to save snapshots
+        self._frame_counter = Periodic_Polled_Integer_Counter()
+        
         # Allocate storage for pre-calculated settings
         self._enable_downscale = None
-        self._skip_frames_remainder = None
         self._downscale_wh = None
         
         # .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . Control Group 1 .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
@@ -92,7 +96,7 @@ class Snapshot_Capture(Reference_Snapshot_Capture):
         self.ctrl_spec.attach_slider(
                 "max_dimension_px", 
                 label = "Max Dimension", 
-                default_value = 800,
+                default_value = 640,
                 min_value = 100, max_value = 1280,
                 units = "pixels",
                 return_type = int,
@@ -125,6 +129,8 @@ class Snapshot_Capture(Reference_Snapshot_Capture):
     
     def reset(self):
         # No storage, so nothing to reset!
+        
+        self._frame_counter.reset_counter()
         pass
     
     # .................................................................................................................
@@ -136,22 +142,24 @@ class Snapshot_Capture(Reference_Snapshot_Capture):
     
     def setup(self, variables_changed_dict):
         
-        # Pre-calculate the value used in frame skip remainder checks
-        self._skip_frames_remainder = 1 + self.skip_frames
-        
         # Pre-calculate the downscaled frame size (if we need it)
         self._enable_downscale, self._downscale_wh = max_dimension_downscale(self.video_wh, self.max_dimension_px)
         
         # Update jpg quality settings
         self.set_snapshot_quality(self.jpg_quality)
+        
+        # Update counter trigger
+        self._frame_counter.set_count_reset_value(self.skip_frames)
+        
+        # Force reset, just to ensure consistency while re-configuring
+        self.reset()
     
     # .................................................................................................................
     
     def trigger_snapshot(self, input_frame, current_frame_index, current_epoch_ms, current_datetime):
         
-        # Simple remainder check to subsample frames
-        frame_index_remainder = ((current_frame_index - 1) % self._skip_frames_remainder)
-        need_new_snapshot = (frame_index_remainder == 0)
+        # Use counter logic to decide when to get snapshots!
+        need_new_snapshot = self._frame_counter.update_count()
         
         return need_new_snapshot
     

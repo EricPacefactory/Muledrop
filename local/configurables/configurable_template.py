@@ -55,6 +55,11 @@ from time import sleep
 
 from local.lib.ui_utils.controls_specification import Controls_Specification
 
+from local.lib.file_access_utils.core import build_core_logging_folder_path
+from local.lib.file_access_utils.externals import build_externals_logging_folder_path
+
+from local.eolib.utils.logging import Daily_Logger
+
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
 
@@ -94,6 +99,9 @@ class Configurable_Base:
         # Variables for controls/configuration functionality
         self.configure_mode = False
         self.ctrl_spec = Controls_Specification()
+        
+        # Allocate storage for possible logger object
+        self._logger = None
     
     # .................................................................................................................
 
@@ -143,9 +151,7 @@ class Configurable_Base:
     @property
     def class_name(self):
         
-        '''
-        Return the name of the class of this object
-        '''
+        ''' Return the name of the class of this object '''
         
         return self.__class__.__name__
     
@@ -160,6 +166,10 @@ class Configurable_Base:
         '''
         
         self.configure_mode = configure_enabled
+        
+        # If we have a logger object, disable it during config
+        if self._logger is not None:
+            self._logger.disable_logging()
     
     # .................................................................................................................
     
@@ -464,6 +474,13 @@ class Externals_Configurable_Base(Configurable_Base):
         # Store the component name (e.g. preprocessor, detector, ... etc.) & use it as a save name
         self.component_name = self.parent_folder
         self.save_filename = self.component_name + ".json"
+        
+        # Set up logger
+        log_path = build_externals_logging_folder_path(cameras_folder_path, camera_select, self.component_name)
+        self._logger = Daily_Logger(log_path,
+                                    log_files_to_keep = 2,
+                                    enabled = True,
+                                    print_when_disabled = False)
         
     # .................................................................................................................
     # .................................................................................................................

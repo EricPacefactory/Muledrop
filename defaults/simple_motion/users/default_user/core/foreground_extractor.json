@@ -8,7 +8,7 @@
     "downscale_factor": 0.25,
     "downscale_interpolation": 0,
     "threshold": 35,
-    "use_norm_diff": false,
+    "use_max_diff": false,
     "enable_masking": true,
     "blur_size": 1,
     "difference_depth": 1,

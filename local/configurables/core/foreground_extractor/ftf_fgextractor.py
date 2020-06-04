@@ -52,17 +52,13 @@ find_path_to_local()
 import cv2
 import numpy as np
 
-from functools import partial
+from local.lib.common.images import scale_factor_downscale
 
 from local.configurables.core.foreground_extractor.reference_fgextractor import Reference_FG_Extractor
-from local.configurables.core.foreground_extractor._helper_functions import blank_binary_frame_from_input_wh
-from local.configurables.core.foreground_extractor._helper_functions import partial_grayscale, partial_norm_grayscale
-from local.configurables.core.foreground_extractor._helper_functions import partial_fast_blur
-from local.configurables.core.foreground_extractor._helper_functions import partial_morphology
-from local.configurables.core.foreground_extractor._helper_functions import partial_resize_by_dimensions
-from local.configurables.core.foreground_extractor._helper_functions import partial_self_sum, partial_threshold
-from local.configurables.core.foreground_extractor._helper_functions import partial_mask_image
-from local.configurables.core.foreground_extractor._helper_functions import Frame_Deck_LIFO, calculate_scaled_wh
+
+from local.configurables.core.foreground_extractor._helper_functions import Frame_Deck_LIFO
+from local.configurables.core.foreground_extractor._helper_functions import get_2d_kernel, create_morphology_element
+from local.configurables.core.foreground_extractor._helper_functions import create_mask_image
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -88,8 +84,11 @@ class FG_Extractor_Stage(Reference_FG_Extractor):
         self._max_kernel_size = 15
         
         # Allocate space for dervied variables
-        self._proc_func_list = None
         self._scaled_mask_image = None
+        self._downscale_wh = None
+        self._blur_kernel = None
+        self._pre_morph_element = None
+        self._post_morph_element = None
         
         # llocate storage for variables used to remove processing functions (to improve performance)
         self._enable_downscale = False
@@ -160,9 +159,9 @@ class FG_Extractor_Stage(Reference_FG_Extractor):
                            "Thresholding is applied after:",
                            "downscaling, blurring, frame-differencing, (gray) shapeshifting and summation."])
         
-        self.use_norm_diff = \
+        self.use_max_diff = \
         self.ctrl_spec.attach_toggle(
-                "use_norm_diff", 
+                "use_max_diff", 
                 label = "Use Maximum Difference", 
                 default_value = False,
                 tooltip = ["Enabling this setting means that the output of the frame difference ",
@@ -315,9 +314,20 @@ class FG_Extractor_Stage(Reference_FG_Extractor):
         # Clear out frame decks, since we don't want to sum up frames across a reset
         self._diff_deck, self._sum_deck = self._setup_decks(reset_all = True)
         
+        return
+        
     # .................................................................................................................
     
     def setup(self, variables_changed_dict):
+        
+        # Pre-calculate derived settings
+        self._downscale_wh = scale_factor_downscale(self.input_wh, self.downscale_factor)
+        self._blur_kernel = get_2d_kernel(self.blur_size)
+        self._pre_morph_element = create_morphology_element(self.pre_morph_shape, self.pre_morph_size)
+        self._post_morph_element = create_morphology_element(self.post_morph_shape, self.post_morph_size)
+        
+        # Update 'output' dimensions
+        self.output_w, self.output_h = self._downscale_wh
         
         # Set up enablers
         self._enable_downscale = (self.downscale_factor < 1.0)
@@ -329,45 +339,23 @@ class FG_Extractor_Stage(Reference_FG_Extractor):
         self._enable_post_morph = (self.post_morph_size > 0)        
         
         # Re-draw the masking image
-        self._scaled_mask_image = self._create_mask_image()
+        self._scaled_mask_image = create_mask_image(self._downscale_wh, self.mask_zone_list)
         mask_is_meaningful = (np.min(self._scaled_mask_image) == 0)
         self._enable_masking_optimized = (self.enable_masking and mask_is_meaningful)
         
         # Set up frame decks if needed
         self._diff_deck, self._sum_deck = self._setup_decks()
+        if "downscale_factor" in variables_changed_dict.keys():
+            self._update_decks()
         
-        # Build the processing function list and update the output sizing!
-        self._proc_func_list, (self.output_w, self.output_h) = self._build_foreground_extractor()
-        
-    # .................................................................................................................
-    
-    def apply_fg_extraction(self, frame):
-        try:
-            
-            # Run through all the foreground processing functions in the list!
-            new_frame = frame.copy()
-            for each_func in self._proc_func_list:
-                new_frame = each_func(new_frame)            
-                
-            return new_frame
-        
-        except Exception as err:
-            print("{}: FRAME ERROR".format(self.script_name))
-            print(err)
-            return blank_binary_frame_from_input_wh(self.input_wh)
-        
-    # .................................................................................................................
-    
-    def update_background(self, preprocessed_background_frame, bg_update):
-        # No background processing        
-        return None
+        return
     
     # .................................................................................................................
     
     def _setup_decks(self, reset_all = False):
         
         # Get the input frame size, so we can initialize decks with the right sizing
-        _, (scaled_width, scaled_height) = calculate_scaled_wh(self.input_wh, self.downscale_factor)
+        scaled_width, scaled_height = scale_factor_downscale(self.input_wh, self.downscale_factor)
         input_shape = (scaled_height, scaled_width, 3)
         gray_shape = input_shape[0:2]
         max_deck_length = (1 + self._max_deck_length)
@@ -386,96 +374,75 @@ class FG_Extractor_Stage(Reference_FG_Extractor):
             summation_deck = Frame_Deck_LIFO(sum_deck_length)
             summation_deck.initialize_missing_from_shape(gray_shape)
         
-        # Resize the deck contents if the scaling factor changes
-        resize_func = partial_resize_by_dimensions(scaled_width, scaled_height, cv2.INTER_NEAREST)
-        difference_deck.modify_all(resize_func)
-        summation_deck.modify_all(resize_func)
-        
         return difference_deck, summation_deck
     
     # .................................................................................................................
     
-    def _build_foreground_extractor(self):
+    def _update_decks(self):
         
-        # For disabling processing steps
-        passthru = lambda frame: frame
+        # For simplicity
+        resize_kwargs = {"dsize": self._downscale_wh, "interpolation": self.downscale_interpolation}
         
-        # Downscale/upscale the image
-        _, downscale_wh = calculate_scaled_wh(self.input_wh, self.downscale_factor)
-        downscale_func = partial_resize_by_dimensions(*downscale_wh, self.downscale_interpolation)
+        # Apply scaling update to difference frames
+        for each_idx, each_frame in self._diff_deck.iterate_all():
+            new_frame = cv2.resize(each_frame, **resize_kwargs)
+            self._diff_deck.modify_one(each_idx, new_frame)
         
-        # Blur the image
-        blur_func = partial_fast_blur(self.blur_size)
+        # Update summation frames
+        for each_idx, each_frame in self._sum_deck.iterate_all():
+            new_frame = cv2.resize(each_frame, **resize_kwargs)
+            self._sum_deck.modify_one(each_idx, new_frame)
         
-        # Self diff
-        self_diff_func = partial_self_diff(self._diff_deck, 
-                                           self.difference_depth)
-            
-        # Grayscale 
-        gray_func = partial_norm_grayscale() if self.use_norm_diff else partial_grayscale()
-        
-        # Pre-morph
-        pre_morph_func = partial_morphology(self.pre_morph_size, 
-                                            self.pre_morph_op,
-                                            self.pre_morph_shape)
-        
-        # Sum frames
-        sum_func = partial_self_sum(self._sum_deck, self.summation_depth)
-        
-        # Threshold
-        thresh_func = partial_threshold(self.threshold)
-        
-        # Post-morph
-        post_morph_func = partial_morphology(self.post_morph_size, 
-                                             self.post_morph_op,
-                                             self.post_morph_shape)
-        
-        # Masking
-        mask_func = partial_mask_image(self._scaled_mask_image)
-        
-        # Create function call list
-        func_list = [downscale_func if self._enable_downscale else passthru,
-                     blur_func if self._enable_blur else passthru,
-                     self_diff_func if self._enable_difference else passthru,
-                     gray_func,
-                     pre_morph_func if self._enable_pre_morph else passthru,
-                     sum_func if self._enable_summation else passthru,
-                     thresh_func if self._enable_threshold else passthru,
-                     post_morph_func if self._enable_post_morph else passthru,
-                     mask_func if self._enable_masking_optimized else passthru]
-        
-        return func_list, downscale_wh
-        
+        return
+    
     # .................................................................................................................
     
-    def _create_mask_image(self):
+    def process_current_frame(self, frame):
         
-        # Get the input frame size, so we can create a mask with the right size
-        _, (scaled_width, scaled_height) = calculate_scaled_wh(self.input_wh, self.downscale_factor)
-        frame_shape = (scaled_height, scaled_width)
+        # Apply downscaling
+        if self._enable_downscale:
+            frame = cv2.resize(frame, dsize = self._downscale_wh, interpolation = self.downscale_interpolation)
         
-        # Calculate the scaling factor needed to pixelize mask point locations
-        frame_scaling = np.float32(((scaled_width - 1), (scaled_height - 1)))
+        # Apply blurring
+        if self._enable_blur:
+            frame = cv2.blur(frame, self._blur_kernel)
         
-        # Create an empty (bright) mask image (i.e. fully passes everything through)
-        mask_image = np.full(frame_shape, 255, dtype=np.uint8)
-        mask_fill = 0
-        mask_line_type = cv2.LINE_8
+        # Take frame-to-frame difference
+        if self._enable_difference:
+            prev_frame = self._diff_deck.add_and_read_newest(frame, self.difference_depth)
+            frame = cv2.absdiff(frame, prev_frame)
         
-        # Draw masked zones to black-out regions
-        for each_zone in self.mask_zone_list:
-            
-            # Don't try to draw anything when given empty entities!
-            if each_zone == []:
-                continue
-            
-            # Draw a filled (dark) polygon for each masking zone
-            each_zone_array = np.float32(each_zone)
-            mask_list_px = np.int32(np.round(each_zone_array * frame_scaling))
-            cv2.fillPoly(mask_image, [mask_list_px], mask_fill, mask_line_type)
-            cv2.polylines(mask_image, [mask_list_px], True, mask_fill, 1, mask_line_type)
+        # Convert to grayscale
+        frame = np.max(frame, axis = 2) if self.use_max_diff else cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         
-        return mask_image
+        # Apply pre-threshold morphology
+        if self._enable_pre_morph:
+            frame = cv2.morphologyEx(frame, op = self.pre_morph_op, kernel = self._pre_morph_element)
+        
+        # Sum up frames
+        if self._enable_summation:
+            self._sum_deck.add(frame)
+            frame = self._sum_deck.sum_from_deck(self.summation_depth)
+        
+        # Apply thresholding
+        if self._enable_threshold:
+            _, frame = cv2.threshold(frame, self.threshold, 255, cv2.THRESH_BINARY)
+        
+        # Apply post-threshold morphology
+        if self._enable_post_morph:
+            frame = cv2.morphologyEx(frame, op = self.post_morph_op, kernel = self._post_morph_element)
+        
+        # Apply masking
+        if self._enable_masking_optimized:
+            frame = cv2.bitwise_and(frame, self._scaled_mask_image)
+        
+        return frame
+    
+    # .................................................................................................................
+    
+    def process_background_frame(self, bg_frame):
+        # Do nothing, since we don't use a background for frame-to-frame differences
+        return 0
     
     # .................................................................................................................
     # .................................................................................................................
@@ -484,23 +451,6 @@ class FG_Extractor_Stage(Reference_FG_Extractor):
 #%% Define functions
 
 # .....................................................................................................................
-    
-def partial_self_diff(deck_ref, backward_index):
-    
-    # Create function which loads up the frame deck then reads a previous frame from it to apply absdiff
-    def _update_deck_absdiff(frame, difference_index, frame_deck):
-        
-        # Update frame deck, then grab a previous frame for absdiff
-        prev_frame = frame_deck.add_and_read_newest(frame, difference_index)  
-        
-        return cv2.absdiff(frame, prev_frame)
-    
-    # Set up partial function ahead of time for convenience
-    self_diff_func = partial(_update_deck_absdiff, 
-                             difference_index = backward_index,
-                             frame_deck = deck_ref)
-    
-    return self_diff_func
 
 # .....................................................................................................................
 # .....................................................................................................................

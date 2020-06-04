@@ -52,17 +52,14 @@ find_path_to_local()
 import cv2
 import numpy as np
 
-from functools import partial
+from local.lib.common.timekeeper_utils import Periodic_Polled_Timer
+from local.lib.common.images import scale_factor_downscale
 
 from local.configurables.core.foreground_extractor.reference_fgextractor import Reference_FG_Extractor
-from local.configurables.core.foreground_extractor._helper_functions import blank_binary_frame_from_input_wh
-from local.configurables.core.foreground_extractor._helper_functions import partial_grayscale, partial_norm_grayscale
-from local.configurables.core.foreground_extractor._helper_functions import partial_fast_blur
-from local.configurables.core.foreground_extractor._helper_functions import partial_morphology
-from local.configurables.core.foreground_extractor._helper_functions import partial_resize_by_dimensions
-from local.configurables.core.foreground_extractor._helper_functions import partial_self_sum, partial_threshold
-from local.configurables.core.foreground_extractor._helper_functions import partial_mask_image
-from local.configurables.core.foreground_extractor._helper_functions import Frame_Deck_LIFO, calculate_scaled_wh
+
+from local.configurables.core.foreground_extractor._helper_functions import Frame_Deck_LIFO
+from local.configurables.core.foreground_extractor._helper_functions import get_2d_kernel, create_morphology_element
+from local.configurables.core.foreground_extractor._helper_functions import create_mask_image
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -77,17 +74,18 @@ class FG_Extractor_Stage(Reference_FG_Extractor):
         # Inherit reference functionality
         super().__init__(input_wh, file_dunder = __file__)
         
-        # Allocate space for altered frame sizing
-        self.output_w = None
-        self.output_h = None
+        # Allocate storage for timer user to update rolling background
+        self._rbg_timer = Periodic_Polled_Timer()
         
-        # Allocate storage for background frame data
+        # Allocate storage for rolling-background frame data
         self.current_background = None
         self._rolling_bg_frame_float32 = None
         self._rolling_bg_frame_uint8 = None
         self._clean_rolling_bg_uint8 = None
-        self._next_rbg_update_time_ms = -1
-        self._capture_period_ms = None
+        
+        # Allocate space for altered frame sizing
+        self.output_w = None
+        self.output_h = None
         
         # Allocate space for frame decks
         self._sum_deck = None
@@ -95,9 +93,12 @@ class FG_Extractor_Stage(Reference_FG_Extractor):
         self._max_kernel_size = 15
         
         # Allocate space for dervied variables
-        self._proc_func_list = None
-        self._rbg_func_list = None
         self._scaled_mask_image = None
+        self._downscale_wh = None
+        self._pre_blur_kernel = None
+        self._post_blur_kernel = None
+        self._pre_morph_element = None
+        self._post_morph_element = None
         
         # Allocate storage for variables used to remove processing functions (to improve performance)
         self._enable_downscale = False
@@ -178,9 +179,9 @@ class FG_Extractor_Stage(Reference_FG_Extractor):
                            "Thresholding is applied after:",
                            "downscaling, blurring, frame-differencing, (gray) shapeshifting and summation."])
         
-        self.use_norm_diff = \
+        self.use_max_diff = \
         self.ctrl_spec.attach_toggle(
-                "use_norm_diff", 
+                "use_max_diff", 
                 label = "Use Maximum Difference", 
                 default_value = False,
                 tooltip = ["Enabling this setting means that the output of the background difference ",
@@ -323,7 +324,7 @@ class FG_Extractor_Stage(Reference_FG_Extractor):
         self.ctrl_spec.attach_slider(
                 "new_capture_weighting", 
                 label = "New Capture Weighting", 
-                default_value = 25/100,
+                default_value = 15/100,
                 min_value = 0.01, max_value = 1.0, step_size = 1/100,
                 return_type = float,
                 zero_referenced = True,
@@ -342,14 +343,25 @@ class FG_Extractor_Stage(Reference_FG_Extractor):
     def reset(self):
         
         # Clear out frame decks, since we don't want to sum up frames across a reset
-        self._sum_deck = None
-        self._setup_decks(self.downscale_factor)
+        self._setup_decks(reset_all = True)
+        
+        # Reset the rolling background image & timer so we start over
         self._rolling_bg_frame_float32 = None
-        self._next_rbg_update_time_ms = -1
+        self._rbg_timer.reset_timer()
         
     # .................................................................................................................
     
     def setup(self, variables_changed_dict):
+        
+        # Pre-calculate derived settings
+        self._downscale_wh = scale_factor_downscale(self.input_wh, self.downscale_factor)
+        self._pre_blur_kernel = get_2d_kernel(self.pre_blur_size)
+        self._post_blur_kernel = get_2d_kernel(self.post_blur_size)
+        self._pre_morph_element = create_morphology_element(self.pre_morph_shape, self.pre_morph_size)
+        self._post_morph_element = create_morphology_element(self.post_morph_shape, self.post_morph_size)
+        
+        # Update 'output' dimensions
+        self.output_w, self.output_h = self._downscale_wh
         
         # Set up enablers
         self._enable_downscale = (self.downscale_factor < 1.0)
@@ -360,83 +372,129 @@ class FG_Extractor_Stage(Reference_FG_Extractor):
         self._enable_threshold = (self.threshold > 0)
         self._enable_post_morph = (self.post_morph_size > 0)
         
-        # Update capture timing
-        self._capture_period_ms = int(round(1000 * self.capture_period_sec))
-        
         # Re-draw the masking image
-        self._scaled_mask_image = self._create_mask_image()
+        self._scaled_mask_image = create_mask_image(self._downscale_wh, self.mask_zone_list)
         mask_is_meaningful = (np.min(self._scaled_mask_image) == 0)
         self._enable_masking_optimized = (self.enable_masking and mask_is_meaningful)
         
         # Set up frame decks if needed
-        self._setup_decks(self.downscale_factor)
+        self._sum_deck = self._setup_decks()
+        if "downscale_factor" in variables_changed_dict.keys():
+            self._update_decks()
         
-        # Build the processing function list
-        self._rbg_func_list, self._proc_func_list, (self.output_w, self.output_h) = self._build_foreground_extractor()
+        # Update capture timing & force an update to the rolling-background
+        self._rbg_timer.set_trigger_period(seconds = self.capture_period_sec)
+        self._apply_rolling_background_processing()
         
-        # Update the background image if possible
-        self._apply_rollbg_fg_extraction()
-        
-    # .................................................................................................................
-    
-    def apply_fg_extraction(self, frame):
-        
-        # Update the rolling background as needed
-        self._update_rolling_background(frame)
-        
-        try:
-            
-            # Run through all the foreground processing functions in the list!
-            new_frame = frame.copy()
-            for each_func in self._proc_func_list:
-                new_frame = each_func(new_frame)
-            return new_frame
-        
-        except Exception as err:
-            print("{}: FRAME ERROR".format(self.script_name))
-            print(err)
-            return blank_binary_frame_from_input_wh(self.input_wh)
-        
-    # .................................................................................................................
-    
-    def update_background(self, preprocessed_background_frame, bg_update):
-        # No (preprocessed) background processing        
-        return None
+        return
     
     # .................................................................................................................
     
-    def _setup_decks(self, scaling_factor = 1.0):
+    def _setup_decks(self, reset_all = False):
         
         # Get the input frame size, so we can initialize decks with the right sizing
-        _, (scaled_width, scaled_height) = calculate_scaled_wh(self.input_wh, scaling_factor)
-        input_shape = (scaled_height, scaled_width, 3)
-        gray_shape = input_shape[0:2]
+        scaled_width, scaled_height = scale_factor_downscale(self.input_wh, self.downscale_factor)
+        gray_shape = (scaled_height, scaled_width)
         deck_length = 1 + self._max_deck_length 
         
         # Initialize the summation deck if needed
-        if self._sum_deck is None:
+        summation_deck = self._sum_deck
+        if self._sum_deck is None or reset_all:
             summation_deck = Frame_Deck_LIFO(deck_length)
             summation_deck.initialize_missing_from_shape(gray_shape)
-            self._sum_deck = summation_deck
         
-        # Resize the deck contents if the scaling factor changes
-        resize_func = partial_resize_by_dimensions(scaled_width, scaled_height, cv2.INTER_NEAREST)
-        self._sum_deck.modify_all(resize_func)
+        return summation_deck
+    
+    # .................................................................................................................
+    
+    def _update_decks(self):
         
+        # For simplicity
+        resize_kwargs = {"dsize": self._downscale_wh, "interpolation": self.downscale_interpolation}
+        
+        # Update summation frames
+        for each_idx, each_frame in self._sum_deck.iterate_all():
+            new_frame = cv2.resize(each_frame, **resize_kwargs)
+            self._sum_deck.modify_one(each_idx, new_frame)
+        
+        return
+                
+    # .................................................................................................................
+    
+    def process_current_frame(self, frame):
+        
+        # Update the folling background image, if needed
+        self._update_rolling_background(frame)
+        
+        # Apply same processing used on rolling-background frame, before subtraction
+        frame = self._process_rolling_background_frame(frame)
+        
+        # Perform rolling-background subtraction
+        frame = cv2.absdiff(frame, self._rolling_bg_frame_uint8)
+        
+        # Convert to grayscale
+        frame = np.max(frame, axis = 2) if self.use_max_diff else cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        
+        # Apply post-blurring
+        if self._enable_post_blur:
+            frame = cv2.blur(frame, self._post_blur_kernel)
+        
+        # Apply pre-threshold morphology
+        if self._enable_pre_morph:
+            frame = cv2.morphologyEx(frame, op = self.pre_morph_op, kernel = self._pre_morph_element)
+        
+        # Sum up frames
+        if self._enable_summation:
+            self._sum_deck.add(frame)
+            frame = self._sum_deck.sum_from_deck(self.summation_depth)
+        
+        # Apply thresholding
+        if self._enable_threshold:
+            _, frame = cv2.threshold(frame, self.threshold, 255, cv2.THRESH_BINARY)
+        
+        # Apply post-threshold morphology
+        if self._enable_post_morph:
+            frame = cv2.morphologyEx(frame, op = self.post_morph_op, kernel = self._post_morph_element)
+        
+        # Apply masking
+        if self._enable_masking_optimized:
+            frame = cv2.bitwise_and(frame, self._scaled_mask_image)
+        
+        return frame
+    
+    # .................................................................................................................
+    
+    def process_background_frame(self, frame):
+        # Rolling-background frame-processor doesn't use the actual background image data!
+        return 0
+    
+    # .................................................................................................................
+    
+    def _process_rolling_background_frame(self, frame):
+        
+        ''' Function which applies shared processing for rolling-background + current frame data '''
+        
+        # Downscale if needed
+        if self._enable_downscale:
+            frame = cv2.resize(frame, dsize = self._downscale_wh, interpolation = self.downscale_interpolation)
+        
+        # Apply pre-blurring
+        if self._enable_pre_blur:
+            frame = cv2.blur(frame, self._pre_blur_kernel)
+        
+        return frame
+    
     # .................................................................................................................
         
     def _update_rolling_background(self, frame):
         
         # Grab time reference so we can check if we've waited long enough to update the background
-        __, current_epoch_ms, _ = self.get_time_info()
+        _, current_epoch_ms, _ = self.get_time_info()
+        need_to_update_rbg = self._rbg_timer.check_trigger(current_epoch_ms)
         
-        # Bail if we don't need to update the background
-        need_to_update_rolling_bg = (current_epoch_ms > self._next_rbg_update_time_ms)
-        if not need_to_update_rolling_bg:
+        # Bail if we don;'t need to update the rolling background
+        if not need_to_update_rbg:
             return
-            
-        # If we get here we're updating the background so setup the next update time
-        self._next_rbg_update_time_ms = current_epoch_ms + self._capture_period_ms
         
         # Set up weights for clarity
         new_weight = self.new_capture_weighting
@@ -448,8 +506,11 @@ class FG_Extractor_Stage(Reference_FG_Extractor):
         
         # Average existing background frame data with new frame
         try:
-            self._rolling_bg_frame_float32 = cv2.addWeighted(self._rolling_bg_frame_float32, prev_weight,
-                                                             frame_float32, new_weight, bias_term)
+            self._rolling_bg_frame_float32 = cv2.addWeighted(self._rolling_bg_frame_float32,
+                                                             prev_weight,
+                                                             frame_float32,
+                                                             new_weight,
+                                                             bias_term)
         except:
             # Fails on first run, since we don't have a previous frame to average with!
             self._rolling_bg_frame_float32 = frame_float32
@@ -458,122 +519,22 @@ class FG_Extractor_Stage(Reference_FG_Extractor):
         new_rbg_uint8 = np.uint8(np.round(self._rolling_bg_frame_float32))
         self._clean_rolling_bg_uint8 = new_rbg_uint8.copy()
         
-        # Update the frame data used for foreground processing
-        self._apply_rollbg_fg_extraction()
-            
-    # .................................................................................................................
+        # Apply processing to clean background image, to avoid re-running on every frame
+        self._apply_rolling_background_processing()
     
-    def _apply_rollbg_fg_extraction(self):
-        
-        ''' 
-        Function for converting the clean rolling background to the actual frame data 
-        used in background subtraction, which may include scaling/blurring
-        '''
-        
-        # If this gets called without a clean background, just do nothing (normal to happen on start-up)
-        if self._clean_rolling_bg_uint8 is None:
-            return
-        
-        # Grab a copy of the clean image to start with
-        new_rbg_uint8 = self._clean_rolling_bg_uint8.copy()
-        
-        # Apply pre-processing to the new rolling bg frame before storing it for use
-        for each_func in self._rbg_func_list:
-            new_rbg_uint8 = each_func(new_rbg_uint8)
-            
-        # Store the processed rolling background for actual use!
-        self._rolling_bg_frame_uint8 = new_rbg_uint8
-                
-    # .................................................................................................................
-    
-    def _build_foreground_extractor(self):
-        
-        # For disabling processing steps
-        passthru = lambda frame: frame
-        
-        # Downscale/upscale functions
-        _, downscale_wh = calculate_scaled_wh(self.input_wh, self.downscale_factor)
-        downscale_func = partial_resize_by_dimensions(*downscale_wh, self.downscale_interpolation)
-        
-        # Pre-blurring 
-        pre_blur_func = partial_fast_blur(self.pre_blur_size)
-
-        # Rolling background difference/subtraction
-        bg_diff_func = partial_rbg_diff(self)
-            
-        # Grayscale
-        gray_func = partial_norm_grayscale() if self.use_norm_diff else partial_grayscale()
-        
-        # Post-blurring
-        post_blur_func = partial_fast_blur(self.post_blur_size)
-        
-        # Pre-morph
-        pre_morph_func = partial_morphology(self.pre_morph_size, 
-                                            self.pre_morph_op,
-                                            self.pre_morph_shape)
-        
-        # Sum frames
-        sum_func = partial_self_sum(self._sum_deck, self.summation_depth)        
-        
-        # Threshold
-        thresh_func = partial_threshold(self.threshold)
-        
-        # Post-morph
-        post_morph_func = partial_morphology(self.post_morph_size, 
-                                             self.post_morph_op,
-                                             self.post_morph_shape)
-        
-        # Masking
-        mask_func = partial_mask_image(self._scaled_mask_image)
-        
-        # Create function call list
-        bg_func_list = [downscale_func if self._enable_downscale else passthru,
-                        pre_blur_func if self._enable_pre_blur else passthru]
-        
-        # Create function call list
-        func_list = bg_func_list \
-                    + [bg_diff_func,
-                       gray_func,
-                       post_blur_func if self._enable_post_blur else passthru,
-                       pre_morph_func if self._enable_pre_morph else passthru,
-                       sum_func if self._enable_summation else passthru,
-                       thresh_func if self._enable_threshold else passthru,
-                       post_morph_func if self._enable_post_morph else passthru,
-                       mask_func if self._enable_masking_optimized else passthru]
-                    
-        return bg_func_list, func_list, downscale_wh
+        return
     
     # .................................................................................................................
     
-    def _create_mask_image(self):
+    def _apply_rolling_background_processing(self):
         
-        # Get the input frame size, so we can create a mask with the right size
-        _, (scaled_width, scaled_height) = calculate_scaled_wh(self.input_wh, self.downscale_factor)
-        frame_shape = (scaled_height, scaled_width)
+        ''' Helper function, used to update any pre-processing needed on the rolling background '''
         
-        # Calculate the scaling factor needed to pixelize mask point locations
-        frame_scaling = np.float32(((scaled_width - 1), (scaled_height - 1)))
+        if self._clean_rolling_bg_uint8 is not None:
+            self._rolling_bg_frame_uint8 = self._process_rolling_background_frame(self._clean_rolling_bg_uint8.copy())
         
-        # Create an empty (bright) mask image (i.e. fully passes everything through)
-        mask_image = np.full(frame_shape, 255, dtype=np.uint8)
-        mask_fill = 0
-        mask_line_type = cv2.LINE_8
-        
-        # Draw masked zones to black-out regions
-        for each_zone in self.mask_zone_list:
-            
-            # Don't try to draw anything when given empty entities!
-            if each_zone == []:
-                continue
-            
-            # Draw a filled (dark) polygon for each masking zone
-            each_zone_array = np.float32(each_zone)
-            mask_list_px = np.int32(np.round(each_zone_array * frame_scaling))
-            cv2.fillPoly(mask_image, [mask_list_px], mask_fill, mask_line_type)
-            cv2.polylines(mask_image, [mask_list_px], True, mask_fill, 1, mask_line_type)
-        
-        return mask_image
-        
+        return
+    
     # .................................................................................................................
     # .................................................................................................................
 
@@ -581,19 +542,6 @@ class FG_Extractor_Stage(Reference_FG_Extractor):
 #%% Define functions
 
 # .....................................................................................................................
-    
-def partial_rbg_diff(object_ref):
-    
-    # Create function which takes the difference between the current frame and the rolling background frame
-    def _rbg_absdiff(frame, obj_ref):
-        
-        # Use the rolling background frame, which updates over time
-        return cv2.absdiff(frame, obj_ref._rolling_bg_frame_uint8)
-    
-    # Set up partial function ahead of time for convenience
-    rbg_diff_func = partial(_rbg_absdiff, obj_ref = object_ref)
-    
-    return rbg_diff_func
 
 # .....................................................................................................................
 # .....................................................................................................................

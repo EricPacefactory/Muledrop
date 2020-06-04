@@ -98,5 +98,4 @@ final_frame_index, final_epoch_ms, final_datetime = main_process.debug_fed_time_
 '''
 TODO:
     - Get internal image storage + retrievable outputs/collage working (also, colored threshold image?!)
-    - BUG: Why does difference image flicker when changing parameters after playback reset?
 '''

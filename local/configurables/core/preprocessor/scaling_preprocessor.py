@@ -50,10 +50,11 @@ find_path_to_local()
 #%% Imports
 
 import cv2
-import numpy as np
+
+from local.lib.common.images import max_dimension_downscale
 
 from local.configurables.core.preprocessor.reference_preprocessor import Reference_Preprocessor
-from local.configurables.core.preprocessor._helper_functions import max_dimension_downscale, adjust_aspect_ratio
+from local.configurables.core.preprocessor._helper_functions import adjust_aspect_ratio
 
 
 # ---------------------------------------------------------------------------------------------------------------------

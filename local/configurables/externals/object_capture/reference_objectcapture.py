@@ -120,7 +120,11 @@ class Reference_Object_Capture(Externals_Configurable_Base):
         # Make sure file i/o is finished
         print("Closing object capture...", end="")
         self.run(final_stage_outputs, final_frame_index, final_epoch_ms, final_datetime)
+        
+        self._logger.log("Closing: Shutting down report data saver...")
         self._report_data_saver.close()
+        self._logger.log("Closing: Report saver closed!")
+        
         print(" Done!")
     
     # .................................................................................................................
