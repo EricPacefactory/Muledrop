@@ -95,7 +95,7 @@ class Daily_Logger:
         # Build newline entry for writing, along with potentially blank line prepended for separating
         string_list = [""] if prepend_empty_line else []
         if self._include_timestamp:
-            timestamp_str = current_time.strftime("--- %H:%M:%S")
+            timestamp_str = current_time.strftime("## %I:%M:%S%p")
             string_list.append(timestamp_str)
         
         # Finally, add the actual message and convert to string for writing to file

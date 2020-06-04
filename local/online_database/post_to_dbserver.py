@@ -715,7 +715,7 @@ def create_logger(cameras_folder_path, camera_select, enabled = True):
     ''' Helper function to standardize the logger inputs, in case we use it when running this script directly '''
     
     logging_folder_path = build_post_db_log_path(cameras_folder_path, camera_select)
-    logger = Daily_Logger(logging_folder_path, log_files_to_keep = 10, enabled = enabled)
+    logger = Daily_Logger(logging_folder_path, log_files_to_keep = 10, enabled = enabled, include_timestamp = False)
     
     return logger
 
