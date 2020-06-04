@@ -68,5 +68,5 @@ CMD ["python3", "-u", "configuration_utilities/control/control_server.py"]
 
 # From the realtime root project directory:
 # sudo docker build -t realtime_image -f ./build/docker/Dockerfile .
-# sudo docker run -d --network="host" -v /tmp/realtime:/home/scv2/cameras --name realtime_container realtime_image
+# sudo docker run -d --network="host" -v /tmp/realtime:/home/scv2/cameras --name realtime realtime_image
 
