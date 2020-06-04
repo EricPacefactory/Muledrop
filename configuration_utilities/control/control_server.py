@@ -66,10 +66,10 @@ from local.lib.ui_utils.cli_selections import Resource_Selector
 from local.lib.ui_utils.script_arguments import script_arg_builder
 
 from local.lib.file_access_utils.structures import create_missing_folder_path, create_missing_folders_from_file
-from local.lib.file_access_utils.shared import build_camera_path
+from local.lib.file_access_utils.shared import build_camera_path, build_logging_folder_path
 from local.lib.file_access_utils.reporting import build_base_report_path
 from local.lib.file_access_utils.logging import make_log_folder
-from local.lib.file_access_utils.logging import build_base_log_path, build_stdout_log_path, build_stderr_log_path
+from local.lib.file_access_utils.logging import build_stdout_log_path, build_stderr_log_path
 from local.lib.file_access_utils.logging import build_upload_new_log_file_path, build_upload_update_log_file_path
 from local.lib.file_access_utils.pid_files import check_running_camera, clear_all_pid_files
 
@@ -219,7 +219,7 @@ def remove_logs_and_report_data(cameras_folder_path, camera_select):
     ''' Remove run-time recording folders. Intended for cleaning up data uploaded to the server '''
     
     # Remove logs folder, if it exists
-    camera_logs_path = build_base_log_path(cameras_folder_path, camera_select)
+    camera_logs_path = build_logging_folder_path(cameras_folder_path, camera_select)
     if os.path.exists(camera_logs_path):
         shutil.rmtree(camera_logs_path)
         
@@ -241,7 +241,7 @@ def remove_configuration_data(cameras_folder_path, camera_select):
     
     # Get the camera folder & pathing to folders we want to keep
     selected_camera_folder_path = build_camera_path(cameras_folder_path, camera_select)
-    camera_logs_path = build_base_log_path(cameras_folder_path, camera_select)
+    camera_logs_path = build_logging_folder_path(cameras_folder_path, camera_select)
     camera_report_path = build_base_report_path(cameras_folder_path, camera_select)
     paths_to_keep = {camera_logs_path, camera_report_path}
     
