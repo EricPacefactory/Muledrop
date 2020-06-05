@@ -76,7 +76,7 @@ class Timekeeper:
         # Modify start times if an explicit start time is given (for files only)
         provided_start_dt = (start_datetime_isoformat is not None)
         if provided_start_dt:
-            self._start_dt_local = parse_isoformat_string(start_datetime_isoformat)
+            self._start_dt_local = isoformat_to_datetime(start_datetime_isoformat)
             self._file_tzinfo = self._start_dt_local.tzinfo
         
         # Set up frame counting, which rolls over every day
