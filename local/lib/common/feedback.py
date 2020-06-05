@@ -49,6 +49,7 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
+import datetime as dt
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Classes
@@ -60,6 +61,91 @@ find_path_to_local()
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% General functions
+
+# .....................................................................................................................
+
+def print_time_taken(t_start_sec, t_end_sec = None,
+                     prepend_newline = True, inset_spaces = 0, suppress_print = False):
+    
+    '''
+    Generalized function for printing an amount of time taken
+    Handles unit conversion so that a reasonable set of units are printed
+    Prints out times in format:
+        "Finished! Took # days, # hours, # minutes, # seconds, # ms"
+    
+    Inputs:
+        t_start_sec -> (Integer or float) The starting time of the period being timed. Must be in units of seconds
+        
+        t_end_sec -> (Integer, float or None) The ending time of the period being timed. Must be in units of seconds.
+                     If left as None, the start time will be interpretted as the end time, relative to '0' start time
+        
+        prepend_newline -> (Boolean) If True, a new line will be printed before the actual timing info
+        
+        inset_spaces -> (Integer) Number of spaces to prefix the printed message (to help indent if needed)
+        
+        suppress_print -> (Boolean) If True, the function won't actually print, but still returns timing info
+    
+    Outputs:
+        num_days, num_hours, num_minutes, num_seconds, num_milliseconds
+        (+ message printed to terminal if not suppressed)
+    '''
+    
+    # If no end time is given, assume the start time is actually a total
+    t_end_sec = 0 if t_end_sec is None else t_end_sec
+    
+    # Calculate the time taken
+    total_time_sec = abs(t_end_sec - t_start_sec)
+    total_time_ms = int(round(1000 * total_time_sec))
+    time_elapsed_delta = dt.timedelta(milliseconds = total_time_ms)
+    
+    # For clarity
+    no_sec = (total_time_sec > (60 * 60))
+    no_millis = (total_time_sec > 5)
+    
+    # Get the days, hours, minutes, seconds and milliseconds from the time delta object
+    print_days = time_elapsed_delta.days
+    print_micros = time_elapsed_delta.microseconds
+    delta_str = str(time_elapsed_delta)
+    if print_days > 0:
+        delta_str = delta_str.split(",")[1]
+    if print_micros > 0:
+        delta_str = delta_str.split(".")[0]
+    hours_str, mins_str, sec_str = delta_str.split(":")
+    
+    # Figure out the actual numbers we'll want to print
+    print_hours = int(hours_str)
+    print_mins = int(mins_str)
+    print_sec = 0 if no_sec else int(sec_str)
+    print_ms = 0 if no_millis else int(round(print_micros / 1000))
+    
+    # Construct & print the time string with appropriate units
+    enable_print = (not suppress_print)
+    if enable_print:
+        
+        # Figure out which units to include in string
+        time_str_list = []
+        if print_days > 0:
+            time_str_list.append("{} days".format(print_days))
+        if print_hours > 0:
+            time_str_list.append("{} hours".format(print_hours))
+        if print_mins > 0:
+            time_str_list.append("{} minutes".format(print_mins))
+        if print_sec > 0:
+            time_str_list.append("{} seconds".format(print_sec))
+        if print_ms > 0:
+            time_str_list.append("{} ms".format(print_ms))
+        time_str = ", ".join(time_str_list)
+        
+        # Finally, build the full print out string
+        spacing_str = " " * inset_spaces
+        time_taken_str = "{}Finished! Took {}".format(spacing_str, time_str)
+        
+        # Add prepended empty line if needed before printing
+        print_str_list = [""] if prepend_newline else []
+        print_str_list.append(time_taken_str)
+        print(*print_str_list, sep = "\n")
+    
+    return print_days, print_hours, print_mins, print_sec, print_ms
 
 # .....................................................................................................................
 
@@ -83,7 +169,7 @@ def print_time_taken_sec(t_start_sec, t_end_sec = None,
     # Print!
     print_str_list.append(time_taken_str)
     print(*print_str_list, sep = "\n")
-            
+    
     return total_time_sec
 
 # .....................................................................................................................
@@ -109,7 +195,7 @@ def print_time_taken_ms(t_start_sec, t_end_sec = None,
     # Print!
     print_str_list.append(time_taken_str)
     print(*print_str_list, sep = "\n")
-            
+    
     return total_time_ms
 
 # .....................................................................................................................
@@ -119,6 +205,13 @@ def print_time_taken_ms(t_start_sec, t_end_sec = None,
 #%% Demo
 
 if __name__ == "__main__":
+    
+    # Example of non-unit print out
+    for k in range(12):
+        total_time_sec = 10 ** (k - 3)
+        print("", "Time: {} sec".format(total_time_sec), sep = "\n")
+        print_time_taken(0, total_time_sec, prepend_newline=False, inset_spaces=2)
+        print("  ->", *print_time_taken(0, total_time_sec, prepend_newline=False, inset_spaces=2, suppress_print=True))
     
     pass
 
