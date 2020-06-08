@@ -89,7 +89,10 @@ class Reference_Rule(After_Database_Configurable_Base):
     
     # SHOULDN'T OVERRIDE
     def get_rule_type(self):
-        return os.path.splitext(self.script_name)[0]
+        
+        rule_type, script_ext = os.path.splitext(self.script_name)
+        
+        return rule_type
     
     # .................................................................................................................
     
@@ -106,10 +109,12 @@ class Reference_Rule(After_Database_Configurable_Base):
         access_info_dict, setup_data_dict = self.get_data_to_save()
         
         # Bundle output data, which will be saved into a json file
-        output_info_dict = {"rule_type": self.get_rule_type(),
+        rule_type = self.get_rule_type()
+        output_info_dict = {"_id": rule_type,
+                            "rule_type": rule_type,
                             "rule_name": rule_name,
                             "configuration": setup_data_dict}
-        
+        print("TYPE:", rule_type)
         return output_info_dict
     
     # .................................................................................................................

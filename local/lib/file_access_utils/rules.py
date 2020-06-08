@@ -123,7 +123,7 @@ def save_rule_info(cameras_folder_path, camera_select, user_select, rule_refs_di
         
         # Get pathing to where to save each rule's info file & save it!
         save_path = build_rule_adb_info_report_path(cameras_folder_path, camera_select, user_select)
-        save_jsongz_metadata(save_path, rule_info_dict, create_missing_folder_path = True)
+        save_jsongz_metadata(save_path, rule_info_dict)
     
     return
 
@@ -159,7 +159,7 @@ def new_rule_report_entry(object_full_id, rule_type, rule_results_dict, rule_res
     
     ''' Helper function for creating properly formatted evalutaed rule entries '''
     rule_break_timing_ems = None
-    return {"_id": rule_break_timing_ems,
+    return {"_id": object_full_id,
             "full_id": object_full_id, 
             "rule_type": rule_type, 
             "num_violations": len(rule_results_list),

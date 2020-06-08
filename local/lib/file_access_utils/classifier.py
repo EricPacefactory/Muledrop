@@ -257,10 +257,7 @@ def save_classifier_config(configurable_ref, file_dunder = __file__):
 
 # .....................................................................................................................
 
-def save_classifier_report_data(cameras_folder_path, camera_select, user_select, report_data_dict):
-    
-    # Build pathing to save
-    save_folder_path = build_classifier_adb_metadata_report_path(cameras_folder_path, camera_select, user_select)
+def save_classifier_report_data(save_folder_path, report_data_dict):
     
     # Save!
     save_json_metadata(save_folder_path, report_data_dict)

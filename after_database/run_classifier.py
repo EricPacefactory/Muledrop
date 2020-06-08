@@ -123,7 +123,7 @@ def delete_existing_classification_data(enable_deletion_prompt,
     
     # If we get here, delete the files!
     rel_data_folder = os.path.relpath(class_data_folder, cameras_folder_path)
-    print("", "Deleting files:", "@ {}".format(rel_data_folder), sep="\n")
+    print("", "Deleting existing files:", "@ {}".format(rel_data_folder), sep="\n")
     rmtree(class_data_folder)
 
 # .....................................................................................................................
@@ -253,10 +253,14 @@ if saving_enabled:
     save_and_keep = False
     delete_existing_classification_data(enable_deletion, cameras_folder_path, camera_select, user_select, save_and_keep)
     
+    # Build pathing & make sure the folder exists before saving!
+    save_folder_path = build_classifier_adb_metadata_report_path(cameras_folder_path, camera_select, user_select)
+    create_missing_folder_path(save_folder_path)
+    
     # Loop over all results and save!
     save_pathing_args = (cameras_folder_path, camera_select, user_select)
-    for each_obj_id, each_report_data_dict in save_data_dict.items():        
-        save_classifier_report_data(*save_pathing_args, report_data_dict = each_report_data_dict)
+    for each_obj_id, each_report_data_dict in save_data_dict.items():
+        save_classifier_report_data(save_folder_path, report_data_dict = each_report_data_dict)
 
 
 

@@ -172,6 +172,12 @@ def delete_existing_rule_data(enable_deletion_prompt,
           sep="\n")
     rmtree(rule_info_report_folder)
     rmtree(rule_metadata_report_folder)
+    
+    # Remake the (now empty) folders so that they path correctly
+    create_missing_folder_path(rule_metadata_report_folder)
+    create_missing_folder_path(rule_info_report_folder)
+
+    return
 
 # .....................................................................................................................
 # .....................................................................................................................
@@ -246,7 +252,13 @@ if saving_enabled:
     enable_deletion = True
     save_and_keep = False
     delete_existing_rule_data(enable_deletion, cameras_folder_path, camera_select, user_select, save_and_keep)
-
+    
+    # Make sure folders for each rule exist for saving
+    for each_rule_name in rule_refs_dict.keys():
+        save_folder_path = build_rule_adb_metadata_report_path(cameras_folder_path, camera_select, user_select,
+                                                               each_rule_name)
+        create_missing_folder_path(save_folder_path)
+        
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Run rules
@@ -268,7 +280,7 @@ for each_obj_id in obj_id_list:
     # Load object metadata
     object_metadata = obj_db.load_metadata_by_id(each_obj_id)
     
-    # Loop over alll rules and have them evaluate the current object
+    # Loop over all rules and have them evaluate the current object
     for each_rule_name, each_rule_ref in rule_refs_dict.items():
         
         rule_results_dict, rule_results_list = each_rule_ref.run(each_obj_id, object_metadata, snap_db)
