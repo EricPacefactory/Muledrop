@@ -163,7 +163,8 @@ def reset_capture_folder(cameras_folder_path, camera_select):
     
     # Build path to captures folder, delete it, then remake it
     capture_folder_path = build_background_capture_folder_path(cameras_folder_path, camera_select)
-    rmtree(capture_folder_path)
+    if os.path.exists(capture_folder_path):
+        rmtree(capture_folder_path)
     os.makedirs(capture_folder_path, exist_ok = True)
     
     return capture_folder_path
@@ -174,7 +175,8 @@ def reset_generate_folder(cameras_folder_path, camera_select):
     
     # Build path to generate folder, delete it, then remake it
     generate_folder_path = build_background_generate_folder_path(cameras_folder_path, camera_select)
-    rmtree(generate_folder_path)
+    if os.path.exists(generate_folder_path):
+        rmtree(generate_folder_path)
     os.makedirs(generate_folder_path, exist_ok = True)
     
     return generate_folder_path
