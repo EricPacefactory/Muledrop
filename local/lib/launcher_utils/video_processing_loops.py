@@ -49,14 +49,14 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
-import signal
 import cv2
-import numpy as np
 
 from tqdm import tqdm
 from time import perf_counter
 from itertools import product
 from collections import OrderedDict
+
+from local.lib.common.exceptions import OS_Close
 
 from local.lib.ui_utils.local_ui.windows_base import Simple_Window, Max_WH_Window, Drawing_Window
 from local.lib.ui_utils.local_ui.controls import Local_Window_Controls
@@ -72,26 +72,13 @@ class Video_Processing_Loop:
     
     # .................................................................................................................
     
-    def __init__(self, configuration_loader_object):
+    def __init__(self, configuration_loader_object, enable_display):
         
         # Store loader object so we can access all fully configured processing objects
         self.loader = configuration_loader_object
         
-        # Register signal handlers, so script can exit gracefully if kill commands are sent
-        signal.signal(signal.SIGTERM, self._force_quit)
-        try:
-            signal.signal(signal.SIGQUIT, self._force_quit)
-        except AttributeError or ValueError:
-            print("", 
-                  "WARNING:", 
-                  "  Kill signal (SIGQUIT) not registered properly!",
-                  "  May not be supported by the OS. If necessary, use SIGTERM instead.", sep = "\n")
-    
-    # .................................................................................................................
-    
-    def _force_quit(self, signal_number, stack_frame):
-        print("", "", "*" * 48, "Kill signal received! ({})".format(signal_number), "*" * 48, "", sep = "\n")
-        raise SystemExit
+        # Storage for display settings
+        self.enable_display = enable_display
         
     # .................................................................................................................
     
@@ -134,10 +121,13 @@ class Video_Processing_Loop:
                     
                 
         except KeyboardInterrupt:
-            print("Keyboard interrupt! Closing...")
-            
+            print("", "Keyboard interrupt! Closing...", sep = "\n")
+        
         except SystemExit:
-            print("Done! User ended...")
+            print("", "Done! User ended...", sep = "\n")
+        
+        except OS_Close:
+            print("", "System terminated! Quitting...", sep = "\n")
             
         # Clean up the progress bar, if needed
         if enable_progress_bar:
@@ -192,10 +182,13 @@ class Video_Processing_Loop:
                     cli_prog_bar.update()
                 
         except KeyboardInterrupt:
-            print("Keyboard interrupt! Closing...")
-            
+            print("", "Keyboard interrupt! Closing...", sep = "\n")
+        
         except SystemExit:
-            print("Done! User ended...")
+            print("", "Done! User ended...", sep = "\n")
+        
+        except OS_Close:
+            print("", "System terminated! Quitting...", sep = "\n")
             
         # Clean up the progress bar, if needed
         if enable_progress_bar:
@@ -212,7 +205,7 @@ class Video_Processing_Loop:
         t_start = perf_counter()
         
         # Run processing loop, with or without display depending on inputs
-        if self.loader.display_enabled:
+        if self.enable_display:
             final_fed_time_args = self._loop_with_display(enable_progress_bar)
         else:
             final_fed_time_args = self._loop_no_display(enable_progress_bar)
@@ -279,19 +272,8 @@ class Video_Processing_Loop:
     
     def clean_up(self, current_frame_index, current_epoch_ms, current_datetime):
         
-        # Bundle for clarity
-        fed_time_args = (current_frame_index, current_epoch_ms, current_datetime)
-        
-        # Close externals
-        self.loader.snapcap.close(*fed_time_args)
-        self.loader.bgcap.close(*fed_time_args)
-        
-        # Close running core process & save any remaining objects
-        final_stage_outputs = self.loader.core_bundle.close_all(*fed_time_args)
-        self.loader.objcap.close(final_stage_outputs, *fed_time_args)
-        
-        # Close video capture
-        self.loader.vreader.close()
+        # Have loader clean up opened resources
+        self.loader.clean_up(current_frame_index, current_epoch_ms, current_datetime)
     
     # .................................................................................................................
     # .................................................................................................................
@@ -314,7 +296,7 @@ class Reconfigurable_Video_Loop(Video_Processing_Loop):
         except: pass
         
         # Inherit from parent class
-        super().__init__(configuration_loader_object)
+        super().__init__(configuration_loader_object, enable_display = True)
         
         # Storage for re-configurable object
         self.configurable_ref = configuration_loader_object.configurable_ref

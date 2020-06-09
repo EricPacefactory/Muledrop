@@ -69,9 +69,9 @@ from local.lib.file_access_utils.structures import create_missing_folder_path, c
 from local.lib.file_access_utils.shared import build_camera_path, build_logging_folder_path
 from local.lib.file_access_utils.reporting import build_base_report_path
 from local.lib.file_access_utils.logging import make_log_folder
-from local.lib.file_access_utils.logging import build_stdout_log_path, build_stderr_log_path
+from local.lib.file_access_utils.logging import build_stdout_log_file_path, build_stderr_log_file_path
 from local.lib.file_access_utils.logging import build_upload_new_log_file_path, build_upload_update_log_file_path
-from local.lib.file_access_utils.pid_files import check_running_camera, clear_all_pid_files
+from local.lib.file_access_utils.state_files import check_running_camera, shutdown_running_camera
 
 from flask import Flask, jsonify, redirect, render_template
 from flask import request as flask_request
@@ -98,8 +98,8 @@ def parse_control_args(debug_print = False):
     port_help_text = "Specify the port of the control server\n(Default: {})".format(default_port)
     
     # Set script arguments for running files
-    args_list = [{"display": {"default": False, "help_text": "Enable display during data collection"}},
-                 {"debug": {"default": False}},
+    args_list = ["display",
+                 "debug",
                  {"protocol": {"default": default_protocol, "help_text": protocol_help_text}},
                  {"host": {"default": default_host, "help_text": host_help_text}},
                  {"port": {"default": default_port, "help_text": port_help_text}}]
@@ -118,21 +118,64 @@ def parse_control_args(debug_print = False):
 # .....................................................................................................................
 
 def get_existing_camera_names_list():
-    return list(g_selector.get_cameras_tree().keys())
+    
+    ''' Helper function for getting a list of available camera names '''
+    
+    camera_names_list, _ = SELECTOR.get_camera_names_and_paths_lists(must_have_rtsp = False)
+    
+    return camera_names_list
 
 # .....................................................................................................................
+
+def create_new_camera_status(is_online, in_standby, state_description, timestamp_str):
     
-def get_cameras_folder_path():
-    _, cameras_folder_path = g_selector.get_project_pathing()
-    return cameras_folder_path
+    ''' Helper function for updating camera status (data is sent to web UI, so needs consistent formatting!) '''
+    
+    status_dict = {"is_online": is_online,
+                   "in_standby": in_standby,
+                   "description": state_description,
+                   "timestamp_str": timestamp_str}
+    
+    return status_dict
+
+# .....................................................................................................................
+
+def create_new_camera_status_from_state_dict(camera_state_dict):
+    
+    ''' Helper function which fills in the camera status info using a camera state dictionary '''
+    
+    # Create an empty dictionary to read from if there is no state info, so we don't get errors
+    if camera_state_dict is None:
+        camera_state_dict = {}
+    
+    # Try to grab the appropriate info for the web UI to present
+    is_online = True
+    in_standby = camera_state_dict.get("in_standby", False)
+    state_description = camera_state_dict.get("state_description", "Offline")
+    timestamp_str = camera_state_dict.get("timestamp_str", "unknown")
+    
+    return create_new_camera_status(is_online, in_standby, state_description, timestamp_str)
+
+# .....................................................................................................................
+
+def create_offline_status():
+    
+    ''' Helper function which creates an 'offline' status entry for a camera '''
+    
+    # For clarity
+    is_online = False
+    in_standby = False
+    state_description = "Offline"
+    timestamp_str = get_human_readable_timestamp()
+    
+    return create_new_camera_status(is_online, in_standby, state_description, timestamp_str)
 
 # .....................................................................................................................
 
 def save_update_log(camera_select, files_changed_list):
     
     # Get pathing to the log file
-    cameras_folder_path = get_cameras_folder_path()
-    update_log_file_path = build_upload_update_log_file_path(cameras_folder_path, camera_select)
+    update_log_file_path = build_upload_update_log_file_path(CAMERAS_FOLDER_PATH, camera_select)
     make_log_folder(update_log_file_path)
     
     # Handle 'no file' case
@@ -152,8 +195,7 @@ def save_update_log(camera_select, files_changed_list):
 def save_new_log(camera_select, files_changed_list):
     
     # Get pathing to the log file
-    cameras_folder_path = get_cameras_folder_path()
-    new_log_file_path = build_upload_new_log_file_path(cameras_folder_path, camera_select)
+    new_log_file_path = build_upload_new_log_file_path(CAMERAS_FOLDER_PATH, camera_select)
     make_log_folder(new_log_file_path)
     
     # Handle 'no file' case
@@ -189,8 +231,7 @@ def unzip_cameras_file(file_path, unzip_folder_name = "unzipped"):
         return unzip_path
     
     # Handle case where the user supplies a zipped 'cameras' folder containing the camera folders
-    cameras_folder_path = get_cameras_folder_path()
-    cameras_folder_name = os.path.basename(cameras_folder_path)
+    cameras_folder_name = os.path.basename(CAMERAS_FOLDER_PATH)
     contains_one_item = (len(unzipped_camera_names_list) == 1)
     contains_cameras_folder = (unzipped_camera_names_list[0] == cameras_folder_name)
     if contains_one_item and contains_cameras_folder:
@@ -219,12 +260,12 @@ def remove_logs_and_report_data(cameras_folder_path, camera_select):
     ''' Remove run-time recording folders. Intended for cleaning up data uploaded to the server '''
     
     # Remove logs folder, if it exists
-    camera_logs_path = build_logging_folder_path(cameras_folder_path, camera_select)
+    camera_logs_path = build_logging_folder_path(CAMERAS_FOLDER_PATH, camera_select)
     if os.path.exists(camera_logs_path):
         shutil.rmtree(camera_logs_path)
         
     # Remove report folder, if it exists
-    camera_report_path = build_base_report_path(cameras_folder_path, camera_select)
+    camera_report_path = build_base_report_path(CAMERAS_FOLDER_PATH, camera_select)
     if os.path.exists(camera_report_path):
         shutil.rmtree(camera_report_path)
     
@@ -240,9 +281,9 @@ def remove_configuration_data(cameras_folder_path, camera_select):
     '''
     
     # Get the camera folder & pathing to folders we want to keep
-    selected_camera_folder_path = build_camera_path(cameras_folder_path, camera_select)
-    camera_logs_path = build_logging_folder_path(cameras_folder_path, camera_select)
-    camera_report_path = build_base_report_path(cameras_folder_path, camera_select)
+    selected_camera_folder_path = build_camera_path(CAMERAS_FOLDER_PATH, camera_select)
+    camera_logs_path = build_logging_folder_path(CAMERAS_FOLDER_PATH, camera_select)
+    camera_report_path = build_base_report_path(CAMERAS_FOLDER_PATH, camera_select)
     paths_to_keep = {camera_logs_path, camera_report_path}
     
     # Now get a list of all files/folders in the selected camera folder and remove everything except logs & report
@@ -267,8 +308,7 @@ def remove_configuration_data(cameras_folder_path, camera_select):
 def copy_uploaded_config_data(unzip_folder_path, camera_name):
     
     # Build path to save real camera data
-    real_cameras_folder_path = get_cameras_folder_path()
-    real_camera_path = build_camera_path(real_cameras_folder_path, camera_name)
+    real_camera_path = build_camera_path(CAMERAS_FOLDER_PATH, camera_name)
     
     # Get a record of all files being copied from the unzipped path
     updated_file_paths_list = []
@@ -322,14 +362,13 @@ def new_camera_configs(unzip_folder_path):
     existing_names_list = get_existing_camera_names_list()
     
     # Copy over all unzipped data, and clean out data for existing cameras
-    real_cameras_folder_path = get_cameras_folder_path()
     files_changes_dict = {}
     for each_camera_name in unzipped_names_list:
         
         # Remove config data for existing cameras (but leave logs & report data)
         already_exists = (each_camera_name in existing_names_list)
         if already_exists:
-            remove_configuration_data(real_cameras_folder_path, each_camera_name)
+            remove_configuration_data(CAMERAS_FOLDER_PATH, each_camera_name)
         
         # Copy of unzipped data
         updated_file_paths_list = copy_uploaded_config_data(unzip_folder_path, each_camera_name)
@@ -339,88 +378,72 @@ def new_camera_configs(unzip_folder_path):
 
 # .....................................................................................................................
 
-def launch_rtsp_collect(camera_select, enable_display = False):
+def launch_rtsp_collect(camera_select, enable_display = False):    
     
     # Get the python interpreter used to launch this server, which we'll use to run the scripts
     python_interpretter = sys.executable
     
     # Build script arguments
-    save_arg = ["-ss"] if enable_display else ["-sk"]
     display_arg = ["-d"] if enable_display else []
     
     # Build pathing to the launch script
-    project_root_path, cameras_folder_path = g_selector.get_project_pathing()
     launch_script_name = "run_rtsp_collect.py"
-    launch_script_path = os.path.join(project_root_path, launch_script_name)
-    launch_args = [python_interpretter, "-u", launch_script_path, "-c", camera_select] + display_arg + save_arg
+    launch_script_path = os.path.join(PROJECT_ROOT_PATH, launch_script_name)
+    launch_args = [python_interpretter, "-u", launch_script_path, "-c", camera_select] + display_arg
     
     # Build pathing to store stdout/stderr logs
-    current_epoch_ms = get_utc_epoch_ms()
-    log_filename = "{}.log".format(current_epoch_ms)    
-    camera_stdout_log = build_stdout_log_path(cameras_folder_path, camera_select, log_filename)
-    camera_stderr_log = build_stderr_log_path(cameras_folder_path, camera_select, log_filename)
+    camera_stdout_log = build_stdout_log_file_path(CAMERAS_FOLDER_PATH, camera_select)
+    camera_stderr_log = build_stderr_log_file_path(CAMERAS_FOLDER_PATH, camera_select)
     create_missing_folders_from_file(camera_stdout_log)
     create_missing_folders_from_file(camera_stderr_log)
     
     # Launch script as a separate/detached process (with logging), which will run & close independent of the server
     with open(camera_stdout_log, "w") as stdout_file:
         with open(camera_stderr_log, "w") as stderr_file:
+            
             # Launch (non-blocking) call to open a collection script
-            subprocess.Popen(launch_args,
-                             stdin = None,
-                             stdout = stdout_file,
-                             stderr = stderr_file,
-                             preexec_fn = os.setpgrp)
+            new_process = subprocess.Popen(launch_args,
+                                           stdin = None,
+                                           stdout = stdout_file,
+                                           stderr = stderr_file)
+                                           #preexec_fn = os.setpgrp)
+            
+            # Store reference to the process, in case we want to check on it later
+            epoch_idx = get_utc_epoch_ms()
+            while epoch_idx in PROCESS_REF_DICT:
+                epoch_idx += 1
+            PROCESS_REF_DICT[epoch_idx] = {"camera_select": camera_select, "process": new_process}
     
     return
 
 # .....................................................................................................................
 
-def launch_file_collect(camera_select, user_select, video_select, 
-                        save_and_keep = False, 
-                        save_and_delete = False, 
-                        skip_save = True,
-                        enable_display = True):
+def clean_process_dict():
     
-    # Get the python interpreter used to launch this server, which we'll use to run the scripts
-    python_interpretter = sys.executable
+    ''' Helper function which is used to clean up global record of running processes that may have stopped '''
     
-    # Build script arguments
-    user_arg = ["-u", user_select]
-    video_arg = ["-v", video_select]
-    save_args = (["-sk"] if save_and_keep else []) + (["-sd"] if save_and_delete else [])
-    skip_save_arg = (["-ss"] if skip_save else [])
-    display_arg = ["-d"] if enable_display else []
+    # Check on all known processes and tag the ones that have stopped for clean up
+    idx_to_delete_list = []    
+    for each_epoch_idx, each_proc_dict in PROCESS_REF_DICT.items():        
+        proc_ref = each_proc_dict["process"]
+        return_code = proc_ref.poll()
+        proc_is_running = (return_code is None)
+        if not proc_is_running:
+            idx_to_delete_list.append(each_epoch_idx)
     
-    # Build pathing to the launch script
-    project_root_path, cameras_folder_path = g_selector.get_project_pathing()
-    launch_script_name = "run_file_collect.py"
-    launch_script_path = os.path.join(project_root_path, launch_script_name)
-    launch_args = [python_interpretter, "-u", launch_script_path, "-c", camera_select] \
-                  + user_arg + video_arg + save_args + skip_save_arg + display_arg
-    
-    # Build pathing to store stdout/stderr logs
-    current_epoch_ms = get_utc_epoch_ms()
-    log_filename = "{}.log".format(current_epoch_ms)    
-    camera_stdout_log = build_stdout_log_path(cameras_folder_path, camera_select, log_filename)
-    camera_stderr_log = build_stderr_log_path(cameras_folder_path, camera_select, log_filename)
-    create_missing_folders_from_file(camera_stdout_log)
-    create_missing_folders_from_file(camera_stderr_log)
-    
-    # Launch script as a separate/detached process (with logging), which will run & close independent of the server
-    with open(camera_stdout_log, "w") as stdout_file:
-        with open(camera_stderr_log, "w") as stderr_file:
-            # Launch (non-blocking) call to open a collection script
-            subprocess.Popen(launch_args,
-                             stdin = None,
-                             stdout = stdout_file,
-                             stderr = stderr_file,
-                             preexec_fn = os.setpgrp)
-    
+    # Loop over all stopped processes for clean-up
+    for each_idx in idx_to_delete_list:
+        
+        # Remove the target process from the list and get the camera selected so we can make sure to force it to stop
+        proc_dict = PROCESS_REF_DICT.pop(each_idx)
+        camera_select = proc_dict["camera_select"]
+        shutdown_running_camera(CAMERAS_FOLDER_PATH, camera_select, max_wait_sec = 0, force_kill_on_timeout = True)
+
     return
 
 # .....................................................................................................................
 # .....................................................................................................................
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Parse input args
@@ -431,11 +454,15 @@ ap_result = parse_control_args()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Set up globals
 
-# Create selector so we can access existing report data
-g_selector = Resource_Selector()
-
 # Toggle collection displays on/off from script args
-enable_displays = ap_result.get("display")
+ENABLE_DISPLAY = ap_result.get("display")
+
+# Create selector so we can access existing report data
+SELECTOR = Resource_Selector()
+PROJECT_ROOT_PATH, CAMERAS_FOLDER_PATH = SELECTOR.get_project_pathing()
+
+# Allocate storage for keeping track of subprocess calls
+PROCESS_REF_DICT = {}
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -474,16 +501,23 @@ def status_route():
 @wsgi_app.route("/status/cameras")
 def status_cameras_route():
     
+    # Run process clean up, in case any cameras crashed unexpectedly
+    clean_process_dict()
+    
     # Get pathing to cameras and a list of available cameras
-    cameras_folder_path = get_cameras_folder_path()
     camera_name_list = get_existing_camera_names_list()
     
-    # Loop over all cameras and look for active PID files to see if they're online
+    # Loop over all cameras and look for active state files to see if they're online
     camera_status_dict = {}
     for each_camera_name in camera_name_list:
-        is_online, start_timestamp_str = check_running_camera(cameras_folder_path, each_camera_name)
-        camera_status_dict[each_camera_name] = {"is_online": is_online, "start_timestamp_str": start_timestamp_str}
         
+        # Check each cameras state file data (if available)
+        is_online, state_dict = check_running_camera(CAMERAS_FOLDER_PATH, each_camera_name)
+        
+        # Create some json-friendly state info for the web UI, for each camera
+        new_status = create_new_camera_status_from_state_dict(state_dict) if is_online else create_offline_status()
+        camera_status_dict[each_camera_name] = new_status
+    
     return jsonify(camera_status_dict)
 
 # .....................................................................................................................
@@ -491,8 +525,8 @@ def status_cameras_route():
 @wsgi_app.route("/control/restart/<string:camera_select>")
 def control_restart_camera_route(camera_select):
     
-    launch_rtsp_collect(camera_select, enable_display = enable_displays)
-    sleep(1.5)
+    launch_rtsp_collect(camera_select, enable_display = ENABLE_DISPLAY)
+    sleep(2.5)
     
     return redirect("/status")
 
@@ -501,9 +535,10 @@ def control_restart_camera_route(camera_select):
 @wsgi_app.route("/control/stop/<string:camera_select>")
 def control_stop_camera_route(camera_select):
     
-    # Get pathing to cameras folder so we can clear PIDs for the selected camera
-    cameras_folder_path = get_cameras_folder_path()    
-    clear_all_pid_files(cameras_folder_path, camera_select, max_retrys = 3)
+    # Get pathing to cameras folder so we can clear state files for the selected camera
+    shutdown_running_camera(CAMERAS_FOLDER_PATH, camera_select,
+                            max_wait_sec = 2,
+                            force_kill_on_timeout = False)
     
     return redirect("/status")
 
@@ -626,3 +661,4 @@ if __name__ == "__main__":
 
 # TODO
 # - Handle Popen 'defunct' calls better (periodically clean up finished calls?)
+

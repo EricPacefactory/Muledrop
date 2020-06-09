@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Fri Mar 20 16:23:48 2020
+Created on Tue Jun  9 15:08:28 2020
 
 @author: eo
 """
@@ -49,99 +49,58 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
-from shutil import rmtree
+import signal
 
-from local.lib.file_access_utils.structures import create_missing_folder_path
-
-from local.lib.file_access_utils.reporting import build_user_report_path
-
-from local.eolib.utils.files import get_total_folder_size
-from local.eolib.utils.cli_tools import cli_confirm
 
 # ---------------------------------------------------------------------------------------------------------------------
-#%% Classes
+#%% Custom exceptions
 
 # .....................................................................................................................
 
+class OS_Close(Exception):
+    pass
+
 # .....................................................................................................................
 # .....................................................................................................................
+
 
 # ---------------------------------------------------------------------------------------------------------------------
-#%% General functions
+#%% Define functions
 
 # .....................................................................................................................
 
-def save_data_prompt(enable_save_prompt = True, save_by_default = False):
+def register_signal_quit():
     
-    # If disabled, return the default
-    if not enable_save_prompt:
-        return save_by_default
-    
-    # If we get here, provide the save prompt
-    saving_enabled = cli_confirm("Save data?", default_response = save_by_default)
-            
-    return saving_enabled
-
-# .....................................................................................................................
-
-def delete_existing_report_data(cameras_folder_path, camera_select, user_select,
-                                enable_deletion = True, enable_deletion_prompt = True):
-    
-    # If disabled, provide some feedback but otherwise don't do anything
-    if not enable_deletion:
-        print("", "Existing files are not being deleted!", sep = "\n")
-        return
-    
-    # Build pathing to report data
-    report_data_folder = build_user_report_path(cameras_folder_path, camera_select, user_select)
-    create_missing_folder_path(report_data_folder)
-    
-    # Check if data already exists
-    existing_file_count, _, total_file_size_mb, _ = get_total_folder_size(report_data_folder)
-    saved_data_exists = (existing_file_count > 0)
-    
-    # Provide prompt (if enabled) to allow user to avoid deleting existing data
-    if saved_data_exists:
+    # Register signal handlers. This causes a special exception (OS_Close) to be raised
+    # if the script recieves a SIGTERM or SIGQUIT from the operating system
+    signal.signal(signal.SIGTERM, raise_custom_exception)
+    try:
+        signal.signal(signal.SIGQUIT, raise_custom_exception)
         
-        if enable_deletion_prompt:
-            confirm_msg = "Saved data already exists! Delete? ({:.1f} MB)".format(total_file_size_mb)
-            confirm_data_delete = cli_confirm(confirm_msg, default_response = True)
-            if not confirm_data_delete:
-                return
+    except AttributeError or ValueError:
+        print("", 
+              "WARNING:", 
+              "  Kill signal (SIGQUIT) not registered properly!",
+              "  May not be supported by the OS. If necessary, use SIGTERM instead.", sep = "\n")
     
-        # If we get here, delete the files!
-        print("", "Deleting files:", "@ {}".format(report_data_folder), sep="\n")
-        rmtree(report_data_folder)
-        
     return
 
 # .....................................................................................................................
 
-def check_missing_main_selections(camera_select, user_select, video_select, error_if_missing = True,
-                                  error_message = "Not all selections were specified!"):
-    
-    # Get list of data that is missing, in case we need to print it out
-    zip_selects = zip(["camera", "user", "video"], [camera_select, user_select, video_select])
-    missing_selection_names = [each_name for each_name, each_arg in zip_selects if each_arg is None]
-    is_missing = (len(missing_selection_names) > 0)
-    
-    # Only raise an error if needed
-    if is_missing and error_if_missing:
-        indicator_str = ", ".join(missing_selection_names)
-        print_msg = "{} ({})".format(error_message, indicator_str)
-        raise ValueError(print_msg)
-    
-    return is_missing
+def raise_custom_exception(signal_number, stack_frame):
+    print("", "", "*" * 48, "Kill signal received! ({})".format(signal_number), "*" * 48, "", sep = "\n")
+    raise OS_Close
 
 # .....................................................................................................................
 # .....................................................................................................................
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Demo
 
-if __name__ == "__main__":
-    
-    pass
+if __name__ == "__main__":    
+    raise OS_Close("Example of custom exception!")
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Scrap

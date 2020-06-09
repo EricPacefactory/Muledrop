@@ -418,7 +418,7 @@ def safeify_drawing_default_values(default_entity_value):
         first_entity_point_type = type(first_entity[0])
         needs_list_wrap = (first_entity_point_type not in (list, tuple))
         
-    except Exception:
+    except (IndexError, AttributeError, TypeError):
         err_msgs = ["Error interpretting default entity value: {}".format(default_entity_value)]
         err_msgs += ["Must be in the format [[(xa1, ya1), (xa2, ya2), ...], [(xb1, yb1), (xb2, yb2), ...]]"]
         raise TypeError("\n".join(err_msgs))

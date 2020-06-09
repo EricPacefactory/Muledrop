@@ -24,7 +24,7 @@ const build_stop_icon_url = () => `/status/icons/stop_icon.svg`;
 // Initial setup
 
 // Global variable used to disable controls after clicking one
-const glb = {"controls_enabled": true};
+const GLOBAL = {"controls_enabled": true};
 
 // Make initial request for data needed to generate UI
 update_camera_status_ui();
@@ -74,8 +74,7 @@ function generate_ui(status_json_data) {
     // Loop over every camera entry and create corresponding UI elements
     const status_items = Object.entries(status_json_data);
     for(const [each_camera_name, each_camera_status] of status_items){
-        const {is_online, start_timestamp_str} = each_camera_status;
-        const new_elem = create_one_camera_ui(each_camera_name, is_online, start_timestamp_str)
+        const new_elem = create_one_camera_ui(each_camera_name, each_camera_status);
         container_ref.appendChild(new_elem)
     }
 
@@ -91,7 +90,17 @@ function generate_ui(status_json_data) {
 
 // .....................................................................................................................
 
-function create_one_camera_ui(camera_name, is_online, start_timestamp_str) {
+function create_one_camera_ui(camera_name, camera_status_dict) {
+
+    // Pull out camera status info (formatting is set by python code!)
+    const {is_online, in_standby, description, timestamp_str} = camera_status_dict;
+
+    // Set up some derived values, based on status info
+    const inactive_style = "camera_offline";
+    const active_style = in_standby ? "camera_standby" : "camera_online";
+    const camera_status_style = is_online ? active_style : inactive_style;
+    const fully_online = is_online && !in_standby;
+    const description_text = fully_online ? timestamp_str : description;
 
     // Create parent container to hold status info + control icons
     const new_camera_container = document.createElement("div");
@@ -115,17 +124,18 @@ function create_one_camera_ui(camera_name, is_online, start_timestamp_str) {
     // Create div which acts as parent container for the name & time
     const new_status_div = document.createElement("div");
     new_status_div.className = "camera_status_div";
-    new_status_div.classList.add(is_online ? "camera_online" : "camera_offline");
+    new_status_div.classList.add(camera_status_style);
 
     // Create div which holds the camera name
+    const camera_name_with_spaces = camera_name.replace(/_/g, " ");
     const new_name_div = document.createElement("div");
     new_name_div.className = "camera_name_div";
-    new_name_div.innerText = camera_name.replace(/_/g, " ");
+    new_name_div.innerText = camera_name_with_spaces;
 
     // Create div which holds the camera start time info
     const new_time_div = document.createElement("div");
     new_time_div.className = "camera_time_div";
-    new_time_div.innerText = is_online ? start_timestamp_str : "Offline";
+    new_time_div.innerText = description_text;
 
     // Put the status elements together
     new_status_div.appendChild(new_name_div);
@@ -192,7 +202,7 @@ function callback_restart_camera(camera_name) {
     function inner_callback_restart_camera() {
 
         // Prevent multiple control commands being queued up
-        if (glb.controls_enabled){
+        if (GLOBAL.controls_enabled){
 
             // Set the cursor to a loading indicator & disable the buttons while waiting
             set_loading_cursor()
@@ -213,7 +223,7 @@ function callback_stop_camera(camera_name) {
     function inner_callback_stop_camera() {
 
         // Prevent multiple control commands being queued up
-        if (glb.controls_enabled){
+        if (GLOBAL.controls_enabled){
 
             // Set the cursor to a loading indicator & disable the buttons while waiting
             set_loading_cursor();
@@ -233,7 +243,7 @@ function callback_stop_camera(camera_name) {
 function disable_control_buttons() {
 
     // Disable future control button clicks
-    glb.controls_enabled = false;
+    GLOBAL.controls_enabled = false;
 
     // Change button aesthetics to show buttons are disabled
     const img_button_array = getelems_img_buttons();

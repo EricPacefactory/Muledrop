@@ -174,7 +174,7 @@ class Base_Video_Reader:
         
         try:
             cv2.destroyAllWindows()
-        except Exception:
+        except (AttributeError, TypeError):
             pass
     
     # .................................................................................................................
@@ -335,7 +335,7 @@ class Threaded_File_Video_Reader(Base_Video_Reader):
             video_time_ms = self.vcap.get(cv2.CAP_PROP_POS_MSEC)
             video_frame_index = int(self.vcap.get(cv2.CAP_PROP_POS_FRAMES))
             
-        except Exception:
+        except (AttributeError, ValueError, TypeError):
             # Handle case where we may have a break request, so that video timing checks don't work
             video_time_ms = 0.0
             video_frame_index = -1
@@ -457,7 +457,7 @@ class File_Video_Reader(Base_Video_Reader):
             video_time_ms = self.vcap.get(cv2.CAP_PROP_POS_MSEC)
             video_frame_index = self.get_current_frame()
             
-        except Exception:
+        except (AttributeError, ValueError, TypeError):
             # Handle case where we may have a break request, so that video timing checks don't work
             video_time_ms = 0.0
             video_frame_index = -1
@@ -522,13 +522,10 @@ class RTSP_Video_Reader(Base_Video_Reader):
         req_break = True
         rec_frame = False
         while req_break:
-            try:
-                t1 = perf_counter()
-                (rec_frame, frame) = self.vcap.read()
-                t2 = perf_counter()
-            except Exception as err:
-                print("Error reading video capture...")
-                print(err)
+            
+            t1 = perf_counter()
+            (rec_frame, frame) = self.vcap.read()
+            t2 = perf_counter()
             
             # Assume we've disconnected if we don't receive a frame and try to reconnect
             req_break = (not rec_frame)
@@ -554,13 +551,9 @@ class RTSP_Video_Reader(Base_Video_Reader):
         req_break = True
         rec_frame = False
         while req_break:
-            try:
-                t1 = perf_counter()
-                rec_frame, frame = self.vcap.retrieve()
-                t2 = perf_counter()
-            except Exception as err:
-                print("Error reading video capture...")
-                print(err)
+            t1 = perf_counter()
+            rec_frame, frame = self.vcap.retrieve()
+            t2 = perf_counter()
             
             # Assume we've disconnected if we don't receive a frame and try to reconnect
             req_break = (not rec_frame)
@@ -608,11 +601,7 @@ class RTSP_Video_Reader(Base_Video_Reader):
             self.reset_videocapture(delay_sec = 10)
         
             # Now that the capture is connected, try to get frames
-            try:
-                (rec_frame, frame) = self.vcap.read()
-            except Exception as err:
-                print("Error reconnecting... {}".format(get_human_readable_timestamp()))
-                print(err)
+            (rec_frame, frame) = self.vcap.read()
         
         # Some feedback once we're successful
         print("  --> Reconnected! ({})".format(get_human_readable_timestamp()))
@@ -658,7 +647,7 @@ def safe_VideoCapture(video_source):
     
     vcap = cv2.VideoCapture(video_source)
     if not vcap.isOpened():
-        raise SystemExit("\nCouldn't open video:\n{}\n".format(video_source))
+        raise IOError("\nCouldn't open video:\n{}\n".format(video_source))
     
     return vcap
 

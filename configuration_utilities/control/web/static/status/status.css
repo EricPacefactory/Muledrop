@@ -7,8 +7,10 @@
     --page_accent: rgb(88, 60, 53);
 
     --online_color: rgb(115, 151, 56);
+    --standby_color: rgb(18, 144, 179);
     --offline_color: rgb(195, 67, 72);
 }
+
 
 /* ----------------------------------------------------------------- */
 /* Camera UI container styling */
@@ -60,6 +62,12 @@
 /* Special class used to highlight cameras which are online */
 .camera_online {
     background-color: var(--online_color);
+}
+
+
+/* Special class used to highlight cameras which are in standby (online, but not generating data) */
+.camera_standby {
+    background-color: var(--standby_color);
 }
 
 /* Special class used to highlight cameras which are online */

@@ -50,12 +50,16 @@ find_path_to_local()
 #%% Imports
 
 import subprocess
-import signal
+
+from signal import SIGTERM, SIGKILL
 
 from time import sleep
 
-from local.lib.file_access_utils.logging import build_pid_folder_path
+from local.lib.common.timekeeper_utils import get_human_readable_timestamp
+
+from local.lib.file_access_utils.logging import build_state_file_path
 from local.lib.file_access_utils.json_read_write import save_config_json, load_config_json
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Classes
@@ -65,14 +69,11 @@ from local.lib.file_access_utils.json_read_write import save_config_json, load_c
 # .....................................................................................................................
 # .....................................................................................................................
 
+
 # ---------------------------------------------------------------------------------------------------------------------
 #%% General pathing functions
 
 # .....................................................................................................................
-    
-def build_pid_file_path(cameras_folder_path, camera_select, pid_value):
-    ''' Build pathing to the file used to store PID information for running processes, for a given camera '''
-    return build_pid_folder_path(cameras_folder_path, camera_select, "{}.json".format(pid_value))
 
 # .....................................................................................................................
 # .....................................................................................................................
@@ -83,83 +84,124 @@ def build_pid_file_path(cameras_folder_path, camera_select, pid_value):
 
 # .....................................................................................................................
 
-def save_pid_file(cameras_folder_path, camera_select, pid_value, script_name, start_timestamp_str):
+def new_state_data(script_name, pid_value, in_standby = False, state_description_str = "online"):
     
-    ''' Function which saves a PID logging file, used to keep tracking of running processes '''
+    '''
+    Helper function used to format state data entries
     
-    # Build data to save
-    save_data_dict = {"PID": pid_value,
-                      "start_timestamp": start_timestamp_str,
-                      "script_name": script_name}
+    Inputs:        
+        script_name -> (String) Used to indicate the script 'creating' the new process. Note that this
+                       data is used to help check on the running script and/or close the script. By storing
+                       the script name, we avoid accidentally closing processes that aren't running the target script!
+        
+        pid_value -> (Integer) The process id value for the running script. Used to check if the process is running
+                     after initial launch. Also used to close the process in the future
+        
+        in_standby -> (Boolean) If true, the camera is running, but not considered to be generating data.
+                      This is intended to avoid confusion when the camera may be performing some initialization,
+                      or be in a reconnect state, and is therefore active but not generating meaningful output (yet!)
+        
+        state_description_str -> (String) Simple description of what the camera is doing. Used to provide feedback
+                                 to any UI used to present/control the camera state.
     
-    pid_save_path = build_pid_file_path(cameras_folder_path, camera_select, pid_value)
-    save_config_json(pid_save_path, save_data_dict, create_missing_folder_path = True)
+    Outputs:
+        new_state_dict (dictionary)
+    '''
     
-    return pid_save_path
+    # Automatically generate a timestamp everytime we create a new state entry
+    timestamp_str = get_human_readable_timestamp()
+    
+    # Bundle all the state data together in json-friendly format for saving/reading
+    new_state_dict = {"PID": pid_value,
+                      "script_name": script_name,
+                      "in_standby": in_standby,
+                      "timestamp_str": timestamp_str,
+                      "state_description": state_description_str}
+    
+    return new_state_dict
 
 # .....................................................................................................................
 
-def load_pid_files_dict(cameras_folder_path, camera_select):
+def save_state_file(cameras_folder_path, camera_select, *, 
+                    script_name, pid_value, in_standby, state_description_str):
+    
+    ''' Function which saves a state logging file, used to keep tracking of running processes '''
+    
+    # Bundle data & save!
+    save_data_dict = new_state_data(script_name, pid_value, in_standby, state_description_str)
+    file_save_path = build_state_file_path(cameras_folder_path, camera_select)
+    save_config_json(file_save_path, save_data_dict, create_missing_folder_path = True)
+    
+    return file_save_path
+
+# .....................................................................................................................
+
+def load_state_file(cameras_folder_path, camera_select):
     
     '''
-    Helper function which loads all PID file data (if any) 
-    Data is returned as a dictionary, where each key is the pathing to the pid file and values store pid data
-    Example:
-        {
-        "/path/to/pid/file1": {"PID": 1172,
-                               "start_timestamp": "...",
-                               "script_name": "..."},
-        "/path/to/pid/file2": {...}
-        }
-        
-    Note: Having more than 1 pid file should almost never happen, but is supported to avoid errors.
+    Function which tries to load existing state file data for a given camera
+    If no existing state data exists, the function returns None
     '''
     
-    # Get folder pathing to check PID files
-    pid_folder_path = build_pid_folder_path(cameras_folder_path, camera_select)
-    os.makedirs(pid_folder_path, exist_ok = True)
+    # Build pathing to the state file (if one exists)
+    state_file_path = build_state_file_path(cameras_folder_path, camera_select)
     
-    # Get file listing in the pid folder
-    pid_file_name_list = os.listdir(pid_folder_path)
-    pid_file_path_list = [os.path.join(pid_folder_path, each_file_name) for each_file_name in pid_file_name_list]
+    # Try to load the state file data but skip it if the file is missing (it may be cleared while we're reading!)
+    loaded_state_data = load_config_json(state_file_path, error_if_missing = False)
+    no_state_data = (loaded_state_data is None)
     
-    # Load all data from files    
-    pid_data_dict = {}
-    for each_path in pid_file_path_list:
-        
-        # Try to load the PID file data but skip it if the file is missing (it may be cleared while we're reading!)
-        loaded_pid_data = load_config_json(each_path, error_if_missing = False)
-        if loaded_pid_data is None:
-            continue
-        pid_data_dict[each_path] = loaded_pid_data
+    return no_state_data, loaded_state_data
+
+# .....................................................................................................................
+
+def delete_state_file(cameras_folder_path, camera_select):
     
-    return pid_data_dict
+    '''
+    Helper function for removing the state file of a given camera
+    Note: This function does not clear any associated processes! 
+          -> The caller is responsible for ensuring that the state file is no longer needed
+    '''
+    
+    # Build path to state file
+    state_file_path = build_state_file_path(cameras_folder_path, camera_select)
+    
+    # Try to remove the state file
+    # - may fail if the file is cleared before we get to it or if it didn't exist to begin with!
+    try:
+        os.remove(state_file_path)
+    except FileNotFoundError:
+        pass
+    
+    return
+
+# .....................................................................................................................
+# .....................................................................................................................
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-#%% PID control functions
+#%% state control functions
     
 # .....................................................................................................................
 
 def check_running_camera(cameras_folder_path, camera_select):
     
-    ''' Helper functions for checking if a camera is online, using PID files '''
+    ''' Helper functions for checking if a camera is online, using state files '''
     
     # Initialize outputs
     camera_is_online = False
-    start_timestamp_str = ""
+    state_data_dict = {}
     
-    # Load all existing PID data and check if any of the files correspond to a running camera
-    pid_data_dict = load_pid_files_dict(cameras_folder_path, camera_select)
-    for each_pid_file_path, each_data_dict in pid_data_dict.items():
-        pid_value = each_data_dict["PID"]
-        script_name = each_data_dict["script_name"]
-        start_timestamp_str = each_data_dict["start_timestamp"]
-        camera_is_online = check_running_pid(pid_value, script_name)
-        if camera_is_online:
-            break
+    # Load all existing state data and check if any of the files correspond to a running camera
+    no_state_data, state_data_dict = load_state_file(cameras_folder_path, camera_select)
+    if no_state_data:
+        return camera_is_online, state_data_dict
     
-    return camera_is_online, start_timestamp_str
+    # Assuming there is state data available, read it from the file
+    pid_value = state_data_dict["PID"]
+    script_name = state_data_dict["script_name"]
+    camera_is_online = check_running_pid(pid_value, script_name)
+    
+    return camera_is_online, state_data_dict
 
 # .....................................................................................................................
 
@@ -182,11 +224,12 @@ def check_running_pid(pid_value, script_name):
 
 # .....................................................................................................................
 
-def kill_running_pid(pid_value, script_name, max_wait_sec = 30.0):
+def kill_running_pid(pid_value, script_name, max_wait_sec = 30.0, force_kill_on_timeout = False):
     
     # Calculate the number of re-checks based on max wait time
     sleep_time_sec = 1.5
-    num_rechecks = int(max(1, max_wait_sec / sleep_time_sec))
+    force_kill_check = int(force_kill_on_timeout)
+    num_rechecks = int(max(1, (max_wait_sec / sleep_time_sec) - force_kill_check))
     
     # Check if the PID is running (with the target script name) and if so, kill it
     pid_is_running = check_running_pid(pid_value, script_name)
@@ -197,79 +240,51 @@ def kill_running_pid(pid_value, script_name, max_wait_sec = 30.0):
         
         # Killing could fail if the process ends before we get to it
         try:
-            os.kill(pid_value, signal.SIGTERM)
+            os.kill(pid_value, SIGTERM)
             for k in range(num_rechecks):
                 sleep(sleep_time_sec)
                 pid_is_running = check_running_pid(pid_value, script_name)
                 if not pid_is_running:
                     break
-                
+            
+            # If we get here and the process is still running, try the nuclear option
+            if pid_is_running and force_kill_on_timeout:
+                os.kill(pid_value, SIGKILL)
+                sleep(sleep_time_sec)
+                pid_is_running = check_running_pid(pid_value, script_name)
+            
         except ProcessLookupError:
             # Do nothing if the kill fails
             pass
     else:
         print("  Process {} already dead".format(pid_value))
     
-    return
+    return pid_is_running
 
 # .....................................................................................................................
 
-def clear_one_pid_file(cameras_folder_path, camera_select, pid_value):
+def shutdown_running_camera(cameras_folder_path, camera_select, max_wait_sec = 30.0, force_kill_on_timeout = False):
     
-    ''' Helper function for clearing PID files '''
+    ''' Function which both ends a running camera process and also clears the camera state file '''
     
-    # Build path to pid file
-    pid_file_path = build_pid_file_path(cameras_folder_path, camera_select, pid_value)
+    # First check that the camera is actually running
+    camera_is_running, state_dict = check_running_camera(cameras_folder_path, camera_select)
     
-    # Try to remove the PID file
-    # - may fail if the file is cleared before we get to it or if it didn't exist to begin with!
-    try:
-        os.remove(pid_file_path)
-    except FileNotFoundError:
-        pass
+    # Shutdown the process of the running camera, if needed
+    if camera_is_running:
+        camera_pid = state_dict["PID"]
+        camera_script_name = state_dict["script_name"]
+        kill_running_pid(camera_pid, camera_script_name, force_kill_on_timeout)
     
-    return
-
-# .....................................................................................................................
-
-def clear_all_pid_files(cameras_folder_path, camera_select, max_retrys = 4):
+    # Finally, remove the state file
+    delete_state_file(cameras_folder_path, camera_select)
     
-    ''' Function used to clear out previous PID files (& corresponding processes!) '''
-    
-    # Try to clear PID files several times, if needed
-    num_trys = (1 + max(0, max_retrys))
-    for k in range(num_trys):
-    
-        # Load all existing PID data
-        pid_data_dict = load_pid_files_dict(cameras_folder_path, camera_select)
-        
-        # We're done when there are no more PID files
-        pids_exist = (len(pid_data_dict) > 0)
-        if not pids_exist:
-            break
-        
-        # Provide some feedback about clearing pids
-        if k == 0:
-            print("", "Clearing existing PIDs - {}".format(camera_select), sep = "\n")
-        else:
-            print("  --> Clearing existing PIDs - {} | (retry)".format(camera_select))
-        
-        # Load all PID data and close any PIDs that are still running
-        for each_pid_path, each_pid_data in pid_data_dict.items():
-            
-            # Pull out relevant pid data, so we can check if the PID is still alive
-            pid_value = each_pid_data["PID"]
-            script_name = each_pid_data["script_name"]
-            
-            # Kill the target PID, if possible, and clear the pid file
-            kill_running_pid(pid_value, script_name)
-            clear_one_pid_file(cameras_folder_path, camera_select, pid_value)
-
     return
 
 # .....................................................................................................................
 # .....................................................................................................................
-    
+
+
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Demo
 

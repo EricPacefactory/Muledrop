@@ -49,22 +49,19 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
-from shutil import rmtree
+from local.lib.common.environment import get_dbserver_protocol, get_dbserver_host, get_dbserver_port
+from local.lib.common.launch_helpers import save_data_prompt, delete_existing_report_data, check_missing_main_selections
+from local.lib.common.feedback import print_time_taken
 
-from local.lib.ui_utils.script_arguments import script_arg_builder
+from local.lib.ui_utils.script_arguments import script_arg_builder, get_selections_from_script_args
 
 from local.lib.launcher_utils.configuration_loaders import RTSP_Configuration_Loader
 from local.lib.launcher_utils.video_processing_loops import Video_Processing_Loop
 
-from local.lib.common.environment import get_dbserver_protocol, get_dbserver_host, get_dbserver_port
-
-from local.lib.file_access_utils.structures import create_missing_folder_path
-from local.lib.file_access_utils.reporting import build_user_report_path
-
 from local.online_database.post_to_dbserver import create_parallel_scheduled_post
 
-from local.eolib.utils.files import get_total_folder_size
-from local.eolib.utils.cli_tools import cli_confirm
+from local.eolib.utils.quitters import ide_quit
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define functions
@@ -80,16 +77,19 @@ def parse_run_args(debug_print = False):
     default_dbserver_url = "{}://{}:{}".format(dbserver_protocol, dbserver_host, dbserver_port)
     url_help_text = "Specify the url of the db server\n(Default: {})".format(default_dbserver_url)
     
+    # Set default user for rtsp
+    default_user = "live"
+    user_help_text = "User select (Default: {})".format(default_user)
+    
     # Set script arguments for running on streams
     args_list = ["camera",
-                 {"user": {"default": "live"}}, 
+                 {"user": {"default": default_user, "help_text": user_help_text}},
                  "display",
-                 {"threaded_video": {"default": True}}, 
-                 {"threaded_save": {"default": True}},
-                 "save_and_keep", 
-                 "save_and_delete",
-                 "skip_save",
-                 {"url": {"default": default_dbserver_url, 
+                 "enable_prompts",
+                 "disable_saving",
+                 "delete_existing_data",
+                 "unthreaded_save",
+                 {"url": {"default": default_dbserver_url,
                           "help_text": url_help_text}}]
     
     # Provide some extra information when accessing help text
@@ -107,124 +107,96 @@ def parse_run_args(debug_print = False):
     return ap_result
 
 # .....................................................................................................................
-
-def save_data_prompt(enable_save_prompt = True, skip_save = False):
-    
-    # If saving is being skipped, we ignore prompt settings entirely
-    if skip_save:
-        return False
-    
-    # If we don't prompt the user to save, assume saving is enabled
-    if not enable_save_prompt:
-        return True
-    
-    # For testing
-    save_by_default = False
-    saving_enabled = cli_confirm("Save data?", default_response = save_by_default)
-            
-    return saving_enabled
-
 # .....................................................................................................................
 
-def delete_existing_report_data(enable_deletion_prompt, configuration_loader, save_and_keep):
-    
-    # If prompt is skipped and deletion is disabled, don't do anything
-    if (not enable_deletion_prompt) and save_and_keep:
-        print("", "Existing files are not being deleted!", sep = "\n")
-        return
-    
-    # Pull out pathing data from loader object
-    cameras_folder_path = configuration_loader.cameras_folder_path
-    camera_select = configuration_loader.camera_select
-    user_select = configuration_loader.user_select
-    
-    # Build pathing to report data
-    report_data_folder = build_user_report_path(cameras_folder_path, camera_select, user_select)
-    create_missing_folder_path(report_data_folder)
-    
-    # Check if data already exists
-    existing_file_count, _, total_file_size_mb, _ = get_total_folder_size(report_data_folder)
-    saved_data_exists = (existing_file_count > 0)
-    
-    # Provide prompt (if enabled) to allow user to avoid deleting existing data
-    if saved_data_exists:        
-        
-        if enable_deletion_prompt:
-            confirm_msg = "Saved data already exists! Delete? ({:.1f} MB)".format(total_file_size_mb)
-            confirm_data_delete = cli_confirm(confirm_msg, default_response = True)
-            if not confirm_data_delete:
-                return
-    
-        # If we get here, delete the files!
-        print("", "Deleting files:", "@ {}".format(report_data_folder), sep="\n")
-        rmtree(report_data_folder)
-    
-    return
-
-# .....................................................................................................................
-# .....................................................................................................................
 
 # ---------------------------------------------------------------------------------------------------------------------
-#%% Parse Arguments
+#%% Handle script arguments
 
 # Parse script arguments and decide if we need to provide any prompts
 ap_result = parse_run_args()
-threaded_save = ap_result.get("threaded_save", False)
-upload_server_url = ap_result.get("url", None)
-save_and_keep = ap_result.get("save_keep", False)
-save_and_delete = ap_result.get("save_delete", False)
-skip_save = ap_result.get("skip_save", False)
-provide_prompts = (not (save_and_keep or save_and_delete))
+dbserver_url = ap_result.get("url", None)
+threaded_save = (not ap_result.get("unthreaded_save", True))
+enable_display = ap_result.get("display", False)
+allow_saving = (not ap_result.get("disable_saving", True))
+delete_existing_data = ap_result.get("delete_existing_data", False)
+provide_prompts = ap_result.get("enable_prompts", False)
+
+# Get camera/user selections from arguments
+arg_camera_select, arg_user_select, _ = get_selections_from_script_args(ap_result)
+
+# Hard-code some settings for rtsp only
+hardcode_video_select = "rtsp"
+hardcode_threaded_video = False
+
+# Catch missing inputs, if prompts are disabled
+check_missing_main_selections(arg_camera_select, arg_user_select, hardcode_video_select,
+                              error_if_missing = (not provide_prompts))
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Setup
 
 # Make all required selections and setup/configure everything
 loader = RTSP_Configuration_Loader()
-loader.selections(ap_result)
+loader.selections(arg_camera_select, arg_user_select, hardcode_video_select, hardcode_threaded_video)
 loader.set_script_name(__file__)
 
-# Ask user about saved data and delete existing data (if enabled)
-save_data = save_data_prompt(provide_prompts, skip_save)
-if save_data:
-    delete_existing_report_data(provide_prompts, loader, save_and_keep)
+# Get shared pathing settings
+cameras_folder_path, camera_select, user_select = loader.get_camera_pathing()
+
+# Make sure we're not already running a camera
+loader.shutdown_existing_camera_process()
+
+# Delete existing data if needed. Only provide a prompt if the user asked for it
+enable_saving = save_data_prompt(enable_save_prompt = provide_prompts, save_by_default = allow_saving)
+if enable_saving:
+    check_delete_existing_data = (provide_prompts or delete_existing_data)
+    delete_existing_report_data(cameras_folder_path, camera_select, user_select,
+                                enable_deletion = check_delete_existing_data,
+                                enable_deletion_prompt = provide_prompts)
 
 # Turn on saving if needed and enabled threaded i/o on rtps streams, to avoid blocking
-loader.toggle_saving(save_data)
+loader.toggle_saving(enable_saving)
 loader.toggle_threaded_saving(threaded_save)
 
 # Configure everything!
+loader.update_state_file("Initializing")
 start_timestamp = loader.setup_all()
 
 # Set up object to handle all video processing
-main_process = Video_Processing_Loop(loader)
+main_process = Video_Processing_Loop(loader, enable_display)
 
 # Start auto-data posting
-parallel_post = create_parallel_scheduled_post(upload_server_url, loader.cameras_folder_path, loader.camera_select)
+parallel_post = create_parallel_scheduled_post(dbserver_url, cameras_folder_path, camera_select)
+
 
 # ---------------------------------------------------------------------------------------------------------------------
-#%% Main
+#%% *** Main loop ***
 
 # Feedback on launch
-enable_disable_txt = ("enabled" if save_data else "disabled")
-enable_thread_save_txt = ("" if not save_data else (" ({})".format("threaded" if threaded_save else "nothread")))
+enable_disable_txt = ("enabled" if enable_saving else "disabled")
+enable_thread_save_txt = ("" if not enable_saving else (" ({})".format("threaded" if threaded_save else "nothread")))
 print("", "{}  |  Saving {}{}".format(start_timestamp, enable_disable_txt, enable_thread_save_txt), sep = "\n")
 
 # Most of the work is done here!
+loader.update_state_file("Online", in_standby = False)
 total_processing_time_sec = main_process.loop(enable_progress_bar = False)
-print("", "Finished!", "Ran for {:.0f} minutes".format(total_processing_time_sec / 60), sep = "\n")
+print_time_taken(0, total_processing_time_sec)
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Clean up
 
-# Run any cleanup needed by configured system
-loader.clean_up()
-
 # Clean up parallel post, just in case
+loader.update_state_file("Shutting down")
 print("", "Closing auto-post background task...", sep = "\n")
 parallel_post.terminate()
 parallel_post.join(10)
 print("Finished!")
+
+# Finally, remove the state file to indicate the camera is offline
+loader.clear_state_file()
 
 
 # ---------------------------------------------------------------------------------------------------------------------

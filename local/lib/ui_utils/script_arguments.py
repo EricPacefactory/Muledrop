@@ -61,6 +61,28 @@ import argparse
 
 # .....................................................................................................................
 
+def get_selections_from_script_args(argparse_result):
+    
+    '''
+    Helper function used to pull out only the selection components from script arguments
+    
+    Inputs:
+        argparse_result -> (Dictionary) Result from calling the 'script_arg_builder()' function
+    
+    Outputs:
+        camera_select, user_select, video_select
+    
+    Note: If any selections are missing, they will have 'None' values
+    '''
+    
+    camera_select = argparse_result.get("camera", None)
+    user_select = argparse_result.get("user", None)
+    video_select = argparse_result.get("video", None)
+    
+    return camera_select, user_select, video_select
+
+# .....................................................................................................................
+
 def script_arg_builder(args_list, description = None, epilog = None, parse_on_call = True,
                        debug_print = False):
     
@@ -143,15 +165,18 @@ def _script_arg_function_lut(key_name):
     ''' Helper function for selecting the appropriate key script argument generating function '''
     
     func_lut = {"debug": _debug_arg,
+                "enable_prompts": _enable_prompts,
+                "disable_prompts": _disable_prompts,
                 "camera": _camera_arg,
                 "user": _user_arg,
                 "video": _video_arg,
                 "display": _display_arg,
                 "threaded_video": _threaded_video_arg,
+                "unthreaded_video": _unthreaded_video_arg,
                 "threaded_save": _threaded_save_arg,
-                "save_and_keep": _save_and_keep_arg,
-                "save_and_delete": _save_and_delete_arg,
-                "skip_save": _skip_save_arg,
+                "unthreaded_save": _unthreaded_save_arg,
+                "disable_saving": _disable_saving_arg,
+                "delete_existing_data": _delete_existing_data_arg,
                 "protocol": _protocol_arg,
                 "host": _host_arg,
                 "port": _port_arg,
@@ -166,94 +191,78 @@ def _script_arg_function_lut(key_name):
 
 # .....................................................................................................................
     
-def _debug_arg(default = False, help_text = "Enable debug mode"):
-    
-    on_by_default = (default == True)
-    action = "store_false" if on_by_default else "store_true"    
-    
-    return ("-debug", "--debug"), {"default": default, "action": action, "help": help_text}
-
-# .....................................................................................................................
-    
-def _camera_arg(default = None):
-    return ("-c", "--camera"), {"default": default, "type": str, "help": "Camera select"}
+def _debug_arg(help_text = "Enable debug mode"):
+    return ("-debug", "--debug"), {"default": False, "action": "store_true", "help": help_text}
 
 # .....................................................................................................................
 
-def _user_arg(default = None):
-    return ("-u", "--user"), {"default": default, "type": str, "help": "User select"}
+def _enable_prompts(help_text = "Enable prompts"):
+    return ("-prompts", "--enable_prompts"), {"default": False, "action": "store_true", "help": help_text}
 
 # .....................................................................................................................
 
-def _video_arg(default = None):
-    return ("-v", "--video"), {"default": default, "type": str, "help": "Video select"}
+def _disable_prompts(help_text = "Disable prompts"):
+    return ("-noprompts", "--disable_prompts"), {"default": False, "action": "store_true", "help": help_text}
+
+# .....................................................................................................................
+    
+def _camera_arg(default = None, help_text = "Camera select"):
+    return ("-c", "--camera"), {"default": default, "type": str, "help": help_text}
 
 # .....................................................................................................................
 
-def _save_and_keep_arg(default = False):
-    
-    help_text = "Skip save prompt. Save new data and keep existing data."
-    
-    return ("-sk", "--save_keep"), {"default": default, "action": "store_true", "help": help_text}
+def _user_arg(default = None, help_text = "User select"):
+    return ("-u", "--user"), {"default": default, "type": str, "help": help_text}
 
 # .....................................................................................................................
 
-def _save_and_delete_arg(default = False):
-    
-    help_text = "Skip save prompt. Save new data and delete existing data."
-    
-    return ("-sd", "--save_delete"), {"default": default, "action": "store_true", "help": help_text}
+def _video_arg(default = None, help_text = "Video select"):
+    return ("-v", "--video"), {"default": default, "type": str, "help": help_text}
 
 # .....................................................................................................................
 
-def _skip_save_arg(default = False):
-    
-    help_text = "Disable saving. Skip save prompt."
-    
-    return ("-ss", "--skip_save"), {"default": default, "action": "store_true", "help": help_text}
+def _display_arg(help_text = "Enable display (slower)"):
+    return ("-d", "--display"), {"default": False, "action": "store_true", "help": help_text}
 
 # .....................................................................................................................
 
-def _display_arg(default = False, help_text = "Enable display (slower)"):
-    
-    on_by_default = (default == True)
-    action = "store_false" if on_by_default else "store_true"
-    
-    return ("-d", "--display"), {"default": default, "action": action, "help": help_text}
+def _threaded_video_arg(help_text = "Enable threaded video capture (fast, but may be buggy!)"):
+    return ("-etv", "--threaded_video"), {"default": False, "action": "store_true", "help": help_text}
 
 # .....................................................................................................................
 
-def _threaded_video_arg(default = False):
-    
-    on_by_default = (default == True)
-    disable_text = "Disable threaded video capture (slow, but more stable)"
-    enable_text = "Enable threaded video capture (fast, but may be buggy!)"
-    help_text = disable_text if on_by_default else enable_text
-    action = "store_false" if on_by_default else "store_true"
-    
-    return ("-threaded_video", "--threaded_video"), {"default": default, "action": action, "help": help_text}
+def _unthreaded_video_arg(help_text = "Disable threaded video capture (slower but more stable)"):
+    return ("-utv", "--unthreaded_video"), {"default": False, "action": "store_true", "help": help_text}
 
 # .....................................................................................................................
 
-def _threaded_save_arg(default = False):
-    
-    on_by_default = (default == True)
-    disable_text = "Disable threaded file saving (slower but more stable)"
-    enable_text = "Enable threaded file saving (fast, but may be buggy!)"
-    help_text = disable_text if on_by_default else enable_text
-    action = "store_false" if on_by_default else "store_true"
-    
-    return ("-threaded_save", "--threaded_save"), {"default": default, "action": action, "help": help_text}
+def _threaded_save_arg(help_text = "Enable threaded file saving (fast, but may be buggy!)"):
+    return ("-ets", "--threaded_save"), {"default": False, "action": "store_true", "help": help_text}
+
+# .....................................................................................................................
+
+def _unthreaded_save_arg(help_text = "Disable threaded file saving (slower but more stable)"):
+    return ("-uts", "--unthreaded_save"), {"default": False, "action": "store_true", "help": help_text}
+
+# .....................................................................................................................
+
+def _disable_saving_arg(help_text = "Turn off report data saving"):
+    return ("-nosave", "--disable_saving"), {"default": False, "action": "store_true", "help": help_text}
+
+# .....................................................................................................................
+
+def _delete_existing_data_arg(help_text = "Delete existing report data on startup"):
+    return ("-delete", "--delete_existing_data"), {"default": False, "action": "store_true", "help": help_text}
 
 # .....................................................................................................................
 
 def _protocol_arg(default = "http", help_text = "Specify a web protocol"):
-    return ("-proto", "--protocol"), {"default": default, "type": str, "help": help_text}    
+    return ("-proto", "--protocol"), {"default": default, "type": str, "help": help_text}
 
 # .....................................................................................................................
 
 def _host_arg(default = "localhost", help_text = "Specify host/ip address"):
-    return ("-host", "--host"), {"default": default, "type": str, "help": help_text}    
+    return ("-host", "--host"), {"default": default, "type": str, "help": help_text}
 
 # .....................................................................................................................
 

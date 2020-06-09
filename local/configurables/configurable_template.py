@@ -140,7 +140,7 @@ class Configurable_Base:
             else:
                 repr_strings += ["  " + ", ".join(list(invis_set))]
             
-        except Exception:
+        except (ValueError, TypeError, AttributeError):
             repr_strings = ["No repr"]
         
         return "\n".join(["{} ({}):".format(self.__class__.__name__, self.script_name)] + repr_strings)

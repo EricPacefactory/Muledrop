@@ -107,7 +107,20 @@ class Resource_Selector:
     def get_cameras_tree(self):
         return build_cameras_tree(self.cameras_folder_path,
                                   show_hidden = self._show_hidden_resources)
+    
+    # .................................................................................................................
+    
+    def get_camera_names_and_paths_lists(self, must_have_rtsp = False):
         
+        ''' Helper function which returns lists of camera names as well as a list of full paths '''
+        
+        show_hidden_cameras = self._show_hidden_resources
+        camera_names_list, camera_paths_list = build_camera_list(self.cameras_folder_path, 
+                                                                 show_hidden_cameras,
+                                                                 must_have_rtsp)
+        
+        return camera_names_list, camera_paths_list
+    
     # .................................................................................................................
     
     def get_user_list(self, camera_select):
@@ -122,9 +135,8 @@ class Resource_Selector:
     def camera(self, camera_select = None, must_have_rtsp = False, debug_mode = False):
         
         # Get list of available selection options and then (try to) select one
-        show_hidden_cameras = self._show_hidden_resources
-        camera_name_path_lists = build_camera_list(self.cameras_folder_path, show_hidden_cameras, must_have_rtsp)
-        camera_select, path_select = self._make_selection("camera", camera_select, camera_name_path_lists,
+        camera_names_and_paths_lists = self.get_camera_names_and_paths_lists(must_have_rtsp)
+        camera_select, path_select = self._make_selection("camera", camera_select, camera_names_and_paths_lists,
                                                           debug_mode = debug_mode)
         
         return camera_select, path_select

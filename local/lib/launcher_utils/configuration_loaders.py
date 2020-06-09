@@ -51,11 +51,13 @@ find_path_to_local()
 
 from time import sleep
 
+
 from local.lib.common.timekeeper_utils import get_human_readable_timestamp, get_human_readable_timezone
 from local.lib.common.timekeeper_utils import get_local_datetime, datetime_to_isoformat_string, datetime_to_epoch_ms
+from local.lib.common.exceptions import OS_Close, register_signal_quit
 
 from local.lib.ui_utils.cli_selections import Resource_Selector
-from local.lib.ui_utils.script_arguments import script_arg_builder
+from local.lib.ui_utils.script_arguments import script_arg_builder, get_selections_from_script_args
 
 from local.lib.launcher_utils.video_setup import File_Video_Reader, Threaded_File_Video_Reader, RTSP_Video_Reader
 from local.lib.launcher_utils.core_bundle_loader import Core_Bundle
@@ -65,18 +67,19 @@ from local.lib.launcher_utils.resource_initialization import initialize_backgrou
 from local.configurables.configurable_template import configurable_dot_path
 
 from local.lib.file_access_utils.structures import create_missing_folder_path
-from local.lib.file_access_utils.pid_files import save_pid_file, clear_all_pid_files, clear_one_pid_file
 from local.lib.file_access_utils.externals import build_externals_folder_path
 from local.lib.file_access_utils.reporting import build_camera_info_metadata_report_path
 from local.lib.file_access_utils.resources import reset_capture_folder, reset_generate_folder
 from local.lib.file_access_utils.video import Playback_Access, load_rtsp_config
 from local.lib.file_access_utils.screen_info import Screen_Info
+from local.lib.file_access_utils.state_files import shutdown_running_camera, save_state_file, delete_state_file
 from local.lib.file_access_utils.json_read_write import load_config_json, save_config_json
 from local.lib.file_access_utils.json_read_write import dict_to_human_readable_output
 from local.lib.file_access_utils.metadata_read_write import save_jsongz_metadata
 
 from local.eolib.utils.cli_tools import cli_confirm
 from local.eolib.utils.function_helpers import dynamic_import_from_module
+from local.eolib.utils.quitters import ide_quit
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -94,7 +97,6 @@ class File_Configuration_Loader:
         self.camera_select = None
         self.user_select = None
         self.video_select = None
-        self.script_arg_inputs = {}
         
         # Allocate storage for video data
         self.threaded_video_enabled = False
@@ -126,8 +128,10 @@ class File_Configuration_Loader:
         self.pid = os.getpid()
         
         # Allocate storage for display/screen information
-        self.display_enabled = False
         self.screen_info = None
+        
+        # Set up special error handling
+        register_signal_quit()
     
     # .................................................................................................................
     
@@ -144,15 +148,11 @@ class File_Configuration_Loader:
     
     # .................................................................................................................
     
-    def selections(self, script_args_dict):
-        
-        # Store script arguments
-        self.script_arg_inputs = script_args_dict
-        
-        # Pull out input script argument values
-        arg_camera_select = self.script_arg_inputs.get("camera", None)
-        arg_user_select = self.script_arg_inputs.get("user", None)
-        arg_video_select = self.script_arg_inputs.get("video", None)
+    def selections(self, 
+                   arg_camera_select = None,
+                   arg_user_select = None,
+                   arg_video_select = None,
+                   threaded_video = False):
         
         # Create selector so we can make camera/user/video selections
         selector = Resource_Selector()
@@ -163,9 +163,8 @@ class File_Configuration_Loader:
         self.user_select, _ = selector.user(self.camera_select, arg_user_select)
         self.video_select, _ = selector.video(self.camera_select, arg_video_select)
         
-        # Get additional information
-        self.display_enabled = self.script_arg_inputs.get("display", False)
-        self.threaded_video_enabled = self.script_arg_inputs.get("threaded_video", False)
+        # Store additional information
+        self.threaded_video_enabled = threaded_video
         
         return self
     
@@ -252,6 +251,19 @@ class File_Configuration_Loader:
     
     def get_screen_info(self):
         self.screen_info = Screen_Info(self.project_root_path)
+    
+    # .................................................................................................................
+    
+    def get_camera_pathing(self):
+        
+        '''
+        Helper function used to get variables commonly needed for pathing
+        
+        Returns:
+            cameras_folder_path, camera_select, user_select
+        '''
+        
+        return self.cameras_folder_path, self.camera_select, self.user_select
         
     # .................................................................................................................
     
@@ -387,15 +399,25 @@ class File_Configuration_Loader:
     
     def setup_all(self):
         
-        # Set up access to video & make sure we have all resource before loading any other configs
-        self.setup_video_reader()
-        self.setup_resources()
+        # Wrap in try/catch, since setup can take a while and may be interrupted
+        try:
+            
+            # Set up access to video & make sure we have all resource before loading any other configs
+            self.setup_video_reader()
+            self.setup_resources()
+            
+        except KeyboardInterrupt:
+            print("", "Keyboard cancelled! Quitting...", sep = "\n")
+            self.close_video_reader()
+            ide_quit()
         
+        except OS_Close:
+            print("", "System terminated during setup! Quitting...", sep = "\n")
+            self.close_video_reader()
+            ide_quit()
+            
         # Get human readable timestamp for feedback
         start_timestamp = get_human_readable_timestamp()
-        
-        # Check/Record PID files to guarantee single file execution
-        self._save_pid_file(start_timestamp)
         
         # Setup all main processing components
         self.setup_core_bundle()
@@ -404,25 +426,43 @@ class File_Configuration_Loader:
         
         # Save camera info on start-up, if needed
         self.save_camera_info()
-        
+    
         return start_timestamp
     
     # .................................................................................................................
     
-    def clean_up(self):
+    def clean_up(self, last_frame_index, last_epoch_ms, last_datetime):
+        
+        # For convenience
+        fed_time_args = (last_frame_index, last_epoch_ms, last_datetime)
         
         # Clean up video capture
-        # ... handled by video loop for now
+        self.close_video_reader()
         
-        # Clean up core system
-        # ... handled by video loop for now
+        # Close externals
+        self.snapcap.close(*fed_time_args)
+        self.bgcap.close(*fed_time_args)
         
-        # Clean up externals
-        # ... handled by video loop for now
+        # Close running core process & save any remaining objects
+        final_stage_outputs = self.core_bundle.close_all(*fed_time_args)
+        self.objcap.close(final_stage_outputs, *fed_time_args)
         
-        # Clear PID tracking
-        self._clear_pid_file()
+        return
+    
+    # .................................................................................................................
+    
+    def close_video_reader(self):
         
+        ''' Helper function which will try to close the video reader, with very basic error handling '''
+        
+        try:
+            self.vreader.close()
+            
+        except AttributeError:
+            pass
+            
+        return
+    
     # .................................................................................................................
     
     def _import_externals_class(self, externals_type):
@@ -472,27 +512,6 @@ class File_Configuration_Loader:
                 "user_select": self.user_select,
                 "video_select": self.video_select,
                 "video_wh": self.video_wh}
-        
-    # .................................................................................................................
-    
-    def _save_pid_file(self, start_timestamp_str):
-        
-        ''' Helper function for setting up initial PID file '''
-        
-        # Get rid of any existing PIDs, so we don't run parallel copies of the camera collection
-        clear_all_pid_files(self.cameras_folder_path, self.camera_select, max_retrys = 5)
-        
-        # Save a new PID file to represent the system
-        save_pid_file(self.cameras_folder_path, self.camera_select,
-                      self.pid, self.calling_script_name, start_timestamp_str)
-    
-    # .................................................................................................................
-    
-    def _clear_pid_file(self):
-        
-        ''' Helper function for clearing out the PID file associated with this loader '''
-        
-        clear_one_pid_file(self.cameras_folder_path, self.camera_select, self.pid)
 
     # .................................................................................................................
     # .................................................................................................................
@@ -513,14 +532,11 @@ class RTSP_Configuration_Loader(File_Configuration_Loader):
         
     # .................................................................................................................
     
-    def selections(self, script_args_dict = {}):
-        
-        # Store script arguments
-        self.script_arg_inputs = script_args_dict
-        
-        # Pull out input script argument values
-        arg_camera_select = self.script_arg_inputs.get("camera", None)
-        arg_user_select = self.script_arg_inputs.get("user", None)
+    def selections(self,
+                   arg_camera_select = None,
+                   arg_user_select = None,
+                   arg_video_select = "rtsp",
+                   threaded_video = False):
         
         # Create selector so we can make camera/user/video selections
         selector = Resource_Selector()
@@ -529,11 +545,10 @@ class RTSP_Configuration_Loader(File_Configuration_Loader):
         # Select shared components
         self.camera_select, _ = selector.camera(arg_camera_select, must_have_rtsp = True)
         self.user_select, _ = selector.user(self.camera_select, arg_user_select)
-        self.video_select = "rtsp"
+        self.video_select = arg_video_select
         
-        # Get additional information
-        self.display_enabled = self.script_arg_inputs.get("display", False)
-        self.threaded_video_enabled = self.script_arg_inputs.get("threaded_video", False)
+        # Store additional information
+        self.threaded_video_enabled = threaded_video
         
         return self
     
@@ -544,7 +559,6 @@ class RTSP_Configuration_Loader(File_Configuration_Loader):
         # Select video reader
         Video_Reader = RTSP_Video_Reader
         if self.threaded_video_enabled:
-            #Video_Reader = Threaded_RTSP_Video_Reader
             print("", "Threaded video capture is not yet implemented for RTSP!", sep = "\n")
 
         # Set up the video source
@@ -570,7 +584,37 @@ class RTSP_Configuration_Loader(File_Configuration_Loader):
         return
     
     # .................................................................................................................
+    
+    def shutdown_existing_camera_process(self, max_wait_sec = 300, force_kill_on_timeout = True):
+        
+        ''' Helper function to handle cleaning up existing camera process & state files '''
+        
+        return shutdown_running_camera(self.cameras_folder_path, self.camera_select,
+                                       max_wait_sec, force_kill_on_timeout)
+    
     # .................................................................................................................
+    
+    def update_state_file(self, state_description, *, in_standby = True):
+        
+        ''' Helper function used to update the camera state file descript and standby settings '''
+        
+        return save_state_file(self.cameras_folder_path, self.camera_select,
+                               script_name = self.calling_script_name,
+                               pid_value = self.pid,
+                               in_standby = in_standby,
+                               state_description_str = state_description)
+    
+    # .................................................................................................................
+    
+    def clear_state_file(self):
+        
+        ''' Helper function used to remove the camera state file (intended for use on shutdown only) '''
+        
+        return delete_state_file(self.cameras_folder_path, self.camera_select)    
+    
+    # .................................................................................................................
+    # .................................................................................................................
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Reconfigurable Implementations
@@ -607,8 +651,8 @@ class Reconfigurable_Loader(File_Configuration_Loader):
         
         # Launch into selections, if needed
         if selections_on_launch:
-            script_args_dict = self.parse_standard_args()
-            self.selections(script_args_dict)
+            arg_camera_select, arg_user_select, arg_video_select = self.parse_standard_args()
+            self.selections(arg_camera_select, arg_user_select, arg_video_select)
         
     # .................................................................................................................
         
@@ -624,20 +668,20 @@ class Reconfigurable_Loader(File_Configuration_Loader):
         ap_result = script_arg_builder(args_list,
                                        description = script_description,
                                        parse_on_call = True,
-                                       debug_print = debug_print)        
-        return ap_result
+                                       debug_print = debug_print)
+        
+        # Split into camera_select, user_select, video_select on return to match selectons input args
+        camera_select, user_select, video_select = get_selections_from_script_args(ap_result)
+        
+        return camera_select, user_select, video_select
     
     # .................................................................................................................
     
-    def selections(self, script_args_dict):
-        
-        # Store script arguments
-        self.script_arg_inputs = script_args_dict
-        
-        # Pull out input script argument values
-        arg_camera_select = self.script_arg_inputs.get("camera", None)
-        arg_user_select = self.script_arg_inputs.get("user", None)
-        arg_video_select = self.script_arg_inputs.get("video", None)
+    def selections(self,
+                   arg_camera_select = None,
+                   arg_user_select = None,
+                   arg_video_select = None,
+                   threaded_video = False):
         
         # Create selector so we can make camera/user/video selections
         selector = Resource_Selector()
@@ -649,8 +693,7 @@ class Reconfigurable_Loader(File_Configuration_Loader):
         self.video_select, _ = selector.video(self.camera_select, arg_video_select)
         
         # Hard-code out options intended for run-time
-        self.display_enabled = True
-        self.threaded_video_enabled = False
+        self.threaded_video_enabled = threaded_video
         
         return self
     

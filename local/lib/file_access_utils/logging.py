@@ -49,6 +49,8 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
+from local.lib.common.timekeeper_utils import get_filesafe_date
+
 from local.lib.file_access_utils.shared import build_logging_folder_path
 
 
@@ -85,6 +87,7 @@ def make_log_folder(log_path, make_parent_folder = True):
 # .....................................................................................................................
 # .....................................................................................................................
 
+
 # ---------------------------------------------------------------------------------------------------------------------
 #%% General pathing functions
 
@@ -108,21 +111,49 @@ def build_post_db_log_path(cameras_folder_path, camera_select, *path_joins):
 
 # .....................................................................................................................
     
-def build_pid_folder_path(cameras_folder_path, camera_select, *path_joins):
-    ''' Build pathing to the folder used to store PID information for running processes '''
-    return build_system_log_path(cameras_folder_path, camera_select, "pid", *path_joins)
+def build_state_file_path(cameras_folder_path, camera_select):
+    ''' Build pathing to the file used to store state information for running processes '''
+    return build_system_log_path(cameras_folder_path, camera_select, "state", "state.json")
 
 # .....................................................................................................................
 
-def build_stdout_log_path(cameras_folder_path, camera_select, *path_joins):
-    ''' Build pathing to the folder used to store stdout logs for running cameras '''
-    return build_system_log_path(cameras_folder_path, camera_select, "stdout", *path_joins)
+def build_stdout_log_file_path(cameras_folder_path, camera_select):
+    
+    ''' Build pathing to a file used to store stdout log for a running camera '''
+    
+    # Get the current date, used to organize logs (by calling time)
+    current_date_str = get_filesafe_date()
+    
+    # Get pathing to where we'll want to put the log file
+    log_folder_path =  build_system_log_path(cameras_folder_path, camera_select, "stdout", current_date_str)
+    make_log_folder(log_folder_path, make_parent_folder = False)
+    
+    # Decide the file name and build the final path
+    num_files = len(os.listdir(log_folder_path))
+    new_log_name = "out_{}.log".format(1 + num_files)
+    log_file_path = os.path.join(log_folder_path, new_log_name)
+    
+    return log_file_path
 
 # .....................................................................................................................
 
-def build_stderr_log_path(cameras_folder_path, camera_select, *path_joins):
-    ''' Build pathing to the folder used to store stderr logs for running cameras '''
-    return build_system_log_path(cameras_folder_path, camera_select, "stderr", *path_joins)
+def build_stderr_log_file_path(cameras_folder_path, camera_select):
+    
+    ''' Build pathing to the file used to store stderr logs for a running camera '''
+    
+    # Get the current date, used to organize logs (by calling time)
+    current_date_str = get_filesafe_date()
+    
+    # Get pathing to where we'll want to put the log file
+    log_folder_path =  build_system_log_path(cameras_folder_path, camera_select, "stderr", current_date_str)
+    make_log_folder(log_folder_path, make_parent_folder = False)
+    
+    # Decide the file name and build the final path
+    num_files = len(os.listdir(log_folder_path))
+    new_log_name = "out_{}.log".format(1 + num_files)
+    log_file_path = os.path.join(log_folder_path, new_log_name)
+    
+    return log_file_path
 
 # .....................................................................................................................
 

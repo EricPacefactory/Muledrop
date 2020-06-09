@@ -49,7 +49,6 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
-import signal
 import requests
 import ujson
 
@@ -60,6 +59,7 @@ from random import random as unit_random
 from local.lib.common.timekeeper_utils import get_human_readable_timestamp, get_local_datetime
 from local.lib.common.environment import get_dbserver_protocol, get_dbserver_host, get_dbserver_port
 from local.lib.common.environment import get_autopost_on_startup, get_autopost_period_mins
+from local.lib.common.exceptions import OS_Close, register_signal_quit
 
 from local.lib.ui_utils.cli_selections import Resource_Selector
 from local.lib.ui_utils.script_arguments import script_arg_builder
@@ -254,7 +254,7 @@ def bundle_metadata(metadata_file_paths):
             # Empty/incorrectly saved files raise value errors
             error_message_list.append("Metadata loading error:\n{}\n{}".format(each_metadata_path, "Bad json data"))
             
-        except Exception as err:
+        except (AttributeError, TypeError) as err:
             # In case something unexpected happens, try to log some info
             error_message_list.append("Metadata loading error:\n{}\n{}".format(each_metadata_path, str(err)))
     
@@ -328,7 +328,7 @@ def single_post_image(image_post_url, image_path, post_kwargs):
         # Occurs when attempt to connect to the server fails
         pass
     
-    except Exception:
+    except (AttributeError, ValueError, TypeError):
         pass
     
     return bad_url, posted_successfully, image_already_exists
@@ -749,7 +749,7 @@ def scheduled_post(server_url, cameras_folder_path, camera_select, log_to_file =
         return
     
     # Register signal handler to catch termination events & exit gracefully
-    signal.signal(signal.SIGTERM, sigterm_quit)
+    register_signal_quit()
     
     # Create logger to handle saving feedback (or printing to terminal)
     logger = create_logger(cameras_folder_path, camera_select, enabled = log_to_file)
@@ -774,7 +774,7 @@ def scheduled_post(server_url, cameras_folder_path, camera_select, log_to_file =
             sleep_time_sec = calculate_sleep_delay_sec()
             sleep(sleep_time_sec)
         
-    except SystemExit:
+    except OS_Close:
         
         # Catch SIGTERM signals, in case this is running as parallel process that may be terminated
         response_list = build_response_string_list(server_url, "Kill signal received. Posting has been halted!!")
