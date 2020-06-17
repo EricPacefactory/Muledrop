@@ -134,6 +134,28 @@ def check_missing_main_selections(camera_select, user_select, video_select, erro
     return is_missing
 
 # .....................................................................................................................
+
+def print_run_info(start_timestamp_str, saving_enabled, threaded_saving_enabled):
+    
+    ''' Simple helper function for printing info on startup when launching run file/rtsp '''
+    
+    # Set up text for indicating whether data will be saved
+    enable_disable_txt = ("enabled" if saving_enabled else "disabled")
+    
+    # Set up text for indicating whether saving is threaded or not
+    enable_thread_save_txt = ""
+    if saving_enabled:
+        threading_indicator = "threaded" if threaded_saving_enabled else "nothread"
+        enable_thread_save_txt = " ({})".format(threading_indicator)
+    
+    # Some simple feedback
+    print("",
+          "{}  |  Saving {}{}".format(start_timestamp_str, enable_disable_txt, enable_thread_save_txt),
+          sep = "\n")
+    
+    return    
+
+# .....................................................................................................................
 # .....................................................................................................................
 
 # ---------------------------------------------------------------------------------------------------------------------

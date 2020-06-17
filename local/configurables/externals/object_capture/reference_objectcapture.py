@@ -65,13 +65,13 @@ class Reference_Object_Capture(Externals_Configurable_Base):
     
     # .................................................................................................................
     
-    def __init__(self, cameras_folder_path, camera_select, user_select, video_select, video_wh, 
+    def __init__(self, cameras_folder_path, camera_select, user_select, video_wh,
                  enable_preprocessor_unwarp, unwarp_function,
                  *, file_dunder):
         
         # Inherit from base class
-        super().__init__(cameras_folder_path, camera_select, user_select, 
-                         video_select, video_wh, file_dunder = file_dunder)
+        super().__init__("object_capture",
+                         cameras_folder_path, camera_select, user_select, video_wh, file_dunder = file_dunder)
         
         # Store object saving config
         self.report_saving_enabled = None

@@ -62,8 +62,8 @@ def build_externals_folder_path(cameras_folder_path, camera_select, user_select,
 
 # .....................................................................................................................
 
-def build_externals_logging_folder_path(cameras_folder_path, camera_select, component_name):
-    return build_configurables_log_path(cameras_folder_path, camera_select, "externals", component_name)
+def build_externals_logging_folder_path(cameras_folder_path, camera_select, instance_type):
+    return build_configurables_log_path(cameras_folder_path, camera_select, "externals", instance_type)
 
 # .....................................................................................................................
 # .....................................................................................................................

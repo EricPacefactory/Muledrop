@@ -311,7 +311,7 @@ class Core_Bundle:
         # Load the given core object
         import_dot_path = configurable_dot_path("core", stage_name, script_name)
         Imported_Core_Class = dynamic_import_from_module(import_dot_path, class_name)
-        core_ref = Imported_Core_Class(input_wh)
+        core_ref = Imported_Core_Class(self.cameras_folder_path, self.camera_select, self.user_select, input_wh)
         
         # For debugging
         #print("IMPORTING:", stage_name)

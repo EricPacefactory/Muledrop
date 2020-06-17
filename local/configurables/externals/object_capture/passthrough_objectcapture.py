@@ -59,11 +59,11 @@ class Object_Capture(Reference_Object_Capture):
     
     # .................................................................................................................
     
-    def __init__(self, cameras_folder_path, camera_select, user_select, video_select, video_wh,
+    def __init__(self, cameras_folder_path, camera_select, user_select, video_wh,
                  enable_preprocessor_unwarp, unwarp_function):
         
         # Inherit from base class
-        super().__init__(cameras_folder_path, camera_select, user_select, video_select, video_wh, 
+        super().__init__(cameras_folder_path, camera_select, user_select, video_wh,
                          enable_preprocessor_unwarp, unwarp_function,
                          file_dunder = __file__)
         

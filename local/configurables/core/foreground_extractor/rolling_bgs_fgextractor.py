@@ -69,10 +69,10 @@ class FG_Extractor_Stage(Reference_FG_Extractor):
     
     # .................................................................................................................
     
-    def __init__(self, input_wh):
+    def __init__(self, cameras_folder_path, camera_select, user_select, input_wh):
         
         # Inherit reference functionality
-        super().__init__(input_wh, file_dunder = __file__)
+        super().__init__(cameras_folder_path, camera_select, user_select, input_wh, file_dunder = __file__)
         
         # Allocate storage for timer user to update rolling background
         self._rbg_timer = Periodic_Polled_Timer()
@@ -312,7 +312,7 @@ class FG_Extractor_Stage(Reference_FG_Extractor):
         self.ctrl_spec.attach_slider(
                 "capture_period_sec", 
                 label = "Capture Period", 
-                default_value = 5,
+                default_value = 3,
                 min_value = 1,
                 max_value = 300,
                 return_type = int,

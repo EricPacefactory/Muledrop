@@ -66,9 +66,11 @@ class Reference_Tracker(Core_Configurable_Base):
     
     # .................................................................................................................
     
-    def __init__(self, input_wh, file_dunder):
+    def __init__(self, cameras_folder_path, camera_select, user_select, input_wh, *, file_dunder):
         
-        super().__init__(input_wh, file_dunder = file_dunder)
+        # Inherit from parent class
+        super().__init__("tracker", 
+                         cameras_folder_path, camera_select, user_select, input_wh, file_dunder = file_dunder)
         
         # Allocate storage for tracked objects
         self._tracked_object_dict = {}
@@ -86,11 +88,9 @@ class Reference_Tracker(Core_Configurable_Base):
         Reference_Trackable_Object.set_frame_wh(*input_wh)
         
         # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        #   Inherited classes must have __init__(input_wh) as arguments!
-        # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         
         # For inherited classes, first call:
-        # super().__init__(input_wh, file_dunder = __file__)
+        # super().__init__(cameras_folder_path, camera_select, user_select, input_wh, file_dunder = __file__)
         
         # Then do any class-specific set up
         # ...

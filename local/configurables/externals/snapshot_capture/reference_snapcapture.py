@@ -61,11 +61,11 @@ class Reference_Snapshot_Capture(Externals_Configurable_Base):
     
     # .................................................................................................................
     
-    def __init__(self, cameras_folder_path, camera_select, user_select, video_select, video_wh, *, file_dunder):
+    def __init__(self, cameras_folder_path, camera_select, user_select, video_wh, *, file_dunder):
         
         # Inherit from base class
-        super().__init__(cameras_folder_path, camera_select, user_select, video_select, video_wh, 
-                         file_dunder = file_dunder)
+        super().__init__("snapshot_capture",
+                         cameras_folder_path, camera_select, user_select, video_wh, file_dunder = file_dunder)
         
         # Store snapshotting config
         self.report_saving_enabled = None

@@ -58,10 +58,10 @@ class Tracker_Stage(Reference_Tracker):
     
     # .................................................................................................................
     
-    def __init__(self, input_wh):
+    def __init__(self, cameras_folder_path, camera_select, user_select, input_wh):
         
         # Inherit reference functionality
-        super().__init__(input_wh, file_dunder = __file__)
+        super().__init__(cameras_folder_path, camera_select, user_select, input_wh, file_dunder = __file__)
         
     # .................................................................................................................
     

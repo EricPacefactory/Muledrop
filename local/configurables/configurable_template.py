@@ -68,30 +68,46 @@ class Configurable_Base:
     
     # .................................................................................................................
     
-    def __init__(self, *, file_dunder, target_parent_folder = None, target_grandparent_folder = None):
+    def __init__(self, configurable_group_type, configurable_instance_type,
+                 cameras_folder_path, camera_select, user_select,
+                 *, file_dunder):
         
-        # Extract info about the configurable based on it's file pathing
-        self.script_name = os.path.basename(file_dunder)
-        self.parent_folder = os.path.basename(os.path.dirname(file_dunder))
-        self.grandparent_folder = os.path.basename(os.path.dirname(os.path.dirname(file_dunder)))
+        '''
+        Base class used to build all configurables! Should not be used directly, only inherited.
         
-        # Raise an error if we weren't passed the right parent folder pathing
-        if (target_parent_folder is not None) and (target_parent_folder != self.parent_folder):
-            print("", "Mismatched parent folders!",
-                  "        Got: {}".format(self.parent_folder),
-                  "  Expecting: {}".format(target_parent_folder), 
-                  "", "", sep="\n")
-            raise AttributeError("Error in configurable parent folder! ({})".format(self.script_name))  
+        Inputs:
             
-        # Raise an error if we weren't passed the right grandparent (parent-of-parent) folder pathing
-        if (target_grandparent_folder is not None) and (target_grandparent_folder != self.grandparent_folder):
-            print("", "Mismatched grandparent folders!",
-                  "        Got: {}".format(self.grandparent_folder),
-                  "  Expecting: {}".format(target_grandparent_folder), 
-                  "", "", sep="\n")
-            raise AttributeError("Error in configurable grandparent folder! ({})".format(self.script_name))
+            configurable_group_type -> (String) The name of the type of configurable. For example, whether this is
+                                       a 'core' configurable or an 'external' or something else. This value should
+                                       be set once in a sub-class that handles all instances belonging to the group!
+            
+            configurable_instance_type -> (String) The name of the specific type within a group. For example, in
+                                          the 'core' group, there is a 'preprocessor' instance type. This value
+                                          should be set once in a sub-class that acts as the reference implementation
+                                          for all instances belonging to the given type
+            
+            cameras_folder_path -> (String) The pathing to the folder containing all camera folders
+                                   for a given location
+            
+            camera_select -> (String) The name of the selected camera
+            
+            user_select -> (String) The name of the selected user
+            
+            file_dunder -> (String) Should be entered as '__file__' from the final class implementation of the
+                           configurable. That is, from a class that isn't inherited by anything else.
+        '''
         
-        # Storage for timing info
+        # Store identifying info
+        self.group_type = configurable_group_type
+        self.instance_type = configurable_instance_type
+        self.script_name = os.path.basename(file_dunder)
+        
+        # Store selection info
+        self.cameras_folder_path = cameras_folder_path
+        self.camera_select = camera_select
+        self.user_select = user_select
+        
+        # Allocate storage for timing info
         self.current_frame_index = None
         self.current_epoch_ms = None
         self.current_datetime = None
@@ -100,7 +116,7 @@ class Configurable_Base:
         self.configure_mode = False
         self.ctrl_spec = Controls_Specification()
         
-        # Allocate storage for possible logger object
+        # Allocate storage for logger object
         self._logger = None
     
     # .................................................................................................................
@@ -144,6 +160,21 @@ class Configurable_Base:
             repr_strings = ["No repr"]
         
         return "\n".join(["{} ({}):".format(self.__class__.__name__, self.script_name)] + repr_strings)
+    
+    # .................................................................................................................
+    
+    # SHOULDN'T OVERRIDE
+    def _setup_logger(self, log_path, log_files_to_keep = 3):
+        
+        ''' Helper function for setting up logging on configurables '''
+        
+        is_enabled = (not self.configure_mode)
+        self._logger = Daily_Logger(log_path,
+                                    log_files_to_keep = log_files_to_keep,
+                                    enabled = is_enabled,
+                                    print_when_disabled = True)
+        
+        return
     
     # .................................................................................................................
     
@@ -312,7 +343,7 @@ class Configurable_Base:
             if missing_attribute:
                 print("", 
                       "!" * 56,
-                      "WARNING: {} ({})".format(self.component_name.capitalize(), self.script_name),
+                      "WARNING: {} ({})".format(self.instance_type.capitalize(), self.script_name),
                       "  Skipping unrecognized variable name: {}".format(each_variable_name),
                       "  This configuration is likely out of date or has an error!",
                       "!" * 56,
@@ -344,7 +375,7 @@ class Configurable_Base:
             if missing_attribute:
                 print("", 
                   "!" * 56,
-                  "WARNING: {} ({})".format(self.component_name.capitalize(), self.script_name),
+                  "WARNING: {} ({})".format(self.instance_type.capitalize(), self.script_name),
                   "  Couldn't find variable name: {}".format(each_variable_name),
                   "!" * 56,
                   "", sep="\n")
@@ -372,40 +403,69 @@ class Core_Configurable_Base(Configurable_Base):
     
     # .................................................................................................................
     
-    def __init__(self, input_wh, *, file_dunder):
+    def __init__(self, configurable_instance_type, cameras_folder_path, camera_select, user_select, 
+                 input_wh, *, file_dunder):
+        
+        '''
+        Class which serves as a base class for all core-system (i.e. detection/tracking) configurables
+        All core stage implementations should inherit from this class as a starting point.
+        
+        Inputs:
+            configurable_instance_type -> (String) The name of the specific type/stage name of the class
+                                          For example: 'preprocessor', 'tracker' etc.
+                                          This should be set by the reference implementation of the stage
+            
+            cameras_folder_path, camera_select, user_select -> (Strings) Selection args.
+            
+            input_wh -> (Tuple) Stores the frame dimensions of incoming image data to a given stage.
+            
+            file_dunder -> (String) Should be entered as '__file__' from the final class implementation of the
+                           configurable. That is, from a class that isn't inherited by anything else.
+        '''
         
         # Inherit from base class
-        super().__init__(file_dunder = file_dunder,
-                         target_parent_folder = None,
-                         target_grandparent_folder = "core")
-        
-        # Store the component name (e.g. preprocessor, detector, ... etc.) & use it as a save name
-        self.component_name = self.parent_folder
-        self.save_filename = self.component_name + ".json"
+        super().__init__("core", configurable_instance_type,
+                         cameras_folder_path, camera_select, user_select, file_dunder = file_dunder)
         
         # Store in/out sizing info
         self.input_wh = tuple(input_wh)
         self.output_wh = tuple(input_wh)
         
+        # Set up logging
+        log_path = build_core_logging_folder_path(cameras_folder_path, camera_select, self.instance_type)
+        self._setup_logger(log_path, log_files_to_keep = 2)
+        
     # .................................................................................................................
     
     # SHOULD OVERRIDE
     def close(self, final_frame_index, final_epoch_ms, final_datetime):
-        print("  Closing", self.parent_folder, "(should implement a close(...) function!)")
+        
+        '''
+        Function which gets called when the system is shutting down.
+        Should clean up any file access or finalize data that may be saved on shutdown.
+        '''
+        
+        print("  Closing", self.instance_type, "(should implement a close(...) function!)")
+        
+        return
         
     # .................................................................................................................
     
     # MAY OVERRIDE. Don't override the i/o
     def set_output_wh(self):
-        '''        
+        
+        '''
         By default, objects use the same output size as the input
         Some objects (preprocessor + foreground extractor) may need to override this function
         Gets called during setup, after initializing the object
         '''
+        
         try:
             self.output_wh = self.input_wh.copy()
         except AttributeError:
             self.output_wh = self.input_wh
+        
+        return
     
     # .................................................................................................................
     
@@ -440,7 +500,7 @@ class Core_Configurable_Base(Configurable_Base):
     def get_time_info(self):
         
         '''
-        Returns the current time elapsed (seconds) and current datetime
+        Returns the current frame index, the current time elapsed (epoch milliseconds) and current datetime
         '''
         
         return self.current_frame_index, self.current_epoch_ms, self.current_datetime
@@ -456,31 +516,20 @@ class Externals_Configurable_Base(Configurable_Base):
     
     # .................................................................................................................
     
-    def __init__(self, cameras_folder_path, camera_select, user_select, video_select, video_wh,
-                 *, file_dunder):
+    def __init__(self, configurable_instance_type, cameras_folder_path, camera_select, user_select, 
+                 video_wh, *, file_dunder):
         
         # Inherit from base class
-        super().__init__(file_dunder = file_dunder,
-                         target_parent_folder = None,
-                         target_grandparent_folder = "externals")
+        super().__init__("externals", configurable_instance_type,
+                         cameras_folder_path, camera_select, user_select,
+                         file_dunder = file_dunder)
         
-        # Save selection info
-        self.cameras_folder_path = cameras_folder_path
-        self.camera_select = camera_select
-        self.user_select = user_select
-        self.video_select = video_select
+        # Save video sizing info
         self.video_wh = video_wh
         
-        # Store the component name (e.g. preprocessor, detector, ... etc.) & use it as a save name
-        self.component_name = self.parent_folder
-        self.save_filename = self.component_name + ".json"
-        
         # Set up logger
-        log_path = build_externals_logging_folder_path(cameras_folder_path, camera_select, self.component_name)
-        self._logger = Daily_Logger(log_path,
-                                    log_files_to_keep = 2,
-                                    enabled = True,
-                                    print_when_disabled = False)
+        log_path = build_externals_logging_folder_path(cameras_folder_path, camera_select, self.instance_type)
+        self._setup_logger(log_path, log_files_to_keep = 2)
         
     # .................................................................................................................
     # .................................................................................................................
@@ -493,21 +542,12 @@ class After_Database_Configurable_Base(Configurable_Base):
     
     # .................................................................................................................
     
-    def __init__(self, cameras_folder_path, camera_select, user_select, adb_type, *, file_dunder):
+    def __init__(self, configurable_instance_type, cameras_folder_path, camera_select, user_select, *, file_dunder):
         
         # Inherit from base class
-        super().__init__(file_dunder = file_dunder,
-                         target_parent_folder = adb_type,
-                         target_grandparent_folder = None)
-        
-        # Save selection info
-        self.cameras_folder_path = cameras_folder_path
-        self.camera_select = camera_select
-        self.user_select = user_select
-        
-        # Store the component name & use it as a save name
-        self.component_name = self.parent_folder
-        self.save_filename = self.component_name + ".json"
+        super().__init__("after_database", configurable_instance_type,
+                         cameras_folder_path, camera_select, user_select,
+                         file_dunder = file_dunder)
         
     # .................................................................................................................
     

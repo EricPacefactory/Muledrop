@@ -50,7 +50,8 @@ find_path_to_local()
 #%% Imports
 
 from local.lib.common.environment import get_dbserver_protocol, get_dbserver_host, get_dbserver_port
-from local.lib.common.launch_helpers import save_data_prompt, delete_existing_report_data, check_missing_main_selections
+from local.lib.common.launch_helpers import save_data_prompt, delete_existing_report_data
+from local.lib.common.launch_helpers import check_missing_main_selections, print_run_info
 from local.lib.common.feedback import print_time_taken
 
 from local.lib.ui_utils.script_arguments import script_arg_builder, get_selections_from_script_args
@@ -59,8 +60,6 @@ from local.lib.launcher_utils.configuration_loaders import RTSP_Configuration_Lo
 from local.lib.launcher_utils.video_processing_loops import Video_Processing_Loop
 
 from local.online_database.post_to_dbserver import create_parallel_scheduled_post
-
-from local.eolib.utils.quitters import ide_quit
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -175,9 +174,7 @@ parallel_post = create_parallel_scheduled_post(dbserver_url, cameras_folder_path
 #%% *** Main loop ***
 
 # Feedback on launch
-enable_disable_txt = ("enabled" if enable_saving else "disabled")
-enable_thread_save_txt = ("" if not enable_saving else (" ({})".format("threaded" if threaded_save else "nothread")))
-print("", "{}  |  Saving {}{}".format(start_timestamp, enable_disable_txt, enable_thread_save_txt), sep = "\n")
+print_run_info(start_timestamp, enable_saving, threaded_save)
 
 # Most of the work is done here!
 loader.update_state_file("Online", in_standby = False)

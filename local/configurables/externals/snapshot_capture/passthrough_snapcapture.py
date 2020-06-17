@@ -58,11 +58,10 @@ class Snapshot_Capture(Reference_Snapshot_Capture):
     
     # .................................................................................................................
     
-    def __init__(self, cameras_folder_path, camera_select, user_select, video_select, video_wh):
+    def __init__(self, cameras_folder_path, camera_select, user_select, video_wh):
         
         # Inherit from reference snapshot implementation
-        super().__init__(cameras_folder_path, camera_select, user_select, video_select, video_wh, 
-                         file_dunder = __file__)
+        super().__init__(cameras_folder_path, camera_select, user_select, video_wh, file_dunder = __file__)
         
     # .................................................................................................................
     

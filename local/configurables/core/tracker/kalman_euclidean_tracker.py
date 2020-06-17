@@ -56,12 +56,8 @@ from enum import IntEnum
 
 from local.configurables.core.tracker.reference_tracker import Reference_Tracker, Reference_Trackable_Object
 
-from local.configurables.core.tracker.euclidean_tracker import calculate_squared_distance_pairing_matrix
 from local.configurables.core.tracker.euclidean_tracker import pair_objects_to_detections
 
-from local.configurables.core.tracker._helper_functions import naive_object_detection_match
-from local.configurables.core.tracker._helper_functions import greedy_object_detection_match
-from local.configurables.core.tracker._helper_functions import minsum_object_detection_match
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
@@ -71,10 +67,10 @@ class Tracker_Stage(Reference_Tracker):
     
     # .................................................................................................................
     
-    def __init__(self, input_wh):
+    def __init__(self, cameras_folder_path, camera_select, user_select, input_wh):
         
         # Inherit reference functionality
-        super().__init__(input_wh, file_dunder = __file__)
+        super().__init__(cameras_folder_path, camera_select, user_select, input_wh, file_dunder = __file__)
         
         # Allocate storage for helper variables/functions
         self._approximate_zero = 1 / 1000
@@ -566,7 +562,7 @@ class Kalman_Position_Tracker:
         x_cen = (x_r + x_l) * 0.5
         y_cen = (y_t + y_b) * 0.5
         
-        return x_cen, y_cen
+        return np.float32((x_cen, y_cen))
     
     # .................................................................................................................
     
@@ -775,18 +771,18 @@ class Kalman_Trackable_Object(Reference_Trackable_Object):
         
         # Get detection data
         new_track_status = 1
-        new_hull, new_xL, new_xR, new_yT, new_yB = self.get_detection_parameters(detection_object)
+        new_hull_array, new_xL, new_xR, new_yT, new_yB = self.get_detection_parameters(detection_object)
         
         # Run kalman filter & get state estimate
-        est_x_cen, est_y_cen = self._kalman_tracker.update_from_measurements(new_xL, new_xR, new_yT, new_yB)
+        new_xy_cen_array = self._kalman_tracker.update_from_measurements(new_xL, new_xR, new_yT, new_yB)
         
         # Choose hull style
         if self.replace_outlines_with_boxes:
             (x_l, y_t), (x_r, y_b) = self._kalman_tracker.get_tlbr_estimate()
-            new_hull = np.float32(((x_l, y_t), (x_r, y_t), (x_r, y_b), (x_l, y_b)))
+            new_hull_array = np.float32(((x_l, y_t), (x_r, y_t), (x_r, y_b), (x_l, y_b)))
         
         # Directly add new data into object
-        self.verbatim_update(new_hull, est_x_cen, est_y_cen, new_track_status)
+        self.verbatim_update(new_hull_array, new_xy_cen_array, new_track_status)
         
     # .................................................................................................................
         
@@ -798,14 +794,14 @@ class Kalman_Trackable_Object(Reference_Trackable_Object):
         '''
         
         # Use kalman filter to propagate state forward without measurement data
-        est_x_cen, est_y_cen = self._kalman_tracker.update_from_self()
+        new_xy_cen_array = self._kalman_tracker.update_from_self()
         
         # Hard-code non-tracked properties
         new_hull = self.hull_array
         new_track_status = 0
         
         # Directly add 'new' predicted results into object
-        self.verbatim_update(new_hull, est_x_cen, est_y_cen, new_track_status)
+        self.verbatim_update(new_hull, new_xy_cen_array, new_track_status)
     
     # .................................................................................................................
     
@@ -817,10 +813,10 @@ class Kalman_Trackable_Object(Reference_Trackable_Object):
         '''
         
         # Grab parameters out of the detection object
-        new_hull = detection_object.hull_array
+        new_hull_array = detection_object.hull_array
         (x_L, y_T), (x_R, y_B) = detection_object.tl_br
         
-        return new_hull, x_L, x_R, y_T, y_B
+        return new_hull_array, x_L, x_R, y_T, y_B
     
     # .................................................................................................................
     # .................................................................................................................

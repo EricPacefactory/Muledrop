@@ -49,7 +49,8 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
-from local.lib.common.launch_helpers import save_data_prompt, delete_existing_report_data, check_missing_main_selections
+from local.lib.common.launch_helpers import save_data_prompt, delete_existing_report_data
+from local.lib.common.launch_helpers import check_missing_main_selections, print_run_info
 from local.lib.common.feedback import print_time_taken
 
 from local.lib.ui_utils.script_arguments import script_arg_builder, get_selections_from_script_args
@@ -149,9 +150,7 @@ main_process = Video_Processing_Loop(loader, enable_display)
 #%% *** Main loop ***
 
 # Feedback on launch
-enable_disable_txt = ("enabled" if enable_saving else "disabled")
-enable_thread_save_txt = ("" if not enable_saving else (" ({})".format("threaded" if threaded_save else "nothread")))
-print("", "{}  |  Saving {}{}".format(start_timestamp, enable_disable_txt, enable_thread_save_txt), sep = "\n")
+print_run_info(start_timestamp, enable_saving, threaded_save)
 
 # Most of the work is done here!
 total_processing_time_sec = main_process.loop(enable_progress_bar = True)

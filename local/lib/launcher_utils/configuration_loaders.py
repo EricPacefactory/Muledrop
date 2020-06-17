@@ -363,11 +363,11 @@ class File_Configuration_Loader:
     
     def setup_core_bundle(self):
         
-        # Load core bundle
+        # Load core bundle config
         shared_config = self._get_shared_config()
             
         # Set up full core bundle (i.e. all core stages configured)
-        new_core_bundle = Core_Bundle(**shared_config)
+        new_core_bundle = Core_Bundle(**shared_config, video_select = self.video_select)
         new_core_bundle.setup_all()
         
         # Pull out the preprocessor unwarping data and store it
@@ -510,7 +510,6 @@ class File_Configuration_Loader:
         return {"cameras_folder_path": self.cameras_folder_path,
                 "camera_select": self.camera_select,
                 "user_select": self.user_select,
-                "video_select": self.video_select,
                 "video_wh": self.video_wh}
 
     # .................................................................................................................
@@ -852,7 +851,7 @@ class Reconfigurable_Core_Stage_Loader(Reconfigurable_Loader):
         shared_config = self._get_shared_config()
             
         # Set up full core bundle (i.e. all core stages configured)
-        new_core_bundle = Core_Bundle(**shared_config)
+        new_core_bundle = Core_Bundle(**shared_config, video_select = self.video_select)
         new_core_bundle.setup_all(self.override_stage, self.override_script, self.override_class)
         
         # Grab final core stage as a reconfigurable component
