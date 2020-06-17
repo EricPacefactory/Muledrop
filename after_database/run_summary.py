@@ -64,12 +64,13 @@ from local.lib.file_access_utils.summary import load_summary_config, save_summar
 
 from local.offline_database.file_database import launch_file_db, close_dbs_if_missing_data
 
-from local.configurables.configurable_template import configurable_dot_path
+from local.configurables.configurable_template import configurable_dot_path, jsonify_numpy_data
 
 from local.eolib.utils.files import get_total_folder_size
 from local.eolib.utils.function_helpers import dynamic_import_from_module
 from local.eolib.utils.cli_tools import cli_confirm
 from local.eolib.utils.quitters import ide_quit
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define functions
@@ -190,6 +191,10 @@ if saving_enabled:
     save_and_keep = False
     delete_existing_summary_data(enable_deletion, cameras_folder_path, camera_select, user_select, save_and_keep)
 
+    # Make sure folders for each rule exist for saving
+    save_folder_path = build_summary_adb_metadata_report_path(cameras_folder_path, camera_select, user_select)
+    create_missing_folder_path(save_folder_path)
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Run summary
@@ -213,6 +218,7 @@ for each_obj_id in obj_id_list:
     
     # Save results, if needed
     if saving_enabled:
+        summary_data_dict = jsonify_numpy_data(summary_data_dict)
         save_summary_report_data(*pathing_args, each_obj_id, summary_data_dict)
 
     # Provide some progress feedback

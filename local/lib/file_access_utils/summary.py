@@ -84,7 +84,7 @@ def save_summary_report_data(cameras_folder_path, camera_select, user_select, ob
     
     # Bundle data and save
     save_data = new_summary_report_entry(object_full_id, summary_data_dict)
-    save_jsongz_metadata(save_folder_path, save_data)
+    save_jsongz_metadata(save_folder_path, save_data, json_double_precision = 10)
     
 # .....................................................................................................................
     
