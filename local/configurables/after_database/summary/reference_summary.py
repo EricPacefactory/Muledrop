@@ -61,7 +61,7 @@ class Reference_Summary(After_Database_Configurable_Base):
     def __init__(self, cameras_folder_path, camera_select, user_select, *, file_dunder):
         
         # Inherit from base class
-        super().__init__(cameras_folder_path, camera_select, user_select, "summary", file_dunder = file_dunder)
+        super().__init__("summary", cameras_folder_path, camera_select, user_select, file_dunder = file_dunder)
         
     # .................................................................................................................
     

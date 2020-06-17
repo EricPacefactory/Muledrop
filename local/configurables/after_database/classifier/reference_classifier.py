@@ -61,7 +61,7 @@ class Reference_Classifier(After_Database_Configurable_Base):
     def __init__(self, cameras_folder_path, camera_select, user_select, *, file_dunder):
         
         # Inherit from base class
-        super().__init__(cameras_folder_path, camera_select, user_select, "classifier", file_dunder = file_dunder)
+        super().__init__("classifier", cameras_folder_path, camera_select, user_select, file_dunder = file_dunder)
         
     # .................................................................................................................
     
