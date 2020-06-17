@@ -89,19 +89,19 @@ def fast_json_to_dict(json_string_data):
 def encode_json_data(metadata_dict, json_double_precision):
     
     # Encode json data for saving
-    encoded_json_data = ujson.dumps(metadata_dict, sort_keys = False, double_precision = json_double_precision)
+    encd_json_data = ujson.dumps(metadata_dict, sort_keys = False, double_precision = json_double_precision)
     
-    return encoded_json_data
+    return encd_json_data
 
 # .....................................................................................................................
 
 def encode_jsongz_data(metadata_dict, json_double_precision):
     
     # Encode gzipped json data for saving
-    encoded_json_data = encode_json_data(metadata_dict, json_double_precision)
-    encoded_jsongz_data = gzip.compress(bytes(encoded_json_data, "ascii"))
+    encd_json_data = encode_json_data(metadata_dict, json_double_precision)
+    encd_jsongz_data = gzip.compress(bytes(encd_json_data, "ascii"))
     
-    return encoded_jsongz_data
+    return encd_jsongz_data
 
 # .....................................................................................................................
 # .....................................................................................................................
@@ -155,9 +155,9 @@ def save_json_metadata(save_folder_path, metadata_dict, json_double_precision = 
     
     # Get name + data to write
     save_name_no_ext = metadata_dict["_id"]
-    encoded_json = encode_json_data(metadata_dict, json_double_precision)
+    encd_json = encode_json_data(metadata_dict, json_double_precision)
     
-    return write_encoded_json(save_folder_path, save_name_no_ext, encoded_json)
+    return write_encoded_json(save_folder_path, save_name_no_ext, encd_json)
 
 # .....................................................................................................................
 
@@ -171,9 +171,9 @@ def save_jsongz_metadata(save_folder_path, metadata_dict, json_double_precision 
     
     # Get name + data to write
     save_name_no_ext = metadata_dict["_id"]
-    encoded_jsongz = encode_jsongz_data(metadata_dict, json_double_precision)
+    encd_jsongz = encode_jsongz_data(metadata_dict, json_double_precision)
     
-    return write_encoded_jsongz(save_folder_path, save_name_no_ext, encoded_jsongz)
+    return write_encoded_jsongz(save_folder_path, save_name_no_ext, encd_jsongz)
 
 # .....................................................................................................................
 # .....................................................................................................................
