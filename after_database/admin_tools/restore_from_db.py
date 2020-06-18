@@ -218,7 +218,7 @@ def create_new_camera_entry(selector, camera_select):
         return
     
     # If the camera doesn't exist, create a blank folder structure for it (so other tools can read it properly)
-    project_root_path, cameras_folder_path = selector.get_project_pathing()
+    project_root_path, cameras_folder_path = selector.get_cameras_root_pathing()
     create_camera_folder_structure(project_root_path, cameras_folder_path, camera_select)
 
 # .....................................................................................................................
@@ -485,7 +485,7 @@ def save_snapshot_images(server_url, cameras_folder_path, camera_select, user_se
 
 # Create selector to handle camera selection & project pathing
 selector = Resource_Selector()
-project_root_path, cameras_folder_path = selector.get_project_pathing()
+project_root_path, cameras_folder_path = selector.get_cameras_root_pathing()
 user_select = "live"
 
 

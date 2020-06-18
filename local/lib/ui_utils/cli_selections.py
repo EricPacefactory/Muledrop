@@ -96,10 +96,15 @@ class Resource_Selector:
         if self._need_to_create_folder_structure: repr_strs += ["  *** Creating folder structures on selection"]
         
         return "\n".join(repr_strs)
+    
+    # .................................................................................................................
+    
+    def get_project_root_pathing(self):
+        return self.project_root_path
         
     # .................................................................................................................
         
-    def get_project_pathing(self):        
+    def get_cameras_root_pathing(self):        
         return self.project_root_path, self.cameras_folder_path
     
     # .................................................................................................................

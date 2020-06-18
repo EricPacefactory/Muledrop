@@ -58,7 +58,6 @@ from sklearn.model_selection import train_test_split
 
 from local.lib.ui_utils.cli_selections import Resource_Selector
 
-
 from local.configurables.after_database.classifier.decisiontree_classifier import Classifier_Stage
 from local.configurables.after_database.classifier.decisiontree_classifier import save_classifier_resources
 from local.configurables.after_database.classifier.decisiontree_classifier import load_classifier_resources
@@ -219,7 +218,7 @@ enable_debug_mode = False
 
 # Create selector so we can access existing report data
 selector = Resource_Selector()
-project_root_path, cameras_folder_path = selector.get_project_pathing()
+project_root_path, cameras_folder_path = selector.get_cameras_root_pathing()
 
 # Select the camera/user to show data for (needs to have saved report data already!)
 camera_select, camera_path = selector.camera(debug_mode=enable_debug_mode)

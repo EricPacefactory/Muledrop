@@ -265,7 +265,7 @@ enable_debug_mode = False
 
 # Create selector so we can access existing report data
 selector = Resource_Selector()
-project_root_path, cameras_folder_path = selector.get_project_pathing()
+project_root_path, cameras_folder_path = selector.get_cameras_root_pathing()
 
 # Select the camera/user to show data for (needs to have saved report data already!)
 camera_select, camera_path = selector.camera(debug_mode=enable_debug_mode)

@@ -85,9 +85,8 @@ class Classifier_Stage(Reference_Classifier):
     def classify_one_object(self, object_data, snapshot_database):
         
         # Randomly assign scores
-        max_index = self.num_labels - 1
-        random_scores = [randint(0, max_index) for k in range(self.num_labels)]
-        total_score = sum(random_scores)
+        random_scores = [randint(1, 100) for k in range(self.num_labels)]
+        total_score = max(1, sum(random_scores))
         
         # Normalize scores and create a fake topclass dictionary
         norm_scores = [each_score / total_score for each_score in random_scores]

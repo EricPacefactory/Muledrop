@@ -834,6 +834,7 @@ def create_parallel_scheduled_post(server_url, cameras_folder_path, camera_selec
 # .....................................................................................................................
 # .....................................................................................................................
 
+
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Manual run
 
@@ -846,7 +847,7 @@ if __name__ == "__main__":
     
     # Create selector so we can access existing report data
     selector = Resource_Selector()
-    project_root_path, cameras_folder_path = selector.get_project_pathing()
+    project_root_path, cameras_folder_path = selector.get_cameras_root_pathing()
     
     # Prompt to select a camera, if it wasn't already selected through script arguments
     camera_select = arg_camera_select

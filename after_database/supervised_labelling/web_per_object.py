@@ -177,7 +177,7 @@ enable_debug_mode = False
 
 # Create selector so we can access existing report data
 selector = Resource_Selector()
-project_root_path, cameras_folder_path = selector.get_project_pathing()
+project_root_path, cameras_folder_path = selector.get_cameras_root_pathing()
 
 # Select the camera/user to show data for (needs to have saved report data already!)
 camera_select, camera_path = selector.camera(debug_mode=enable_debug_mode)
@@ -234,8 +234,8 @@ sorted_topclass_labels = sorted(list(topclass_colors_dict.keys()))
 # Create server so we can start adding routes
 wsgi_app = Flask(__name__,
                  static_url_path = '', 
-                 static_folder = "perobj_resources/static",
-                 template_folder = "perobj_resources/templates")
+                 static_folder = "per_object_resources/static",
+                 template_folder = "per_object_resources/templates")
 
 # .....................................................................................................................
 

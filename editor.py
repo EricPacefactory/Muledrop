@@ -160,7 +160,8 @@ def run_editor_utility(option_path):
 
 # Get shared pathing
 selector = Resource_Selector()
-project_root_path, cameras_folder_path = selector.get_project_pathing()
+project_root_path = selector.get_project_root_pathing()
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Get pathing info
@@ -175,6 +176,7 @@ if no_editor_folder:
 
 # Get list of all available scripts, in some order
 editor_script_options = get_file_list(editor_utils_folder_path, return_full_path = False, sort_list = True)
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% *** MENU LOOP ***
@@ -199,6 +201,7 @@ while True:
 
 # Some final cleanup feedback
 print("", "{} closed...".format(os.path.basename(__file__)), "", sep="\n")
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Scrap

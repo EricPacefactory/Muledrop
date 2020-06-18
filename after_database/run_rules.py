@@ -190,7 +190,7 @@ enable_debug_mode = False
 
 # Create selector to handle camera selection & project pathing
 selector = Resource_Selector()
-project_root_path, cameras_folder_path = selector.get_project_pathing()
+project_root_path, cameras_folder_path = selector.get_cameras_root_pathing()
 camera_select, camera_path = selector.camera(debug_mode=enable_debug_mode)
 user_select, _ = selector.user(camera_select, debug_mode=enable_debug_mode)
 

@@ -207,7 +207,7 @@ no_camera_select = (arg_camera_select is None)
 
 # Create selector so we can access existing report data
 selector = Resource_Selector()
-project_root_path, cameras_folder_path = selector.get_project_pathing()
+project_root_path, cameras_folder_path = selector.get_cameras_root_pathing()
 camera_name_list = list(selector.get_cameras_tree().keys())
 
 # If a camera arg is provided, load only that camera (if it exists)

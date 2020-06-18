@@ -459,7 +459,7 @@ ENABLE_DISPLAY = ap_result.get("display")
 
 # Create selector so we can access existing report data
 SELECTOR = Resource_Selector()
-PROJECT_ROOT_PATH, CAMERAS_FOLDER_PATH = SELECTOR.get_project_pathing()
+PROJECT_ROOT_PATH, CAMERAS_FOLDER_PATH = SELECTOR.get_cameras_root_pathing()
 
 # Allocate storage for keeping track of subprocess calls
 PROCESS_REF_DICT = {}

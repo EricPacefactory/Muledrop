@@ -71,6 +71,7 @@ from local.configurables.after_database.rules.zoneoccupation_rule import Zoneocc
 from local.eolib.video.text_rendering import simple_text
 from local.eolib.utils.cli_tools import Datetime_Input_Parser as DTIP
 
+
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
 
@@ -300,6 +301,7 @@ def update_histogram_displays(histogram_dict, rule_results_per_class):
 # .....................................................................................................................
 # .....................................................................................................................
 
+
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Make user selections
 
@@ -307,7 +309,7 @@ enable_debug_mode = False
 
 # Create selector so we can access existing report data
 selector = Resource_Selector()
-project_root_path, cameras_folder_path = selector.get_project_pathing()
+project_root_path, cameras_folder_path = selector.get_cameras_root_pathing()
 
 # Select the camera/user to show data for (needs to have saved report data already!)
 camera_select, camera_path = selector.camera(debug_mode=enable_debug_mode)

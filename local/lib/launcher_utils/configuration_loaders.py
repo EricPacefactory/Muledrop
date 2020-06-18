@@ -155,7 +155,7 @@ class File_Configuration_Loader:
         
         # Create selector so we can make camera/user/video selections
         selector = Resource_Selector()
-        self.project_root_path, self.cameras_folder_path = selector.get_project_pathing()
+        self.project_root_path, self.cameras_folder_path = selector.get_cameras_root_pathing()
         
         # Select shared components
         self.camera_select, _ = selector.camera(arg_camera_select)
@@ -543,7 +543,7 @@ class RTSP_Configuration_Loader(File_Configuration_Loader):
         
         # Create selector so we can make camera/user/video selections
         selector = Resource_Selector()
-        self.project_root_path, self.cameras_folder_path = selector.get_project_pathing()
+        self.project_root_path, self.cameras_folder_path = selector.get_cameras_root_pathing()
         
         # Select shared components
         self.camera_select, _ = selector.camera(arg_camera_select, must_have_rtsp = True)
@@ -678,7 +678,7 @@ class Reconfigurable_Loader(File_Configuration_Loader):
         
         # Create selector so we can make camera/user/video selections
         selector = Resource_Selector()
-        self.project_root_path, self.cameras_folder_path = selector.get_project_pathing()
+        self.project_root_path, self.cameras_folder_path = selector.get_cameras_root_pathing()
         
         # Select shared components
         self.camera_select, _ = selector.camera(arg_camera_select)

@@ -135,7 +135,7 @@ def clear_with_status(camera_select, user_select, video_select, stage_select = N
 
 # .....................................................................................................................
 
-def load_externals_info(project_root_path):
+def load_externals_info(project_root_path, cameras_folder_path):
     
     # Get pathing to the configuration utilites
     utility_parent_folder = os.path.join(project_root_path, "configuration_utilities", "externals")
@@ -150,7 +150,7 @@ def load_externals_info(project_root_path):
 
 # .....................................................................................................................
 
-def load_core_info(project_root_path):
+def load_core_info(project_root_path, cameras_folder_path):
     
     # Get pathing to the configuration utilites
     utility_parent_folder = os.path.join(project_root_path, "configuration_utilities", "core")
@@ -388,7 +388,7 @@ arg_enable_externals = arg_selections.get("externals", None)
 
 # Get shared pathing
 selector = Resource_Selector()
-project_root_path, cameras_folder_path = selector.get_project_pathing()
+project_root_path, cameras_folder_path = selector.get_cameras_root_pathing()
 
 # Get camera/user/video selections
 camera_select, camera_path = selector.camera(arg_camera_select)
@@ -399,9 +399,11 @@ video_select, video_path = selector.video(camera_select, arg_video_select)
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Build shared pathing
 
-utility_parent_folder, stage_ordering, configs_folder_path = load_core_info(project_root_path)
+utility_parent_folder, stage_ordering, configs_folder_path = load_core_info(project_root_path, cameras_folder_path)
 if arg_enable_externals:
-    utility_parent_folder, stage_ordering, configs_folder_path = load_externals_info(project_root_path)
+    utility_parent_folder, stage_ordering, configs_folder_path = load_externals_info(project_root_path,
+                                                                                     cameras_folder_path)
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% *** MENU LOOP ***    

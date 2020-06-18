@@ -190,6 +190,8 @@ class Core_Bundle:
         if self.core_ref_dict is not None:
             for each_stage_ref in self.core_ref_dict.values():
                 each_stage_ref.reset()
+        
+        return
 
     # .................................................................................................................
 
@@ -238,6 +240,8 @@ class Core_Bundle:
         if reset_on_startup:
             self.reset_all()
         
+        return
+    
     # .................................................................................................................
     
     def run_all(self, input_frame, read_time_sec, background_image, background_was_updated,
@@ -423,7 +427,7 @@ if __name__ == "__main__":
     camera_select, camera_path = selector.camera()
     user_select, _ = selector.user(camera_select)
     video_select, _ = selector.video(camera_select)
-    project_root_path, cameras_folder_path = selector.get_project_pathing()
+    project_root_path, cameras_folder_path = selector.get_cameras_root_pathing()
     fake_video_wh = (100,100)
     
     cb = Core_Bundle(cameras_folder_path, camera_select, user_select, video_select, fake_video_wh)

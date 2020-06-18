@@ -66,7 +66,7 @@ class Edit_Toggler:
         self.edit = editor_ref
         
         # Store some paths for convenience
-        self.project_root_path, self.cameras_folder_path = self.edit.select.get_project_pathing()
+        self.project_root_path, self.cameras_folder_path = self.edit.select.get_cameras_root_pathing()
     
     # .................................................................................................................
     
