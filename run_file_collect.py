@@ -119,9 +119,9 @@ check_missing_main_selections(arg_camera_select, arg_user_select, arg_video_sele
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Setup
 
-# Make all required selections and setup/configure everything
+# Make all required selections
 loader = File_Configuration_Loader()
-loader.selections(arg_camera_select, arg_user_select, arg_video_select, threaded_video)
+loader.selections(arg_camera_select, arg_user_select, arg_video_select)
 loader.set_script_name(__file__)
 
 # Get shared pathing settings
@@ -138,6 +138,7 @@ if enable_saving:
 # Turn on/off saving & threaded saving
 loader.toggle_saving(enable_saving)
 loader.toggle_threaded_saving(threaded_save)
+loader.toggle_threaded_capture(threaded_video)
 
 # Configure everything!
 start_timestamp = loader.setup_all()

@@ -144,8 +144,12 @@ def create_stacked_ycrcb_image(image_size_px):
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Main
 
-# Make all required selections and setup/configure everything
+# Make all required selections
 loader = Reconfigurable_Core_Stage_Loader("pixel_filter", "ycrcb_pixelfilter", "Pixel_Filter_Stage")
+arg_selections = loader.parse_standard_args()
+loader.selections(*arg_selections)
+
+# Set up video capture, processing stages & playback control
 configurable_ref = loader.setup_all(__file__)
 
 # Set up object to handle all video processing

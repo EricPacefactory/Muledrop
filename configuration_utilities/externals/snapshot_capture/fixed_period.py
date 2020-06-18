@@ -56,6 +56,7 @@ from local.lib.ui_utils.display_specification import Input_Display
 
 from local.configurables.externals.snapshot_capture._helper_functions import Snap_Display, Snap_Stats_Display
 
+
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define displays
 
@@ -63,8 +64,12 @@ from local.configurables.externals.snapshot_capture._helper_functions import Sna
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Main
 
-# Make all required selections and setup/configure everything
+# Make all required selections
 loader = Reconfigurable_Snapshot_Capture_Loader("fixed_period_snapcapture")
+arg_selections = loader.parse_standard_args()
+loader.selections(*arg_selections)
+
+# Set up video capture, processing stages & playback control
 configurable_ref = loader.setup_all(__file__)
 
 # Set up object to handle all video processing

@@ -136,9 +136,9 @@ check_missing_main_selections(arg_camera_select, arg_user_select, hardcode_video
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Setup
 
-# Make all required selections and setup/configure everything
+# Make all required selections
 loader = RTSP_Configuration_Loader()
-loader.selections(arg_camera_select, arg_user_select, hardcode_video_select, hardcode_threaded_video)
+loader.selections(arg_camera_select, arg_user_select, hardcode_video_select)
 loader.set_script_name(__file__)
 
 # Get shared pathing settings
@@ -158,6 +158,7 @@ if enable_saving:
 # Turn on saving if needed and enabled threaded i/o on rtps streams, to avoid blocking
 loader.toggle_saving(enable_saving)
 loader.toggle_threaded_saving(threaded_save)
+loader.toggle_threaded_capture(hardcode_threaded_video)
 
 # Configure everything!
 loader.update_state_file("Initializing")

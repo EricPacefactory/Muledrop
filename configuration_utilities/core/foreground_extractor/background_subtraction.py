@@ -63,8 +63,12 @@ from local.configurables.core.foreground_extractor._helper_functions import Outl
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Main
 
-# Make all required selections and setup/configure everything
+# Make all required selections
 loader = Reconfigurable_Core_Stage_Loader("foreground_extractor", "bgs_fgextractor", "FG_Extractor_Stage")
+arg_selections = loader.parse_standard_args()
+loader.selections(*arg_selections)
+
+# Set up video capture, processing stages & playback control
 configurable_ref = loader.setup_all(__file__)
 
 # Get drawing specification for the given zone variable

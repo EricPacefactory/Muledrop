@@ -49,13 +49,12 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
-import numpy as np
-
 from local.lib.launcher_utils.configuration_loaders import Reconfigurable_Core_Stage_Loader
 from local.lib.launcher_utils.video_processing_loops import Reconfigurable_Video_Loop
 from local.lib.ui_utils.display_specification import Display_Window_Specification
 from local.lib.ui_utils.display_specification import Detection_Display, Filtered_Binary_Display
 from local.lib.ui_utils.display_specification import draw_objects_on_frame
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define displays
@@ -133,8 +132,12 @@ class Custom_Tracking_Display(Display_Window_Specification):
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Main
 
-# Make all required selections and setup/configure everything
+# Make all required selections
 loader = Reconfigurable_Core_Stage_Loader("tracker", "jaccard_tracker", "Tracker_Stage")
+arg_selections = loader.parse_standard_args()
+loader.selections(*arg_selections)
+
+# Set up video capture, processing stages & playback control
 configurable_ref = loader.setup_all(__file__)
 
 # Get drawing specification for the given edge decay variable

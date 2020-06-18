@@ -65,8 +65,12 @@ from local.lib.ui_utils.display_specification import Preprocessed_Display, Binar
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Main
 
-# Make all required selections and setup/configure everything
+# Make all required selections
 loader = Reconfigurable_Core_Stage_Loader("foreground_extractor", "oflow_fgextractor", "FG_Extractor_Stage")
+arg_selections = loader.parse_standard_args()
+loader.selections(*arg_selections)
+
+# Set up video capture, processing stages & playback control
 configurable_ref = loader.setup_all(__file__)
 
 # Set up object to handle all video processing

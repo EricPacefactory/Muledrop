@@ -55,7 +55,8 @@ from local.lib.launcher_utils.video_processing_loops import Background_Capture_V
 from local.lib.ui_utils.display_specification import Input_Display, Background_Display
 
 from local.configurables.externals.background_capture._helper_functions import Stats_Display
-    
+
+
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define displays
 
@@ -77,8 +78,15 @@ class Custom_Stats_Display(Stats_Display):
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Main
 
-# Make all required selections and setup/configure everything
+# Make all required selections
 loader = Reconfigurable_Background_Capture_Loader("averaging_backgroundcapture")
+arg_selections = loader.parse_standard_args()
+loader.selections(*arg_selections)
+
+# Ask to clear resources used for background capture/generation
+loader.ask_to_reset_resources()
+
+# Set up video capture, processing stages & playback control
 configurable_ref = loader.setup_all(__file__)
 
 # Set up object to handle all video processing

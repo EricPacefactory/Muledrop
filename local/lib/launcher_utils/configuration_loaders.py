@@ -151,8 +151,7 @@ class File_Configuration_Loader:
     def selections(self, 
                    arg_camera_select = None,
                    arg_user_select = None,
-                   arg_video_select = None,
-                   threaded_video = False):
+                   arg_video_select = None):
         
         # Create selector so we can make camera/user/video selections
         selector = Resource_Selector()
@@ -162,9 +161,6 @@ class File_Configuration_Loader:
         self.camera_select, _ = selector.camera(arg_camera_select)
         self.user_select, _ = selector.user(self.camera_select, arg_user_select)
         self.video_select, _ = selector.video(self.camera_select, arg_video_select)
-        
-        # Store additional information
-        self.threaded_video_enabled = threaded_video
         
         return self
     
@@ -190,7 +186,16 @@ class File_Configuration_Loader:
         # Warning if toggling after having run setup (toggle won't apply)
         if (self.vreader is not None):
             print("", "WARNING:", "  Threading should be enabled/disabled before running .setup_all()!", sep = "\n")
-      
+    
+    # .................................................................................................................
+    
+    def toggle_threaded_capture(self, enable_threaded_video_capture):        
+        self.threaded_video_enabled = enable_threaded_video_capture
+        
+        # Warning if toggling after having run setup (toggle won't apply)
+        if (self.vreader is not None):
+            print("", "WARNING:", "  Threading should be enabled/disabled before running .setup_all()!", sep = "\n")
+    
     # .................................................................................................................
     
     def save_camera_info(self):
@@ -534,8 +539,7 @@ class RTSP_Configuration_Loader(File_Configuration_Loader):
     def selections(self,
                    arg_camera_select = None,
                    arg_user_select = None,
-                   arg_video_select = "rtsp",
-                   threaded_video = False):
+                   arg_video_select = "rtsp"):
         
         # Create selector so we can make camera/user/video selections
         selector = Resource_Selector()
@@ -545,9 +549,6 @@ class RTSP_Configuration_Loader(File_Configuration_Loader):
         self.camera_select, _ = selector.camera(arg_camera_select, must_have_rtsp = True)
         self.user_select, _ = selector.user(self.camera_select, arg_user_select)
         self.video_select = arg_video_select
-        
-        # Store additional information
-        self.threaded_video_enabled = threaded_video
         
         return self
     
@@ -623,8 +624,7 @@ class Reconfigurable_Loader(File_Configuration_Loader):
     
     # .................................................................................................................
     
-    def __init__(self, override_stage, override_script_name, override_class_name = None,
-                 selections_on_launch = True):
+    def __init__(self, override_stage, override_script_name, override_class_name = None):
         
         # Inherit from parent class
         super().__init__()
@@ -647,11 +647,6 @@ class Reconfigurable_Loader(File_Configuration_Loader):
         # Assume we want to turn off saving when working in a re-configuration mode
         self.saving_enabled = False
         self.threading_enabled = False
-        
-        # Launch into selections, if needed
-        if selections_on_launch:
-            arg_camera_select, arg_user_select, arg_video_select = self.parse_standard_args()
-            self.selections(arg_camera_select, arg_user_select, arg_video_select)
         
     # .................................................................................................................
         
@@ -679,8 +674,7 @@ class Reconfigurable_Loader(File_Configuration_Loader):
     def selections(self,
                    arg_camera_select = None,
                    arg_user_select = None,
-                   arg_video_select = None,
-                   threaded_video = False):
+                   arg_video_select = None):
         
         # Create selector so we can make camera/user/video selections
         selector = Resource_Selector()
@@ -690,9 +684,6 @@ class Reconfigurable_Loader(File_Configuration_Loader):
         self.camera_select, _ = selector.camera(arg_camera_select)
         self.user_select, _ = selector.user(self.camera_select, arg_user_select)
         self.video_select, _ = selector.video(self.camera_select, arg_video_select)
-        
-        # Hard-code out options intended for run-time
-        self.threaded_video_enabled = threaded_video
         
         return self
     
@@ -704,14 +695,14 @@ class Reconfigurable_Loader(File_Configuration_Loader):
         self.setup_video_reader()
         self.setup_resources()
         
-        # Store configuration utility info
-        self.record_configuration_utility(file_dunder)
-        
         # Setup all main processing components
         self.setup_playback_access()
         self.setup_core_bundle()
         self.setup_externals()
         self.get_screen_info()
+        
+        # Store configuration utility info
+        self.record_configuration_utility(file_dunder)
         
         return self.configurable_ref
     
@@ -838,10 +829,10 @@ class Reconfigurable_Core_Stage_Loader(Reconfigurable_Loader):
     
     # .................................................................................................................
     
-    def __init__(self, core_stage, script_name, class_name = None, selections_on_launch = True):
+    def __init__(self, core_stage, script_name, class_name = None):
         
         # Inherit from parent class
-        super().__init__(core_stage, script_name, class_name, selections_on_launch)
+        super().__init__(core_stage, script_name, class_name)
     
     # .................................................................................................................
     
@@ -892,10 +883,10 @@ class Reconfigurable_Snapshot_Capture_Loader(Reconfigurable_Loader):
     
     # .................................................................................................................
     
-    def __init__(self, script_name, class_name = "Snapshot_Capture", selections_on_launch = True):
+    def __init__(self, script_name, class_name = "Snapshot_Capture"):
         
         # Inherit from parent class
-        super().__init__("snapshot_capture", script_name, class_name, selections_on_launch)
+        super().__init__("snapshot_capture", script_name, class_name)
     
     # .................................................................................................................
     
@@ -934,17 +925,14 @@ class Reconfigurable_Background_Capture_Loader(Reconfigurable_Loader):
     
     # .................................................................................................................
     
-    def __init__(self, script_name, class_name = "Background_Capture", selections_on_launch = True):
+    def __init__(self, script_name, class_name = "Background_Capture"):
         
         # Inherit from parent class
-        super().__init__("background_capture", script_name, class_name, selections_on_launch)
+        super().__init__("background_capture", script_name, class_name)
         
         # Will need to turn on saving in order to properly use background capture during config!
         self.toggle_saving(True)
         self.toggle_threaded_saving(False)
-        
-        # Always reset captures
-        reset_capture_folder(self.cameras_folder_path, self.camera_select)
     
     # .................................................................................................................
     
@@ -988,6 +976,9 @@ class Reconfigurable_Background_Capture_Loader(Reconfigurable_Loader):
         This is especially useful in cases where existing background data is used to generate future backgrounds
         '''
         
+        # Always reset captures
+        reset_capture_folder(self.cameras_folder_path, self.camera_select)
+        
         # Make sure user confirms resource reset
         user_confirm_reset = cli_confirm("Reset existing background resources?")
         if user_confirm_reset:
@@ -1007,10 +998,10 @@ class Reconfigurable_Object_Capture_Loader(Reconfigurable_Loader):
     
     # .................................................................................................................
     
-    def __init__(self, script_name, class_name = "Object_Capture", selections_on_launch = True):
+    def __init__(self, script_name, class_name = "Object_Capture"):
         
         # Inherit from parent class
-        super().__init__("object_capture", script_name, class_name, selections_on_launch)
+        super().__init__("object_capture", script_name, class_name)
     
     # .................................................................................................................
     

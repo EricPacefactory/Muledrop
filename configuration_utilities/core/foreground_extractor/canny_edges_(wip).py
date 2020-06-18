@@ -63,8 +63,12 @@ from local.lib.ui_utils.display_specification import Input_Display, Binary_Displ
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Main
 
-# Make all required selections and setup/configure everything
+# Make all required selections
 loader = Reconfigurable_Core_Stage_Loader("foreground_extractor", "cannyedges_fgextractor", "FG_Extractor_Stage")
+arg_selections = loader.parse_standard_args()
+loader.selections(*arg_selections)
+
+# Set up video capture, processing stages & playback control
 configurable_ref = loader.setup_all(__file__)
 
 # Get drawing specification for the given zone variable

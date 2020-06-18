@@ -53,7 +53,8 @@ from local.lib.launcher_utils.configuration_loaders import Reconfigurable_Backgr
 from local.lib.launcher_utils.video_processing_loops import Background_Capture_Video_Loop
 
 from local.lib.ui_utils.display_specification import Input_Display, Background_Display
-    
+
+
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define displays
 
@@ -61,9 +62,15 @@ from local.lib.ui_utils.display_specification import Input_Display, Background_D
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Main
 
-# Make all required selections and setup/configure everything
+# Make all required selections
 loader = Reconfigurable_Background_Capture_Loader("passthrough_backgroundcapture")
+arg_selections = loader.parse_standard_args()
+loader.selections(*arg_selections)
+
+# Ask to clear resources used for background capture/generation
 loader.ask_to_reset_resources()
+
+# Set up video capture, processing stages & playback control
 configurable_ref = loader.setup_all(__file__)
 
 # Set up object to handle all video processing
