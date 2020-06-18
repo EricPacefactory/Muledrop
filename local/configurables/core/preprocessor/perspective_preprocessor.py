@@ -243,7 +243,7 @@ class Preprocessor_Stage(Reference_Preprocessor):
             return cv2.remap(frame, self.x_mapping, self.y_mapping, self.interpolation_type)
         
         except cv2.error as err:
-            self._logger.log("ERROR TRANSFORMING ({})".format(self.script_name))
+            self.log("ERROR TRANSFORMING ({})".format(self.script_name))
             if self.configure_mode:
                 raise err
         

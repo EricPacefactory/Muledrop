@@ -60,6 +60,7 @@ from local.lib.file_access_utils.externals import build_externals_logging_folder
 
 from local.eolib.utils.logging import Daily_Logger
 
+
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
 
@@ -185,6 +186,38 @@ class Configurable_Base:
         ''' Return the name of the class of this object '''
         
         return self.__class__.__name__
+    
+    # .................................................................................................................
+    
+    # SHOULDN'T OVERRIDE
+    def log(self, message, prepend_empty_line = True):
+        
+        # If no logger exists, just print the message
+        if self._logger is None:
+            if prepend_empty_line:
+                print("")
+            print(message)
+            return
+        
+        self._logger.log(message, prepend_empty_line)
+        
+        return
+    
+    # .................................................................................................................
+    
+    # SHOULDN'T OVERRIDE
+    def log_list(self, list_of_messages, prepend_empty_line = True, entry_separator = "\n"):
+        
+        # If no logger exists, just print the message
+        if self._logger is None:
+            if prepend_empty_line:
+                print("")
+            print(*list_of_messages, sep = entry_separator)
+            return
+        
+        self._logger.log_list(list_of_messages, prepend_empty_line, entry_separator)
+        
+        return
     
     # .................................................................................................................
     
@@ -341,13 +374,12 @@ class Configurable_Base:
             # Make sure we're not setting non-existent variables & warn the user about it
             missing_attribute = (not hasattr(self, each_variable_name))
             if missing_attribute:
-                print("", 
-                      "!" * 56,
-                      "WARNING: {} ({})".format(self.instance_type.capitalize(), self.script_name),
-                      "  Skipping unrecognized variable name: {}".format(each_variable_name),
-                      "  This configuration is likely out of date or has an error!",
-                      "!" * 56,
-                      sep="\n")
+                warning_str_list = ["!" * 56,
+                                    "WARNING: {} ({})".format(self.instance_type.capitalize(), self.script_name),
+                                    "  Skipping unrecognized variable name: {}".format(each_variable_name),
+                                    "  This configuration is likely out of date or has an error!",
+                                    "!" * 56]
+                self.log_list(warning_str_list)
                 sleep(2.0)
                 continue
             
@@ -373,12 +405,11 @@ class Configurable_Base:
             # Make sure this object has the given variable name before trying to access it
             missing_attribute = (not hasattr(self, each_variable_name))
             if missing_attribute:
-                print("", 
-                  "!" * 56,
-                  "WARNING: {} ({})".format(self.instance_type.capitalize(), self.script_name),
-                  "  Couldn't find variable name: {}".format(each_variable_name),
-                  "!" * 56,
-                  "", sep="\n")
+                warning_str_list = ["!" * 56,
+                                    "WARNING: {} ({})".format(self.instance_type.capitalize(), self.script_name),
+                                    "  Couldn't find variable name: {}".format(each_variable_name),
+                                    "!" * 56]
+                self.log_list(warning_str_list)
                 sleep(2.0)
                 continue
         

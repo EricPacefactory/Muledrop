@@ -165,7 +165,7 @@ class Reference_FG_Extractor(Core_Configurable_Base):
             return self.process_current_frame(frame.copy())
             
         except cv2.error as err:
-            self._logger.log("ERROR APPLY FG EXTRACTION ({})".format(self.script_name))
+            self.log("ERROR APPLY FG EXTRACTION ({})".format(self.script_name))
             if self.configure_mode:
                 raise err
         

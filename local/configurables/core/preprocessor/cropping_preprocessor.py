@@ -197,7 +197,7 @@ class Preprocessor_Stage(Reference_Preprocessor):
             return frame
         
         except IndexError as err:
-            self._logger.log("INDEXING ERROR ({})".format(self.script_name))
+            self.log("INDEXING ERROR ({})".format(self.script_name))
             if self.configure_mode:
                 raise err
         

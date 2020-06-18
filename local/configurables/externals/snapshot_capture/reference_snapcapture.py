@@ -113,9 +113,9 @@ class Reference_Snapshot_Capture(Externals_Configurable_Base):
         # Make sure file i/o is finished
         print("Closing snapshot capture...", end = "")
         
-        self._logger.log("Closing: Shutting down report data saver...")
+        self.log("Closing: Shutting down report data saver...", prepend_empty_line = False)
         self._report_data_saver.close()
-        self._logger.log("Closing: Report saver closed!")
+        self.log("Closing: Report saver closed!", prepend_empty_line = False)
         
         print(" Done!")
     

@@ -195,7 +195,7 @@ class Pixel_Filter_Stage(Reference_Pixel_Filter):
             return new_binary_frame_1ch
         
         except cv2.error as err:
-            self._logger.log("ERROR FILTERING ({})".format(self.script_name))
+            self.log("ERROR FILTERING ({})".format(self.script_name))
             if self.configure_mode:
                 raise err
             

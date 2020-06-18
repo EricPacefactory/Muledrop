@@ -132,7 +132,7 @@ class Reference_Background_Capture(Externals_Configurable_Base):
         check_for_valid_background(cameras_folder_path, camera_select, *video_wh, print_feedback_on_existing = False)
         if not background_available:
             error_msg = "Can't initialize background capture, no initial background image found!"
-            self._logger.log(error_msg)
+            self.log(error_msg)
             raise FileNotFoundError(error_msg)
         
         # Build pathing to captures/generation folders and make sure they exist
@@ -165,18 +165,18 @@ class Reference_Background_Capture(Externals_Configurable_Base):
         print("Closing background capture...", end="")
         
         # Shutdown threaded savers
-        self._logger.log("Closing: Shutting down report & capture data savers...")
+        self.log("Closing: Shutting down report & capture data savers...", prepend_empty_line = False)
         self._report_data_saver.close()
         self._capture_data_saver.close()
-        self._logger.log("Closing: Report & capture savers closed!")
+        self.log("Closing: Report & capture savers closed!", prepend_empty_line = False)
         
         # Shutdown the parallel background creator, if it exists
         if self._parallel_process is not None:
             wait_seconds = 15
             warn_msg = "Closing: Parallel generation still running. Waiting {} seconds...".format(wait_seconds)
-            self._logger.log(warn_msg)
+            self.log(warn_msg, prepend_empty_line = False)
             self._parallel_process.join(wait_seconds)
-            self._logger.log("Closing: Parallel generation closed!")
+            self.log("Closing: Parallel generation closed!", prepend_empty_line = False)
         
         print(" Done!")
     
@@ -352,7 +352,7 @@ class Reference_Background_Capture(Externals_Configurable_Base):
         # Check if we need to generate a new background frame
         need_new_generate = self._trigger_generate(current_epoch_ms)
         if need_new_generate:
-            self._logger.log("Update: Need to generate a new background!")
+            self.log("Update: Need to generate a new background!")
         
         return background_image, background_was_updated
     
@@ -396,13 +396,13 @@ class Reference_Background_Capture(Externals_Configurable_Base):
         # Set up generator to grab captures that are available. Bail if there aren't any
         num_captures, capture_image_iter = load_background_captures_iter(cameras_folder_path, camera_select)
         if num_captures == 0:
-            self._logger.log("Error: Trying to generate background but no captures available")
+            self.log("Error: Trying to generate background but no captures available")
             return
         
         # Set up generator to grab existing generated images that are available. Bail if there aren't any
         num_generates, generate_image_iter = load_background_generates_iter(cameras_folder_path, camera_select)
         if num_generates == 0:
-            self._logger.log("Error: Trying to generate background but no generates available")
+            self.log("Error: Trying to generate background but no generates available")
             return
         
         t1 = perf_counter()
@@ -417,7 +417,7 @@ class Reference_Background_Capture(Externals_Configurable_Base):
         t2 = perf_counter()
         
         # Log timing
-        self._logger.log("Update: BG Generation took {:.0f} ms".format(1000 * (t2 - t1)))
+        self.log("Update: BG Generation took {:.0f} ms".format(1000 * (t2 - t1)))
         
         # Save the newly generated image, assuming it's valid and of the right shape
         valid_image = (new_background_image is not None)
@@ -480,7 +480,7 @@ class Reference_Background_Capture(Externals_Configurable_Base):
         loaded_background_image = load_newest_generated_background(self.cameras_folder_path, self.camera_select)
         if loaded_background_image is None:
             error_msg = "Error loading background data!"
-            self._logger.log(error_msg)
+            self.log(error_msg)
             raise ValueError(error_msg)
         
         # Make sure the background shape is correct
@@ -491,7 +491,7 @@ class Reference_Background_Capture(Externals_Configurable_Base):
             error_msg_list = ["Loaded background has the wrong dimensions!",
                               "  Required: {} x {}".format(loaded_width, loaded_height),
                               "    Loaded: {} x {}".format(target_width, target_height)]
-            self._logger.log_list(error_msg_list)
+            self.log_list(error_msg_list)
             error_msg = "\n".join(error_msg_list)
             raise AttributeError(error_msg)
         
@@ -529,13 +529,10 @@ class Reference_Background_Capture(Externals_Configurable_Base):
             process_exit_code = self._parallel_process.exitcode
             process_finished_successfully = (process_exit_code == 0)
             if not process_finished_successfully:
-                error_msg_list = ["", 
-                                  "ERROR:",
+                error_msg_list = ["ERROR:",
                                   "Parallel background generation exited with an error!",
-                                  "  Got exit code: {}".format(process_exit_code),
-                                  ""]
-                self._logger.log_list(error_msg_list)
-                print(*error_msg_list, sep = "\n")
+                                  "  Got exit code: {}".format(process_exit_code)]
+                self.log_list(error_msg_list)
                 self._parallel_process.terminate()
             
             # Wait for the process to join, then delete the reference to it
@@ -604,10 +601,10 @@ class Reference_Background_Capture(Externals_Configurable_Base):
         if process_exists:
             needed_to_wait = (self._parallel_process.is_alive())
             if needed_to_wait:
-                self._logger.log_list(["Warning: Blocking execution until parallel process finishes....",
-                                       "--> This only happens if either the background generation is being",
-                                       "    called too often, or if it takes too long. May want to reduce",
-                                       "    background capture/generation frequency"])
+                self.log_list(["Warning: Blocking execution until parallel process finishes....",
+                               "--> This only happens if either the background generation is being",
+                               "    called too often, or if it takes too long. May want to reduce",
+                               "    background capture/generation frequency"])
                 self._parallel_process.join()        
         
         return needed_to_wait
