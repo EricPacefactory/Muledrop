@@ -87,6 +87,8 @@ class Background_Capture(Reference_Background_Capture):
                                            num_generates, generate_image_iter,
                                            target_width, target_height):
         
+        ''' Note this function runs as a parallel process! Need to be careful not to introduce race-conditions '''
+        
         # Passthrough does not generate it's own images, which will force re-use of initial background forever!
         
         return None

@@ -90,6 +90,7 @@ class Object_Capture(Reference_Object_Capture):
         if not self._saved_data:
             self._saved_data = True
             return True
+        
         return False
     
     # .................................................................................................................

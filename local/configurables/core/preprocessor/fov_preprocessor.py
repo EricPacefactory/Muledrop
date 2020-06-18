@@ -232,9 +232,13 @@ class Preprocessor_Stage(Reference_Preprocessor):
         
         try:
             return cv2.remap(frame, self.x_mapping, self.y_mapping, self.interpolation_type)
-        except:
-            print("ERROR TRANSFORMING ({})".format(self.script_name))
-            return frame
+        
+        except cv2.error as err:
+            self._logger.log("ERROR TRANSFORMING ({})".format(self.script_name))
+            if self.configure_mode:
+                raise err
+        
+        return frame
     
     # .................................................................................................................
     

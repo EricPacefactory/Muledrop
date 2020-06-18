@@ -54,6 +54,7 @@ import numpy as np
 
 from local.configurables.core.detector.reference_detector import Reference_Detector, Unclassified_Detection_Object
 
+
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
 
@@ -186,7 +187,7 @@ class Detector_Stage(Reference_Detector):
     
     def detections_from_frames(self, binary_frame_1ch, preprocessed_frame):
         
-        # Use binary (and color if needed) frame data to determine where objects are in the current scene
+        # Use binary frame data to get blobs indicating where objects are in the scene
         contour_list = get_contour_list_ocv_3_or_4(binary_frame_1ch)
         
         # Fill out bounding box list
@@ -213,6 +214,7 @@ class Detector_Stage(Reference_Detector):
     
     # .................................................................................................................
     # .................................................................................................................
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define functions
@@ -277,6 +279,7 @@ def get_contour_list_ocv_3_or_4(binary_frame):
 
 # .....................................................................................................................
 # .....................................................................................................................
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Demo

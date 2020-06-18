@@ -125,7 +125,7 @@ def load_all_valid_captures(capture_image_iter, max_captures_to_load, target_wid
         try:
             # Make sure the captures are the right size before adding them to our stack
             capture_height, capture_width = each_capture_image.shape[0:2]
-        except:
+        except AttributeError:
             continue
         
         # Don't use captures that are incorrectly sized
@@ -155,7 +155,13 @@ def load_newest_image_from_iter(image_iterator):
     try:
         newest_image = next(image_iterator)
         load_succeeded = True
-    except:
+    
+    except TypeError:
+        # Fail case if iterator isn't actually an iterator!
+        pass
+    
+    except StopIteration:
+        # Fail case if iterator has been exhausted
         pass
     
     return load_succeeded, newest_image

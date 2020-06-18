@@ -49,6 +49,8 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
+import cv2
+
 from local.configurables.configurable_template import Core_Configurable_Base
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -132,11 +134,16 @@ class Reference_Preprocessor(Core_Configurable_Base):
     
     # SHOULD OVERRIDE
     def apply_transformation(self, frame):
+        
         try:
             return frame.copy()
-        except:
-            print("PREPROCESSOR: ERROR TRANSFORMING")
-            return frame
+        
+        except cv2.error as err:
+            self._logger.log("ERROR TRANSFORMING ({})".format(self.script_name))
+            if self.configure_mode:
+                raise err
+        
+        return frame
     
     # .................................................................................................................
     

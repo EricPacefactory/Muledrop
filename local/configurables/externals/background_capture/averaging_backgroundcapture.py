@@ -184,6 +184,8 @@ class Background_Capture(Reference_Background_Capture):
                                            num_generates, generate_image_iter,
                                            target_width, target_height):
         
+        ''' Note this function runs as a parallel process! Need to be careful not to introduce race-conditions '''
+        
         # Initialize (bad) output
         new_background_image = None
         
@@ -202,8 +204,10 @@ class Background_Capture(Reference_Background_Capture):
         # Finally, try to create a background image by taking the mean of corresponding pixels along all captures
         try:
             new_background_image = np.uint8(np.round(np.mean(frame_stack, axis = 0)))
+            if np.isnan(new_background_image):
+                new_background_image = None
             
-        except Exception as err:
+        except TypeError as err:
             print("Error generating averaged background!")
             print(err)
         

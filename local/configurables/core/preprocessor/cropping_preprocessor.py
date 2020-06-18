@@ -195,13 +195,14 @@ class Preprocessor_Stage(Reference_Preprocessor):
                 y1, y2, x1, x2 = self._crop_y1y2x1x2
                 return frame[y1:y2, x1:x2]
             return frame
-            
-        except Exception as err:
-            print("ERROR TRANSFORMING ({})".format(self.script_name))
-            print(err)
-            #print(self.output_w, self.output_h, self.interpolation_type)
-            return frame
         
+        except IndexError as err:
+            self._logger.log("INDEXING ERROR ({})".format(self.script_name))
+            if self.configure_mode:
+                raise err
+        
+        return frame
+    
     # .................................................................................................................
     
     def unwarp_required(self):

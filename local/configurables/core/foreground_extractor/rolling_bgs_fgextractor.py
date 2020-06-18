@@ -511,7 +511,8 @@ class FG_Extractor_Stage(Reference_FG_Extractor):
                                                              frame_float32,
                                                              new_weight,
                                                              bias_term)
-        except:
+            
+        except cv2.error:
             # Fails on first run, since we don't have a previous frame to average with!
             self._rolling_bg_frame_float32 = frame_float32
         

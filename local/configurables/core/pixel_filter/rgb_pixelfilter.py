@@ -178,6 +178,7 @@ class Pixel_Filter_Stage(Reference_Pixel_Filter):
     # .................................................................................................................
     
     def apply_pixel_filtering(self, binary_frame_1ch, color_frame):
+        
         try:
             
             # Skip masking if not enabled
@@ -192,10 +193,13 @@ class Pixel_Filter_Stage(Reference_Pixel_Filter):
             new_binary_frame_1ch = cv2.bitwise_and(self.filter_mask, binary_frame_1ch)
             
             return new_binary_frame_1ch
-        except Exception as err:
-            print("PIXEL PROCESSOR: FRAME ERROR".format(self.script_name))
-            print(err)
-            return binary_frame_1ch
+        
+        except cv2.error as err:
+            self._logger.log("ERROR FILTERING ({})".format(self.script_name))
+            if self.configure_mode:
+                raise err
+        
+        return binary_frame_1ch
     
     # .................................................................................................................
     

@@ -49,6 +49,8 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
+import cv2
+
 from local.configurables.configurable_template import Core_Configurable_Base
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -107,12 +109,16 @@ class Reference_Pixel_Filter(Core_Configurable_Base):
     
     # SHOULD OVERRIDE
     def apply_pixel_filtering(self, binary_frame_1ch, color_frame):
+        
         try:
             return binary_frame_1ch
-        except Exception as err:
-            print("PIXEL PROCESSOR: FRAME ERROR".format(self.script_name))
-            print(err)
-            return binary_frame_1ch
+        
+        except cv2.error as err:
+            self._logger.log("ERROR FILTERING ({})".format(self.script_name))
+            if self.configure_mode:
+                raise err
+        
+        return binary_frame_1ch
     
     # .................................................................................................................
     

@@ -223,8 +223,10 @@ class Preprocessor_Stage(Reference_Preprocessor):
         
         try:
             return cv2.remap(frame, self.x_mapping, self.y_mapping, self.interpolation_type)
-        except:
-            print("CIRCLE2SQUARE: ERROR TRANSFORMING")
+        except cv2.error as err:
+            self._logger.log("ERROR TRANSFORMING ({})".format(self.script_name))
+            if self.configure_mode:
+                raise err
             return frame
         
     # .................................................................................................................
@@ -234,13 +236,6 @@ class Preprocessor_Stage(Reference_Preprocessor):
         # Mapping from:
         # http://mathproofs.blogspot.com/2005/07/mapping-square-to-circle.html
         # http://squircular.blogspot.com/2015/09/mapping-circle-to-square.html
-        
-        # Bail if input_wh hasn't been set yet
-        if self.input_wh is None:
-            print("")
-            print("Preprocessor mapping not set since an input width/height isn't available yet!")
-            print("  This is normal on initial setup, but there is a problem if this message is repeating!")
-            return
         
         # Warning if output dimensions weren't set properly
         if self.output_w is None or self.output_h is None:

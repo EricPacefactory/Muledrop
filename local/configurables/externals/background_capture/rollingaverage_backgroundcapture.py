@@ -49,7 +49,7 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
-from cv2 import addWeighted as cv2_add_weighted
+import cv2
 
 from local.configurables.externals.background_capture.reference_backgroundcapture import Reference_Background_Capture
 
@@ -133,6 +133,8 @@ class Background_Capture(Reference_Background_Capture):
                                            num_generates, generate_image_iter,
                                            target_width, target_height):
         
+        ''' Note this function runs as a parallel process! Need to be careful not to introduce race-conditions '''
+        
         # Initialize (bad) output
         new_background_image = None
         
@@ -156,10 +158,10 @@ class Background_Capture(Reference_Background_Capture):
         # Finally, try to average the newest capture and generated image together
         try:
             previous_weighting = 1.0 - self.update_weighting
-            new_background_image = cv2_add_weighted(newest_capture, self.update_weighting,
-                                                    newest_generate, previous_weighting, 0.0)
+            new_background_image = cv2.addWeighted(newest_capture, self.update_weighting,
+                                                   newest_generate, previous_weighting, 0.0)
             
-        except Exception as err:
+        except cv2.error as err:
             print("Error generating rolling average background!")
             print(err)
         

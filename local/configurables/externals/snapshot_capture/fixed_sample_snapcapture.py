@@ -127,10 +127,11 @@ class Snapshot_Capture(Reference_Snapshot_Capture):
     # .................................................................................................................
     
     def reset(self):
-        # No storage, so nothing to reset!
         
+        # Reset counter, so snapshots can continue to run   
         self._frame_counter.reset_counter()
-        pass
+        
+        return
     
     # .................................................................................................................
     

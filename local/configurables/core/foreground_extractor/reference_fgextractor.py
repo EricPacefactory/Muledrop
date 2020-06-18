@@ -49,6 +49,8 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
+import cv2
+
 from local.lib.common.images import blank_frame_from_frame_wh
 
 from local.configurables.configurable_template import Core_Configurable_Base
@@ -162,12 +164,8 @@ class Reference_FG_Extractor(Core_Configurable_Base):
             # Perform all frame processing on each new frame (as a copy, so we don't mess up the original!)
             return self.process_current_frame(frame.copy())
             
-        except Exception as err:
-            # If an error occurs, print it out for debugging
-            print("{}: FRAME ERROR".format(self.script_name))
-            print(err)
-            
-            # If we're inside a config tool, crash with the error, so it's easier to trace
+        except cv2.error as err:
+            self._logger.log("ERROR APPLY FG EXTRACTION ({})".format(self.script_name))
             if self.configure_mode:
                 raise err
         
@@ -203,7 +201,8 @@ class Reference_FG_Extractor(Core_Configurable_Base):
         '''
         
         # Place frame processing here. Should return a single-channel binary image!
-        print("Current frame processed! Calling process_current_frame() @ {}".format(self.script_name))
+        err_msg = "Must implement a 'process_current_frame() function ({})".format(self.script_name)
+        raise NotImplementedError(err_msg)
         
         return self._blank_frame
     
@@ -220,7 +219,8 @@ class Reference_FG_Extractor(Core_Configurable_Base):
         '''
         
         # Place background processing here
-        print("Background updated! Calling update_internal_background_copy() @ {}".format(self.script_name))
+        err_msg = "Must implement a 'update_internal_background_copy() function ({})".format(self.script_name)
+        raise NotImplementedError(err_msg)
         
         return bg_frame
     
