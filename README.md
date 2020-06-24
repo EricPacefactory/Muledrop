@@ -24,11 +24,7 @@ This command should be called from the root project folder (where the requiremen
 
 In order to generate/save reporting data, the system needs to have a camera entry which is used to organize all data coming from a single source/scene. At least one video source should also be associated with the camera entry, so that there is some data to analyze! The video can be a file or an RTSP networked source.
 
-To create new camera entries and assign video files or RTSP networking info, the `editor.py` script should be used, which is found in the root folder of the project.
-
-Upon launching this script, a number of options will be presented. To create a new camera entry, select the `Create` option followed by the `Camera` option, then follow the prompts to enter a name for the camera, select a default configuration and (if desired) associate a video file with the camera. Note that video file selection is handled by either **ranger** or **tkinter** (see requirements section), so it is best to have one of these installed to simplify setup (though a path can be entered directly as well).
-
-RTSP info is also assigned using the `editor.py` script and is found under it's own menu option (i.e. by selecting `Rtsp` as opposed to selecting the `Create` option).
+The `editor.py` script (found in the root folder of the project) can be used to create new camera entries, along with assigning video files or RTSP info to a given camera entry, simple launch the script and follow the prompts.
 
 ## Configuration
 
