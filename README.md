@@ -24,7 +24,7 @@ This command should be called from the root project folder (where the requiremen
 
 In order to generate/save reporting data, the system needs to have a camera entry which is used to organize all data coming from a single source/scene. At least one video source should also be associated with the camera entry, so that there is some data to analyze! The video can be a file or an RTSP networked source.
 
-The `editor.py` script (found in the root folder of the project) can be used to create new camera entries, along with assigning video files or RTSP info to a given camera entry, simple launch the script and follow the prompts.
+The `editor.py` script (found in the root folder of the project) can be used to create new camera entries, along with assigning video files or RTSP info to a given camera entry, simply launch the script and follow the prompts.
 
 ## Configuration
 
