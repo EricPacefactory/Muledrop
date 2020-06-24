@@ -61,13 +61,13 @@ from local.lib.file_access_utils.metadata_read_write import save_json_metadata
 
 # .....................................................................................................................
 
-def build_classifier_config_path(cameras_folder_path, camera_select, user_select, *path_joins):
-    return build_after_database_configs_folder_path(cameras_folder_path, camera_select, user_select, "classifier.json")
+def build_classifier_config_path(cameras_folder_path, camera_select, *path_joins):
+    return build_after_database_configs_folder_path(cameras_folder_path, camera_select, "classifier.json")
 
 # .....................................................................................................................
 
-def build_classifier_adb_metadata_report_path(cameras_folder_path, camera_select, user_select, *path_joins):
-    return build_after_database_report_path(cameras_folder_path, camera_select, user_select, "classifier")
+def build_classifier_adb_metadata_report_path(cameras_folder_path, camera_select, *path_joins):
+    return build_after_database_report_path(cameras_folder_path, camera_select, "classifier")
 
 # .....................................................................................................................
 
@@ -196,9 +196,8 @@ def path_to_configuration_file(configurable_ref):
     # Get major pathing info from the configurable
     cameras_folder_path = configurable_ref.cameras_folder_path
     camera_select = configurable_ref.camera_select
-    user_select = configurable_ref.user_select
     
-    return build_classifier_config_path(cameras_folder_path, camera_select, user_select)
+    return build_classifier_config_path(cameras_folder_path, camera_select)
 
 # .....................................................................................................................
 
@@ -349,14 +348,14 @@ def get_highest_score_label(label_score_dict, default_label = None):
 
 # .....................................................................................................................
     
-def load_classifier_config(cameras_folder_path, camera_select, user_select):
+def load_classifier_config(cameras_folder_path, camera_select):
     
     ''' 
     Function which loads configuration files for a classifier
     '''
     
     # Get path to the config file
-    config_file_path = build_classifier_config_path(cameras_folder_path, camera_select, user_select)
+    config_file_path = build_classifier_config_path(cameras_folder_path, camera_select)
     
     # Load json data and split into file access info & setup configuration data
     config_dict = load_config_json(config_file_path)

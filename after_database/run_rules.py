@@ -91,11 +91,10 @@ def import_rule_class(access_info_dict):
 
 # .....................................................................................................................
 
-def load_all_rules_configured(cameras_folder_path, camera_select, user_select, frame_wh):
+def load_all_rules_configured(cameras_folder_path, camera_select, frame_wh):
     
     # Load all existing rule configurations
-    all_rule_configs_dict = load_all_rule_configs(cameras_folder_path, camera_select, user_select, 
-                                                  target_rule_type = None)
+    all_rule_configs_dict = load_all_rule_configs(cameras_folder_path, camera_select, target_rule_type = None)
     
     rule_refs_dict = {}
     for each_rule_name, each_config_dict in all_rule_configs_dict.items():
@@ -120,7 +119,7 @@ def load_all_rules_configured(cameras_folder_path, camera_select, user_select, f
         
         # If we get here, import the rule and configure it
         Imported_Rule_Class = import_rule_class(access_info_dict)
-        configured_rule = Imported_Rule_Class(cameras_folder_path, camera_select, user_select, frame_wh)
+        configured_rule = Imported_Rule_Class(cameras_folder_path, camera_select, frame_wh)
         configured_rule.reconfigure(setup_data_dict)
         
         # Store the configured rules by name
@@ -130,10 +129,9 @@ def load_all_rules_configured(cameras_folder_path, camera_select, user_select, f
 
 # .....................................................................................................................
 
-def delete_existing_rule_data(enable_deletion_prompt, 
+def delete_existing_rule_data(enable_deletion_prompt,
                               cameras_folder_path,
-                              camera_select, 
-                              user_select, 
+                              camera_select,
                               save_and_keep):
     
     # If prompt is skipped and deletion is disabled, don't do anything
@@ -142,11 +140,11 @@ def delete_existing_rule_data(enable_deletion_prompt,
         return
     
     # Build pathing to rule data
-    rule_metadata_report_folder = build_rule_adb_metadata_report_path(cameras_folder_path, camera_select, user_select)
+    rule_metadata_report_folder = build_rule_adb_metadata_report_path(cameras_folder_path, camera_select)
     create_missing_folder_path(rule_metadata_report_folder)
     
     # Build pathing to rule info data
-    rule_info_report_folder = build_rule_adb_info_report_path(cameras_folder_path, camera_select, user_select)
+    rule_info_report_folder = build_rule_adb_info_report_path(cameras_folder_path, camera_select)
     create_missing_folder_path(rule_info_report_folder)
     
     # Check if data already exists
@@ -192,23 +190,22 @@ enable_debug_mode = False
 selector = Resource_Selector()
 project_root_path, cameras_folder_path = selector.get_cameras_root_pathing()
 camera_select, camera_path = selector.camera(debug_mode=enable_debug_mode)
-user_select, _ = selector.user(camera_select, debug_mode=enable_debug_mode)
 
 # For convenience
-pathing_args = (cameras_folder_path, camera_select, user_select)
+pathing_args = (cameras_folder_path, camera_select)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Catalog existing data
 
 cinfo_db, snap_db, obj_db, class_db, summary_db = \
-launch_file_db(cameras_folder_path, camera_select, user_select,
+launch_file_db(cameras_folder_path, camera_select,
                launch_snapshot_db = True,
                launch_object_db = True,
                launch_classification_db = False,
                launch_summary_db = False)
 
-rinfo_db, rule_dbs_dict = launch_rule_dbs(cameras_folder_path, camera_select, user_select)
+rinfo_db, rule_dbs_dict = launch_rule_dbs(cameras_folder_path, camera_select)
 
 # Catch missing data
 rinfo_db.close()
@@ -237,7 +234,7 @@ if no_object_data:
 #%% Load & configure rules
 
 # Get all configured rules for evaluation
-rule_refs_dict = load_all_rules_configured(cameras_folder_path, camera_select, user_select, frame_wh)
+rule_refs_dict = load_all_rules_configured(cameras_folder_path, camera_select, frame_wh)
 
 # Register rule names with the rule db, so it know about them & where to save results
 rule_names_list = list(rule_refs_dict.keys())
@@ -251,12 +248,11 @@ saving_enabled = cli_confirm("Save results?", default_response = True)
 if saving_enabled:
     enable_deletion = True
     save_and_keep = False
-    delete_existing_rule_data(enable_deletion, cameras_folder_path, camera_select, user_select, save_and_keep)
+    delete_existing_rule_data(enable_deletion, cameras_folder_path, camera_select, save_and_keep)
     
     # Make sure folders for each rule exist for saving
     for each_rule_name in rule_refs_dict.keys():
-        save_folder_path = build_rule_adb_metadata_report_path(cameras_folder_path, camera_select, user_select,
-                                                               each_rule_name)
+        save_folder_path = build_rule_adb_metadata_report_path(cameras_folder_path, camera_select, each_rule_name)
         create_missing_folder_path(save_folder_path)
         
 
@@ -270,7 +266,7 @@ print("", "Running {} rules on {} objects...".format(total_rules, total_objs), s
 t_start = perf_counter()
 
 # Save rule info, if needed
-save_rule_info(cameras_folder_path, camera_select, user_select, rule_refs_dict, saving_enabled)
+save_rule_info(cameras_folder_path, camera_select, rule_refs_dict, saving_enabled)
 
 # Create progress bar for better feedback
 cli_prog_bar = tqdm(total = total_objs, mininterval = 0.5)

@@ -69,16 +69,14 @@ from local.eolib.utils.cli_tools import cli_confirm
 #%% Define functions
 
 # ---------------------------------------------------------------------------------------------------------------------
-#%% Ask user for base selections
+#%% Ask for base selections
 
-# Create selector so we can make camera/user/video selections
+# Create selector so we can make camera/video selections
 selector = Resource_Selector()
-project_root_path = selector.project_root_path
-cameras_folder_path = selector.cameras_folder_path
+project_root_path, cameras_folder_path = selector.get_cameras_root_pathing()
 
 # Select shared components
 camera_select, camera_path = selector.camera()
-user_select, user_path = selector.user(camera_select)
 video_select, video_path = selector.video(camera_select)
 
 
@@ -104,7 +102,6 @@ framerate_estimate = initialize_background_and_framerate_from_file(cameras_folde
 
 externals_config = {"cameras_folder_path": cameras_folder_path,
                     "camera_select": camera_select,
-                    "user_select": user_select,
                     "video_select": video_select,
                     "video_wh": video_wh}
 

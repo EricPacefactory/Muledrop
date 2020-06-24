@@ -212,7 +212,7 @@ def creating_training_arrays(training_data_dict):
 # .....................................................................................................................
 
 # ---------------------------------------------------------------------------------------------------------------------
-#%% Select camera/user
+#%% Make selections
 
 enable_debug_mode = False
 
@@ -220,19 +220,18 @@ enable_debug_mode = False
 selector = Resource_Selector()
 project_root_path, cameras_folder_path = selector.get_cameras_root_pathing()
 
-# Select the camera/user to show data for (needs to have saved report data already!)
+# Select the camera to show data for (needs to have saved report data already!)
 camera_select, camera_path = selector.camera(debug_mode=enable_debug_mode)
-user_select, _ = selector.user(camera_select, debug_mode=enable_debug_mode)
 
 # Bundle pathing args for convenience
-pathing_args = (cameras_folder_path, camera_select, user_select)
+pathing_args = (cameras_folder_path, camera_select)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Check for existing resources
 
 # Check if existing decision tree resources exist
-resources_already_exist = check_for_existing_resources(cameras_folder_path, camera_select)
+resources_already_exist = check_for_existing_resources(*pathing_args)
 
 # Print some feedback about finding resources
 print("",
@@ -253,8 +252,8 @@ if resources_already_exist:
     if selected_entry == use_existing_prompt:
         user_confirm_save = cli_confirm("Save decision tree classifier config?", default_response = False)
         if user_confirm_save:            
-            # Update the classifier config for the selected camera/user
-            classifier_ref = Classifier_Stage(cameras_folder_path, camera_select, user_select)
+            # Update the classifier config for the selected camera
+            classifier_ref = Classifier_Stage(*pathing_args)
             save_classifier_config(classifier_ref, __file__)
         ide_quit("Saved classifier config. Done!" if user_confirm_save else "Save cancelled...")
 
@@ -262,12 +261,11 @@ if resources_already_exist:
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Check for supervised label data
 
-sv_labels_exist = check_supervised_labels_exist(cameras_folder_path, camera_select, user_select)
+sv_labels_exist = check_supervised_labels_exist(*pathing_args)
 if not sv_labels_exist:
     print("", 
           "No supervised labels were found for:",
           "  camera: {}".format(camera_select),
-          "    user: {}".format(user_select),
           "",
           "Cannot train decision tree without labeled data!",
           "  -> Please use the supervised labeling tool to generate labeled data",
@@ -279,7 +277,7 @@ if not sv_labels_exist:
 #%% Catalog existing data
 
 cinfo_db, snap_db, obj_db, class_db, summary_db = \
-launch_file_db(cameras_folder_path, camera_select, user_select,
+launch_file_db(*pathing_args,
                launch_snapshot_db = True,
                launch_object_db = True,
                launch_classification_db = True,
@@ -318,7 +316,7 @@ frame_wh = (frame_width, frame_height)
 #%% Set up the classifier
 
 # Load configurable class for this config utility
-classifier_ref = Classifier_Stage(cameras_folder_path, camera_select, user_select)
+classifier_ref = Classifier_Stage(*pathing_args)
 
 # Load existing config settings, if available
 initial_setup_data_dict = load_matching_config(classifier_ref)

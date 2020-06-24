@@ -52,7 +52,7 @@ find_path_to_local()
 import cv2
 
 from local.configurables.core.pixel_filter.reference_pixelfilter import Reference_Pixel_Filter
-from local.configurables.core.pixel_filter._helper_functions import inRange_with_colorspace
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
@@ -61,10 +61,10 @@ class Pixel_Filter_Stage(Reference_Pixel_Filter):
     
     # .................................................................................................................
     
-    def __init__(self, cameras_folder_path, camera_select, user_select, input_wh):
+    def __init__(self, cameras_folder_path, camera_select, input_wh):
         
         # Inherit reference functionality
-        super().__init__(cameras_folder_path, camera_select, user_select, input_wh, file_dunder = __file__)
+        super().__init__(cameras_folder_path, camera_select, input_wh, file_dunder = __file__)
         
         # Allocate space for derived variables
         self._blur_kernel = None

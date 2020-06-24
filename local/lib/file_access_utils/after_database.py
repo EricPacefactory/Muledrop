@@ -49,15 +49,15 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
-from local.lib.file_access_utils.shared import build_user_folder_path
+from local.lib.file_access_utils.shared import build_config_folder_path
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Pathing functions
 
 # .....................................................................................................................
 
-def build_after_database_configs_folder_path(cameras_folder, camera_select, user_select, *path_joins):
-    return build_user_folder_path(cameras_folder, camera_select, user_select, "after_database", *path_joins)
+def build_after_database_configs_folder_path(cameras_folder, camera_select, *path_joins):
+    return build_config_folder_path(cameras_folder, camera_select, "after_database", *path_joins)
 
 # .....................................................................................................................
 # .....................................................................................................................

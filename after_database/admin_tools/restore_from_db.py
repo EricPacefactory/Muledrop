@@ -253,10 +253,10 @@ def request_caminfo_metadata(server_url, camera_select, start_epoch_ms, end_epoc
 
 # .....................................................................................................................
 
-def save_caminfo_metadata(cameras_folder_path, camera_select, user_select, caminfo_metadata_list):
+def save_caminfo_metadata(cameras_folder_path, camera_select, caminfo_metadata_list):
     
     # Make sure the camera info metadata reporting folder exists
-    base_save_folder = build_camera_info_metadata_report_path(cameras_folder_path, camera_select, user_select)
+    base_save_folder = build_camera_info_metadata_report_path(cameras_folder_path, camera_select)
     create_missing_folder_path(base_save_folder)
     
     # Loop through all the requested metadata and save back into the filesystem
@@ -302,10 +302,10 @@ def request_background_metadata(server_url, camera_select, start_epoch_ms, end_e
 
 # .....................................................................................................................
 
-def save_background_metadata(cameras_folder_path, camera_select, user_select, background_metadata_list):
+def save_background_metadata(cameras_folder_path, camera_select, background_metadata_list):
     
     # Make sure the background metadata reporting folder exists
-    base_save_folder = build_background_metadata_report_path(cameras_folder_path, camera_select, user_select)
+    base_save_folder = build_background_metadata_report_path(cameras_folder_path, camera_select)
     create_missing_folder_path(base_save_folder)
     
     # Loop through all the requested metadata and save back into the filesystem
@@ -317,10 +317,10 @@ def save_background_metadata(cameras_folder_path, camera_select, user_select, ba
 
 # .....................................................................................................................
 
-def save_background_images(server_url, cameras_folder_path, camera_select, user_select, background_metadata_list):
+def save_background_images(server_url, cameras_folder_path, camera_select, background_metadata_list):
     
     # Make sure the image reporting folder exists
-    base_save_folder = build_background_image_report_path(cameras_folder_path, camera_select, user_select)
+    base_save_folder = build_background_image_report_path(cameras_folder_path, camera_select)
     create_missing_folder_path(base_save_folder)
         
     # Loop through all the requested metadata and request + save the correspond images
@@ -379,10 +379,10 @@ def request_object_metadata(server_url, camera_select, start_epoch_ms, end_epoch
 
 # .....................................................................................................................
 
-def save_object_metadata(cameras_folder_path, camera_select, user_select, object_metadata_dict):
+def save_object_metadata(cameras_folder_path, camera_select, object_metadata_dict):
     
     # Make sure the metadata reporting folder exists
-    base_save_folder = build_object_metadata_report_path(cameras_folder_path, camera_select, user_select)
+    base_save_folder = build_object_metadata_report_path(cameras_folder_path, camera_select)
     create_missing_folder_path(base_save_folder)
     
     # Loop through all the requested metadata and save back into the filesystem
@@ -436,10 +436,10 @@ def request_snapshot_metadata(server_url, camera_select, start_epoch_ms, end_epo
 
 # .....................................................................................................................
 
-def save_snapshot_metadata(cameras_folder_path, camera_select, user_select, snapshot_metadata_list):
+def save_snapshot_metadata(cameras_folder_path, camera_select, snapshot_metadata_list):
     
     # Make sure the metadata reporting folder exists
-    base_save_folder = build_snapshot_metadata_report_path(cameras_folder_path, camera_select, user_select)
+    base_save_folder = build_snapshot_metadata_report_path(cameras_folder_path, camera_select)
     create_missing_folder_path(base_save_folder)
     
     # Loop through all the requested metadata and save back into the filesystem
@@ -451,10 +451,10 @@ def save_snapshot_metadata(cameras_folder_path, camera_select, user_select, snap
 
 # .....................................................................................................................
 
-def save_snapshot_images(server_url, cameras_folder_path, camera_select, user_select, snapshot_metadata_list):
+def save_snapshot_images(server_url, cameras_folder_path, camera_select, snapshot_metadata_list):
     
     # Make sure the image reporting folder exists
-    base_save_folder = build_snapshot_image_report_path(cameras_folder_path, camera_select, user_select)
+    base_save_folder = build_snapshot_image_report_path(cameras_folder_path, camera_select)
     create_missing_folder_path(base_save_folder)
         
     # Loop through all the requested metadata and request + save the correspond images
@@ -486,7 +486,6 @@ def save_snapshot_images(server_url, cameras_folder_path, camera_select, user_se
 # Create selector to handle camera selection & project pathing
 selector = Resource_Selector()
 project_root_path, cameras_folder_path = selector.get_cameras_root_pathing()
-user_select = "live"
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -621,7 +620,7 @@ if not user_confirm_download:
 create_new_camera_entry(selector, camera_select)
 
 # Remove existing data, if needed
-delete_existing_report_data(cameras_folder_path, camera_select, user_select, 
+delete_existing_report_data(cameras_folder_path, camera_select,
                             enable_deletion = True, enable_deletion_prompt = True)
 
 
@@ -631,7 +630,7 @@ delete_existing_report_data(cameras_folder_path, camera_select, user_select,
 if caminfo_count > 0:
     
     # Save all camera info metadata (which we already requested earlier)
-    save_caminfo_metadata(cameras_folder_path, camera_select, user_select, many_caminfo_metadata_list)
+    save_caminfo_metadata(cameras_folder_path, camera_select, many_caminfo_metadata_list)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -643,8 +642,8 @@ if background_count > 0:
     many_background_metadata_list = request_background_metadata(server_url, camera_select, start_epoch_ms, end_epoch_ms)
     
     # Save background metadata & request corresponding image data
-    save_background_metadata(cameras_folder_path, camera_select, user_select, many_background_metadata_list)
-    save_background_images(server_url, cameras_folder_path, camera_select, user_select, many_background_metadata_list)
+    save_background_metadata(cameras_folder_path, camera_select, many_background_metadata_list)
+    save_background_images(server_url, cameras_folder_path, camera_select, many_background_metadata_list)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -654,7 +653,7 @@ if object_count > 0:
     
     # Request all object metadata & save it
     many_object_metadata_dict = request_object_metadata(server_url, camera_select, start_epoch_ms, end_epoch_ms)
-    save_object_metadata(cameras_folder_path, camera_select, user_select, many_object_metadata_dict)
+    save_object_metadata(cameras_folder_path, camera_select, many_object_metadata_dict)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -668,8 +667,8 @@ if snapshot_count > 0:
                                                             skip_n_snapshots)
     
     # Save snapshot metadata & request corresponding image data
-    save_snapshot_metadata(cameras_folder_path, camera_select, user_select, many_snapshot_metadata_list)
-    save_snapshot_images(server_url, cameras_folder_path, camera_select, user_select, many_snapshot_metadata_list)
+    save_snapshot_metadata(cameras_folder_path, camera_select, many_snapshot_metadata_list)
+    save_snapshot_images(server_url, cameras_folder_path, camera_select, many_snapshot_metadata_list)
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Clean up

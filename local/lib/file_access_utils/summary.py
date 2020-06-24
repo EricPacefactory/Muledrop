@@ -60,13 +60,13 @@ from local.lib.file_access_utils.metadata_read_write import save_jsongz_metadata
 
 # .....................................................................................................................
 
-def build_summary_config_path(cameras_folder_path, camera_select, user_select, *path_joins):
-    return build_after_database_configs_folder_path(cameras_folder_path, camera_select, user_select, "summary.json")
+def build_summary_config_path(cameras_folder_path, camera_select, *path_joins):
+    return build_after_database_configs_folder_path(cameras_folder_path, camera_select, "summary.json")
 
 # .....................................................................................................................
 
-def build_summary_adb_metadata_report_path(cameras_folder_path, camera_select, user_select, *path_joins):
-    return build_after_database_report_path(cameras_folder_path, camera_select, user_select, "summary")
+def build_summary_adb_metadata_report_path(cameras_folder_path, camera_select, *path_joins):
+    return build_after_database_report_path(cameras_folder_path, camera_select, "summary")
 
 # .....................................................................................................................
 # .....................................................................................................................
@@ -77,10 +77,10 @@ def build_summary_adb_metadata_report_path(cameras_folder_path, camera_select, u
 
 # .....................................................................................................................
 
-def save_summary_report_data(cameras_folder_path, camera_select, user_select, object_full_id, summary_data_dict):
+def save_summary_report_data(cameras_folder_path, camera_select, object_full_id, summary_data_dict):
     
     # Build pathing to save
-    save_folder_path = build_summary_adb_metadata_report_path(cameras_folder_path, camera_select, user_select)
+    save_folder_path = build_summary_adb_metadata_report_path(cameras_folder_path, camera_select)
     
     # Bundle data and save
     save_data = new_summary_report_entry(object_full_id, summary_data_dict)
@@ -96,14 +96,14 @@ def new_summary_report_entry(object_full_id, summary_data_dict):
 
 # .................................................................................................................
     
-def load_summary_config(cameras_folder_path, camera_select, user_select):
+def load_summary_config(cameras_folder_path, camera_select):
     
     ''' 
     Function which loads configuration files for a summary
     '''
     
     # Get path to the config file
-    config_file_path = build_summary_config_path(cameras_folder_path, camera_select, user_select)
+    config_file_path = build_summary_config_path(cameras_folder_path, camera_select)
     
     # Load json data and split into file access info & setup configuration data
     config_dict = load_config_json(config_file_path)

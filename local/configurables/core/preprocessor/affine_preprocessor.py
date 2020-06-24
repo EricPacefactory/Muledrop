@@ -56,6 +56,7 @@ from local.configurables.core.preprocessor.reference_preprocessor import Referen
 
 from local.configurables.core.preprocessor._helper_functions import unwarp_from_mapping
 
+
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
     
@@ -64,10 +65,10 @@ class Preprocessor_Stage(Reference_Preprocessor):
     
     # .................................................................................................................
     
-    def __init__(self, cameras_folder_path, camera_select, user_select, input_wh):
+    def __init__(self, cameras_folder_path, camera_select, input_wh):
         
         # Inherit reference functionality
-        super().__init__(cameras_folder_path, camera_select, user_select, input_wh, file_dunder = __file__)
+        super().__init__(cameras_folder_path, camera_select, input_wh, file_dunder = __file__)
         
         # Allocate storage for global enable
         self._enable_transform = None

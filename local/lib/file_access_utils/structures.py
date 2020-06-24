@@ -49,7 +49,7 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
-from local.lib.file_access_utils.shared import build_camera_path, build_user_folder_path, copy_from_defaults
+from local.lib.file_access_utils.shared import build_camera_path, copy_from_defaults
 from local.lib.file_access_utils.externals import build_externals_folder_path
 from local.lib.file_access_utils.video import get_video_names_and_paths_lists, check_valid_rtsp_ip
 
@@ -58,32 +58,18 @@ from local.eolib.utils.files import get_folder_list, get_file_list
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Folder structures
 
+# .....................................................................................................................
+
 def camera_folder_structure():
     
     structure = {
-                 "report": {},
-                 "users": {},
+                 "report": {"images", "metadata"},
+                 "config": {"after_database", "externals", "core"},
                  "resources": {"videos": {},
                                "backgrounds": {"captures", "generated"},
                                "classifier": {"datasets", "models"}},
                  "logs": {"system", "configurables"}
                  }
-    
-    return structure
-
-# .....................................................................................................................
-    
-def user_folder_structure():
-    
-    structure = {"after_database", "externals", "core"}
-    
-    return structure
-
-# .....................................................................................................................
-    
-def afterdb_folder_structure():
-    
-    structure = {"classifier", "rules", "summary"}
     
     return structure
 
@@ -95,8 +81,7 @@ def afterdb_folder_structure():
     
 # .....................................................................................................................
     
-def create_camera_folder_structure(project_root_path, cameras_folder_path, camera_select,
-                                   default_select = "blank"):
+def create_camera_folder_structure(project_root_path, cameras_folder_path, camera_select, default_select = None):
     
     ''' Function which creates the base camera folder structure with required (default) files, if missing '''
     
@@ -107,33 +92,8 @@ def create_camera_folder_structure(project_root_path, cameras_folder_path, camer
     # Build out the rest of the camera folder structure
     create_folder_structure_from_dictionary(camera_path, camera_folder_structure())
     
-    # Make sure default files are present, including a 'live' user
-    user_select = "live"
-    copy_from_defaults(project_root_path, cameras_folder_path, camera_select, user_select, default_select)
-    
-    # Make sure a 'live' user exists as well
-    create_user_folder_structure(project_root_path, cameras_folder_path, camera_select, user_select, default_select)
-    
-# .....................................................................................................................
-    
-def create_user_folder_structure(project_root_path, cameras_folder_path, camera_select, user_select,
-                                 default_select = "blank"):
-    
-    ''' Function which creates the base user folder structure with default files, if missing'''
-    
-    # Make sure the base user folder is created
-    user_path = build_user_folder_path(cameras_folder_path, camera_select, user_select)
-    os.makedirs(user_path, exist_ok = True)
-    
-    # Build out the rest of the user folder structure
-    create_folder_structure_from_dictionary(user_path, user_folder_structure())
-    
-    # Create after-database folder structure (likely temporary, until full db is up and running!)
-    after_db_path = os.path.join(user_path, "after_database")
-    create_folder_structure_from_dictionary(after_db_path, afterdb_folder_structure())
-    
-    # Make sure the select user default files exist
-    copy_from_defaults(project_root_path, cameras_folder_path, camera_select, user_select, default_select)
+    # Make sure default files are present
+    copy_from_defaults(project_root_path, cameras_folder_path, camera_select, default_select)
 
 # .....................................................................................................................
     
@@ -189,12 +149,12 @@ def create_folder_structure_from_dictionary(base_path, dictionary, make_folders 
 
 # .....................................................................................................................
 
-def build_camera_list(cameras_folder, show_hidden_cameras = False, must_have_rtsp = False):
+def build_camera_list(cameras_folder_path, show_hidden_cameras = False, must_have_rtsp = False):
     
     ''' Function which returns all camera names & corresponding folder paths '''
     
     # Find all the camera folders within the 'cameras' folder
-    camera_path_list = get_folder_list(cameras_folder, 
+    camera_path_list = get_folder_list(cameras_folder_path, 
                                        show_hidden_folders = show_hidden_cameras,
                                        create_missing_folder = False, 
                                        return_full_path = True)
@@ -207,7 +167,7 @@ def build_camera_list(cameras_folder, show_hidden_cameras = False, must_have_rts
         filtered_name_list = []
         filtered_path_list = []
         for each_camera_name, each_camera_path in zip(camera_name_list, camera_path_list):            
-            is_valid_rtsp_ip = check_valid_rtsp_ip(cameras_folder, each_camera_name)
+            is_valid_rtsp_ip = check_valid_rtsp_ip(cameras_folder_path, each_camera_name)
             if is_valid_rtsp_ip:
                 filtered_name_list.append(each_camera_name)
                 filtered_path_list.append(each_camera_path)
@@ -224,31 +184,13 @@ def build_camera_list(cameras_folder, show_hidden_cameras = False, must_have_rts
     return camera_name_list, camera_path_list
 
 # .....................................................................................................................
-
-def build_user_list(cameras_folder, camera_select, show_hidden_users = False):
     
-    ''' Function which returns all user names & corresponding folder paths (for a given camera) '''
-        
-    # Build path to the selected camera and users folder
-    users_folder_path = build_user_folder_path(cameras_folder, camera_select, None)
-    
-    # Find all user folders
-    user_path_list = get_folder_list(users_folder_path, 
-                                     show_hidden_folders = show_hidden_users, 
-                                     create_missing_folder = False,
-                                     return_full_path = True)
-    user_name_list = [os.path.basename(each_path) for each_path in user_path_list]
-    
-    return user_name_list, user_path_list
-
-# .....................................................................................................................
-    
-def build_external_list(cameras_folder, camera_select, user_select, show_hidden_externals = False):
+def build_external_list(cameras_folder_path, camera_select, show_hidden_externals = False):
     
     ''' Function which returns all file names & corresponding paths to externals config files (for a given camera)'''
     
-    # Build path to the selected camera, user folder and externals folder    
-    externals_folder_path = build_externals_folder_path(cameras_folder, camera_select, user_select)
+    # Build path to the selected camera and externals folder    
+    externals_folder_path = build_externals_folder_path(cameras_folder_path, camera_select)
     
     # Find all external files
     externals_path_list = get_file_list(externals_folder_path, 
@@ -266,18 +208,17 @@ def build_external_list(cameras_folder, camera_select, user_select, show_hidden_
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Tree functions
 
-def build_cameras_tree(cameras_folder, show_hidden = False):
+def build_cameras_tree(cameras_folder_path, show_hidden = False):
 
     # Get a list of all the cameras
-    camera_names_list, _ = build_camera_list(cameras_folder, 
+    camera_names_list, _ = build_camera_list(cameras_folder_path, 
                                              show_hidden_cameras = show_hidden)
     
     # Build up a tree structure to store all of the info for all cameras
     cameras_tree = {}
     for each_camera in camera_names_list:
-        cameras_tree[each_camera] = {"users": {}, "videos": {}} 
-        cameras_tree[each_camera]["users"] = _build_user_tree(cameras_folder, each_camera, show_hidden)
-        cameras_tree[each_camera]["videos"] = _build_video_tree(cameras_folder, each_camera, show_hidden)
+        cameras_tree[each_camera] = {"videos": {}} 
+        cameras_tree[each_camera]["videos"] = _build_video_tree(cameras_folder_path, each_camera, show_hidden)
     
     return cameras_tree
 
@@ -305,27 +246,12 @@ def create_missing_folders_from_file(file_path):
     os.makedirs(folder_path, exist_ok = True)
     
     return folder_path
-    
-# .....................................................................................................................
-    
-def _build_user_tree(cameras_folder, camera_select, show_hidden):
-    
-    user_names_list, _ = build_user_list(cameras_folder, camera_select, 
-                                         show_hidden_users = show_hidden)
-    
-    user_tree = {}
-    for each_user in user_names_list:
-        new_user_tree = {"externals": {}}
-        new_user_tree["externals"] = build_external_list(cameras_folder, camera_select, each_user, show_hidden)[0]
-        user_tree[each_user] = new_user_tree
-    
-    return user_tree
 
 # .....................................................................................................................
 
-def _build_video_tree(cameras_folder, camera_select, show_hidden, error_if_no_videos = False):
+def _build_video_tree(cameras_folder_path, camera_select, show_hidden, error_if_no_videos = False):
     
-    video_names_list, video_paths_list = get_video_names_and_paths_lists(cameras_folder,
+    video_names_list, video_paths_list = get_video_names_and_paths_lists(cameras_folder_path,
                                                                          camera_select, 
                                                                          error_if_no_videos)
         

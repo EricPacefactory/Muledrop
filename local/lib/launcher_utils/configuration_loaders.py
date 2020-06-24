@@ -95,7 +95,6 @@ class File_Configuration_Loader:
         self.project_root_path = None
         self.cameras_folder_path = None
         self.camera_select = None
-        self.user_select = None
         self.video_select = None
         
         # Allocate storage for video data
@@ -139,7 +138,6 @@ class File_Configuration_Loader:
         
         repr_strs = [self.__class__.__name__]
         repr_strs += ["     Camera: {}".format(self.camera_select),
-                      "       User: {}".format(self.user_select),
                       "      Video: {}".format(self.video_select),
                       "  Threading: {}".format(self.threading_enabled),
                       "     Saving: {}".format(self.saving_enabled)]
@@ -150,16 +148,14 @@ class File_Configuration_Loader:
     
     def selections(self, 
                    arg_camera_select = None,
-                   arg_user_select = None,
                    arg_video_select = None):
         
-        # Create selector so we can make camera/user/video selections
+        # Create selector so we can make camera/video selections
         selector = Resource_Selector()
         self.project_root_path, self.cameras_folder_path = selector.get_cameras_root_pathing()
         
         # Select shared components
         self.camera_select, _ = selector.camera(arg_camera_select)
-        self.user_select, _ = selector.user(self.camera_select, arg_user_select)
         self.video_select, _ = selector.video(self.camera_select, arg_video_select)
         
         return self
@@ -245,8 +241,7 @@ class File_Configuration_Loader:
         # Build pathing to the camera reporting folder & save
         if self.saving_enabled:
             camera_info_folder_path = build_camera_info_metadata_report_path(self.cameras_folder_path,
-                                                                             self.camera_select,
-                                                                             self.user_select)
+                                                                             self.camera_select)
             create_missing_folder_path(camera_info_folder_path)
             save_jsongz_metadata(camera_info_folder_path, camera_info_dict)
         
@@ -265,10 +260,10 @@ class File_Configuration_Loader:
         Helper function used to get variables commonly needed for pathing
         
         Returns:
-            cameras_folder_path, camera_select, user_select
+            cameras_folder_path, camera_select
         '''
         
-        return self.cameras_folder_path, self.camera_select, self.user_select
+        return self.cameras_folder_path, self.camera_select
         
     # .................................................................................................................
     
@@ -498,7 +493,6 @@ class File_Configuration_Loader:
         load_file_with_ext = "{}.json".format(load_file_name_only)
         path_to_config = build_externals_folder_path(self.cameras_folder_path,
                                                      self.camera_select,
-                                                     self.user_select,
                                                      load_file_with_ext)
         
         # Load json data and split into file access info & setup configuration data
@@ -514,7 +508,6 @@ class File_Configuration_Loader:
         
         return {"cameras_folder_path": self.cameras_folder_path,
                 "camera_select": self.camera_select,
-                "user_select": self.user_select,
                 "video_wh": self.video_wh}
 
     # .................................................................................................................
@@ -538,16 +531,14 @@ class RTSP_Configuration_Loader(File_Configuration_Loader):
     
     def selections(self,
                    arg_camera_select = None,
-                   arg_user_select = None,
                    arg_video_select = "rtsp"):
         
-        # Create selector so we can make camera/user/video selections
+        # Create selector so we can make camera/video selections
         selector = Resource_Selector()
         self.project_root_path, self.cameras_folder_path = selector.get_cameras_root_pathing()
         
         # Select shared components
         self.camera_select, _ = selector.camera(arg_camera_select, must_have_rtsp = True)
-        self.user_select, _ = selector.user(self.camera_select, arg_user_select)
         self.video_select = arg_video_select
         
         return self
@@ -653,7 +644,7 @@ class Reconfigurable_Loader(File_Configuration_Loader):
     def parse_standard_args(self, debug_print = False):
         
         # Set script arguments for reconfigurable scripts
-        args_list = ["camera", "user",  "video"]
+        args_list = ["camera",  "video"]
         
         # Provide some extra information when accessing help text
         script_description = "Reconfigure settings for {} stage".format(self.override_stage.replace("_", " "))
@@ -664,25 +655,23 @@ class Reconfigurable_Loader(File_Configuration_Loader):
                                        parse_on_call = True,
                                        debug_print = debug_print)
         
-        # Split into camera_select, user_select, video_select on return to match selectons input args
-        camera_select, user_select, video_select = get_selections_from_script_args(ap_result)
+        # Split into camera_select, video_select on return to match selectons input args
+        camera_select, video_select = get_selections_from_script_args(ap_result)
         
-        return camera_select, user_select, video_select
+        return camera_select, video_select
     
     # .................................................................................................................
     
     def selections(self,
                    arg_camera_select = None,
-                   arg_user_select = None,
                    arg_video_select = None):
         
-        # Create selector so we can make camera/user/video selections
+        # Create selector so we can make camera/video selections
         selector = Resource_Selector()
         self.project_root_path, self.cameras_folder_path = selector.get_cameras_root_pathing()
         
         # Select shared components
         self.camera_select, _ = selector.camera(arg_camera_select)
-        self.user_select, _ = selector.user(self.camera_select, arg_user_select)
         self.video_select, _ = selector.video(self.camera_select, arg_video_select)
         
         return self

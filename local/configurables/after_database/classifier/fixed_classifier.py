@@ -54,6 +54,7 @@ from local.lib.file_access_utils.classifier import reserved_notrain_label
 
 from local.configurables.after_database.classifier.reference_classifier import Reference_Classifier
 
+
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
 
@@ -61,10 +62,10 @@ class Classifier_Stage(Reference_Classifier):
     
     # .................................................................................................................
     
-    def __init__(self, cameras_folder_path, camera_select, user_select):
+    def __init__(self, cameras_folder_path, camera_select):
         
         # Inherit from base class
-        super().__init__(cameras_folder_path, camera_select, user_select, file_dunder = __file__)
+        super().__init__(cameras_folder_path, camera_select, file_dunder = __file__)
         
         # Get pathing to labels, so we know what fixed labels we can choose from
         reserved_labels_lut = load_reserved_labels_lut(cameras_folder_path, camera_select)

@@ -138,7 +138,7 @@ class Background_Resources_Data_Saver:
 # .....................................................................................................................
 
 def build_base_resources_path(cameras_folder_path, camera_select, *path_joins):
-    ''' Build path to base resources folder for a given camera. Shared for all users! '''
+    ''' Build path to base resources folder for a given camera '''
     return os.path.join(cameras_folder_path, camera_select, "resources", *path_joins)
 
 # .....................................................................................................................

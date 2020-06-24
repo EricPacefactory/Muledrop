@@ -70,7 +70,7 @@ class Configurable_Base:
     # .................................................................................................................
     
     def __init__(self, configurable_group_type, configurable_instance_type,
-                 cameras_folder_path, camera_select, user_select,
+                 cameras_folder_path, camera_select,
                  *, file_dunder):
         
         '''
@@ -92,8 +92,6 @@ class Configurable_Base:
             
             camera_select -> (String) The name of the selected camera
             
-            user_select -> (String) The name of the selected user
-            
             file_dunder -> (String) Should be entered as '__file__' from the final class implementation of the
                            configurable. That is, from a class that isn't inherited by anything else.
         '''
@@ -106,7 +104,6 @@ class Configurable_Base:
         # Store selection info
         self.cameras_folder_path = cameras_folder_path
         self.camera_select = camera_select
-        self.user_select = user_select
         
         # Allocate storage for timing info
         self.current_frame_index = None
@@ -434,7 +431,7 @@ class Core_Configurable_Base(Configurable_Base):
     
     # .................................................................................................................
     
-    def __init__(self, configurable_instance_type, cameras_folder_path, camera_select, user_select, 
+    def __init__(self, configurable_instance_type, cameras_folder_path, camera_select, 
                  input_wh, *, file_dunder):
         
         '''
@@ -446,7 +443,7 @@ class Core_Configurable_Base(Configurable_Base):
                                           For example: 'preprocessor', 'tracker' etc.
                                           This should be set by the reference implementation of the stage
             
-            cameras_folder_path, camera_select, user_select -> (Strings) Selection args.
+            cameras_folder_path, camera_select -> (Strings) Selection args.
             
             input_wh -> (Tuple) Stores the frame dimensions of incoming image data to a given stage.
             
@@ -456,7 +453,7 @@ class Core_Configurable_Base(Configurable_Base):
         
         # Inherit from base class
         super().__init__("core", configurable_instance_type,
-                         cameras_folder_path, camera_select, user_select, file_dunder = file_dunder)
+                         cameras_folder_path, camera_select, file_dunder = file_dunder)
         
         # Store in/out sizing info
         self.input_wh = tuple(input_wh)
@@ -547,12 +544,10 @@ class Externals_Configurable_Base(Configurable_Base):
     
     # .................................................................................................................
     
-    def __init__(self, configurable_instance_type, cameras_folder_path, camera_select, user_select, 
-                 video_wh, *, file_dunder):
+    def __init__(self, configurable_instance_type, cameras_folder_path, camera_select, video_wh, *, file_dunder):
         
         # Inherit from base class
-        super().__init__("externals", configurable_instance_type,
-                         cameras_folder_path, camera_select, user_select,
+        super().__init__("externals", configurable_instance_type, cameras_folder_path, camera_select,
                          file_dunder = file_dunder)
         
         # Save video sizing info
@@ -573,11 +568,10 @@ class After_Database_Configurable_Base(Configurable_Base):
     
     # .................................................................................................................
     
-    def __init__(self, configurable_instance_type, cameras_folder_path, camera_select, user_select, *, file_dunder):
+    def __init__(self, configurable_instance_type, cameras_folder_path, camera_select, *, file_dunder):
         
         # Inherit from base class
-        super().__init__("after_database", configurable_instance_type,
-                         cameras_folder_path, camera_select, user_select,
+        super().__init__("after_database", configurable_instance_type, cameras_folder_path, camera_select,
                          file_dunder = file_dunder)
         
     # .................................................................................................................

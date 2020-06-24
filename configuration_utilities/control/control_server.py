@@ -277,7 +277,7 @@ def remove_configuration_data(cameras_folder_path, camera_select):
     
     ''' 
     Remove major configuration data. Intended for setting up new camera configs.
-    In most cases, this will end up removing the 'users' and 'resources' folders
+    In most cases, this will end up removing the 'resources' folder
     '''
     
     # Get the camera folder & pathing to folders we want to keep

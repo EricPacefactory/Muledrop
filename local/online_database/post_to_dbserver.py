@@ -342,13 +342,13 @@ def single_post_image(image_post_url, image_path, post_kwargs):
 
 # .....................................................................................................................
 
-def post_all_camera_info(server_url, cameras_folder_path, camera_select, user_select):
+def post_all_camera_info(server_url, cameras_folder_path, camera_select):
     
     # For clarity
     collection_name = "camerainfo"
     
     # Build pathing to all report data
-    md_folder_path = build_camera_info_metadata_report_path(cameras_folder_path, camera_select, user_select)
+    md_folder_path = build_camera_info_metadata_report_path(cameras_folder_path, camera_select)
     md_file_paths = get_file_paths_to_post(md_folder_path)
     
     # Bail if there is no data
@@ -372,14 +372,14 @@ def post_all_camera_info(server_url, cameras_folder_path, camera_select, user_se
 
 # .....................................................................................................................
 
-def post_all_background_data(server_url, cameras_folder_path, camera_select, user_select):
+def post_all_background_data(server_url, cameras_folder_path, camera_select):
     
     # For clarity
     collection_name = "backgrounds"
     
     # Build pathing to all report data
-    md_folder_path = build_background_metadata_report_path(cameras_folder_path, camera_select, user_select)
-    img_folder_path = build_background_image_report_path(cameras_folder_path, camera_select, user_select)
+    md_folder_path = build_background_metadata_report_path(cameras_folder_path, camera_select)
+    img_folder_path = build_background_image_report_path(cameras_folder_path, camera_select)
     
     # Get all metadata paths before images so that the metadata will lag the images on the db
     # -> This way, we won't have the 'newest' metadata entries posted without corresponding image data!
@@ -419,13 +419,13 @@ def post_all_background_data(server_url, cameras_folder_path, camera_select, use
 
 # .....................................................................................................................
 
-def post_all_object_data(server_url, cameras_folder_path, camera_select, user_select):
+def post_all_object_data(server_url, cameras_folder_path, camera_select):
     
     # For clarity
     collection_name = "objects"
     
     # Build pathing to all report data
-    md_folder_path = build_object_metadata_report_path(cameras_folder_path, camera_select, user_select)
+    md_folder_path = build_object_metadata_report_path(cameras_folder_path, camera_select)
     md_file_paths = get_file_paths_to_post(md_folder_path)
     
     # Bail if there is no data
@@ -449,14 +449,14 @@ def post_all_object_data(server_url, cameras_folder_path, camera_select, user_se
 
 # .....................................................................................................................
 
-def post_all_snapshot_data(server_url, cameras_folder_path, camera_select, user_select):
+def post_all_snapshot_data(server_url, cameras_folder_path, camera_select):
     
     # For clarity
     collection_name = "snapshots"
     
     # Build pathing to all report data
-    md_folder_path = build_snapshot_metadata_report_path(cameras_folder_path, camera_select, user_select)
-    img_folder_path = build_snapshot_image_report_path(cameras_folder_path, camera_select, user_select)
+    md_folder_path = build_snapshot_metadata_report_path(cameras_folder_path, camera_select)
+    img_folder_path = build_snapshot_image_report_path(cameras_folder_path, camera_select)
     
     # Get all metadata paths before images so that the metadata will lag the images on the db
     # -> This way, we won't have the 'newest' metadata entries posted without corresponding image data!
@@ -622,8 +622,7 @@ def post_data_to_server(server_url, cameras_folder_path, camera_select, log_to_f
     t1 = perf_counter()
     
     # Bundle pathing args for convenience
-    hard_coded_user_select = "live"
-    camera_pathing_args = (cameras_folder_path, camera_select, hard_coded_user_select)
+    camera_pathing_args = (cameras_folder_path, camera_select)
     
     # Post each data set
     caminfo_log, caminfo_err = post_all_camera_info(server_url, *camera_pathing_args)

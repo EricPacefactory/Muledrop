@@ -54,6 +54,7 @@ from local.lib.file_access_utils.classifier import build_model_resources_path
 
 from local.lib.classifier_models.squeezenet_variants import Full_SqueezeNet_112x112
 
+
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
 
@@ -61,10 +62,10 @@ class Image_Based_Classifier_Stage(Reference_Classifier):
     
     # .................................................................................................................
     
-    def __init__(self, cameras_folder_path, camera_select, user_select):
+    def __init__(self, cameras_folder_path, camera_select):
         
         # Inherit from base class
-        super().__init__(cameras_folder_path, camera_select, user_select, file_dunder = __file__)
+        super().__init__(cameras_folder_path, camera_select, file_dunder = __file__)
         
         # Allocate storage for the classifier
         self.classifier_model = None

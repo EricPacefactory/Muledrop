@@ -69,9 +69,8 @@ def path_to_configuration_file(configurable_ref):
     # Get major pathing info from the configurable
     cameras_folder_path = configurable_ref.cameras_folder_path
     camera_select = configurable_ref.camera_select
-    user_select = configurable_ref.user_select
     
-    return build_summary_config_path(cameras_folder_path, camera_select, user_select)
+    return build_summary_config_path(cameras_folder_path, camera_select)
 
 # .....................................................................................................................
 
@@ -124,7 +123,7 @@ def save_summary_config(configurable_ref, file_dunder = __file__):
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-#%% Select camera/user
+#%% Make selections
 
 enable_debug_mode = False
 
@@ -132,16 +131,15 @@ enable_debug_mode = False
 selector = Resource_Selector()
 project_root_path, cameras_folder_path = selector.get_cameras_root_pathing()
 
-# Select the camera/user to show data for (needs to have saved report data already!)
+# Select the camera to show data for (needs to have saved report data already!)
 camera_select, _ = selector.camera(debug_mode = enable_debug_mode)
-user_select, _ = selector.user(camera_select, debug_mode=enable_debug_mode)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Set up the classifier
 
 # Load configurable class for this config utility
-summary_ref = Summary_Stage(cameras_folder_path, camera_select, user_select)
+summary_ref = Summary_Stage(cameras_folder_path, camera_select)
 
 # Load existing config settings, if available
 initial_setup_data_dict = load_matching_config(summary_ref)

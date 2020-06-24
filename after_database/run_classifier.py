@@ -79,10 +79,10 @@ from local.eolib.utils.quitters import ide_quit
 
 # .................................................................................................................
     
-def import_classifier_class(cameras_folder_path, camera_select, user_select):
+def import_classifier_class(cameras_folder_path, camera_select):
     
     # Check configuration file to see which script/class to load from & get configuration data
-    load_pathing_args = (cameras_folder_path, camera_select, user_select)
+    load_pathing_args = (cameras_folder_path, camera_select)
     _, file_access_dict, setup_data_dict = load_classifier_config(*load_pathing_args)
     script_name = file_access_dict["script_name"]
     class_name = file_access_dict["class_name"]
@@ -95,10 +95,9 @@ def import_classifier_class(cameras_folder_path, camera_select, user_select):
 
 # .....................................................................................................................
 
-def delete_existing_classification_data(enable_deletion_prompt, 
+def delete_existing_classification_data(enable_deletion_prompt,
                                         cameras_folder_path,
-                                        camera_select, 
-                                        user_select, 
+                                        camera_select,
                                         save_and_keep):
     
     # If prompt is skipped and deletion is disabled, don't do anything
@@ -107,7 +106,7 @@ def delete_existing_classification_data(enable_deletion_prompt,
         return
     
     # Build pathing to classification data
-    class_data_folder = build_classifier_adb_metadata_report_path(cameras_folder_path, camera_select, user_select)
+    class_data_folder = build_classifier_adb_metadata_report_path(cameras_folder_path, camera_select)
     create_missing_folder_path(class_data_folder)
     
     # Check if data already exists
@@ -155,14 +154,13 @@ enable_debug_mode = False
 selector = Resource_Selector()
 project_root_path, cameras_folder_path = selector.get_cameras_root_pathing()
 camera_select, camera_path = selector.camera(debug_mode=enable_debug_mode)
-user_select, _ = selector.user(camera_select, debug_mode=enable_debug_mode)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Catalog existing data
 
 cinfo_db, snap_db, obj_db, class_db, summary_db = \
-launch_file_db(cameras_folder_path, camera_select, user_select,
+launch_file_db(cameras_folder_path, camera_select,
                launch_snapshot_db = True,
                launch_object_db = True,
                launch_classification_db = False,
@@ -192,7 +190,7 @@ if no_object_data:
 #%% Load & configure classifier
 
 # Programmatically import the target classifier class
-import_pathing_args = (cameras_folder_path, camera_select, user_select)
+import_pathing_args = (cameras_folder_path, camera_select)
 Imported_Classifier_Class, setup_data_dict = import_classifier_class(*import_pathing_args)
 classifier_ref = Imported_Classifier_Class(*import_pathing_args)
 classifier_ref.reconfigure(setup_data_dict)
@@ -251,14 +249,14 @@ if saving_enabled:
     # Delete existing classification data, if needed
     enable_deletion = True
     save_and_keep = False
-    delete_existing_classification_data(enable_deletion, cameras_folder_path, camera_select, user_select, save_and_keep)
+    delete_existing_classification_data(enable_deletion, cameras_folder_path, camera_select, save_and_keep)
     
     # Build pathing & make sure the folder exists before saving!
-    save_folder_path = build_classifier_adb_metadata_report_path(cameras_folder_path, camera_select, user_select)
+    save_folder_path = build_classifier_adb_metadata_report_path(cameras_folder_path, camera_select)
     create_missing_folder_path(save_folder_path)
     
     # Loop over all results and save!
-    save_pathing_args = (cameras_folder_path, camera_select, user_select)
+    save_pathing_args = (cameras_folder_path, camera_select)
     for each_obj_id, each_report_data_dict in save_data_dict.items():
         save_classifier_report_data(save_folder_path, report_data_dict = each_report_data_dict)
 

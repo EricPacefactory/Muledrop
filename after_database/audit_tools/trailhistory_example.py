@@ -439,7 +439,7 @@ def show_looping_animation(snapshot_database, object_database, object_list,
 # .....................................................................................................................
 
 # ---------------------------------------------------------------------------------------------------------------------
-#%% Select camera/user
+#%% Make selections
 
 enable_debug_mode = False
 
@@ -447,16 +447,15 @@ enable_debug_mode = False
 selector = Resource_Selector()
 project_root_path, cameras_folder_path = selector.get_cameras_root_pathing()
 
-# Select the camera/user to show data for (needs to have saved report data already!)
+# Select the camera to show data for (needs to have saved report data already!)
 camera_select, camera_path = selector.camera(debug_mode=enable_debug_mode)
-user_select, _ = selector.user(camera_select, debug_mode=enable_debug_mode)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Catalog existing data
 
 cinfo_db, snap_db, obj_db, class_db, summary_db = \
-launch_file_db(cameras_folder_path, camera_select, user_select,
+launch_file_db(cameras_folder_path, camera_select,
                launch_snapshot_db = True,
                launch_object_db = True,
                launch_classification_db = True,

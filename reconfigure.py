@@ -80,7 +80,6 @@ def parse_recon_args(debug_print = False):
     
     # Set script arguments for running files
     args_list = ["camera",
-                 "user",
                  "video"]
     
     # Provide some extra information when accessing help text
@@ -104,7 +103,7 @@ def parse_recon_args(debug_print = False):
 
 # .....................................................................................................................
 
-def clear_with_status(camera_select, user_select, video_select, stage_select = None):
+def clear_with_status(camera_select, video_select, stage_select = None):
     
     ''' Function which clears the terminal, then prints the current selection status '''
     
@@ -116,7 +115,6 @@ def clear_with_status(camera_select, user_select, video_select, stage_select = N
     print_strs = [seperator_gfx,
                   "Current selections:",
                   "  Camera: {}".format(camera_select),
-                  "    User: {}".format(user_select),
                   "   Video: {}".format(video_select),
                   seperator_gfx]
     
@@ -143,8 +141,8 @@ def load_externals_info(project_root_path, cameras_folder_path):
     # Figure out stage ordering for presenting the externals stage options
     stage_ordering = get_folder_list(utility_parent_folder, sort_list = True)
     
-    # Get pathing to the corresponding config files for the selected camera & user
-    configs_folder_path = build_externals_folder_path(cameras_folder_path, camera_select, user_select)
+    # Get pathing to the corresponding config files for the selected camera
+    configs_folder_path = build_externals_folder_path(cameras_folder_path, camera_select)
     
     return utility_parent_folder, stage_ordering, configs_folder_path
 
@@ -158,8 +156,8 @@ def load_core_info(project_root_path, cameras_folder_path):
     # Figure out stage ordering for presenting the core stage options
     stage_ordering = get_ordered_core_sequence()
     
-    # Get pathing to the corresponding config files for the selected camera & user
-    configs_folder_path = build_core_folder_path(cameras_folder_path, camera_select, user_select)
+    # Get pathing to the corresponding config files for the selected camera
+    configs_folder_path = build_core_folder_path(cameras_folder_path, camera_select)
     
     return utility_parent_folder, stage_ordering, configs_folder_path
 
@@ -259,7 +257,7 @@ def get_default_option(configs_folder_path, stage_select):
 # .....................................................................................................................
 
 @clean_error_quit
-def user_select_stage(utility_parent_folder_path, stage_ordering):
+def ui_select_stage(utility_parent_folder_path, stage_ordering):
     
     # Initialize outputs
     request_break = False
@@ -299,7 +297,7 @@ def user_select_stage(utility_parent_folder_path, stage_ordering):
 # .....................................................................................................................
 
 @clean_error_quit
-def user_select_stage_option(stage_folder_path, stage_display_name, default_stage_option):
+def ui_select_stage_option(stage_folder_path, stage_display_name, default_stage_option):
     
     # Initialize outputs
     request_break = False
@@ -341,11 +339,10 @@ def user_select_stage_option(stage_folder_path, stage_display_name, default_stag
 
 # .....................................................................................................................
 
-def run_config_utility(camera_select, user_select, video_select, option_path):
+def run_config_utility(camera_select, video_select, option_path):
     
     # Build arguments to pass to each config utility
     script_arg_list = ["-c", camera_select,
-                       "-u", user_select,
                        "-v", video_select]
     
     # Get python interpretter path, so we call subprocess using the same environment
@@ -379,20 +376,18 @@ def run_config_utility(camera_select, user_select, video_select, option_path):
 # Parse arguments
 arg_selections = parse_recon_args()
 arg_camera_select = arg_selections.get("camera", None)
-arg_user_select = arg_selections.get("user", None)
 arg_video_select = arg_selections.get("video", None)
 arg_enable_externals = arg_selections.get("externals", None)
 
 # ---------------------------------------------------------------------------------------------------------------------
-#%% Ask user for base selections
+#%% Ask for base selections
 
 # Get shared pathing
 selector = Resource_Selector()
 project_root_path, cameras_folder_path = selector.get_cameras_root_pathing()
 
-# Get camera/user/video selections
+# Get camera/video selections
 camera_select, camera_path = selector.camera(arg_camera_select)
-user_select, user_path = selector.user(camera_select, arg_user_select)
 video_select, video_path = selector.video(camera_select, arg_video_select)
 
 
@@ -411,9 +406,9 @@ if arg_enable_externals:
 while True:
     
     # Have user select a stage
-    clear_with_status(camera_select, user_select, video_select)
-    req_break, req_continue, stage_folder_path, stage_select = user_select_stage(utility_parent_folder, 
-                                                                                 stage_ordering)
+    clear_with_status(camera_select, video_select)
+    req_break, req_continue, stage_folder_path, stage_select = ui_select_stage(utility_parent_folder, 
+                                                                               stage_ordering)
     if req_continue: continue
     if req_break: break
 
@@ -421,10 +416,10 @@ while True:
     default_stage_option = get_default_option(configs_folder_path, stage_select)
 
     # Have user select a stage option
-    clear_with_status(camera_select, user_select, video_select, stage_select)
-    req_break, req_continue, option_path, option_display_name = user_select_stage_option(stage_folder_path, 
-                                                                                         stage_select, 
-                                                                                         default_stage_option)
+    clear_with_status(camera_select, video_select, stage_select)
+    req_break, req_continue, option_path, option_display_name = ui_select_stage_option(stage_folder_path, 
+                                                                                       stage_select, 
+                                                                                       default_stage_option)
     if req_continue: continue
     if req_break: break
     
@@ -432,7 +427,7 @@ while True:
     clear_terminal(0, 0.25)
 
     # If we get this far, run whatever stage option was selected
-    return_code = run_config_utility(camera_select, user_select, video_select, option_path)  # Blocking
+    return_code = run_config_utility(camera_select, video_select, option_path)  # Blocking
     sleep(0.25)
     
 

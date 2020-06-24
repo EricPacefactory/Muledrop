@@ -99,9 +99,7 @@ def build_path_to_locations_info(project_root_path):
 def load_history(project_root_path, enable = True):
     
     # Create default config entries
-    default_config = {"camera_select": None,
-                      "user_select": None,
-                      "video_select": None}
+    default_config = {"camera_select": None, "video_select": None}
     
     # Return empty selections if disabled
     if not enable:

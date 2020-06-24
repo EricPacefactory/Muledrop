@@ -49,7 +49,7 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
-from local.lib.file_access_utils.shared import build_user_folder_path
+from local.lib.file_access_utils.shared import build_config_folder_path
 from local.lib.file_access_utils.logging import build_configurables_log_path
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -57,8 +57,8 @@ from local.lib.file_access_utils.logging import build_configurables_log_path
 
 # .....................................................................................................................
 
-def build_externals_folder_path(cameras_folder_path, camera_select, user_select, *path_joins):
-    return build_user_folder_path(cameras_folder_path, camera_select, user_select, "externals", *path_joins)
+def build_externals_folder_path(cameras_folder_path, camera_select, *path_joins):
+    return build_config_folder_path(cameras_folder_path, camera_select, "externals", *path_joins)
 
 # .....................................................................................................................
 

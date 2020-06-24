@@ -80,11 +80,10 @@ class Reference_Background_Capture(Externals_Configurable_Base):
     
     # .................................................................................................................
     
-    def __init__(self, cameras_folder_path, camera_select, user_select, video_wh, *, file_dunder):
+    def __init__(self, cameras_folder_path, camera_select, video_wh, *, file_dunder):
         
         # Inherit from base class
-        super().__init__("background_capture",
-                         cameras_folder_path, camera_select, user_select, video_wh, file_dunder = file_dunder)
+        super().__init__("background_capture", cameras_folder_path, camera_select, video_wh, file_dunder = file_dunder)
         
         # Store state config
         self.report_saving_enabled = None
@@ -659,7 +658,6 @@ class Reference_Background_Capture(Externals_Configurable_Base):
         
         return Background_Report_Data_Saver(self.cameras_folder_path,
                                             self.camera_select,
-                                            self.user_select,
                                             self.report_saving_enabled,
                                             self.threaded_saving_enabled)
     

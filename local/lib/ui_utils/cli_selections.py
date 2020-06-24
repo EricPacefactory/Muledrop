@@ -49,12 +49,13 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
-from local.lib.file_access_utils.shared import find_root_path, find_cameras_folder, copy_from_defaults
+from local.lib.file_access_utils.shared import find_root_path, find_cameras_folder
 from local.lib.file_access_utils.settings import load_history, save_history
 from local.lib.file_access_utils.video import get_video_names_and_paths_lists
-from local.lib.file_access_utils.structures import build_cameras_tree, build_camera_list, build_user_list
+from local.lib.file_access_utils.structures import build_cameras_tree, build_camera_list
 
 from local.eolib.utils.cli_tools import cli_select_from_list, keyboard_quit, clean_error_quit
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
@@ -80,7 +81,7 @@ class Resource_Selector:
         # Store access settings
         self._show_hidden_resources = show_hidden_resources
         self._need_to_create_folder_structure = create_folder_structure_on_select
-        
+    
     # .................................................................................................................
     
     def __repr__(self):
@@ -128,13 +129,6 @@ class Resource_Selector:
     
     # .................................................................................................................
     
-    def get_user_list(self, camera_select):
-        camera_tree = self.get_cameras_tree()
-        user_keys = camera_tree[camera_select]["users"].keys()
-        return list(user_keys)
-    
-    # .................................................................................................................
-    
     @clean_error_quit
     @keyboard_quit
     def camera(self, camera_select = None, must_have_rtsp = False, debug_mode = False):
@@ -145,23 +139,6 @@ class Resource_Selector:
                                                           debug_mode = debug_mode)
         
         return camera_select, path_select
-    
-    # .................................................................................................................
-    
-    @clean_error_quit
-    @keyboard_quit
-    def user(self, camera_select, user_select = None, debug_mode = False):
-        
-        # Get list of available selection options and then (try to) select one
-        show_hidden_users = self._show_hidden_resources
-        user_name_path_lists = build_user_list(self.cameras_folder_path, camera_select, show_hidden_users)
-        user_select, path_select = self._make_selection("user", user_select, user_name_path_lists,
-                                                        debug_mode = debug_mode)
-        
-        # Make sure all default files/folders are present for the selected camera & user
-        copy_from_defaults(self.project_root_path, self.cameras_folder_path, camera_select, user_select)
-        
-        return user_select, path_select
     
     # .................................................................................................................
     
@@ -179,6 +156,28 @@ class Resource_Selector:
                                                          debug_mode = debug_mode)
         
         return video_select, path_select
+    
+    # .................................................................................................................
+    
+    def save_camera_select(self, camera_select):
+        
+        ''' Convenience function used to forcefully save a new camera select entry '''
+        
+        self.selection_history["camera_select"] = camera_select
+        save_history(self.project_root_path, self.selection_history, enable = True)
+        
+        return
+    
+    # .................................................................................................................
+    
+    def save_video_select(self, video_select):
+        
+        ''' Convenience function used to forcefully save a new video select entry '''
+        
+        self.selection_history["video_select"] = video_select
+        save_history(self.project_root_path, self.selection_history, enable = True)
+        
+        return
     
     # .................................................................................................................
     
@@ -229,9 +228,9 @@ class Resource_Selector:
         # If saving is triggered by a new selection, update the selection history before saving
         if selection is not None and new_value is not None:
             self._update_selection_history(selection, new_value)
-            
-        save_history(self.project_root_path, self.selection_history, 
-                     enable = self._need_to_save_selection_history)       
+        
+        save_history(self.project_root_path, self.selection_history,
+                     enable = self._need_to_save_selection_history)
     
     # .................................................................................................................
     # .................................................................................................................

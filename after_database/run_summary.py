@@ -77,10 +77,10 @@ from local.eolib.utils.quitters import ide_quit
 
 # .................................................................................................................
     
-def import_summary_class(cameras_folder_path, camera_select, user_select):
+def import_summary_class(cameras_folder_path, camera_select):
     
     # Check configuration file to see which script/class to load from & get configuration data
-    pathing_args = (cameras_folder_path, camera_select, user_select)
+    pathing_args = (cameras_folder_path, camera_select)
     _, file_access_dict, setup_data_dict = load_summary_config(*pathing_args)
     script_name = file_access_dict["script_name"]
     class_name = file_access_dict["class_name"]
@@ -93,11 +93,10 @@ def import_summary_class(cameras_folder_path, camera_select, user_select):
 
 # .....................................................................................................................
 
-def delete_existing_summary_data(enable_deletion_prompt, 
+def delete_existing_summary_data(enable_deletion_prompt,
+                                 save_and_keep,
                                  cameras_folder_path,
-                                 camera_select, 
-                                 user_select, 
-                                 save_and_keep):
+                                 camera_select):
     
     # If prompt is skipped and deletion is disabled, don't do anything
     if (not enable_deletion_prompt) and save_and_keep:
@@ -105,7 +104,7 @@ def delete_existing_summary_data(enable_deletion_prompt,
         return
     
     # Build pathing to summary data
-    summary_data_folder = build_summary_adb_metadata_report_path(cameras_folder_path, camera_select, user_select)
+    summary_data_folder = build_summary_adb_metadata_report_path(cameras_folder_path, camera_select)
     create_missing_folder_path(summary_data_folder)
     
     # Check if data already exists
@@ -136,15 +135,14 @@ enable_debug_mode = False
 # Create selector to handle camera selection & project pathing
 selector = Resource_Selector()
 project_root_path, cameras_folder_path = selector.get_cameras_root_pathing()
-camera_select, camera_path = selector.camera(debug_mode=enable_debug_mode)
-user_select, _ = selector.user(camera_select, debug_mode=enable_debug_mode)
+camera_select, camera_path = selector.camera(debug_mode = enable_debug_mode)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Catalog existing data
 
 cinfo_db, snap_db, obj_db, class_db, summary_db = \
-launch_file_db(cameras_folder_path, camera_select, user_select,
+launch_file_db(cameras_folder_path, camera_select,
                launch_snapshot_db = True,
                launch_object_db = True,
                launch_classification_db = True,
@@ -174,7 +172,7 @@ if no_object_data:
 #%% Load & configure summary
 
 # Programmatically import the target summary class
-pathing_args = (cameras_folder_path, camera_select, user_select)
+pathing_args = (cameras_folder_path, camera_select)
 Imported_Summary_Class, setup_data_dict = import_summary_class(*pathing_args)
 summary_ref = Imported_Summary_Class(*pathing_args)
 summary_ref.reconfigure(setup_data_dict)
@@ -189,10 +187,10 @@ if saving_enabled:
     # Delete existing summary data, if needed
     enable_deletion = True
     save_and_keep = False
-    delete_existing_summary_data(enable_deletion, cameras_folder_path, camera_select, user_select, save_and_keep)
+    delete_existing_summary_data(enable_deletion, save_and_keep, *pathing_args)
 
     # Make sure folders for each rule exist for saving
-    save_folder_path = build_summary_adb_metadata_report_path(cameras_folder_path, camera_select, user_select)
+    save_folder_path = build_summary_adb_metadata_report_path(*pathing_args)
     create_missing_folder_path(save_folder_path)
 
 

@@ -51,6 +51,7 @@ find_path_to_local()
 
 from local.configurables.core.tracker.reference_tracker import Reference_Tracker
 
+
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
 
@@ -58,10 +59,10 @@ class Tracker_Stage(Reference_Tracker):
     
     # .................................................................................................................
     
-    def __init__(self, cameras_folder_path, camera_select, user_select, input_wh):
+    def __init__(self, cameras_folder_path, camera_select, input_wh):
         
         # Inherit reference functionality
-        super().__init__(cameras_folder_path, camera_select, user_select, input_wh, file_dunder = __file__)
+        super().__init__(cameras_folder_path, camera_select, input_wh, file_dunder = __file__)
         
     # .................................................................................................................
     

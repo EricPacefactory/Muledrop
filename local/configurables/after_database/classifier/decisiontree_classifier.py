@@ -70,6 +70,7 @@ from local.configurables.after_database.classifier.reference_classifier import R
 
 from local.eolib.utils.files import get_folder_list
 
+
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
 
@@ -77,10 +78,10 @@ class Classifier_Stage(Reference_Classifier):
     
     # .................................................................................................................
     
-    def __init__(self, cameras_folder_path, camera_select, user_select):
+    def __init__(self, cameras_folder_path, camera_select):
         
         # Inherit from base class
-        super().__init__(cameras_folder_path, camera_select, user_select, file_dunder = __file__)
+        super().__init__(cameras_folder_path, camera_select, file_dunder = __file__)
         
         # Storage for the decision tree & id-to-label mapping
         self._column_names_list = None

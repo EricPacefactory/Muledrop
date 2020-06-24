@@ -71,7 +71,7 @@ from local.eolib.utils.cli_tools import cli_confirm
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-#%% Select camera/user
+#%% Make selections
 
 enable_debug_mode = False
 
@@ -79,16 +79,15 @@ enable_debug_mode = False
 selector = Resource_Selector()
 project_root_path, cameras_folder_path = selector.get_cameras_root_pathing()
 
-# Select the camera/user to show data for (needs to have saved report data already!)
+# Select the camera to show data for (needs to have saved report data already!)
 camera_select, _ = selector.camera(debug_mode = enable_debug_mode)
-user_select, _ = selector.user(camera_select, debug_mode=enable_debug_mode)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Set up the classifier
 
 # Load configurable class for this config utility
-classifier_ref = Classifier_Stage(cameras_folder_path, camera_select, user_select)
+classifier_ref = Classifier_Stage(cameras_folder_path, camera_select)
 
 # Load existing config settings, if available
 initial_setup_data_dict = load_matching_config(classifier_ref)

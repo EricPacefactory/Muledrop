@@ -64,10 +64,10 @@ class Snapshot_Capture(Reference_Snapshot_Capture):
     
     # .................................................................................................................
     
-    def __init__(self, cameras_folder_path, camera_select, user_select, video_wh):
+    def __init__(self, cameras_folder_path, camera_select, video_wh):
         
         # Inherit from reference snapshot implementation
-        super().__init__(cameras_folder_path, camera_select, user_select, video_wh, file_dunder = __file__)
+        super().__init__(cameras_folder_path, camera_select, video_wh, file_dunder = __file__)
         
         # Allocate storage for frame counter used to determine when to save snapshots
         self._frame_counter = Periodic_Polled_Integer_Counter()

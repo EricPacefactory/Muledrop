@@ -229,7 +229,6 @@ def get_results_string(response_dict, collection_name):
 # Create selector to handle camera selection & project pathing
 selector = Resource_Selector()
 project_root_path = selector.get_project_root_pathing()
-user_select = "live"
 
 
 # ---------------------------------------------------------------------------------------------------------------------

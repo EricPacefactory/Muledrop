@@ -49,163 +49,213 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
-from local.lib.ui_utils.script_arguments import script_arg_builder
+from time import sleep
 
-from local.eolib.utils.cli_tools import cli_select_from_list
+from local.eolib.utils.cli_tools import cli_select_from_list, cli_prompt_with_defaults, cli_confirm
 from local.eolib.utils.quitters import ide_quit
 
+
 # ---------------------------------------------------------------------------------------------------------------------
-#%% Define classes
+#%% Define cli function with error handling
 
+# .....................................................................................................................
 
-class Edit_Selector:
+def select_from_list(entry_list,
+                     prompt_heading = "Select from list:",
+                     default_selection = None,
+                     zero_indexed = False,
+                     quit_on_no_selection = True):
     
-    '''
-    This class is just a wrapper for the more general resource selector (from selection_utils.py)
-    It provides slightly different feedback when using the selection functions, more suited to editing
-    '''
+    ''' Wrapper around cli_confirm(...) function, with basic error handling. Meant for editor menus '''
     
-    # .................................................................................................................
+    # Initialize outputs
+    select_index = None
+    select_entry = None
     
-    def __init__(self, selector_ref):
-        
-        self.select = selector_ref
+    # Run a loop to handle re-trying under certain failing conditions
+    keep_looping = True
+    while keep_looping:
     
-    # .................................................................................................................
-    
-    def entity(self, action_text, show_camera = True, show_user = True, show_video = True):
-        
-        # Offer the following entity options to the user
-        camera_option = "Camera"
-        user_option = "User"
-        video_option = "Video"
-        
-        # Build prompt list
-        entity_options_prompt = []
-        entity_options_prompt += [camera_option] if show_camera else []
-        entity_options_prompt += [user_option] if show_user else []
-        entity_options_prompt += [video_option] if show_video else []
-        
-        # Ask for user entity (or quit if no selection is made)
         try:
-            prompt_msg = "Select entity to {}:".format(action_text)
-            select_idx, entry_select = cli_select_from_list(entity_options_prompt, 
-                                                            prompt_heading = prompt_msg,
-                                                            default_selection = None)
-        except ValueError:
-            self.no_selection_quit()
+            select_index, select_entry = cli_select_from_list(entry_list,
+                                                              prompt_heading = prompt_heading,
+                                                              default_selection = default_selection,
+                                                              zero_indexed = zero_indexed)
+            keep_looping = False
             
-        # Create a simple lookup table as an output
-        lut_out = {"camera": (entry_select == camera_option),
-                   "user": (entry_select == user_option),
-                   "video": (entry_select == video_option)}
+        except KeyboardInterrupt:
+            # Happens on ctrl + c
+            print("", "", "Keyboard cancel! (ctrl + c)", "", sep="\n")
+            ide_quit()
+            pass
         
-        return lut_out
-
-    # .................................................................................................................
+        except ValueError:
+            # Happens if no selection is made
+            print("", "", "No selection, quitting...", "", sep="\n")
+            keep_looping = False
+            if quit_on_no_selection:
+                ide_quit()
+            pass
+        
+        except IndexError as err_msg:
+            # Happens if an index is selected which isn't part of the list
+            print("", "Error!", err_msg, "", sep = "\n")
+            sleep(1.5)
+            pass
+        
+        except NameError as err_msg:
+            # Tends to happen from queued up keyboard inputs
+            print("", "Error!", err_msg, "", sep = "\n")
+            sleep(1.5)
+            pass
     
-    def camera(self, camera_select = None):
+    return select_index, select_entry
+
+# .....................................................................................................................
+
+def prompt_with_defaults(prompt_message, default_value = None, return_type = None, quit_on_no_response = False):
+    
+    ''' Wrapper around cli_confirm(...) function, with basic error handling. Meant for editor menus '''
+    
+    # Initialize outputs
+    user_response = None
+    
+    # Run a loop to handle re-trying under certain failing conditions
+    keep_looping = True
+    while keep_looping:
         
-        # Provide feedback about having to select the camera first
-        if camera_select is None:
-            print("", "/" * 32,
-                  "  Must select a camera first",
-                  "/" * 32, sep="\n")
-        
-        # Select camera
         try:
-            camera_name, camera_path = self.select.camera(camera_select = camera_select)
-        except ValueError:
-            self.no_selection_quit()
-            
-        return camera_name, camera_path
-
-    # .................................................................................................................
+            user_response = cli_prompt_with_defaults(prompt_message,
+                                                     default_value = default_value,
+                                                     return_type = return_type)
+            keep_looping = False
+        
+        except KeyboardInterrupt:
+            # Happens on ctrl + c
+            print("", "", "Keyboard cancel! (ctrl + c)", "", sep="\n")
+            ide_quit()
+            pass
     
-    def user(self, camera_select, user_select = None):
+    # Quit if needed
+    no_response = (user_response is None)
+    if no_response and quit_on_no_response:
+        ide_quit()        
         
-        # Provide feedback about having to select the user first
-        if user_select is None:
-            print("", "/" * 32,
-                  "  Must select a user first",
-                  "/" * 32, sep="\n")
-        
-        # Select user
-        try:
-            user_name, user_path = self.select.user(camera_select, 
-                                                    user_select = user_select)
-        except ValueError:
-            self.no_selection_quit()
-            
-        return user_name, user_path
+    return user_response
 
-    # .................................................................................................................
-    
-    def video(self, camera_select, video_select = None):
-        
-        # Provide feedback about having to select the video first
-        if video_select is None:
-            print("", 
-                  "/" * 32,
-                  "  Must select a video first",
-                  "/" * 32, sep="\n")
-        
-        # Select video
-        try:
-            video_name, video_path = self.select.video(camera_select, 
-                                                       video_select = video_select)
-        except ValueError:
-            self.no_selection_quit()
-            
-        return video_name, video_path
+# .....................................................................................................................
 
-    # .................................................................................................................
+def confirm(confirm_text, default_response = True):
     
-    @staticmethod
-    def no_selection_quit():
-        print("")
-        print("No selection. Quitting...")
-        print("")
+    ''' Wrapper around cli_confirm(...) function, with basic error handling. Meant for editor menus '''
+    
+    try:
+        user_confirm = cli_confirm(confirm_text, default_response = default_response)
+        
+    except KeyboardInterrupt:
+        # Happens on ctrl + c
+        print("", "", "Keyboard cancel! (ctrl + c)", "", sep="\n")
         ide_quit()
-        
-    # .................................................................................................................
-    # .................................................................................................................
+        pass
+    
+    return user_confirm
 
+# .....................................................................................................................
+# .....................................................................................................................
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define functions
 
 # .....................................................................................................................
+    
+def quit_if_none(input_value, quit_message = "No value provided"):
+    
+    ''' Helper function which forces a script to quit if the provided input value is None '''
+    
+    if input_value is None:
+        print("", quit_message, "Quitting...", sep = "\n")
+        ide_quit()
+    
+    return
 
-def parse_editor_args(custom_arg_parser_function = None, *, 
-                      show_camera = True,
-                      show_user = True,
-                      show_video = True):
-    
-    
-    # Set script arguments for running files    
-    args_list = []
-    args_list += ["camera"] if show_camera else []
-    args_list += ["user"] if show_user else []
-    args_list += ["video"] if show_video else []
-    
-    # Build & evaluate script arguments!
-    ap_obj = script_arg_builder(args_list,
-                                parse_on_call = False,
-                                debug_print = False)
-    
-    # Add custom arguments if a function is provided
-    if custom_arg_parser_function is not None:
-        ap_obj = custom_arg_parser_function(ap_obj)
+# .....................................................................................................................
 
-    # Gather arguments into a dictionary for easier use
-    args_dict = vars(ap_obj.parse_args())
+def build_path_to_editor_utilities(project_root_path):
     
-    return args_dict
+    ''' Helper function which gets pathing to the folder containing the editor utility scripts '''
+    
+    return os.path.join(project_root_path, "configuration_utilities",  "editors")
+
+# .....................................................................................................................
+
+def check_name_is_taken(name_to_check, existing_names_list):
+    
+    ''' Helper function used to check if a name is already in the given list, including hidden ('.' prefixed) names '''
+    
+    # Update the input name list to make sure we check against hidden entries & ignore spelling/spaces etc.
+    full_name_list = []
+    for each_name in existing_names_list:        
+        name_is_hidden = (each_name[0] == ".")
+        unhidden_name = each_name[1:] if name_is_hidden else each_name
+        full_name_list.append(unhidden_name)
+    
+    return (name_to_check in full_name_list)
+
+# .....................................................................................................................
+
+def warn_for_name_taken(name_to_check, existing_names_list, quit_if_name_is_taken = True):
+    
+    '''
+    Helper function which checks if a name is already taken and prints a warning if so
+    Can optionally quit as well
+    '''
+    
+    # Check if the given name is taken and provide feedback if it is (and optionally quit)
+    name_already_exists = check_name_is_taken(name_to_check, existing_names_list)
+    if name_already_exists:
+        print("", 
+              "Can't use name: {}".format(name_to_check),
+              "  It is already taken!",
+              sep = "\n")
+        if quit_if_name_is_taken:
+            ide_quit()
+    
+    return name_already_exists
+
+# .....................................................................................................................
+
+def rename_from_path(original_name_path, new_name, perform_rename = True):
+    
+    '''
+    Helper function which helps with renaming, takes the original full path and the new name, then
+    automatically builds the new name pathing.
+    
+    Inputs:
+        original_name_path -> (String) The path to the original file/folder that is to be renamed
+        
+        new_name -> (String) The new name, without a path
+        
+        perform_rename -> (Boolean) If true, this function will perform the actual rename operation.
+                          Otherwise, the function will only construct the pathing needed, without actually renaming
+    
+    Outputs:
+        new_name_path
+    '''
+    
+    # Use the original parent folder pathing to build the new named pathing
+    original_parent_folder = os.path.dirname(original_name_path)
+    new_name_path = os.path.join(original_parent_folder, new_name)
+    
+    # Only execute the rename if needed
+    if perform_rename:
+        os.rename(original_name_path, new_name_path)
+    
+    return new_name_path
 
 # .....................................................................................................................
 # .....................................................................................................................
-    
+
+
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Scrap
 

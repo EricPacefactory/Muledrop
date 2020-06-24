@@ -303,7 +303,7 @@ def update_histogram_displays(histogram_dict, rule_results_per_class):
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-#%% Make user selections
+#%% Make selections
 
 enable_debug_mode = False
 
@@ -311,16 +311,15 @@ enable_debug_mode = False
 selector = Resource_Selector()
 project_root_path, cameras_folder_path = selector.get_cameras_root_pathing()
 
-# Select the camera/user to show data for (needs to have saved report data already!)
+# Select the camera to show data for (needs to have saved report data already!)
 camera_select, camera_path = selector.camera(debug_mode=enable_debug_mode)
-user_select, _ = selector.user(camera_select, debug_mode=enable_debug_mode)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Catalog existing data
 
 cinfo_db, snap_db, obj_db, class_db, summary_db = \
-launch_file_db(cameras_folder_path, camera_select, user_select,
+launch_file_db(cameras_folder_path, camera_select,
                launch_snapshot_db = True,
                launch_object_db = True,
                launch_classification_db = True,
@@ -362,7 +361,7 @@ frame_scaling = np.float32((frame_width - 1, frame_height - 1))
 #%% Select rule to load
 
 # Load configurable class for this config utility
-rule_ref = Zoneoccupation_Rule(cameras_folder_path, camera_select, user_select, frame_wh)
+rule_ref = Zoneoccupation_Rule(cameras_folder_path, camera_select, frame_wh)
 
 # Ask user to load an existing rule config, or create a new one & configure the rule accordingly
 load_from_existing_config, loaded_rule_name, initial_setup_data_dict = select_rule_to_load(rule_ref)

@@ -70,16 +70,15 @@ def get_selections_from_script_args(argparse_result):
         argparse_result -> (Dictionary) Result from calling the 'script_arg_builder()' function
     
     Outputs:
-        camera_select, user_select, video_select
+        camera_select, video_select
     
     Note: If any selections are missing, they will have 'None' values
     '''
     
     camera_select = argparse_result.get("camera", None)
-    user_select = argparse_result.get("user", None)
     video_select = argparse_result.get("video", None)
     
-    return camera_select, user_select, video_select
+    return camera_select, video_select
 
 # .....................................................................................................................
 
@@ -115,12 +114,10 @@ def script_arg_builder(args_list, description = None, epilog = None, parse_on_ca
     Example args_list:
         
         args_list = ["camera",
-                     {"user": {"default": "live"}},
                      "video",
                      "display"]
         
-        --> This arg_list would provide the camera, user, video and display arguments.
-        The user argument would additionally have it's default value set to 'live' (normally None)
+        --> This arg_list would provide the camera, video and display arguments.
                 
     '''
     
@@ -168,7 +165,6 @@ def _script_arg_function_lut(key_name):
                 "enable_prompts": _enable_prompts,
                 "disable_prompts": _disable_prompts,
                 "camera": _camera_arg,
-                "user": _user_arg,
                 "video": _video_arg,
                 "display": _display_arg,
                 "threaded_video": _threaded_video_arg,
@@ -208,11 +204,6 @@ def _disable_prompts(help_text = "Disable prompts"):
     
 def _camera_arg(default = None, help_text = "Camera select"):
     return ("-c", "--camera"), {"default": default, "type": str, "help": help_text}
-
-# .....................................................................................................................
-
-def _user_arg(default = None, help_text = "User select"):
-    return ("-u", "--user"), {"default": default, "type": str, "help": help_text}
 
 # .....................................................................................................................
 
@@ -284,7 +275,6 @@ if __name__ == "__main__":
     
     # Typical usage, supply standard args in order as desired
     example_list = ["camera",
-                    "user",
                     "video",
                     {"display": {"default": None}},
                     "threaded_video"]

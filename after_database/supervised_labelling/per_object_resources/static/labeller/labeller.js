@@ -72,10 +72,10 @@ function setup_global_constants_and_state(setup_json_data) {
 function setup_initial_ui(setup_json_data){
 
     // Pull out only the terms we need to setup the constant UI elements
-    const {camera_select, user_select, reserved_labels_list, topclass_labels_list, ...rest} = setup_json_data;
+    const {camera_select, reserved_labels_list, topclass_labels_list, ...rest} = setup_json_data;
 
     // Set up camera title & dynamically create class label buttons
-    create_camera_title(camera_select, user_select);
+    create_camera_title(camera_select);
     create_label_buttons(reserved_labels_list, topclass_labels_list);
 
     // Attach image/animation toggle callback to the image element
@@ -203,12 +203,12 @@ function update_pixel_display_visuals(){
 
 // .....................................................................................................................
 
-function create_camera_title(camera_select, user_select){
+function create_camera_title(camera_select){
 
-    // Create the camera/user title text at the top of the UI. This won't change after initial setup
+    // Create the camera title text at the top of the UI. This won't change after initial setup
     const camera_title_div = getelem_camera_title();
     const nice_camera_select = camera_select.replace("_", " ");
-    camera_title_div.innerText = `${nice_camera_select} (${user_select} user)`;
+    camera_title_div.innerText = nice_camera_select;
 }
 
 // .....................................................................................................................

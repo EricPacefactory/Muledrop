@@ -208,7 +208,6 @@ def request_camera_list(server_url):
 # Create selector to handle camera selection & project pathing
 selector = Resource_Selector()
 project_root_path = selector.get_project_root_pathing()
-user_select = "live"
 
 
 # ---------------------------------------------------------------------------------------------------------------------

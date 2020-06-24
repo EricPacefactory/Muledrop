@@ -66,17 +66,16 @@ class Core_Bundle:
     
     # .................................................................................................................
     
-    def __init__(self, cameras_folder_path, camera_select, user_select, video_select, video_wh):
+    def __init__(self, cameras_folder_path, camera_select, video_select, video_wh):
         
         # Save selection info
         self.cameras_folder_path = cameras_folder_path
         self.camera_select = camera_select
-        self.user_select = user_select
         self.video_select = video_select
         self.video_wh = video_wh
         
         # First make sure we have pathing to the core configs folder
-        self.core_folder_path = build_core_folder_path(cameras_folder_path, camera_select, user_select)
+        self.core_folder_path = build_core_folder_path(cameras_folder_path, camera_select)
         
         # Allocate storage for configured data
         self.final_stage_config_file_paths = None
@@ -97,8 +96,7 @@ class Core_Bundle:
         
         # Create list of strings to print
         repr_strs = ["Core Bundle", 
-                     "  camera: {}".format(self.camera_select), 
-                     "    user: {}".format(self.user_select)]
+                     "  camera: {}".format(self.camera_select)]
         
         # List all configured data
         for each_stage, each_config in self.final_stage_config_dict.items():
@@ -315,7 +313,7 @@ class Core_Bundle:
         # Load the given core object
         import_dot_path = configurable_dot_path("core", stage_name, script_name)
         Imported_Core_Class = dynamic_import_from_module(import_dot_path, class_name)
-        core_ref = Imported_Core_Class(self.cameras_folder_path, self.camera_select, self.user_select, input_wh)
+        core_ref = Imported_Core_Class(self.cameras_folder_path, self.camera_select, input_wh)
         
         # For debugging
         #print("IMPORTING:", stage_name)
@@ -425,12 +423,11 @@ if __name__ == "__main__":
     from local.lib.ui_utils.cli_selections import Resource_Selector
     selector = Resource_Selector(save_selection_history = False, create_folder_structure_on_select = False)
     camera_select, camera_path = selector.camera()
-    user_select, _ = selector.user(camera_select)
     video_select, _ = selector.video(camera_select)
     project_root_path, cameras_folder_path = selector.get_cameras_root_pathing()
     fake_video_wh = (100,100)
     
-    cb = Core_Bundle(cameras_folder_path, camera_select, user_select, video_select, fake_video_wh)
+    cb = Core_Bundle(cameras_folder_path, camera_select, video_select, fake_video_wh)
     print("", "", "--- BEFORE SETUP ---", sep = "\n")
     print(cb)
     cb.setup_all()

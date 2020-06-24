@@ -141,7 +141,7 @@ def no_decimal_string_format(number_for_string):
 
 # .....................................................................................................................
     
-def build_recording_path(base_path, camera_select, user_select, timelapse_factor, file_ext):
+def build_recording_path(base_path, camera_select, timelapse_factor, file_ext):
     
     # Check that the base pathing exists (if not, ask user if it's ok to create the folder)
     if not os.path.exists(base_path):
@@ -169,7 +169,7 @@ def build_recording_path(base_path, camera_select, user_select, timelapse_factor
         tl_str = "-TLx{}".format(no_decimal_string_format(timelapse_factor))
     
     # Build file name & combine with recording folder path for final output
-    file_name = "{}-({}){}{}".format(camera_select, user_select, tl_str, file_ext)
+    file_name = "{}-{}{}".format(camera_select, tl_str, file_ext)
     return os.path.join(recording_folder, file_name)
 
 # .....................................................................................................................
@@ -259,7 +259,7 @@ recording_folder_path, timestamp_pos_arg, enable_relative_timestamp = parse_reco
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-#%% Select camera/user
+#%% Make selections
 
 enable_debug_mode = False
 
@@ -267,16 +267,15 @@ enable_debug_mode = False
 selector = Resource_Selector()
 project_root_path, cameras_folder_path = selector.get_cameras_root_pathing()
 
-# Select the camera/user to show data for (needs to have saved report data already!)
+# Select the camera to show data for (needs to have saved report data already!)
 camera_select, camera_path = selector.camera(debug_mode=enable_debug_mode)
-user_select, _ = selector.user(camera_select, debug_mode=enable_debug_mode)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Catalog existing data
 
 cinfo_db, snap_db, obj_db, class_db, summary_db = \
-launch_file_db(cameras_folder_path, camera_select, user_select,
+launch_file_db(cameras_folder_path, camera_select,
                launch_snapshot_db = True,
                launch_object_db = True,
                launch_classification_db = True,
@@ -360,11 +359,7 @@ recording_codec = recording_info_dict["codec"]
 recording_file_ext = "".join([".", recording_file_ext]).replace("..", ".")
 
 # Build pathing to recorded file
-recording_file_path = build_recording_path(recording_folder_path, 
-                                           camera_select, 
-                                           user_select,
-                                           user_tl_factor, 
-                                           recording_file_ext)
+recording_file_path = build_recording_path(recording_folder_path, camera_select, user_tl_factor, recording_file_ext)
 
 # Create video writer object
 vwriter = Video_Recorder(recording_file_path,

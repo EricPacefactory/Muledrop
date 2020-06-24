@@ -179,19 +179,18 @@ enable_debug_mode = False
 selector = Resource_Selector()
 project_root_path, cameras_folder_path = selector.get_cameras_root_pathing()
 
-# Select the camera/user to show data for (needs to have saved report data already!)
+# Select the camera to show data for (needs to have saved report data already!)
 camera_select, camera_path = selector.camera(debug_mode=enable_debug_mode)
-user_select, _ = selector.user(camera_select, debug_mode=enable_debug_mode)
 
 # Bundle pathing args for convenience
-pathing_args = (cameras_folder_path, camera_select, user_select)
+pathing_args = (cameras_folder_path, camera_select)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Catalog existing data
 
 cinfo_db, snap_db, obj_db, class_db, summary_db = \
-launch_file_db(cameras_folder_path, camera_select, user_select,
+launch_file_db(*pathing_args,
                check_same_thread = False,
                launch_snapshot_db = True,
                launch_object_db = True,
@@ -255,7 +254,6 @@ def setup_data_route():
     
     # Bundle all the data the UI needs to create/display a UI for (coarse) labelling
     setup_request_data = {"camera_select": camera_select,
-                          "user_select": user_select,
                           "object_id_list": object_id_list,
                           "reserved_labels_list": sorted_reserved_labels,
                           "topclass_labels_list": sorted_topclass_labels}

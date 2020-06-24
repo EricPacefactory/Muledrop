@@ -53,6 +53,7 @@ import numpy as np
 
 from local.configurables.after_database.summary.reference_summary import Reference_Summary
 
+
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
 
@@ -60,10 +61,10 @@ class Summary_Stage(Reference_Summary):
     
     # .................................................................................................................
     
-    def __init__(self, cameras_folder_path, camera_select, user_select):
+    def __init__(self, cameras_folder_path, camera_select):
         
         # Inherit from reference class
-        super().__init__(cameras_folder_path, camera_select, user_select, file_dunder = __file__)
+        super().__init__(cameras_folder_path, camera_select, file_dunder = __file__)
     
     # .................................................................................................................
     

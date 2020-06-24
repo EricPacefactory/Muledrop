@@ -70,18 +70,17 @@ class Background_Report_Data_Saver:
     
     # .................................................................................................................
     
-    def __init__(self, cameras_folder_path, camera_select, user_select, 
+    def __init__(self, cameras_folder_path, camera_select, 
                  saving_enabled = True, threading_enabled = True):
         
         # Store inputs
         self.cameras_folder_path = cameras_folder_path
         self.camera_select = camera_select
-        self.user_select = user_select
         self.saving_enabled = saving_enabled
         self.threading_enabled = threading_enabled
         
         # Build saving paths
-        pathing_args = (cameras_folder_path, camera_select, user_select)
+        pathing_args = (cameras_folder_path, camera_select)
         self.image_save_folder_path = build_background_image_report_path(*pathing_args)
         self.metadata_save_folder_path = build_background_metadata_report_path(*pathing_args)
         
@@ -144,18 +143,17 @@ class Object_Report_Data_Saver:
     
     # .................................................................................................................
     
-    def __init__(self, cameras_folder_path, camera_select, user_select, 
+    def __init__(self, cameras_folder_path, camera_select, 
                  saving_enabled = True, threading_enabled = True):
         
         # Store inputs
         self.cameras_folder_path = cameras_folder_path
         self.camera_select = camera_select
-        self.user_select = user_select
         self.saving_enabled = saving_enabled
         self.threading_enabled = threading_enabled
         
         # Build saving paths
-        pathing_args = (cameras_folder_path, camera_select, user_select)
+        pathing_args = (cameras_folder_path, camera_select)
         self.metadata_save_folder_path = build_object_metadata_report_path(*pathing_args)
         
         # Initialize saver object & pathing as needed
@@ -212,18 +210,17 @@ class Snapshot_Report_Data_Saver:
     
     # .................................................................................................................
     
-    def __init__(self, cameras_folder_path, camera_select, user_select, 
+    def __init__(self, cameras_folder_path, camera_select, 
                  saving_enabled = True, threading_enabled = True):
         
         # Store inputs
         self.cameras_folder_path = cameras_folder_path
         self.camera_select = camera_select
-        self.user_select = user_select
         self.saving_enabled = saving_enabled
         self.threading_enabled = threading_enabled
         
         # Build saving paths
-        pathing_args = (cameras_folder_path, camera_select, user_select)
+        pathing_args = (cameras_folder_path, camera_select)
         self.image_save_folder_path = build_snapshot_image_report_path(*pathing_args)
         self.metadata_save_folder_path = build_snapshot_metadata_report_path(*pathing_args)
         
@@ -277,34 +274,21 @@ class Snapshot_Report_Data_Saver:
 
 # .....................................................................................................................
 
-def build_base_report_path(cameras_folder, camera_select):
+def build_base_report_path(cameras_folder, camera_select, *path_joins):
     ''' Build path to base reporting folder for a given camera '''    
-    return os.path.join(cameras_folder, camera_select, "report")
+    return os.path.join(cameras_folder, camera_select, "report", *path_joins)
 
 # .....................................................................................................................
 
-def build_user_report_path(cameras_folder, camera_select, user_select, *path_joins):
-    ''' Build path to user-specific reporting folder for a given camera '''
-    base_path = build_base_report_path(cameras_folder, camera_select)
-    return os.path.join(base_path, user_select, *path_joins)
+def build_image_report_path(cameras_folder, camera_select, *path_joins):
+    ''' Build pathing to image data reporting folder for a given camera '''
+    return build_base_report_path(cameras_folder, camera_select, "images", *path_joins)
 
 # .....................................................................................................................
 
-def build_image_report_path(cameras_folder, camera_select, user_select, *path_joins):
-    ''' Build pathing to user-specific image data reporting folder for a given camera '''
-    return build_user_report_path(cameras_folder, camera_select, user_select, "images", *path_joins)
-
-# .....................................................................................................................
-
-def build_metadata_report_path(cameras_folder, camera_select, user_select, *path_joins):
-    ''' Build pathing to user-specific metadata reporting folder for a given camera '''
-    return build_user_report_path(cameras_folder, camera_select, user_select, "metadata", *path_joins)
-
-# .....................................................................................................................
-
-def build_video_report_path(cameras_folder, camera_select, user_select, *path_joins):
-    ''' Build pathing to user-specific video data reporting folder for a given camera '''
-    return build_user_report_path(cameras_folder, camera_select, user_select, "videos", *path_joins)
+def build_metadata_report_path(cameras_folder, camera_select, *path_joins):
+    ''' Build pathing to metadata reporting folder for a given camera '''
+    return build_base_report_path(cameras_folder, camera_select, "metadata", *path_joins)
 
 # .....................................................................................................................
 # .....................................................................................................................
@@ -314,38 +298,38 @@ def build_video_report_path(cameras_folder, camera_select, user_select, *path_jo
 
 # .....................................................................................................................
 
-def build_camera_info_metadata_report_path(cameras_folder, camera_select, user_select, *path_joins):
-    return build_metadata_report_path(cameras_folder, camera_select, user_select, "camera_info", *path_joins)
+def build_camera_info_metadata_report_path(cameras_folder, camera_select, *path_joins):
+    return build_metadata_report_path(cameras_folder, camera_select, "camera_info", *path_joins)
 
 # .....................................................................................................................
 
-def build_snapshot_image_report_path(cameras_folder, camera_select, user_select):
-    return build_image_report_path(cameras_folder, camera_select, user_select, "snapshots")
+def build_snapshot_image_report_path(cameras_folder, camera_select):
+    return build_image_report_path(cameras_folder, camera_select, "snapshots")
 
 # .....................................................................................................................
 
-def build_snapshot_metadata_report_path(cameras_folder, camera_select, user_select):
-    return build_metadata_report_path(cameras_folder, camera_select, user_select, "snapshots")
+def build_snapshot_metadata_report_path(cameras_folder, camera_select):
+    return build_metadata_report_path(cameras_folder, camera_select, "snapshots")
 
 # .....................................................................................................................
 
-def build_background_image_report_path(cameras_folder, camera_select, user_select):
-    return build_image_report_path(cameras_folder, camera_select, user_select, "backgrounds")
+def build_background_image_report_path(cameras_folder, camera_select):
+    return build_image_report_path(cameras_folder, camera_select, "backgrounds")
 
 # .....................................................................................................................
 
-def build_background_metadata_report_path(cameras_folder, camera_select, user_select):
-    return build_metadata_report_path(cameras_folder, camera_select, user_select, "backgrounds")
+def build_background_metadata_report_path(cameras_folder, camera_select):
+    return build_metadata_report_path(cameras_folder, camera_select, "backgrounds")
 
 # .....................................................................................................................
 
-def build_object_metadata_report_path(cameras_folder, camera_select, user_select):
-    return build_metadata_report_path(cameras_folder, camera_select, user_select, "objects")
+def build_object_metadata_report_path(cameras_folder, camera_select):
+    return build_metadata_report_path(cameras_folder, camera_select, "objects")
 
 # .....................................................................................................................
 
-def build_after_database_report_path(cameras_folder, camera_select, user_select, *path_joins):
-    return build_user_report_path(cameras_folder, camera_select, user_select, "after_database", *path_joins)
+def build_after_database_report_path(cameras_folder, camera_select, *path_joins):
+    return build_base_report_path(cameras_folder, camera_select, "after_database", *path_joins)
 
 # .....................................................................................................................
 # .....................................................................................................................

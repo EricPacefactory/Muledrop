@@ -338,6 +338,8 @@ class Entity_Drawer:
         self.entity_collection.replace_drawing_functions(new_completed_drawing_function, 
                                                          new_inprogress_drawing_function)
         
+        return
+        
     # .................................................................................................................
         
     def _debug_print(self, print_msg):
@@ -406,6 +408,8 @@ class Entity_Drawer:
             # Manually allow for recording list history, since we may not always want to store every drag start
             if record_history:
                 self.entity_collection.record_list_history()
+        
+        return
             
     # .................................................................................................................
     
@@ -422,6 +426,8 @@ class Entity_Drawer:
                 
                 # Signal change to entities
                 self._entity_change = True
+        
+        return
     
     # .................................................................................................................
     
@@ -436,6 +442,8 @@ class Entity_Drawer:
                 
                 # Signal change to entities
                 self._entity_change = True
+        
+        return
         
     # .................................................................................................................
     
@@ -455,6 +463,8 @@ class Entity_Drawer:
             
             # Signal change to entities
             self._entity_change = True
+        
+        return
             
     # .................................................................................................................
     
@@ -469,12 +479,16 @@ class Entity_Drawer:
         
         # Signal change to entities
         self._entity_change = True
+        
+        return
     
     # .................................................................................................................
     
     def _cancel_draw(self, mxy_array):
         self.entity_collection.clear_entity_in_progress()
         self._start_hover(mxy_array)
+        
+        return
     
     # .................................................................................................................
     
@@ -484,6 +498,8 @@ class Entity_Drawer:
         # Signal change to entities
         self._entity_change = True
         
+        return
+        
     # .................................................................................................................
     
     def _complete_drag(self, mxy_array):
@@ -491,6 +507,8 @@ class Entity_Drawer:
         
         # Signal change to entities
         self._entity_change = True
+        
+        return
     
     # .................................................................................................................
     
@@ -519,6 +537,8 @@ class Entity_Drawer:
         # Call the appropriate mouse callback, based on the current state
         mouse_state_func = self.mouse_state_callbacks[self.state]
         mouse_state_func(mxy_array, mouse_move, *mouse_button_states, modifier_state)
+        
+        return
     
     # .................................................................................................................
     
@@ -548,6 +568,8 @@ class Entity_Drawer:
         # Remove nearby points with a single right click
         elif mouse_right.click:
             self._remove_point(mxy_array)
+        
+        return
     
     # .................................................................................................................
     
@@ -571,6 +593,8 @@ class Entity_Drawer:
         # Right click cancels drawing
         elif mouse_right.click:
             self._cancel_draw(mxy_array)
+        
+        return
     
     # .................................................................................................................
     
@@ -588,6 +612,8 @@ class Entity_Drawer:
         # Left click & drag to drag existing points around
         elif mouse_left.drag:
             self._drag_point(mxy_array)
+        
+        return
             
     # .................................................................................................................
     
@@ -614,6 +640,8 @@ class Entity_Drawer:
             # Call the appropriate keypress callback, based on the drawer state
             key_state_func = self.keypress_state_callbacks[self.state]
             key_state_func(key_code, mod_shift, mod_ctrl, mod_alt, self.last_mouse_xy)
+        
+        return
             
     # .................................................................................................................
     
@@ -632,6 +660,8 @@ class Entity_Drawer:
             
         # Snap points to border (b key)
         self._snap_point_to_border(mxy_array, keycode)
+        
+        return
             
     # .................................................................................................................
     
@@ -659,6 +689,8 @@ class Entity_Drawer:
             
             # Signal change to entities
             self._entity_change = True
+        
+        return
     
     # .................................................................................................................
     
@@ -676,6 +708,8 @@ class Entity_Drawer:
             
             # Signal change to entities
             self._entity_change = True
+        
+        return
             
     # .................................................................................................................
     
@@ -698,6 +732,8 @@ class Entity_Drawer:
                 
                 # Signal change to entities
                 self._entity_change = True
+        
+        return
     
     # .................................................................................................................
     
@@ -710,6 +746,8 @@ class Entity_Drawer:
         
         # Keypress can be used to undo last drawn point
         self._undo_changes(mxy_array, keycode, ctrl)
+        
+        return
     
     # .................................................................................................................
     
@@ -722,7 +760,7 @@ class Entity_Drawer:
         
         # Keypresses should do nothing in the dragging state
         
-        pass
+        return
         
     # .................................................................................................................
     
@@ -734,6 +772,8 @@ class Entity_Drawer:
             self.state = new_state
         
         self._debug_print("STATE: {} -> {}".format(old_state, new_state))
+        
+        return
 
     # .................................................................................................................
     
@@ -780,6 +820,8 @@ class Entity_Drawer:
             pt2 = tuple(self.mouse_xy_history[1 + each_idx])
             line_thickness = int(round(max_thickness*(num_history - each_idx)/num_history + 1))
             cv2.line(frame, pt1, pt2, line_color, line_thickness, cv2.LINE_AA)
+        
+        return
             
     # .................................................................................................................
     # .................................................................................................................

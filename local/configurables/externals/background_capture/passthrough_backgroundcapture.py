@@ -59,10 +59,10 @@ class Background_Capture(Reference_Background_Capture):
     
     # .................................................................................................................
     
-    def __init__(self, cameras_folder_path, camera_select, user_select, video_wh):
+    def __init__(self, cameras_folder_path, camera_select, video_wh):
         
         # Inherit from base class
-        super().__init__(cameras_folder_path, camera_select, user_select, video_wh, file_dunder = __file__)
+        super().__init__(cameras_folder_path, camera_select, video_wh, file_dunder = __file__)
         
         # Update parent class settings with hard-coded values
         self.set_max_capture_count(3)

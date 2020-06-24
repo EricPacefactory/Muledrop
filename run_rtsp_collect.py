@@ -76,13 +76,8 @@ def parse_run_args(debug_print = False):
     default_dbserver_url = "{}://{}:{}".format(dbserver_protocol, dbserver_host, dbserver_port)
     url_help_text = "Specify the url of the db server\n(Default: {})".format(default_dbserver_url)
     
-    # Set default user for rtsp
-    default_user = "live"
-    user_help_text = "User select (Default: {})".format(default_user)
-    
     # Set script arguments for running on streams
     args_list = ["camera",
-                 {"user": {"default": default_user, "help_text": user_help_text}},
                  "display",
                  "enable_prompts",
                  "disable_saving",
@@ -94,7 +89,7 @@ def parse_run_args(debug_print = False):
     # Provide some extra information when accessing help text
     script_description = "Capture snapshot & tracking data from an RTSP stream. Requires RTSP configuration!"
     epilog_text = "\n".join(["Saved data can be manually accessed under:",
-                             "  cameras > (camera name) > report > (user name)"])
+                             "  cameras > (camera name) > report"])
     
     # Build & evaluate script arguments!
     ap_result = script_arg_builder(args_list,
@@ -121,15 +116,15 @@ allow_saving = (not ap_result.get("disable_saving", True))
 delete_existing_data = ap_result.get("delete_existing_data", False)
 provide_prompts = ap_result.get("enable_prompts", False)
 
-# Get camera/user selections from arguments
-arg_camera_select, arg_user_select, _ = get_selections_from_script_args(ap_result)
+# Get selections from arguments
+arg_camera_select, _ = get_selections_from_script_args(ap_result)
 
 # Hard-code some settings for rtsp only
 hardcode_video_select = "rtsp"
 hardcode_threaded_video = False
 
 # Catch missing inputs, if prompts are disabled
-check_missing_main_selections(arg_camera_select, arg_user_select, hardcode_video_select,
+check_missing_main_selections(arg_camera_select, hardcode_video_select,
                               error_if_missing = (not provide_prompts))
 
 
@@ -138,20 +133,20 @@ check_missing_main_selections(arg_camera_select, arg_user_select, hardcode_video
 
 # Make all required selections
 loader = RTSP_Configuration_Loader()
-loader.selections(arg_camera_select, arg_user_select, hardcode_video_select)
+loader.selections(arg_camera_select, hardcode_video_select)
 loader.set_script_name(__file__)
 
 # Get shared pathing settings
-cameras_folder_path, camera_select, user_select = loader.get_camera_pathing()
+cameras_folder_path, camera_select = loader.get_camera_pathing()
 
 # Make sure we're not already running a camera
 loader.shutdown_existing_camera_process()
 
-# Delete existing data if needed. Only provide a prompt if the user asked for it
+# Delete existing data if needed. Only provide a prompt if enabled through script args
 enable_saving = save_data_prompt(enable_save_prompt = provide_prompts, save_by_default = allow_saving)
 if enable_saving:
     check_delete_existing_data = (provide_prompts or delete_existing_data)
-    delete_existing_report_data(cameras_folder_path, camera_select, user_select,
+    delete_existing_report_data(cameras_folder_path, camera_select,
                                 enable_deletion = check_delete_existing_data,
                                 enable_deletion_prompt = provide_prompts)
 

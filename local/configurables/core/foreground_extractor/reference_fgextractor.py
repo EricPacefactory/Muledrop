@@ -55,6 +55,7 @@ from local.lib.common.images import blank_frame_from_frame_wh
 
 from local.configurables.configurable_template import Core_Configurable_Base
 
+
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
 
@@ -62,11 +63,11 @@ class Reference_FG_Extractor(Core_Configurable_Base):
     
     # .................................................................................................................
     
-    def __init__(self, cameras_folder_path, camera_select, user_select, input_wh, *, file_dunder):
+    def __init__(self, cameras_folder_path, camera_select, input_wh, *, file_dunder):
         
         # Inherit from parent class
         super().__init__("foreground_extractor", 
-                         cameras_folder_path, camera_select, user_select, input_wh, file_dunder = file_dunder)
+                         cameras_folder_path, camera_select, input_wh, file_dunder = file_dunder)
         
         # Allocate storage for background image data
         self._clean_bg_frame = None
@@ -79,7 +80,7 @@ class Reference_FG_Extractor(Core_Configurable_Base):
         # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         
         # For inherited classes, first call:
-        # super().__init__(cameras_folder_path, camera_select, user_select, input_wh, file_dunder = __file__)
+        # super().__init__(cameras_folder_path, camera_select, input_wh, file_dunder = __file__)
         
         # Then do any class-specific set up
         # ...
