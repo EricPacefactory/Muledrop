@@ -34,8 +34,8 @@ ENV DBSERVER_HOST               localhost
 ENV DBSERVER_PORT               8050
 
 # Set variables for launching the control server
-ENV CTRLSERVER_HOST               0.0.0.0
-ENV CTRLSERVER_PORT               8181
+ENV CTRLSERVER_HOST             0.0.0.0
+ENV CTRLSERVER_PORT             8181
 
 # Set variables to control auto-posting
 ENV AUTOPOST_ON_STARTUP         1
@@ -60,7 +60,7 @@ RUN pip3 install -r requirements.txt
 COPY . .
 
 # Run the upload server! This is a blocking call...
-CMD ["python3", "-u", "configuration_utilities/control/control_server.py"]
+ENTRYPOINT ["sh", "docker_entrypoint.sh"]
 
 
 # -----------------------------------------------------------------------------
