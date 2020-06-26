@@ -534,7 +534,8 @@ class RTSP_Configuration_Loader(File_Configuration_Loader):
                    arg_video_select = "rtsp"):
         
         # Create selector so we can make camera/video selections
-        selector = Resource_Selector()
+        # (Disable selection history save/load access, since RTSP may be called quickly by automated systems)
+        selector = Resource_Selector(load_selection_history = False, save_selection_history = False)
         self.project_root_path, self.cameras_folder_path = selector.get_cameras_root_pathing()
         
         # Select shared components
