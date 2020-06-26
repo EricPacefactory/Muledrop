@@ -10,6 +10,6 @@
     "snapshot_period_sec": 1.0,
     "max_dimension_px": 640,
     "jpg_quality": 25,
-    "downscale_interpolation": 0
+    "downscale_interpolation": 2
   }
 }

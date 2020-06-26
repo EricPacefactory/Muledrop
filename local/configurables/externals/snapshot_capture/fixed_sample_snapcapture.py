@@ -117,11 +117,11 @@ class Snapshot_Capture(Reference_Snapshot_Capture):
         self.ctrl_spec.attach_menu(
                 "downscale_interpolation", 
                 label = "Downscaling Interpolation", 
-                default_value = "Nearest",
+                default_value = "Area",
                 option_label_value_list = [("Nearest", cv2.INTER_NEAREST),
                                            ("Bilinear", cv2.INTER_LINEAR),
-                                           ("Cubic", cv2.INTER_CUBIC)],
-                visible = False,
+                                           ("Area", cv2.INTER_AREA)],
+                visible = True,
                 tooltip = "Set the interpolation style for pixels sampled at fractional indices")
     
     # .................................................................................................................
