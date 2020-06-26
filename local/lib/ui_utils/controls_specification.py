@@ -482,10 +482,10 @@ if __name__ == "__main__":
     interp = \
     cspec.attach_menu("interp", 
                       label = "Interpolation", 
-                      default_value = "Bilinear",
+                      default_value = "Area",
                       option_label_value_list = [("Nearest Neighbour", 0),
                                                  ("Bilinear", 5),
-                                                 ("Cubic", 10),
+                                                 ("Area", 10),
                                                  ("Other", None)])
     
     # Expected to pass the ctrl_manager into the reconfigure() function for a configurable!

@@ -139,7 +139,7 @@ class FG_Extractor_Stage(Reference_FG_Extractor):
                 default_value = "Nearest",
                 option_label_value_list = [("Nearest", cv2.INTER_NEAREST),
                                            ("Bilinear", cv2.INTER_LINEAR),
-                                           ("Cubic", cv2.INTER_CUBIC)],
+                                           ("Area", cv2.INTER_AREA)],
                 tooltip = "Set the interpolation style for pixels sampled at fractional indices")
         
         self.pre_blur_size = \

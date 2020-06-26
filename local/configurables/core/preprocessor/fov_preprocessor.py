@@ -124,10 +124,10 @@ class Preprocessor_Stage(Reference_Preprocessor):
         self.ctrl_spec.attach_menu(
                 "interpolation_type",
                 label = "Interpolation",
-                default_value = "Nearest Neighbor", 
-                option_label_value_list = [("Nearest Neighbor", cv2.INTER_NEAREST),
+                default_value = "Nearest", 
+                option_label_value_list = [("Nearest", cv2.INTER_NEAREST),
                                            ("Bilinear", cv2.INTER_LINEAR),
-                                           ("Cubic", cv2.INTER_CUBIC)],
+                                           ("Area", cv2.INTER_AREA)],
                 tooltip = "Set the interpolation style for pixels sampled at fractional indices")
         
         
