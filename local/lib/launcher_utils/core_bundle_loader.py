@@ -337,8 +337,8 @@ class Core_Bundle:
         
         # For clarity
         no_stage = (override_stage is None)
-        no_script = (override_stage is None)
-        no_class = (override_stage is None)
+        no_script = (override_script is None)
+        no_class = (override_class is None)
         
         # Do nothing if neither stage or script are being overriden
         if no_stage and no_script:
