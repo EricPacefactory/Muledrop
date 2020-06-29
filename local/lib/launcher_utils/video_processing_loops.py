@@ -452,7 +452,7 @@ class Reconfigurable_Video_Loop(Video_Processing_Loop):
         cv2.destroyAllWindows()
         
         # Save configurable
-        self.save_configurable()
+        self.loader.ask_to_save_configurable(self.configurable_ref)
         
     # .................................................................................................................
     
@@ -526,11 +526,6 @@ class Reconfigurable_Video_Loop(Video_Processing_Loop):
     
     def display_timing_data(self, stage_timing):
         self.timing_window.display(stage_timing)
-    
-    # .................................................................................................................
-    
-    def save_configurable(self):
-        self.loader.ask_to_save_configurable(self.configurable_ref)
     
     # .................................................................................................................
     
@@ -618,7 +613,7 @@ class Snapshot_Capture_Video_Loop(Reconfigurable_Video_Loop):
         cv2.destroyAllWindows()
         
         # Save configurable
-        self.save_configurable()
+        self.loader.ask_to_save_configurable(self.configurable_ref)
     
     # .................................................................................................................
 
@@ -717,7 +712,7 @@ class Background_Capture_Video_Loop(Reconfigurable_Video_Loop):
         cv2.destroyAllWindows()
         
         # Save configurable
-        self.save_configurable()
+        self.loader.ask_to_save_configurable(self.configurable_ref)
     
     # .................................................................................................................
 
@@ -818,7 +813,7 @@ class Object_Capture_Video_Loop(Reconfigurable_Video_Loop):
         cv2.destroyAllWindows()
         
         # Save configurable
-        self.save_configurable()
+        self.loader.ask_to_save_configurable(self.configurable_ref)
     
     # .................................................................................................................
 

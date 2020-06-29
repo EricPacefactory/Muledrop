@@ -229,10 +229,10 @@ class Threaded_File_Video_Reader(Base_Video_Reader):
     
     # .................................................................................................................
     
-    def __init__(self, cameras_folder, camera_select, video_select):
+    def __init__(self, cameras_folder_path, camera_select, video_select):
         
         # Get pathing to the selected video & other timing information
-        video_source, start_datetime_isoformat, timelapse_factor = video_info_from_name(cameras_folder, 
+        video_source, start_datetime_isoformat, timelapse_factor = video_info_from_name(cameras_folder_path, 
                                                                                         camera_select, 
                                                                                         video_select)
         
@@ -435,10 +435,10 @@ class File_Video_Reader(Base_Video_Reader):
     
     # .................................................................................................................
     
-    def __init__(self, cameras_folder, camera_select, video_select):
+    def __init__(self, cameras_folder_path, camera_select, video_select):
         
         # Get pathing to the selected video & other timing information
-        video_source, start_datetime_isoformat, timelapse_factor = video_info_from_name(cameras_folder, 
+        video_source, start_datetime_isoformat, timelapse_factor = video_info_from_name(cameras_folder_path, 
                                                                                         camera_select, 
                                                                                         video_select)
         
@@ -490,13 +490,13 @@ class RTSP_Video_Reader(Base_Video_Reader):
     
     # .................................................................................................................
     
-    def __init__(self, cameras_folder, camera_select):
+    def __init__(self, cameras_folder_path, camera_select):
         
         # Get pathing to the selected video
-        rtsp_config_dict, rtsp_string = load_rtsp_config(cameras_folder, camera_select)
+        rtsp_config_dict, rtsp_string = load_rtsp_config(cameras_folder_path, camera_select)
         
         # Catch bad rtsp configurations before launching
-        is_valid_rtsp_ip = check_valid_rtsp_ip(cameras_folder, camera_select)
+        is_valid_rtsp_ip = check_valid_rtsp_ip(cameras_folder_path, camera_select)
         if not is_valid_rtsp_ip:
             print("",
                   "Use the RTSP editor utility to specify camera configuration!",
@@ -629,15 +629,15 @@ class RTSP_Video_Reader(Base_Video_Reader):
 
 # .....................................................................................................................
 
-def create_video_reader(cameras_folder, camera_select, video_select):
+def create_video_reader(cameras_folder_path, camera_select, video_select):
     
     ''' Helper function for initializing the correct video reader object '''
     
     video_is_rtsp = (video_select.lower().strip() == "rtsp")
     if video_is_rtsp:        
-        return RTSP_Video_Reader(cameras_folder, camera_select, video_select)
+        return RTSP_Video_Reader(cameras_folder_path, camera_select, video_select)
     
-    return File_Video_Reader(cameras_folder, camera_select, video_select)
+    return File_Video_Reader(cameras_folder_path, camera_select, video_select)
 
 # .....................................................................................................................
 

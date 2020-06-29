@@ -54,6 +54,7 @@ from collections import OrderedDict
 
 from local.configurables.configurable_template import configurable_dot_path
 
+from local.lib.file_access_utils.structures import create_configurable_save_data, unpack_config_data, unpack_access_info
 from local.lib.file_access_utils.json_read_write import load_config_json
 from local.lib.file_access_utils.core import build_core_folder_path, get_ordered_config_paths
 
@@ -99,12 +100,11 @@ class Core_Bundle:
                      "  camera: {}".format(self.camera_select)]
         
         # List all configured data
-        for each_stage, each_config in self.final_stage_config_dict.items():
+        for each_stage, each_config_data_dict in self.final_stage_config_dict.items():
             
-            access_info = each_config["access_info"]
-            script_name = access_info["script_name"]
-            class_name = access_info["class_name"]
-            num_properties = len(each_config["setup_data"])
+            access_info_dict, setup_data_dict = unpack_config_data(each_config_data_dict)
+            script_name, class_name, _ = unpack_access_info(access_info_dict)
+            num_properties = len(setup_data_dict)
             
             repr_strs += ["",
                           "--> {}".format(titleize(each_stage)),
@@ -303,12 +303,8 @@ class Core_Bundle:
     def _setup_single(self, stage_name, input_wh, stage_config_dict, configure_mode = False):
         
         # Separate the raw data contained in the config file
-        access_info_dict = stage_config_dict["access_info"]
-        setup_data_dict = stage_config_dict["setup_data"]
-        
-        # Separate the access info
-        script_name = access_info_dict["script_name"]
-        class_name = access_info_dict["class_name"]
+        access_info_dict, setup_data_dict = unpack_config_data(stage_config_dict)
+        script_name, class_name, _ = unpack_access_info(access_info_dict)
         
         # Load the given core object
         import_dot_path = configurable_dot_path("core", stage_name, script_name)
@@ -375,16 +371,21 @@ class Core_Bundle:
         
         # Alter loading info for the overriden stage. Keep setup data if the script/class match. Otherwise blank it
         override_config = final_stage_config_dict[override_stage]
-        access_info_dict = override_config["access_info"]
-        setup_data_dict = override_config["setup_data"]
-        mismatch_script = (access_info_dict["script_name"] != override_script)
-        mismatch_class = (access_info_dict["class_name"] != override_class)
+        access_info_dict, setup_data_dict = unpack_config_data(override_config)
+        loaded_script_name, loaded_class_name, _ = unpack_access_info(access_info_dict)
+        
+        # If there is a mismatch, override the loaded config data so we load the target script/class instead
+        mismatch_script = (loaded_script_name != override_script)
+        mismatch_class = (loaded_class_name != override_class)
         if mismatch_script or mismatch_class:
-            access_info_dict = {"script_name": override_script, "class_name": override_class}
-            setup_data_dict = {}
+            override_config_util = None
+            override_setup_data_dict = {}
+            override_config = create_configurable_save_data(override_script, 
+                                                            override_class, 
+                                                            override_config_util, 
+                                                            override_setup_data_dict)
             
         # Write access/setup data back into overriden stage
-        override_config = {"access_info": access_info_dict, "setup_data": setup_data_dict}
         final_stage_config_dict[override_stage] = override_config
         
         return final_stage_config_dict
@@ -433,6 +434,7 @@ if __name__ == "__main__":
     cb.setup_all()
     print("", "", "--- AFTER SETUP ---", sep = "\n")
     print(cb)
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Scrap

@@ -51,23 +51,16 @@ find_path_to_local()
 
 from local.lib.file_access_utils.shared import build_config_folder_path
 from local.lib.file_access_utils.logging import build_configurables_log_path
-from local.lib.file_access_utils.json_read_write import save_config_json
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Pathing functions
 
 # .....................................................................................................................
 
-def build_core_folder_path(cameras_folder, camera_select, *path_joins):
+def build_core_folder_path(cameras_folder_path, camera_select, *path_joins):
     ''' Function which builds the path the folder containing core configuration files '''
-    return build_config_folder_path(cameras_folder, camera_select, "core", *path_joins)
-
-# .....................................................................................................................
-
-def build_config_save_path(cameras_folder, camera_select, stage_name):
-    ''' Function which builds the pathing for loading/saving a specific core config file '''    
-    config_file_name = "".join([stage_name, ".json"])
-    return build_core_folder_path(cameras_folder, camera_select, config_file_name)
+    return build_config_folder_path(cameras_folder_path, camera_select, "core", *path_joins)
 
 # .....................................................................................................................
 
@@ -140,37 +133,6 @@ def get_ordered_config_paths(core_folder_path):
 # .....................................................................................................................
 # .....................................................................................................................
 
-# ---------------------------------------------------------------------------------------------------------------------
-#%% Config functions
-
-# .....................................................................................................................
-    
-def save_core_config(cameras_folder, camera_select,
-                     stage_name, script_name, class_name,
-                     config_data, confirm_save = True):
-    
-    # Build save pathing
-    core_config_folder_path = build_core_folder_path(cameras_folder, camera_select)
-    config_file_paths, stage_name_order = get_ordered_config_paths(core_config_folder_path)
-    
-    if stage_name not in stage_name_order:
-        raise NameError("Stage not recognized! ({}) Expecting: {}".format(stage_name, stage_name_order))
-    stage_index = stage_name_order.index(stage_name)
-    save_file_path = config_file_paths[stage_index]
-    
-    # Build the data structure for core config data
-    save_data = {"access_info": {"script_name": script_name,
-                                 "class_name": class_name},
-                 "setup_data": config_data}
-    
-    # Fully overwrite the existing config
-    if confirm_save:
-        save_config_json(save_file_path, save_data)
-    
-    return save_file_path, save_data
-
-# .....................................................................................................................
-# .....................................................................................................................
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Demo

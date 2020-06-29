@@ -51,6 +51,7 @@ find_path_to_local()
 
 from local.lib.ui_utils.cli_selections import Resource_Selector
 
+from local.lib.file_access_utils.structures import unpack_config_data, unpack_access_info
 from local.lib.file_access_utils.summary import build_summary_config_path
 from local.lib.file_access_utils.json_read_write import load_config_json, save_config_json
 
@@ -80,17 +81,19 @@ def load_matching_config(configurable_ref):
     load_path = path_to_configuration_file(configurable_ref)
     
     # Load existing config
-    config_data = load_config_json(load_path)
-    file_access_dict = config_data["access_info"]
-    setup_data_dict = config_data["setup_data"]
+    config_data_dict = load_config_json(load_path)
+    access_info_dict, setup_data_dict = unpack_config_data(config_data_dict)
     
     # Get target script/class from the configurable, to see if the saved config matches
     target_script_name = configurable_ref.script_name
     target_class_name = configurable_ref.class_name
     
+    # Get the saved access info for comparison
+    loaded_script_name, loaded_class_name, _ = unpack_access_info(access_info_dict)
+    
     # Check if file access matches
-    script_match = (target_script_name == file_access_dict["script_name"])
-    class_match = (target_class_name == file_access_dict["class_name"])
+    script_match = (target_script_name == loaded_script_name)
+    class_match = (target_class_name == loaded_class_name)
     if script_match and class_match:
         return setup_data_dict
     
@@ -100,19 +103,14 @@ def load_matching_config(configurable_ref):
 
 # .....................................................................................................................
 
-def save_summary_config(configurable_ref, file_dunder = __file__):
+def save_summary_config(configurable_ref, file_dunder):
     
-    # Figure out the name of this configuration script
-    config_utility_script_name, _ = os.path.splitext(os.path.basename(file_dunder))
-    
-    # Get file access info & current configuration data for saving
-    file_access_dict, setup_data_dict = configurable_ref.get_data_to_save()
-    file_access_dict.update({"configuration_utility": config_utility_script_name})
-    save_data = {"access_info": file_access_dict, "setup_data": setup_data_dict}
+    # Get data for saving
+    save_data_dict = configurable_ref.get_save_data_dict(file_dunder)
     
     # Build pathing to existing configuration file
     save_path = path_to_configuration_file(configurable_ref)    
-    save_config_json(save_path, save_data)
+    save_config_json(save_path, save_data_dict)
 
 # .....................................................................................................................
 # .....................................................................................................................

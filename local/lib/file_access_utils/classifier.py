@@ -49,6 +49,7 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
+from local.lib.file_access_utils.structures import unpack_config_data, unpack_access_info
 from local.lib.file_access_utils.after_database import build_after_database_configs_folder_path
 from local.lib.file_access_utils.reporting import build_after_database_report_path
 from local.lib.file_access_utils.resources import build_base_resources_path
@@ -214,16 +215,16 @@ def load_matching_config(configurable_ref):
     
     # Load existing config
     config_data = load_config_json(load_path)
-    file_access_dict = config_data["access_info"]
-    setup_data_dict = config_data["setup_data"]
+    access_info_dict, setup_data_dict = unpack_config_data(config_data)
+    saved_script_name, saved_class_name = unpack_access_info(access_info_dict)
     
     # Get target script/class from the configurable, to see if the saved config matches
     target_script_name = configurable_ref.script_name
     target_class_name = configurable_ref.class_name
     
     # Check if file access matches
-    script_match = (target_script_name == file_access_dict["script_name"])
-    class_match = (target_class_name == file_access_dict["class_name"])
+    script_match = (target_script_name == saved_script_name)
+    class_match = (target_class_name == saved_class_name)
     if script_match and class_match:
         return setup_data_dict
     
@@ -233,19 +234,14 @@ def load_matching_config(configurable_ref):
 
 # .....................................................................................................................
 
-def save_classifier_config(configurable_ref, file_dunder = __file__):
-    
-    # Figure out the name of this configuration script
-    config_utility_script_name, _ = os.path.splitext(os.path.basename(file_dunder))
+def save_classifier_config(configurable_ref, file_dunder):
     
     # Get file access info & current configuration data for saving
-    file_access_dict, setup_data_dict = configurable_ref.get_data_to_save()
-    file_access_dict.update({"configuration_utility": config_utility_script_name})
-    save_data = {"access_info": file_access_dict, "setup_data": setup_data_dict}
+    save_data_dict = configurable_ref.get_save_data_dict(file_dunder)
     
     # Build pathing to existing configuration file
-    save_path = path_to_configuration_file(configurable_ref)    
-    save_config_json(save_path, save_data)
+    save_path = path_to_configuration_file(configurable_ref)
+    save_config_json(save_path, save_data_dict)
 
 # .....................................................................................................................
 # .....................................................................................................................
@@ -358,11 +354,9 @@ def load_classifier_config(cameras_folder_path, camera_select):
     config_file_path = build_classifier_config_path(cameras_folder_path, camera_select)
     
     # Load json data and split into file access info & setup configuration data
-    config_dict = load_config_json(config_file_path)
-    access_info_dict = config_dict["access_info"]
-    setup_data_dict = config_dict["setup_data"]
+    config_data_dict = load_config_json(config_file_path)
     
-    return config_file_path, access_info_dict, setup_data_dict
+    return config_file_path, config_data_dict
 
 # .....................................................................................................................
 

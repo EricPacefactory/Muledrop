@@ -56,8 +56,8 @@ from local.lib.file_access_utils.shared import build_config_folder_path
 
 # .....................................................................................................................
 
-def build_after_database_configs_folder_path(cameras_folder, camera_select, *path_joins):
-    return build_config_folder_path(cameras_folder, camera_select, "after_database", *path_joins)
+def build_after_database_configs_folder_path(cameras_folder_path, camera_select, *path_joins):
+    return build_config_folder_path(cameras_folder_path, camera_select, "after_database", *path_joins)
 
 # .....................................................................................................................
 # .....................................................................................................................

@@ -49,6 +49,7 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
+from local.lib.file_access_utils.structures import unpack_config_data
 from local.lib.file_access_utils.after_database import build_after_database_configs_folder_path
 from local.lib.file_access_utils.reporting import build_after_database_report_path
 from local.lib.file_access_utils.json_read_write import load_config_json
@@ -106,14 +107,13 @@ def load_summary_config(cameras_folder_path, camera_select):
     config_file_path = build_summary_config_path(cameras_folder_path, camera_select)
     
     # Load json data and split into file access info & setup configuration data
-    config_dict = load_config_json(config_file_path)
-    access_info_dict = config_dict["access_info"]
-    setup_data_dict = config_dict["setup_data"]
+    config_data_dict = load_config_json(config_file_path)
     
-    return config_file_path, access_info_dict, setup_data_dict
+    return config_file_path, config_data_dict
 
 # .....................................................................................................................
 # .....................................................................................................................
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Scrap

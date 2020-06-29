@@ -53,8 +53,7 @@ import cv2
 import numpy as np
 
 from local.lib.ui_utils.cli_selections import Resource_Selector
-
-from local.lib.file_access_utils.screen_info import Screen_Info
+from local.lib.ui_utils.screen_info import Screen_Info
 
 from local.offline_database.file_database import launch_file_db, close_dbs_if_missing_data
 from local.offline_database.object_reconstruction import Smoothed_Object_Reconstruction as Obj_Recon
@@ -66,6 +65,7 @@ from local.lib.ui_utils.local_ui.windows_base import Simple_Window
 
 from local.eolib.utils.colormaps import apply_colormap, inferno_colormap
 from local.eolib.utils.cli_tools import Datetime_Input_Parser as DTIP
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes

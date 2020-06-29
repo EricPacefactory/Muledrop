@@ -51,13 +51,13 @@ find_path_to_local()
 
 from time import sleep
 
-
 from local.lib.common.timekeeper_utils import get_human_readable_timestamp, get_human_readable_timezone
 from local.lib.common.timekeeper_utils import get_local_datetime, datetime_to_isoformat_string, datetime_to_epoch_ms
 from local.lib.common.exceptions import OS_Close, register_signal_quit
 
 from local.lib.ui_utils.cli_selections import Resource_Selector
 from local.lib.ui_utils.script_arguments import script_arg_builder, get_selections_from_script_args
+from local.lib.ui_utils.screen_info import Screen_Info
 
 from local.lib.launcher_utils.video_setup import File_Video_Reader, Threaded_File_Video_Reader, RTSP_Video_Reader
 from local.lib.launcher_utils.core_bundle_loader import Core_Bundle
@@ -66,16 +66,17 @@ from local.lib.launcher_utils.resource_initialization import initialize_backgrou
 
 from local.configurables.configurable_template import configurable_dot_path
 
-from local.lib.file_access_utils.structures import create_missing_folder_path
+from local.lib.file_access_utils.structures import create_missing_folder_path, unpack_config_data, unpack_access_info
 from local.lib.file_access_utils.externals import build_externals_folder_path
 from local.lib.file_access_utils.reporting import build_camera_info_metadata_report_path
 from local.lib.file_access_utils.resources import reset_capture_folder, reset_generate_folder
 from local.lib.file_access_utils.video import Playback_Access, load_rtsp_config
-from local.lib.file_access_utils.screen_info import Screen_Info
+
 from local.lib.file_access_utils.state_files import shutdown_running_camera, save_state_file, delete_state_file
 from local.lib.file_access_utils.json_read_write import load_config_json, save_config_json
 from local.lib.file_access_utils.json_read_write import dict_to_human_readable_output
 from local.lib.file_access_utils.metadata_read_write import save_jsongz_metadata
+
 
 from local.eolib.utils.cli_tools import cli_confirm
 from local.eolib.utils.function_helpers import dynamic_import_from_module
@@ -209,15 +210,13 @@ class File_Configuration_Loader:
         # Load all core config data for reporting
         core_configs_dict = {}
         for each_stage_name, each_core_stage in self.core_bundle.core_ref_dict.items():
-            access_info_dict, setup_data_dict = each_core_stage.get_data_to_save()
-            core_configs_dict[each_stage_name] = {"access_info": access_info_dict, "setup_data": setup_data_dict}
+            core_configs_dict[each_stage_name] = each_core_stage.get_save_data_dict()
         
         # Load all externals config data for reporting
         externals_configs_dict = {}
         externals_load_zip = zip(["snapshots", "backgrounds", "objects"], [self.snapcap, self.bgcap, self.objcap])
         for each_stage_name, each_ext_stage in externals_load_zip:
-            access_info_dict, setup_data_dict = each_ext_stage.get_data_to_save()
-            externals_configs_dict[each_stage_name] = {"access_info": access_info_dict, "setup_data": setup_data_dict}
+            externals_configs_dict[each_stage_name] = each_ext_stage.get_save_data_dict()
         
         # Bundle camera configs for convenience
         camera_configs_dict = {"core": core_configs_dict, "externals": externals_configs_dict}
@@ -468,9 +467,8 @@ class File_Configuration_Loader:
     def _import_externals_class(self, externals_type):
         
         # Check configuration file to see which script/class to load from & get configuration data
-        _, file_access_dict, setup_data_dict = self._load_externals_config_data(externals_type)
-        script_name = file_access_dict["script_name"]
-        class_name = file_access_dict["class_name"]
+        _, access_info_dict, setup_data_dict = self._load_externals_config_data(externals_type)
+        script_name, class_name, _ = unpack_access_info(access_info_dict)
         
         # Programmatically import the target class
         dot_path = configurable_dot_path("externals", externals_type, script_name)
@@ -496,9 +494,8 @@ class File_Configuration_Loader:
                                                      load_file_with_ext)
         
         # Load json data and split into file access info & setup configuration data
-        config_dict = load_config_json(path_to_config)
-        access_info_dict = config_dict["access_info"]
-        setup_data_dict = config_dict["setup_data"]
+        config_data_dict = load_config_json(path_to_config)
+        access_info_dict, setup_data_dict = unpack_config_data(config_data_dict)
         
         return path_to_config, access_info_dict, setup_data_dict
     
@@ -624,9 +621,9 @@ class Reconfigurable_Loader(File_Configuration_Loader):
         # Allocate storage for accessing re-configurable object
         self.configurable_ref = None
         self.configurable_config_file_path = None
-        self.configurable_file_access_dict = None
+        self.configurable_access_info_dict = None
         self.configurable_setup_data_dict = None
-        self._config_utility_script_name = None
+        self._config_util_file_dunder = None
         
         # Store overriding settings
         self.override_stage = override_stage
@@ -719,27 +716,31 @@ class Reconfigurable_Loader(File_Configuration_Loader):
     
     def record_configuration_utility(self, file_dunder):
         
-        # Store configuration utility info. Helps provide lookup as to how the systme had been configured
-        configuration_script_name = os.path.basename(file_dunder)
-        name_only, _ = os.path.splitext(configuration_script_name)
-        self._config_utility_script_name = name_only
+        '''
+        Function used to store pathing to the file used to configure a configurable
+        This information is used to provide a default selection for how to re-launch configuration for a configurable
+        '''
+        
+        self._config_util_file_dunder = file_dunder
 
     # .................................................................................................................
     
     def ask_to_save_configurable(self, configurable_ref):
         
         # Get save data from configurable & add configuration utility info
-        file_access_dict, setup_data_dict = configurable_ref.get_data_to_save()
-        file_access_dict.update({"configuration_utility": self._config_utility_script_name})
+        save_data_dict = configurable_ref.get_save_data_dict(self._config_util_file_dunder)
+        access_info_dict, setup_data_dict = unpack_config_data(save_data_dict)
+        curr_script_name, _, _ = unpack_access_info(access_info_dict)
         
         # Only save if the saved data has changed
-        is_passthrough = ("passthrough" in self.configurable_file_access_dict["script_name"])
-        file_access_changed = (self.configurable_file_access_dict != file_access_dict)
+        is_passthrough = ("passthrough" in curr_script_name)
+        access_info_changed = (self.configurable_access_info_dict != access_info_dict)
         setup_data_changed = (self.configurable_setup_data_dict != setup_data_dict)
-        need_to_save = (file_access_changed or setup_data_changed or is_passthrough)
+        need_to_save = (access_info_changed or setup_data_changed or is_passthrough)
+        
+        # Handle feedback for saving or not
         if need_to_save:
-            user_confirm_save = cli_confirm("Save settings?", default_response = False)
-            self._save_configurable(file_access_dict, setup_data_dict, user_confirm_save)
+            self._ask_to_save_data(save_data_dict)
         else:
             print("", "Settings unchanged!", "Skipping save prompt...", "", sep="\n")
         
@@ -748,17 +749,17 @@ class Reconfigurable_Loader(File_Configuration_Loader):
 
     # .................................................................................................................
     
-    def _save_configurable(self, file_access_dict, setup_data_dict, confirm_save = True, print_feedback = True):
+    def _ask_to_save_data(self, save_data_dict, print_feedback = True):
         
-        # Get save data in proper format
-        save_data = {"access_info": file_access_dict, "setup_data": setup_data_dict}
+        # Provide prompt to user for saving
+        user_confirm_save = cli_confirm("Save settings?", default_response = False)
         
         # Get pathing
         save_path = self.configurable_config_file_path
         relative_save_path = os.path.relpath(save_path, self.cameras_folder_path)
         
         # Don't save
-        if not confirm_save:
+        if not user_confirm_save:
             
             # Give feedback
             if print_feedback:                
@@ -769,13 +770,13 @@ class Reconfigurable_Loader(File_Configuration_Loader):
                       "@ {}".format(relative_save_path),
                       "",
                       "Save data:",
-                      dict_to_human_readable_output(save_data),
+                      dict_to_human_readable_output(save_data_dict),
                       "", sep = "\n")
             
             return relative_save_path
         
         # If we get here, we're saving!
-        save_config_json(save_path, save_data)
+        save_config_json(save_path, save_data_dict)
         if print_feedback:
             print("", "Saved configuration:", "@ {}".format(relative_save_path), "", sep = "\n")
         
@@ -786,15 +787,14 @@ class Reconfigurable_Loader(File_Configuration_Loader):
     def _import_externals_class_with_override(self):
         
         # Check configuration file to see which script/class to load from & get configuration data
-        path_to_config, file_access_dict, setup_data_dict = self._load_externals_config_data(self.override_stage)
-        existing_script_name = file_access_dict["script_name"]
-        existing_class_name = file_access_dict["class_name"]
+        path_to_config, access_info_dict, setup_data_dict = self._load_externals_config_data(self.override_stage)
+        existing_script_name, existing_class_name, _ = unpack_access_info(access_info_dict)
         
-        # Check if we're loading the target script/class already (in which case use the existing config)
+        # If we're loading a different script from what was saved, wipe out the loaded data
         matching_script = (existing_script_name == self.override_script)
         matching_class = (existing_class_name == self.override_class)
         if not (matching_script and matching_class):
-            file_access_dict = {"script_name": self.override_script, "class_name": self.override_class}
+            access_info_dict = {}
             setup_data_dict = {}
         
         # Programmatically import the target class
@@ -803,7 +803,7 @@ class Reconfigurable_Loader(File_Configuration_Loader):
         
         # Save data to re-access the override script
         self.configurable_config_file_path = path_to_config
-        self.configurable_file_access_dict = file_access_dict
+        self.configurable_access_info_dict = access_info_dict
         self.configurable_setup_data_dict = setup_data_dict
         
         return Imported_Externals_Class, setup_data_dict
@@ -837,14 +837,15 @@ class Reconfigurable_Core_Stage_Loader(Reconfigurable_Loader):
         
         # Grab final core stage as a reconfigurable component
         configurable_stage_name, configurable_ref = new_core_bundle.last_item()
-        config_path = new_core_bundle.final_stage_config_file_paths[configurable_stage_name]
-        config_dict = new_core_bundle.final_stage_config_dict[configurable_stage_name]
+        config_file_path = new_core_bundle.final_stage_config_file_paths[configurable_stage_name]
+        config_data_dict = new_core_bundle.final_stage_config_dict[configurable_stage_name]
         
         # Store configurable reference info
+        access_info_dict, setup_data_dict = unpack_config_data(config_data_dict)
         self.configurable_ref = configurable_ref
-        self.configurable_config_file_path = config_path
-        self.configurable_file_access_dict = config_dict["access_info"]
-        self.configurable_setup_data_dict = config_dict["setup_data"]
+        self.configurable_config_file_path = config_file_path
+        self.configurable_access_info_dict = access_info_dict
+        self.configurable_setup_data_dict = setup_data_dict
         
         '''
         ^^^ THIS CONFIGURABLE STUFF IS A BIT UGLY, BUT NOT THE END OF THE WORLD FOR NOW...

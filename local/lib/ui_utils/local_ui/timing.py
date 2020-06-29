@@ -56,6 +56,7 @@ from local.lib.ui_utils.local_ui.windows_base import Simple_Window
 
 from local.eolib.video.text_rendering import cv2_font_config, getTextSize_wrapper
 
+
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define Classes
 
@@ -416,7 +417,8 @@ class Local_Timing_Window(Simple_Window):
     
     # .................................................................................................................
     # .................................................................................................................
-    
+
+
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define functions
 
@@ -424,6 +426,7 @@ class Local_Timing_Window(Simple_Window):
        
 # .....................................................................................................................
 # .....................................................................................................................
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Demo
@@ -434,7 +437,7 @@ if __name__ == "__main__":
     from time import perf_counter
     
     from local.lib.file_access_utils.shared import find_root_path
-    from local.lib.file_access_utils.screen_info import Screen_Info
+    from local.lib.ui_utils.screen_info import Screen_Info
     
     cv2.destroyAllWindows()
     
@@ -477,6 +480,7 @@ if __name__ == "__main__":
     # Clean up
     cv2.destroyAllWindows()
     print("Average timing window cost (ms/update): {:.3f}".format(1000 * total_display_cost_sec / num_iter))
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Scrap

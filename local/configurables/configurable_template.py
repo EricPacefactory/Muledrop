@@ -55,6 +55,7 @@ from time import sleep
 
 from local.lib.ui_utils.controls_specification import Controls_Specification
 
+from local.lib.file_access_utils.structures import create_configurable_save_data, unpack_config_data
 from local.lib.file_access_utils.core import build_core_logging_folder_path
 from local.lib.file_access_utils.externals import build_externals_logging_folder_path
 
@@ -331,28 +332,31 @@ class Configurable_Base:
     # .................................................................................................................
     
     # SHOULDN'T OVERRIDE
-    def get_data_to_save(self):
+    def get_save_data_dict(self, configuration_utility_file_dunder = None):
         
         '''
         Function used to get the data/info needed to save this configurable.
         Not responsible for providing file pathing or actually performing the save however!
         
         Inputs:
-            None!
+            configuration_utility_file_dunder -> (String or None) File dunder (__file__) from the utility
+                                                 used to save the configurable data
             
         Outputs: 
-            access_info_dict, setup_data_dict
+            save_data_dict
         '''
         
-        # Grab relevant data for saving
-        clean_script_name, _ = os.path.splitext(self.script_name)
-        file_access_dict = {"script_name": clean_script_name, "class_name": self.class_name}
-        
-        # Get current variable settings to and bundle the saveable ones
+        # Get current variable settings to save as the setup data
         save_draw_json, _, save_slider_json, _, _ = self.current_settings()
         setup_data_dict = {**save_slider_json, **save_draw_json}
         
-        return file_access_dict, setup_data_dict
+        # Create save data using a standardized function to guarantee consistent formatting
+        save_data_dict = create_configurable_save_data(self.script_name,
+                                                       self.class_name,
+                                                       configuration_utility_file_dunder,
+                                                       setup_data_dict)
+        
+        return save_data_dict
     
     # .................................................................................................................
     

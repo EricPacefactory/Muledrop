@@ -341,11 +341,11 @@ def _load_image_generator(image_file_paths):
 
 if __name__ == "__main__":
     
-    example_cameras_folder = "/path/to/nowhere"
+    example_cameras_folder_path = "/path/to/nowhere"
     example_camera_select = "fake_camera"
     print("",
           "Example resource folder path:",
-          build_base_resources_path(example_cameras_folder, example_camera_select),
+          build_base_resources_path(example_cameras_folder_path, example_camera_select),
           sep = "\n")
 
 # ---------------------------------------------------------------------------------------------------------------------

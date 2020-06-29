@@ -59,7 +59,7 @@ from local.lib.common.feedback import print_time_taken_sec
 
 from local.lib.ui_utils.cli_selections import Resource_Selector
 
-from local.lib.file_access_utils.structures import create_missing_folder_path
+from local.lib.file_access_utils.structures import create_missing_folder_path, unpack_config_data, unpack_access_info
 from local.lib.file_access_utils.classifier import build_classifier_adb_metadata_report_path
 from local.lib.file_access_utils.classifier import load_classifier_config
 from local.lib.file_access_utils.classifier import new_classifier_report_entry
@@ -74,6 +74,7 @@ from local.eolib.utils.function_helpers import dynamic_import_from_module
 from local.eolib.utils.cli_tools import cli_confirm
 from local.eolib.utils.quitters import ide_quit
 
+
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define functions
 
@@ -83,9 +84,9 @@ def import_classifier_class(cameras_folder_path, camera_select):
     
     # Check configuration file to see which script/class to load from & get configuration data
     load_pathing_args = (cameras_folder_path, camera_select)
-    _, file_access_dict, setup_data_dict = load_classifier_config(*load_pathing_args)
-    script_name = file_access_dict["script_name"]
-    class_name = file_access_dict["class_name"]
+    _, config_data_dict = load_classifier_config(*load_pathing_args)
+    access_info_dict, setup_data_dict = unpack_config_data(config_data_dict)
+    script_name, class_name, _ = unpack_access_info(access_info_dict)
     
     # Programmatically import the target class
     dot_path = configurable_dot_path("after_database", "classifier", script_name)
@@ -259,7 +260,6 @@ if saving_enabled:
     save_pathing_args = (cameras_folder_path, camera_select)
     for each_obj_id, each_report_data_dict in save_data_dict.items():
         save_classifier_report_data(save_folder_path, report_data_dict = each_report_data_dict)
-
 
 
 # ---------------------------------------------------------------------------------------------------------------------

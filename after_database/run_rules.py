@@ -58,7 +58,7 @@ from local.lib.common.feedback import print_time_taken_ms
 
 from local.lib.ui_utils.cli_selections import Resource_Selector
 
-from local.lib.file_access_utils.structures import create_missing_folder_path
+from local.lib.file_access_utils.structures import create_missing_folder_path, unpack_config_data, unpack_access_info
 from local.lib.file_access_utils.rules import build_rule_adb_metadata_report_path
 from local.lib.file_access_utils.rules import build_rule_adb_info_report_path
 from local.lib.file_access_utils.rules import load_all_rule_configs, save_rule_info, save_rule_report_data
@@ -80,8 +80,7 @@ from local.eolib.utils.quitters import ide_quit
 def import_rule_class(access_info_dict):
     
     # Pull out info needed to import the rule class
-    script_name = access_info_dict["script_name"]
-    class_name = access_info_dict["class_name"]
+    script_name, class_name, _ = unpack_access_info(access_info_dict)
     
     # Programmatically import the target class
     dot_path = configurable_dot_path("after_database", "rules", script_name)
@@ -100,8 +99,7 @@ def load_all_rules_configured(cameras_folder_path, camera_select, frame_wh):
     for each_rule_name, each_config_dict in all_rule_configs_dict.items():
         
         # Pull out configuration data
-        access_info_dict = each_config_dict.get("access_info", None)
-        setup_data_dict = each_config_dict.get("setup_data", None)
+        access_info_dict, setup_data_dict = unpack_config_data(each_config_dict)
         
         # Bail if configuration data is missing
         if access_info_dict is None:

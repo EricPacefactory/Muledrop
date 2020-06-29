@@ -165,13 +165,13 @@ def find_cameras_folder():
 
 # .....................................................................................................................
 
-def build_camera_path(cameras_folder, camera_select, *path_joins):
-    return os.path.join(cameras_folder, camera_select, *path_joins)
+def build_camera_path(cameras_folder_path, camera_select, *path_joins):
+    return os.path.join(cameras_folder_path, camera_select, *path_joins)
 
 # .....................................................................................................................
 
-def build_config_folder_path(cameras_folder, camera_select, *path_joins):
-    return build_camera_path(cameras_folder, camera_select, "config", *path_joins)
+def build_config_folder_path(cameras_folder_path, camera_select, *path_joins):
+    return build_camera_path(cameras_folder_path, camera_select, "config", *path_joins)
 
 # .....................................................................................................................
     
@@ -180,8 +180,8 @@ def build_defaults_folder_path(project_root_path, *path_joins):
 
 # .....................................................................................................................
     
-def build_resources_folder_path(cameras_folder, camera_select, *path_joins):
-    return build_camera_path(cameras_folder, camera_select, "resources", *path_joins)
+def build_resources_folder_path(cameras_folder_path, camera_select, *path_joins):
+    return build_camera_path(cameras_folder_path, camera_select, "resources", *path_joins)
 
 # .....................................................................................................................
 
@@ -190,6 +190,10 @@ def build_logging_folder_path(cameras_folder_path, camera_select, *path_joins):
 
 # .....................................................................................................................
 # .....................................................................................................................
+
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Default configurations
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Default configurations

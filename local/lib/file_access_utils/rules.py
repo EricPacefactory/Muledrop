@@ -49,6 +49,7 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
+from local.lib.file_access_utils.structures import unpack_config_data, unpack_access_info
 from local.lib.file_access_utils.after_database import build_after_database_configs_folder_path
 from local.lib.file_access_utils.reporting import build_after_database_report_path
 from local.lib.file_access_utils.json_read_write import load_config_json, save_config_json
@@ -131,8 +132,8 @@ def get_rule_type(access_info_dict):
     ''' Helper function which determines the rule type (i.e. script name) from a given rule config '''
     
     # Pull out the script name, and be sure to remove any .py extensions (just in case)
-    rule_type = access_info_dict["script_name"]
-    clean_rule_type, _ = os.path.splitext(rule_type)
+    script_name, _, _ = unpack_access_info(access_info_dict)
+    clean_rule_type, _ = os.path.splitext(script_name)
     
     return clean_rule_type
 
@@ -204,11 +205,12 @@ def load_all_rule_configs(cameras_folder_path, camera_select, target_rule_type =
         
         # Get the rule name from the file, and load it's data
         rule_name, _ = os.path.splitext(each_file_name)
-        config_file_path, access_info_dict, setup_data_dict = load_rule_config(cameras_folder_path,
-                                                                               camera_select,
-                                                                               rule_name)
+        config_file_path, config_data_dict = load_rule_config(cameras_folder_path,
+                                                              camera_select,
+                                                              rule_name)
         
         # Get the rule type, in case we need to filter things down
+        access_info_dict, setup_data_dict = unpack_config_data(config_data_dict)
         rule_type = get_rule_type(access_info_dict)
         
         # Skip non-target rule types, if needed
@@ -216,9 +218,7 @@ def load_all_rule_configs(cameras_folder_path, camera_select, target_rule_type =
             continue
         
         # If we get this far, store the rule configuration data!
-        rule_configs_dict[rule_name] = {"config_file_path": config_file_path,
-                                        "access_info": access_info_dict,
-                                        "setup_data": setup_data_dict}
+        rule_configs_dict[rule_name] = config_data_dict
     
     return rule_configs_dict
 
@@ -232,27 +232,20 @@ def load_rule_config(cameras_folder_path, camera_select, rule_name):
     config_file_path = build_rule_config_file_path(cameras_folder_path, camera_select, rule_name)
     
     # Load json data and split into file access info & setup configuration data
-    config_dict = load_config_json(config_file_path)
-    access_info_dict = config_dict["access_info"]
-    setup_data_dict = config_dict["setup_data"]
+    config_data_dict = load_config_json(config_file_path)
     
-    return config_file_path, access_info_dict, setup_data_dict
+    return config_file_path, config_data_dict
 
 # .....................................................................................................................
 
-def save_rule_config(rule_name, configurable_ref, file_dunder = __file__):
-    
-    # Figure out the name of this configuration script
-    config_utility_script_name, _ = os.path.splitext(os.path.basename(file_dunder))
+def save_rule_config(rule_name, configurable_ref, file_dunder):
     
     # Get file access info & current configuration data for saving
-    file_access_dict, setup_data_dict = configurable_ref.get_data_to_save()
-    file_access_dict.update({"configuration_utility": config_utility_script_name})
-    save_data = {"access_info": file_access_dict, "setup_data": setup_data_dict}
+    save_data_dict = configurable_ref.get_save_data_dict(file_dunder)
     
     # Build pathing to existing configuration file
-    save_path = path_to_configuration_file(rule_name, configurable_ref)    
-    save_config_json(save_path, save_data)
+    save_path = path_to_configuration_file(rule_name, configurable_ref)
+    save_config_json(save_path, save_data_dict)
     relative_save_path = os.path.relpath(save_path, configurable_ref.cameras_folder_path)
     
     return save_path, relative_save_path
@@ -290,7 +283,8 @@ def select_rule_to_load(rule_ref):
     load_from_existing_config = (select_idx > 0)
     loaded_setup_data = {}
     if load_from_existing_config:
-        loaded_setup_data = all_rule_configs[loaded_rule_name]["setup_data"]
+        loaded_rule_config_data = all_rule_configs[loaded_rule_name]["config_data_dict"]
+        _, loaded_setup_data = unpack_config_data(loaded_rule_config_data)
     
     return load_from_existing_config, loaded_rule_name, loaded_setup_data
 

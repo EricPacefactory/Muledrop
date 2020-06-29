@@ -51,6 +51,8 @@ find_path_to_local()
 
 from local.configurables.configurable_template import After_Database_Configurable_Base
 
+from local.lib.file_access_utils.structures import unpack_config_data
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
@@ -106,7 +108,8 @@ class Reference_Rule(After_Database_Configurable_Base):
         '''
         
         # Grab setup data for saving into rule info output
-        access_info_dict, setup_data_dict = self.get_data_to_save()
+        save_data_dict = self.get_save_data_dict()
+        _, setup_data_dict = unpack_config_data(save_data_dict)
         
         # Bundle output data, which will be saved into a json file
         rule_type = self.get_rule_type()

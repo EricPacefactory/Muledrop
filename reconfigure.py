@@ -56,12 +56,14 @@ from time import sleep
 from local.lib.ui_utils.cli_selections import Resource_Selector
 from local.lib.ui_utils.script_arguments import script_arg_builder
 
+from local.lib.file_access_utils.structures import unpack_config_data, unpack_access_info
 from local.lib.file_access_utils.externals import build_externals_folder_path
 from local.lib.file_access_utils.core import get_ordered_core_sequence, build_core_folder_path
 from local.lib.file_access_utils.json_read_write import load_config_json
 
 from local.eolib.utils.files import get_file_list, get_folder_list
 from local.eolib.utils.cli_tools import cli_confirm, cli_select_from_list, clear_terminal, clean_error_quit
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
@@ -70,6 +72,7 @@ from local.eolib.utils.cli_tools import cli_confirm, cli_select_from_list, clear
 
 # .....................................................................................................................
 # .....................................................................................................................
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define functions
@@ -248,9 +251,9 @@ def get_default_option(configs_folder_path, stage_select):
         return None
     
     # If a file does exist, try to extract the configuration utility used to construct it
-    config_data = load_config_json(existing_config_file_path)
-    file_access_dict = config_data.get("access_info", {})
-    previous_config_util_used = file_access_dict.get("configuration_utility", None)
+    config_data_dict = load_config_json(existing_config_file_path)
+    access_info_dict, _ = unpack_config_data(config_data_dict)
+    _, _, previous_config_util_used = unpack_access_info(access_info_dict)
     
     return previous_config_util_used
 
@@ -370,6 +373,7 @@ def run_config_utility(camera_select, video_select, option_path):
 # .....................................................................................................................
 # .....................................................................................................................
 
+
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Setup
 
@@ -378,6 +382,7 @@ arg_selections = parse_recon_args()
 arg_camera_select = arg_selections.get("camera", None)
 arg_video_select = arg_selections.get("video", None)
 arg_enable_externals = arg_selections.get("externals", None)
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Ask for base selections
@@ -433,6 +438,7 @@ while True:
 
 # Some final cleanup feedback
 print("", "{} closed...".format(os.path.basename(__file__)), "", sep="\n")
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Scrap
