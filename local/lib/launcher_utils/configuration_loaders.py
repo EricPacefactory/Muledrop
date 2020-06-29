@@ -64,9 +64,8 @@ from local.lib.launcher_utils.core_bundle_loader import Core_Bundle
 from local.lib.launcher_utils.resource_initialization import initialize_background_and_framerate_from_file
 from local.lib.launcher_utils.resource_initialization import initialize_background_and_framerate_from_rtsp
 
-from local.configurables.configurable_template import configurable_dot_path
-
-from local.lib.file_access_utils.structures import create_missing_folder_path, unpack_config_data, unpack_access_info
+from local.lib.file_access_utils.structures import create_missing_folder_path
+from local.lib.file_access_utils.configurables import configurable_dot_path, unpack_config_data, unpack_access_info
 from local.lib.file_access_utils.externals import build_externals_folder_path
 from local.lib.file_access_utils.reporting import build_camera_info_metadata_report_path
 from local.lib.file_access_utils.resources import reset_capture_folder, reset_generate_folder
@@ -76,7 +75,6 @@ from local.lib.file_access_utils.state_files import shutdown_running_camera, sav
 from local.lib.file_access_utils.json_read_write import load_config_json, save_config_json
 from local.lib.file_access_utils.json_read_write import dict_to_human_readable_output
 from local.lib.file_access_utils.metadata_read_write import save_jsongz_metadata
-
 
 from local.eolib.utils.cli_tools import cli_confirm
 from local.eolib.utils.function_helpers import dynamic_import_from_module

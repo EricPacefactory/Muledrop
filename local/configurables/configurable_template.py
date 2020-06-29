@@ -55,7 +55,7 @@ from time import sleep
 
 from local.lib.ui_utils.controls_specification import Controls_Specification
 
-from local.lib.file_access_utils.structures import create_configurable_save_data, unpack_config_data
+from local.lib.file_access_utils.configurables import create_configurable_save_data
 from local.lib.file_access_utils.core import build_core_logging_folder_path
 from local.lib.file_access_utils.externals import build_externals_logging_folder_path
 
@@ -593,26 +593,6 @@ class After_Database_Configurable_Base(Configurable_Base):
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define functions
-
-# .....................................................................................................................
-
-def configurable_dot_path(*module_pathing):
-    
-    '''
-    Takes in any number of strings and generates the corresponding configurable 'dot-path',
-    assuming the base pathing is local/configurables/...
-    Intended to be used for programmatically importing functions/classes
-    
-    For example, with inputs ("core", "tracker", "example_tracker.py"), the output would be:
-        "local.configurables.core.tracker.example_tracker"
-        
-    Also accepts paths with slashes. For example ("core", "tracker/example_tracker.py") is also a valid input
-    '''
-    
-    # Remove file extensions and swap slashes ("/") for dots (".")
-    clean_names_list = [os.path.splitext(each_module)[0].replace("/", ".") for each_module in module_pathing]
-    
-    return ".".join(["local", "configurables", *clean_names_list])
     
 # .....................................................................................................................
     

@@ -58,14 +58,13 @@ from local.lib.common.feedback import print_time_taken_ms
 
 from local.lib.ui_utils.cli_selections import Resource_Selector
 
-from local.lib.file_access_utils.structures import create_missing_folder_path, unpack_config_data, unpack_access_info
+from local.lib.file_access_utils.structures import create_missing_folder_path
+from local.lib.file_access_utils.configurables import configurable_dot_path, unpack_config_data, unpack_access_info
 from local.lib.file_access_utils.rules import build_rule_adb_metadata_report_path
 from local.lib.file_access_utils.rules import build_rule_adb_info_report_path
 from local.lib.file_access_utils.rules import load_all_rule_configs, save_rule_info, save_rule_report_data
 
 from local.offline_database.file_database import launch_file_db, launch_rule_dbs, close_dbs_if_missing_data
-
-from local.configurables.configurable_template import configurable_dot_path
 
 from local.eolib.utils.files import get_total_folder_size
 from local.eolib.utils.function_helpers import dynamic_import_from_module

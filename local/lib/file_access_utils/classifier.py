@@ -49,7 +49,7 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
-from local.lib.file_access_utils.structures import unpack_config_data, unpack_access_info
+from local.lib.file_access_utils.configurables import unpack_config_data, unpack_access_info
 from local.lib.file_access_utils.after_database import build_after_database_configs_folder_path
 from local.lib.file_access_utils.reporting import build_after_database_report_path
 from local.lib.file_access_utils.resources import build_base_resources_path

@@ -59,15 +59,14 @@ from local.lib.common.feedback import print_time_taken_sec
 
 from local.lib.ui_utils.cli_selections import Resource_Selector
 
-from local.lib.file_access_utils.structures import create_missing_folder_path, unpack_config_data, unpack_access_info
+from local.lib.file_access_utils.structures import create_missing_folder_path
+from local.lib.file_access_utils.configurables import configurable_dot_path, unpack_config_data, unpack_access_info
 from local.lib.file_access_utils.classifier import build_classifier_adb_metadata_report_path
 from local.lib.file_access_utils.classifier import load_classifier_config
 from local.lib.file_access_utils.classifier import new_classifier_report_entry
 from local.lib.file_access_utils.classifier import save_classifier_report_data
 
 from local.offline_database.file_database import launch_file_db, close_dbs_if_missing_data
-
-from local.configurables.configurable_template import configurable_dot_path
 
 from local.eolib.utils.files import get_total_folder_size
 from local.eolib.utils.function_helpers import dynamic_import_from_module

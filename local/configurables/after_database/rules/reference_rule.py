@@ -51,7 +51,7 @@ find_path_to_local()
 
 from local.configurables.configurable_template import After_Database_Configurable_Base
 
-from local.lib.file_access_utils.structures import unpack_config_data
+from local.lib.file_access_utils.configurables import unpack_config_data
 
 
 # ---------------------------------------------------------------------------------------------------------------------

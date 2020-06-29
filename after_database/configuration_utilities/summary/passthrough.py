@@ -51,7 +51,7 @@ find_path_to_local()
 
 from local.lib.ui_utils.cli_selections import Resource_Selector
 
-from local.lib.file_access_utils.structures import unpack_config_data, unpack_access_info
+from local.lib.file_access_utils.configurables import unpack_config_data, unpack_access_info
 from local.lib.file_access_utils.summary import build_summary_config_path
 from local.lib.file_access_utils.json_read_write import load_config_json, save_config_json
 

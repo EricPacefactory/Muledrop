@@ -56,7 +56,7 @@ from time import sleep
 from local.lib.ui_utils.cli_selections import Resource_Selector
 from local.lib.ui_utils.script_arguments import script_arg_builder
 
-from local.lib.file_access_utils.structures import unpack_config_data, unpack_access_info
+from local.lib.file_access_utils.configurables import unpack_config_data, unpack_access_info
 from local.lib.file_access_utils.externals import build_externals_folder_path
 from local.lib.file_access_utils.core import get_ordered_core_sequence, build_core_folder_path
 from local.lib.file_access_utils.json_read_write import load_config_json

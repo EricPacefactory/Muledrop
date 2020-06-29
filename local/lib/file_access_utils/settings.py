@@ -162,6 +162,8 @@ def load_screen_info(project_root_path):
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define pathing info functions
 
+# .....................................................................................................................
+
 def load_pathing_info(project_root_path):
     
     # Set the default path (empty) and the fallback (used if a loaded path is not valid), in case we need it
