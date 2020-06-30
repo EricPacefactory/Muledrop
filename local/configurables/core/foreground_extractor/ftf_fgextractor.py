@@ -90,7 +90,7 @@ class FG_Extractor_Stage(Reference_FG_Extractor):
         self._pre_morph_element = None
         self._post_morph_element = None
         
-        # llocate storage for variables used to remove processing functions (to improve performance)
+        # Allocate storage for variables used to remove processing functions (to improve performance)
         self._enable_downscale = False
         self._enable_blur = False
         self._enable_difference = False
