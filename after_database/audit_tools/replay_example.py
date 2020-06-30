@@ -65,7 +65,7 @@ from local.offline_database.classification_reconstruction import create_objects_
 
 from local.eolib.utils.cli_tools import Datetime_Input_Parser as DTIP
 from local.eolib.utils.colormaps import create_interpolated_colormap
-from local.eolib.video.imaging import image_1d_to_3d, color_list_to_image, vstack_padded
+from local.eolib.video.imaging import image_1ch_to_3ch, color_list_to_image, vstack_padded
 from local.eolib.video.text_rendering import position_frame_relative, font_config, simple_text
 
 
@@ -201,7 +201,7 @@ def create_density_images(class_db, objclass_count_lists_dict, snap_width,
         count_cmap = create_interpolated_colormap(count_bgr_dict)
         
         # Convert count list to an image
-        count_gray_img = image_1d_to_3d(color_list_to_image(each_count_list))
+        count_gray_img = image_1ch_to_3ch(color_list_to_image(each_count_list))
         count_image_bar = cv2.LUT(count_gray_img, count_cmap)
         
         # Resize the count image to match the snapshots (for stacking) and apply color map

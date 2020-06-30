@@ -23,7 +23,7 @@ import numpy as np
 
 # .....................................................................................................................
 
-def image_1d_to_3d(image_1d):
+def image_1ch_to_3ch(image_1d):
     
     '''
     Function which takes a single channel image, and converts it to a 3-channel image
@@ -85,7 +85,7 @@ def diagonal_hatching_masked_area(display_image, mask_image,
     
     # Figure out the mask/inverted mask for drawing
     # (we'll draw hatching in areas blocked by the mask while leaving other regions clean)
-    mask_3d = image_1d_to_3d(mask_image) if auto_convert_1d_mask_to_3d else mask_image
+    mask_3d = image_1ch_to_3ch(mask_image) if auto_convert_1d_mask_to_3d else mask_image
     mask_reg = mask_3d if invert_mask else cv2.bitwise_not(mask_3d)
     mask_inv = cv2.bitwise_not(mask_3d) if invert_mask else mask_3d
     
@@ -176,14 +176,13 @@ def center_padded_image(display_frame, padded_wh, padding_color = (40, 40, 40)):
     
 # .....................................................................................................................
 
-def make_mask(frame_wh, mask_zones_list, zones_are_normalized = True, 
-              invert = False, return_1d = True, mask_line_type = cv2.LINE_4):
+def make_mask_1ch(frame_wh, mask_zones_list,
+                  zones_are_normalized = True, invert = False, mask_line_type = cv2.LINE_4):
     
     '''
-    Function which creates a mask frame, given a frame width/height, and list of zones.
+    Function which creates a single-channel mask frame, given a frame width/height, and list of zones.
     Note that zones are interpretted as being masked-off areas,
     this means that they will be filled in with black in the output frame (white everwhere else)
-    
     
     Inputs:
         frame_wh -> List/tuple. Should contain the width & height of the frame the mask will be applied to.
@@ -194,23 +193,19 @@ def make_mask(frame_wh, mask_zones_list, zones_are_normalized = True,
                            to bundle all zones together. Note this format must be used, even if 
                            only a single zone is defined. For example:
                                single_zone_list = [ [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]] ]
-                               
+        
         zones_are_normalized -> Boolean. If True, the function will use the provided frame width/height information
                                 to scale the zone co-ordinates into pixel values
-                                
+        
         invert -> Boolean. If True, the mask image will be inverted, so that the provided zones appear
                   white in the output image, and the rest of the image is black
-                  
-        return_1d -> Boolean. If True, the returned image will not have any color channels. The 1D shape will
-                     be (w, h) whereas the non-1D shape will be (w, h, 3), 
-                     where w/h are the provided frame_wh values
-                     
+        
         mask_line_type -> Integer. Flag used to decide which line type will be used by OpenCV. 
                           (see cv2.LINE_4, cv2.LINE_8, cv2.LINE_AA). This value affects how the
                           edges of the masked zones will be drawn. The default should be fine for almost all cases!
-                          
+    
     Outputs:
-        frame_mask -> Numpy array (np.uint8)
+        frame_mask_1ch -> Numpy array (np.uint8)
     '''
     
     # For convenience
@@ -218,32 +213,127 @@ def make_mask(frame_wh, mask_zones_list, zones_are_normalized = True,
     frame_scaling = np.float32((frame_width - 1, frame_height - 1)) if zones_are_normalized else np.float32((1,1))
     
     # Build the initial (full) mask frame
-    mask_bg_color = 255 if return_1d else (255, 255, 255)
-    frame_shape = (frame_height, frame_width) if return_1d else (frame_height, frame_width, 3)
-    frame_mask = np.full(frame_shape, mask_bg_color, dtype = np.uint8)
+    mask_bg_color = 255
+    frame_shape = (frame_height, frame_width)
+    frame_mask_1ch = np.full(frame_shape, mask_bg_color, dtype = np.uint8)
     
     # Draw masked zones onto the full frame
-    mask_fg_color = 0 if return_1d else (0, 0, 0)
+    mask_fg_color = 0
     for each_zone in mask_zones_list:
         zone_def_px = np.int32(np.round(each_zone * frame_scaling))
-        cv2.fillPoly(frame_mask, [zone_def_px], mask_fg_color, mask_line_type)
-        #cv2.polylines(frame_mask, [zone_def_px], True, mask_fg_color, 1, mask_line_type)
+        cv2.fillPoly(frame_mask_1ch, [zone_def_px], mask_fg_color, mask_line_type)
+        #cv2.polylines(frame_mask_1ch, [zone_def_px], True, mask_fg_color, 1, mask_line_type)
     
     # Invert the mask if needed
     if invert:
-        frame_mask = cv2.bitwise_not(frame_mask)
+        frame_mask_1ch = cv2.bitwise_not(frame_mask_1ch)
     
-    return frame_mask
+    return frame_mask_1ch
 
 # .....................................................................................................................
 
-def image_to_row_vector(frame):
+def make_cropmask_1ch(frame_wh, single_zone, crop_y1y2x1x2 = None, invert = True):
     
-    ''' Function which converts an image (grid of values) into a row vector '''
+    '''
+    Helper function which generates a single-channel cropmask image
+    (i.e. a masked image where the frame is cropped to the mask-in region)
+    Note that the default arguments (invert) assume that provided zone is a mask-in region
+    
+    Inputs:
+        frame_wh -> (Tuple) The target width and height of the original full frame that is to be masked
+        
+        single_zone -> (List of tuples) A normalized list of x/y pairs defining a single zone.
+                       This zone is interpretted as being the mask-in region to keep (and crop-to)
+        
+        crop_y1y2x1x2 -> (List or None) The list of crop-cordinates to use for cropping. If set to None, this
+                         function will auto-generate the co-ordinates based on the provide zone points
+        
+        invert -> (Boolean) If False, the provided zone is assumed to be masked-off,
+                  otherwise it is considered mask-in
+    
+    Outputs:
+        cropmask_1ch (Single-channel image data)
+    '''
+    
+    # For clarity
+    zones_are_normalized = True
+    
+    # First generate a mask using the full frame sizing
+    single_zone_as_list = [single_zone]
+    fullmask_1d = make_mask_1ch(frame_wh, single_zone_as_list, zones_are_normalized, invert,
+                                return_1d = True,
+                                mask_line_type = cv2.LINE_4)
+    
+    # Generate crop co-ordinates if needed
+    if crop_y1y2x1x2 is None:
+        _, crop_y1y2x1x2 = crop_y1y2x1x2_from_zones_list(frame_wh, single_zone_as_list, zones_are_normalized)
+    
+    # Crop out the part of the frame that contains the mask
+    cropmask_1ch = crop_pixels_and_copy(fullmask_1d, crop_y1y2x1x2)
+    
+    return cropmask_1ch
+
+# .....................................................................................................................
+
+def image_to_channel_column_vector(frame):
+    
+    '''
+    Function which converts an image into a column vector
+    with the number of rows equal to the number of pixels in the image,
+    and the number of columns matching the number of channels in the image
+    For example:
+        A 50 x 100 grayscale image outputs a 5000 x 1 vector
+        A 25 x 10 BGR image outputs a 250 x 3 vector
+    '''
     
     numel = np.prod(frame.shape[0:2])
     num_channels = 1 if len(frame.shape) < 3 else frame.shape[2]
     return np.reshape(frame, (numel, num_channels))
+
+# .....................................................................................................................
+
+def crop_y1y2x1x2_from_single_zone(frame_wh, single_zone, zone_is_normalized = True):
+    
+    '''
+    Function which returns crop co-ordinates, in y1, y2, x1, x2 format for a single provided zone.
+    Note that this format (y1, y2, x1, x2) is meant to be easy to use with numpy for cropping. For example:
+        cropped_frame = original_frame[y1:y2, x1:x2]
+    
+    Inputs:
+        frame_wh -> Tuple/list. Should contain width/height of the frame being cropped. These values are used
+                    to scale zone points into pixel co-ordinates (assuming they're normalized) as well as to
+                    prevent crop-cordinates from exceeding the frame boundary
+        
+        single_zone -> Should contain lists of pairs of x/y points
+                       For example: single_zone = [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]]
+        
+        zones_are_normalized -> Boolean. If True, the function will use the provided frame width/height information
+                                to scale the zone co-ordinates into pixel values
+    
+    Outputs:
+        crop_y1y2x1x2_list -> List of crop co-ordinates in y1, y2, x1, x2 format
+                              Note that the coordinates are returned in pixels,
+                              regardless of whether the input is normalized!
+    '''
+    
+    # For convenience
+    frame_width, frame_height = frame_wh
+    frame_scaling = np.float32((frame_width - 1, frame_height - 1)) if zone_is_normalized else np.float32((1,1))
+    
+    # Convert zone definition to pixels, if needed
+    zone_def_px = np.int32(np.round(frame_scaling * single_zone))
+    
+    # Get cropping co-ordinates
+    zone_mins = np.min(zone_def_px, axis = 0)
+    zone_maxs = np.max(zone_def_px, axis = 0)
+    crop_tl_br = [zone_mins, zone_maxs]
+    crop_tl_br = np.clip(crop_tl_br, (0,0), (frame_width - 1, frame_height - 1))
+    
+    # Get the cropped frame mask  & crop co-ordinates
+    y1, y2, x1, x2 = crop_tl_br[0][1], crop_tl_br[1][1] + 1, crop_tl_br[0][0], crop_tl_br[1][0] + 1
+    crop_y1y2x1x2 = (y1, y2, x1, x2)
+    
+    return crop_y1y2x1x2
 
 # .....................................................................................................................
 
@@ -279,35 +369,22 @@ def crop_y1y2x1x2_from_zones_list(frame_wh, zones_list, zones_are_normalized = T
                              or if all zones are being cropped/processed as one.
     '''
     
-    # For convenience
-    frame_width, frame_height = frame_wh
-    frame_scaling = np.float32((frame_width - 1, frame_height - 1)) if zones_are_normalized else np.float32((1,1))
-    
     # Initialize outputs
     crop_y1y2x1x2_list = []
-    bounding_y1 = frame_height
+    bounding_y1 = frame_wh[1]
     bounding_y2 = 0
-    bounding_x1 = frame_width
+    bounding_x1 = frame_wh[0]
     bounding_x2 = 0
     
     # Loop over all zones and figure out the cropping co-ords
     for each_zone in zones_list:
         
-        # Convert zone definition to pixels, if needed
-        zone_def_px = np.int32(np.round(frame_scaling * each_zone))
-        
-        # Get cropping co-ordinates
-        zone_mins = np.min(zone_def_px, axis = 0)
-        zone_maxs = np.max(zone_def_px, axis = 0)
-        crop_tl_br = [zone_mins, zone_maxs]
-        crop_tl_br = np.clip(crop_tl_br, (0,0), (frame_width - 1, frame_height - 1))
-        
-        # Get the cropped frame mask  & crop co-ordinates
-        y1, y2, x1, x2 = crop_tl_br[0][1], crop_tl_br[1][1] + 1, crop_tl_br[0][0], crop_tl_br[1][0] + 1
-        new_crop_y1y2x1x2 = (y1, y2, x1, x2)
+        # Get the crop co-ords for each zone
+        new_crop_y1y2x1x2 = crop_y1y2x1x2_from_single_zone(frame_wh, each_zone, zones_are_normalized)
         crop_y1y2x1x2_list.append(new_crop_y1y2x1x2)
         
         # Update the bounding co-ords
+        (y1, y2, x1, x2) = new_crop_y1y2x1x2
         bounding_y1 = min(y1, bounding_y1)
         bounding_y2 = max(y2, bounding_y2)
         bounding_x1 = min(x1, bounding_x1)
@@ -320,12 +397,27 @@ def crop_y1y2x1x2_from_zones_list(frame_wh, zones_list, zones_are_normalized = T
 
 # .....................................................................................................................
 
-def crop_pixels(frame, crop_y1y2x1x2, create_copy = False):
+def crop_pixels_in_place(frame, crop_y1y2x1x2):
     
-    ''' Function which crops an image, given a set of crop co-ordinates in the sequence y1, y2, x1, x2 '''
+    '''
+    Function which crops an image, given a set of crop co-ordinates in the sequence y1, y2, x1, x2
+    Note that the result is not a separate copy from the original frame!
+    '''
     
     cy1, cy2, cx1, cx2 = crop_y1y2x1x2
-    return frame.copy()[cy1:cy2, cx1:cx2] if create_copy else frame[cy1:cy2, cx1:cx2]
+    return frame[cy1:cy2, cx1:cx2]
+
+# .....................................................................................................................
+
+def crop_pixels_and_copy(frame, crop_y1y2x1x2):
+    
+    '''
+    Function which crops an image, given a set of crop co-ordinates in the sequence y1, y2, x1, x2
+    Note this function creates a copy of the frame before cropping!
+    '''
+    
+    cy1, cy2, cx1, cx2 = crop_y1y2x1x2
+    return frame.copy()[cy1:cy2, cx1:cx2]
 
 # .....................................................................................................................
 
@@ -345,6 +437,11 @@ def color_list_to_image(color_list, image_height = 30):
 # .....................................................................................................................
 
 def pixelate_image(image, pixelation_factor = 4):
+    
+    '''
+    Helper function which takes in an image and returns a same-sized image, with a pixelation effect
+    The higher the pixelation_factor, the more pixelated the resulting image
+    '''
     
     orig_height, orig_width = image.shape[0:2]
     original_dsize = (orig_width, orig_height)
@@ -372,11 +469,11 @@ if __name__ == "__main__":
     
     ex_zones = [[ [0.0, 0.0], [1.0, 0.0], [0.5, 0.5] ]]
     
-    mask_frame = make_mask(frame_wh, ex_zones, return_1d = False)
+    mask_frame = make_mask_1ch(frame_wh, ex_zones, return_1d = False)
     
     clist, blist = crop_y1y2x1x2_from_zones_list(frame_wh, ex_zones)
     
-    cropframe = crop_pixels(ex_frame, blist)
+    cropframe = crop_pixels_in_place(ex_frame, blist)
     
     cv2.imshow("ORIG", ex_frame)
     cv2.imshow("MASK", mask_frame)
