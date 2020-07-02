@@ -372,7 +372,6 @@ def crop_y1y2x1x2_from_zones_list(frame_wh, zones_list, zones_are_normalized = T
     '''
     
     # Error if needed
-    print("ZZZ", zones_list)
     no_zones = (len(zones_list) == 0)
     if no_zones and error_if_no_zones:
         raise TypeError("Can't generate crop co-ordinates because no zone were provided!")
