@@ -13,6 +13,7 @@ Created on Fri Nov  8 11:56:36 2019
 import cv2
 import numpy as np
 
+
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
 
@@ -217,6 +218,11 @@ def make_mask_1ch(frame_wh, mask_zones_list,
     frame_shape = (frame_height, frame_width)
     frame_mask_1ch = np.full(frame_shape, mask_bg_color, dtype = np.uint8)
     
+    # Bail if there are no zones to draw
+    no_zones = (_count_nested_elements(mask_zones_list) == 0)
+    if no_zones:
+        return frame_mask_1ch
+    
     # Draw masked zones onto the full frame
     mask_fg_color = 0
     for each_zone in mask_zones_list:
@@ -371,10 +377,16 @@ def crop_y1y2x1x2_from_zones_list(frame_wh, zones_list, zones_are_normalized = T
                              or if all zones are being cropped/processed as one.
     '''
     
+    # Initialize outputs
+    crop_y1y2x1x2_list = []
+    bounding_y1y2x1x2 = None
+    
     # Error if needed
-    no_zones = (len(zones_list) == 0)
-    if no_zones and error_if_no_zones:
-        raise TypeError("Can't generate crop co-ordinates because no zone were provided!")
+    no_zones = (_count_nested_elements(zones_list) == 0)
+    if no_zones:
+        if error_if_no_zones:
+            raise TypeError("Can't generate crop co-ordinates because no zone were provided!")
+        return crop_y1y2x1x2_list, bounding_y1y2x1x2
     
     # Initialize outputs
     crop_y1y2x1x2_list = []
@@ -398,7 +410,7 @@ def crop_y1y2x1x2_from_zones_list(frame_wh, zones_list, zones_are_normalized = T
         bounding_x2 = max(x2, bounding_x2)
         
     # Bundle the bounding crop-cordinates (i.e. co-ordinates that capture the full set of zones)
-    bounding_y1y2x1x2 = None if no_zones else (y1, y2, x1, x2)
+    bounding_y1y2x1x2 = (y1, y2, x1, x2)
     
     return crop_y1y2x1x2_list, bounding_y1y2x1x2
 
@@ -462,7 +474,37 @@ def pixelate_image(image, pixelation_factor = 4):
 # .....................................................................................................................
 
 
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Helper functions
 
+# .....................................................................................................................
+
+def _count_nested_elements(input_iterable, _num_elements = 0):
+    
+    '''
+    Counts the number of non-iterable elements (e.g. numbers) in a nested iterable
+    Intended to be used for checking if a nested iterable is empty or not
+    
+    Based on code from:
+    http://rightfootin.blogspot.com/2006/09/more-on-python-flatten.html
+    '''
+    
+    # Loop over all iterables and count all non-iterable elements
+    element_count = 0
+    for each_element in input_iterable:
+        element_is_iterable = (isinstance(each_element, (list, tuple)))
+        
+        # If the element is itself iterable, then return the flattened version of it
+        if element_is_iterable:
+            _num_elements = _count_nested_elements(each_element, _num_elements)
+        else:
+            # If the element isn't iterable, we can directly return it
+            element_count += 1
+    
+    return _num_elements + element_count
+
+# .....................................................................................................................
+# .....................................................................................................................
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Demo
