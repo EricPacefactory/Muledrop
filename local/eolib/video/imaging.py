@@ -232,7 +232,7 @@ def make_mask_1ch(frame_wh, mask_zones_list,
 
 # .....................................................................................................................
 
-def make_cropmask_1ch(frame_wh, single_zone, crop_y1y2x1x2 = None, invert = True):
+def make_cropmask_1ch(frame_wh, single_zone, crop_y1y2x1x2 = None, invert = True, mask_line_type = cv2.LINE_4):
     
     '''
     Helper function which generates a single-channel cropmask image
@@ -256,17 +256,15 @@ def make_cropmask_1ch(frame_wh, single_zone, crop_y1y2x1x2 = None, invert = True
     '''
     
     # For clarity
-    zones_are_normalized = True
+    zone_is_normalized = True
     
     # First generate a mask using the full frame sizing
     single_zone_as_list = [single_zone]
-    fullmask_1d = make_mask_1ch(frame_wh, single_zone_as_list, zones_are_normalized, invert,
-                                return_1d = True,
-                                mask_line_type = cv2.LINE_4)
+    fullmask_1d = make_mask_1ch(frame_wh, single_zone_as_list, zone_is_normalized, invert, mask_line_type)
     
     # Generate crop co-ordinates if needed
     if crop_y1y2x1x2 is None:
-        _, crop_y1y2x1x2 = crop_y1y2x1x2_from_zones_list(frame_wh, single_zone_as_list, zones_are_normalized)
+        crop_y1y2x1x2 = crop_y1y2x1x2_from_single_zone(frame_wh, single_zone, zone_is_normalized)
     
     # Crop out the part of the frame that contains the mask
     cropmask_1ch = crop_pixels_and_copy(fullmask_1d, crop_y1y2x1x2)
@@ -337,7 +335,7 @@ def crop_y1y2x1x2_from_single_zone(frame_wh, single_zone, zone_is_normalized = T
 
 # .....................................................................................................................
 
-def crop_y1y2x1x2_from_zones_list(frame_wh, zones_list, zones_are_normalized = True):
+def crop_y1y2x1x2_from_zones_list(frame_wh, zones_list, zones_are_normalized = True, error_if_no_zones = True):
     
     '''
     Function which returns crop-cordinates, in y1, y2, x1, x2 format, for each zone in the provided zones_lists.
@@ -357,6 +355,10 @@ def crop_y1y2x1x2_from_zones_list(frame_wh, zones_list, zones_are_normalized = T
                           
         zones_are_normalized -> Boolean. If True, the function will use the provided frame width/height information
                                 to scale the zone co-ordinates into pixel values
+        
+        error_if_no_zones -> Boolean. If True, this function will raise a TypeError when an empty zone list is provided
+                             If False, the function will not raise an error, but the bounding_y1y2x1x2 output
+                             will be set to None, since there is no valid output otherwise
                                 
     Outputs:
         crop_y1y2x1x2_list -> List of tuples. Contains cropping coordinates, in y1, y2, x1, x2 format, 
@@ -368,6 +370,12 @@ def crop_y1y2x1x2_from_zones_list(frame_wh, zones_list, zones_are_normalized = T
                              zones. This is likely the more convenient output if only a single zone was provided,
                              or if all zones are being cropped/processed as one.
     '''
+    
+    # Error if needed
+    print("ZZZ", zones_list)
+    no_zones = (len(zones_list) == 0)
+    if no_zones and error_if_no_zones:
+        raise TypeError("Can't generate crop co-ordinates because no zone were provided!")
     
     # Initialize outputs
     crop_y1y2x1x2_list = []
@@ -391,7 +399,7 @@ def crop_y1y2x1x2_from_zones_list(frame_wh, zones_list, zones_are_normalized = T
         bounding_x2 = max(x2, bounding_x2)
         
     # Bundle the bounding crop-cordinates (i.e. co-ordinates that capture the full set of zones)
-    bounding_y1y2x1x2 = (y1, y2, x1, x2)
+    bounding_y1y2x1x2 = None if no_zones else (y1, y2, x1, x2)
     
     return crop_y1y2x1x2_list, bounding_y1y2x1x2
 
@@ -469,7 +477,7 @@ if __name__ == "__main__":
     
     ex_zones = [[ [0.0, 0.0], [1.0, 0.0], [0.5, 0.5] ]]
     
-    mask_frame = make_mask_1ch(frame_wh, ex_zones, return_1d = False)
+    mask_frame = make_mask_1ch(frame_wh, ex_zones)
     
     clist, blist = crop_y1y2x1x2_from_zones_list(frame_wh, ex_zones)
     
