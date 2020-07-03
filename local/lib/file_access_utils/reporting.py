@@ -94,12 +94,14 @@ class Background_Report_Data_Saver:
             
             # Select between different types of saving implementations
             if self.threading_enabled:
-                self._data_saver = Threaded_JPG_and_JSON_Saver(thread_name = "backgrounds-report",
-                                                               jpg_folder_path = self.image_save_folder_path,
-                                                               json_folder_path = self.metadata_save_folder_path)
+                self._data_saver = \
+                Threaded_JPG_and_JSON_Saver(thread_name = "backgrounds-report",
+                                            jpg_folder_path = self.image_save_folder_path,
+                                            json_folder_path = self.metadata_save_folder_path)
             else:
-                self._data_saver = Nonthreaded_JPG_and_JSON_Saver(jpg_folder_path = self.image_save_folder_path,
-                                                                  json_folder_path = self.metadata_save_folder_path)
+                self._data_saver = \
+                Nonthreaded_JPG_and_JSON_Saver(jpg_folder_path = self.image_save_folder_path,
+                                               json_folder_path = self.metadata_save_folder_path)
         
         pass
     
@@ -165,10 +167,12 @@ class Object_Report_Data_Saver:
             
             # Select between different types of saving implementations
             if self.threading_enabled:
-                self._data_saver = Threaded_Compressed_JSON_Saver(thread_name = "objects",
-                                                                  jsongz_folder_path = self.metadata_save_folder_path)
+                self._data_saver = \
+                Threaded_Compressed_JSON_Saver(thread_name = "objects",
+                                               jsongz_folder_path = self.metadata_save_folder_path)
             else:
-                self._data_saver = Nonthreaded_Compressed_JSON_Saver(jsongz_folder_path = self.metadata_save_folder_path)
+                self._data_saver = \
+                Nonthreaded_Compressed_JSON_Saver(jsongz_folder_path = self.metadata_save_folder_path)
         
         pass
     
@@ -234,12 +238,14 @@ class Snapshot_Report_Data_Saver:
             
             # Select between different types of saving implementations
             if self.threading_enabled:
-                self._data_saver = Threaded_JPG_and_JSON_Saver(thread_name = "snapshots",
-                                                               jpg_folder_path = self.image_save_folder_path,
-                                                               json_folder_path = self.metadata_save_folder_path)
+                self._data_saver = \
+                Threaded_JPG_and_JSON_Saver(thread_name = "snapshots",
+                                            jpg_folder_path = self.image_save_folder_path,
+                                            json_folder_path = self.metadata_save_folder_path)
             else:
-                self._data_saver = Nonthreaded_JPG_and_JSON_Saver(jpg_folder_path = self.image_save_folder_path,
-                                                                  json_folder_path = self.metadata_save_folder_path)
+                self._data_saver = \
+                Nonthreaded_JPG_and_JSON_Saver(jpg_folder_path = self.image_save_folder_path,
+                                               json_folder_path = self.metadata_save_folder_path)
         
         pass
     
@@ -252,6 +258,75 @@ class Snapshot_Report_Data_Saver:
         if self.saving_enabled:
             self._data_saver.save_data(file_save_name_no_ext, image_data, metadata_dict,
                                        jpg_quality_0_to_100, json_double_precision)
+        
+        return
+    
+    # .................................................................................................................
+    
+    def close(self):
+        
+        # Close data saver if needed
+        if self.saving_enabled:
+            self._data_saver.close()
+        
+        return
+    
+    # .................................................................................................................
+    # .................................................................................................................
+
+
+# =====================================================================================================================
+# =====================================================================================================================
+
+
+class Station_Report_Data_Saver:
+    
+    '''
+    Helper class which simply selects between different types (e.g. threaded/non-threaded) of saving
+    implementation for station data. Also handles save pathing.
+    Note this class is also responsible for enabling/disabling saving
+    '''
+    
+    # .................................................................................................................
+    
+    def __init__(self, cameras_folder_path, camera_select,
+                 saving_enabled = True, threading_enabled = True):
+        
+        # Store inputs
+        self.cameras_folder_path = cameras_folder_path
+        self.camera_select = camera_select
+        self.saving_enabled = saving_enabled
+        self.threading_enabled = threading_enabled
+        
+        # Build saving paths
+        pathing_args = (cameras_folder_path, camera_select)
+        self.metadata_save_folder_path = build_station_metadata_report_path(*pathing_args)
+        
+        # Initialize saver object & pathing as needed
+        self._data_saver = None
+        if self.saving_enabled:
+            
+            # Make sure the save folder exists
+            os.makedirs(self.metadata_save_folder_path, exist_ok = True)
+            
+            # Select between different types of saving implementations
+            if self.threading_enabled:
+                self._data_saver = \
+                Threaded_Compressed_JSON_Saver(thread_name = "stations", 
+                                               jsongz_folder_path = self.metadata_save_folder_path)
+            else:
+                self._data_saver = \
+                Nonthreaded_Compressed_JSON_Saver(jsongz_folder_path = self.metadata_save_folder_path)
+        
+        pass
+    
+    # .................................................................................................................
+    
+    def save_data(self, *, file_save_name_no_ext, metadata_dict, json_double_precision = 3):
+        
+        # Only save data if enabled
+        if self.saving_enabled:
+            self._data_saver.save_data(file_save_name_no_ext, metadata_dict, json_double_precision)
         
         return
     
@@ -303,6 +378,11 @@ def build_camera_info_metadata_report_path(cameras_folder_path, camera_select, *
 
 # .....................................................................................................................
 
+def build_config_info_metadata_report_path(cameras_folder_path, camera_select, *path_joins):
+    return build_metadata_report_path(cameras_folder_path, camera_select, "config_info", *path_joins)
+
+# .....................................................................................................................
+
 def build_snapshot_image_report_path(cameras_folder_path, camera_select):
     return build_image_report_path(cameras_folder_path, camera_select, "snapshots")
 
@@ -325,6 +405,11 @@ def build_background_metadata_report_path(cameras_folder_path, camera_select):
 
 def build_object_metadata_report_path(cameras_folder_path, camera_select):
     return build_metadata_report_path(cameras_folder_path, camera_select, "objects")
+
+# .....................................................................................................................
+
+def build_station_metadata_report_path(cameras_folder_path, camera_select):
+    return build_metadata_report_path(cameras_folder_path, camera_select, "stations")
 
 # .....................................................................................................................
 

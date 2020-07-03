@@ -55,7 +55,7 @@ from local.lib.ui_utils.cli_selections import Resource_Selector
 from local.lib.ui_utils.editor_lib import warn_for_name_taken, rename_from_path
 from local.lib.ui_utils.editor_lib import select_from_list, prompt_with_defaults, confirm, quit_if_none
 
-from local.lib.file_access_utils.shared import list_default_config_options
+from local.lib.file_access_utils.shared import list_default_config_options, url_safe_name
 from local.lib.file_access_utils.structures import build_camera_list, create_camera_folder_structure
 
 from local.eolib.utils.files import replace_user_home_pathing
@@ -63,14 +63,6 @@ from local.eolib.utils.files import replace_user_home_pathing
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define functions
-
-# .....................................................................................................................
-
-def clean_camera_name(input_name):
-    
-    ''' Helper function which cleans up user provided camera naming '''
-    
-    return input_name.strip().lower().replace(" ", "_")
 
 # .....................................................................................................................
 
@@ -87,9 +79,10 @@ def prompt_for_default_configuration(project_root_path):
                                      zero_indexed = True)
     
     # Convert user selection to the actual 'original' folder name
+    nice_folder_select = nice_names_list[select_idx]
     default_folder_select = orig_names_list[select_idx]
     
-    return default_folder_select
+    return default_folder_select, nice_folder_select
 
 # .....................................................................................................................
 # .....................................................................................................................
@@ -138,14 +131,14 @@ if selected_new:
     # Ask user for new camera name
     user_response = prompt_with_defaults("Enter new camera name: ", default_value = None, return_type = str)
     quit_if_none(user_response, "No camera name provided!")
-    cleaned_camera_name = clean_camera_name(user_response)
+    cleaned_camera_name = url_safe_name(user_response)
     
     # Make sure the given name isn't already taken
     camera_name_list, _ = build_camera_list(cameras_folder_path, show_hidden_cameras = True, must_have_rtsp = False)
     warn_for_name_taken(cleaned_camera_name, camera_name_list, quit_if_name_is_taken = True)
     
     # Prompt for default configuration to use as starting point for the new camera
-    default_folder_select = prompt_for_default_configuration(project_root_path)
+    default_folder_select, nice_default_select = prompt_for_default_configuration(project_root_path)
     
     # Create the new camera entry
     create_camera_folder_structure(project_root_path,
@@ -156,7 +149,7 @@ if selected_new:
     # Provide some feedback
     print("",
           "Done! New camera added ({})".format(cleaned_camera_name),
-          "  -> Using {} configuration".format(default_folder_select),
+          "  -> Using {} configuration".format(nice_default_select),
           "",
           "Don't forget to add videos & rtsp info using the other editor tools!",
           sep = "\n")
@@ -177,7 +170,7 @@ if selected_update:
     new_camera_name = prompt_with_defaults("Enter new camera name: ", default_value = camera_select, return_type = str)
     
     # Make sure the given name isn't already taken
-    cleaned_new_camera_name = clean_camera_name(new_camera_name)
+    cleaned_new_camera_name = url_safe_name(new_camera_name)
     camera_name_list, _ = build_camera_list(cameras_folder_path, show_hidden_cameras = True, must_have_rtsp = False)
     warn_for_name_taken(cleaned_new_camera_name, camera_name_list, quit_if_name_is_taken = True)
     

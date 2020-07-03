@@ -193,6 +193,38 @@ def build_logging_folder_path(cameras_folder_path, camera_select, *path_joins):
 
 
 # ---------------------------------------------------------------------------------------------------------------------
+#%% Naming functions
+
+# .....................................................................................................................
+
+def url_safe_name(input_name):
+    
+    '''
+    Helper function which cleans up provided naming to be (more likely to be-) url safe 
+    Also helps to ensure more consistent naming when loading/saving data
+    '''
+    
+    return input_name.strip().lower().replace(" ", "_")
+
+# .....................................................................................................................
+
+def url_safe_name_from_path(input_path, remove_file_ext = True):
+    
+    '''
+    Helper function which takes in a path to a file and returns only the name, with some additional 'cleaning'
+    to make it safe for urls. Optionally removes the file extension as well
+    '''
+    
+    base_filename = os.path.basename(input_path)
+    file_name = os.path.splitext(base_filename)[0] if remove_file_ext else base_filename
+    
+    return url_safe_name(file_name)
+
+# .....................................................................................................................
+# .....................................................................................................................
+
+
+# ---------------------------------------------------------------------------------------------------------------------
 #%% Default configurations
 
 # .....................................................................................................................

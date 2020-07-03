@@ -261,12 +261,12 @@ class Local_Timing_Window(Simple_Window):
     
     # .................................................................................................................
     
-    def _update_all_visuals(self, stage_timing, new_weight, old_weight):
+    def _update_all_visuals(self, stage_timing_dict, new_weight, old_weight):
         
         ''' Function for drawing the dynamic elements on the timing window '''
         
         # If no timing data is available, return an empty image
-        no_timing_data = (len(stage_timing) == 0)
+        no_timing_data = (len(stage_timing_dict) == 0)
         if no_timing_data:
             return self._no_data_image
         
@@ -274,15 +274,15 @@ class Local_Timing_Window(Simple_Window):
         try:
             draw_frame = self._background_frame.copy()
         except AttributeError:
-            self._background_frame = self._draw_new_background(stage_timing)
+            self._background_frame = self._draw_new_background(stage_timing_dict)
             draw_frame = self._background_frame.copy()
         
         # Get averaged timing data
-        averaged_timing = self._calculate_average_timing(stage_timing, new_weight, old_weight)
+        averaged_timing = self._calculate_average_timing(stage_timing_dict, new_weight, old_weight)
         
         # Update each stage time text & bar followed by the total timing info
         total_time_sec = sum(averaged_timing.values())
-        for each_stage_name in stage_timing.keys():          
+        for each_stage_name in stage_timing_dict.keys():          
             each_stage_time_sec = averaged_timing[each_stage_name]
             self._update_entry_visuals(draw_frame, each_stage_name, each_stage_time_sec, total_time_sec)
         self._update_total_visuals(draw_frame, total_time_sec)

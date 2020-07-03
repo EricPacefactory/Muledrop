@@ -57,6 +57,7 @@ from local.lib.ui_utils.controls_specification import Controls_Specification
 
 from local.lib.file_access_utils.configurables import create_configurable_save_data
 from local.lib.file_access_utils.core import build_core_logging_folder_path
+from local.lib.file_access_utils.stations import build_stations_logging_folder_path
 from local.lib.file_access_utils.externals import build_externals_logging_folder_path
 
 from local.eolib.utils.logging import Daily_Logger
@@ -263,7 +264,7 @@ class Configurable_Base:
         '''
         
         # Create a simple (debug-friendly) setup function for all core configs to start with
-        setup_msg = ["Setup for {} @ {} ".format(self.class_name, self.script_name)]
+        setup_msg = ["", "Setup for {} @ {} ".format(self.class_name, self.script_name)]
         setup_msg += ["(Override setup function to get rid of this printout)"]
         if len(variables_changed_dictionary) > 0:
             setup_msg += ["  {}: {}".format(*each_item) for each_item in variables_changed_dictionary.items()]
@@ -536,6 +537,178 @@ class Core_Configurable_Base(Configurable_Base):
         '''
         
         return self.current_frame_index, self.current_epoch_ms, self.current_datetime
+    
+    # .................................................................................................................
+    # .................................................................................................................
+
+
+# /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+# /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+class Stations_Configurable_Base(Configurable_Base):
+    
+    # .................................................................................................................
+    
+    def __init__(self, station_name, cameras_folder_path, camera_select, video_wh, *, file_dunder):
+        
+        # Inherit from base class
+        configurable_instance_type = station_name if station_name else "undefined"
+        super().__init__("stations", configurable_instance_type, cameras_folder_path, camera_select,
+                         file_dunder = file_dunder)
+        
+        # Allocate storage for storing current dataset
+        self._station_dataset = []
+        
+        # Save video sizing info
+        self.video_wh = video_wh
+        
+        # Set up logger
+        log_path = build_stations_logging_folder_path(cameras_folder_path, camera_select, self.instance_type)
+        self._setup_logger(log_path, log_files_to_keep = 2)
+    
+    # .................................................................................................................
+    
+    # SHOULD OVERRIDE
+    def close(self, final_frame_index, final_epoch_ms, final_datetime):
+        
+        '''
+        Function which gets called when the system is shutting down.
+        Should clean up any file access or finalize data that may be saved on shutdown.
+        '''
+        
+        print("  Closing", self.instance_type, "(should implement a close(...) function!)")
+        
+        return
+    
+    # .................................................................................................................
+    
+    # MAY OVERRIDE. Be sure to clear the existing dataset!
+    def reset(self):
+        
+        ''' Function called every time video processing rewinds or jumps around in time. Mostly for configuration '''
+        
+        # Wipe out actual dataset
+        self._clear_dataset_in_place()
+        
+        return
+    
+    # .................................................................................................................
+    
+    # SHOULDN'T OVERRIDE
+    def output_data_list(self):
+        
+        '''
+        Function which is responsible for outputting the dataset when requested (for saving) 
+        These requests are trigger by the station bundler
+        
+        Note that the internal dataset storage is cleared after every output!
+        
+        Inputs:
+            Nothing!
+        
+        Outputs:
+            post_processed_data_list
+        '''
+        
+        # Get current dataset (list of 'one frame results')
+        current_dataset_list = self._get_dataset()
+        
+        # Apply any post-processing, if needed
+        post_processed_data_list = self.post_process_output_data(current_dataset_list)
+        
+        # Clear internal data storage so we can collecting new data for the next output update
+        self._clear_dataset()
+        
+        return post_processed_data_list
+    
+    # .................................................................................................................
+    
+    # MAY OVERRIDE
+    def post_process_output_data(self, current_dataset_list):
+        
+        '''
+        Function used to perform any post-processing on a block of data before saving
+        Can be used to apply smoothing/filter out noise for example
+        Intended for use on processing that can't be done sample-by-sample in real-time
+        
+        Inputs:
+            current_dataset_list -> (List) The current data about to be saved
+        
+        Outputs:
+            post_processed_data_list -> (List) The post-processed data to be saved
+        '''
+        
+        # By default, does no post-processing, so just acts as a passthru
+        return current_dataset_list
+    
+    # .................................................................................................................
+    
+    # SHOULDN'T OVERRIDE
+    def _store_one_frame_result(self, one_frame_result):
+        
+        '''
+        Generic function used to accumulate single-frame results
+        If the dataset type is changed (from the default list type)
+        this function can be overriden to maintain consistent behavior
+        '''
+        
+        self._station_dataset.append(one_frame_result)
+        
+        return
+    
+    # .................................................................................................................
+    
+    # SHOULDN'T OVERRIDE
+    def _get_dataset(self):
+        
+        '''
+        Generic function used to get the current dataset.
+        If the dataset type is changed (from the default list type)
+        this function can be override to maintain consistent behavior
+        '''
+        
+        return self._station_dataset
+    
+    # .................................................................................................................
+    
+    # SHOULDN'T OVERRIDE
+    def _update_dataset(self, new_station_data):
+        
+        '''
+        Generic function used to add new single-frame entries to the current dataset.
+        If the dataset type is changed (from the default list type)
+        this function can be override to maintain consistent behavior
+        '''
+        
+        self._station_dataset.append(new_station_data)
+        
+        return
+    
+    # .................................................................................................................
+    
+    # SHOULDN'T OVERRIDE
+    def _clear_dataset(self):
+        
+        '''
+        Generic function used to clear the dataset, but not in-place
+        (in case something else has a reference to the original data)
+        '''
+        
+        self._station_dataset = []
+        
+        return
+    
+    # .................................................................................................................
+    
+    # SHOULDN'T OVERRIDE
+    def _clear_dataset_in_place(self):
+        
+        ''' Function used to delete the current dataset in-place, so that all references are also cleared '''
+        
+        self._station_dataset *= 0
+        
+        return
     
     # .................................................................................................................
     # .................................................................................................................

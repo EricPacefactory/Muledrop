@@ -67,12 +67,11 @@ class Core_Bundle:
     
     # .................................................................................................................
     
-    def __init__(self, cameras_folder_path, camera_select, video_select, video_wh):
+    def __init__(self, cameras_folder_path, camera_select, video_wh):
         
         # Save selection info
         self.cameras_folder_path = cameras_folder_path
         self.camera_select = camera_select
-        self.video_select = video_select
         self.video_wh = video_wh
         
         # First make sure we have pathing to the core configs folder
@@ -140,6 +139,30 @@ class Core_Bundle:
     
     # .................................................................................................................
     
+    def reset_all(self):
+        
+        ''' Function used to reset the state of the core bundle & all internal stages '''
+        
+        # Reset all core objects. Mostly for use in configuration, when the video may jump around
+        if self.core_ref_dict is not None:
+            for each_stage_ref in self.core_ref_dict.values():
+                each_stage_ref.reset()
+        
+        return
+    
+    # .................................................................................................................
+    
+    def get_configs_for_reporting(self):
+        
+        '''
+        Function called when running data collection. Used to save a reporting copy of core config data,
+        so that configuration is accessible from a database
+        '''
+        
+        return self.final_stage_config_dict
+    
+    # .................................................................................................................
+    
     def get_preprocessor_unwarping(self):
         
         '''
@@ -178,19 +201,6 @@ class Core_Bundle:
         last_key = next(reversed(self.core_ref_dict))
         return last_key, self.core_ref_dict[last_key]
     
-    # .................................................................................................................
-    
-    def reset_all(self):
-        
-        ''' Function used to reset the state of the core bundle & all internal stages '''
-        
-        # Reset all core objects. Mostly for use in configuration, when the video may jump around
-        if self.core_ref_dict is not None:
-            for each_stage_ref in self.core_ref_dict.values():
-                each_stage_ref.reset()
-        
-        return
-
     # .................................................................................................................
 
     def setup_all(self, override_stage = None, override_script = None, override_class = None,
@@ -428,7 +438,7 @@ if __name__ == "__main__":
     project_root_path, cameras_folder_path = selector.get_cameras_root_pathing()
     fake_video_wh = (100,100)
     
-    cb = Core_Bundle(cameras_folder_path, camera_select, video_select, fake_video_wh)
+    cb = Core_Bundle(cameras_folder_path, camera_select, fake_video_wh)
     print("", "", "--- BEFORE SETUP ---", sep = "\n")
     print(cb)
     cb.setup_all()

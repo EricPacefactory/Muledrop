@@ -123,7 +123,7 @@ def clear_with_status(camera_select, video_select, stage_select = None):
     
     # Add stage selection info, if present
     if stage_select is not None:
-        stage_display_name = clean_stage_name(stage_select)
+        stage_display_name = pretty_stage_name(stage_select)
         stage_str_length = len(stage_display_name)
         left_centering_offset = int(max(0, (num_seperator_symbols + stage_str_length) / 2))
         print_strs += [stage_display_name.rjust(left_centering_offset), seperator_gfx]
@@ -166,12 +166,12 @@ def load_core_info(project_root_path, cameras_folder_path):
 
 # .....................................................................................................................
 
-def clean_stage_name(stage_name):
+def pretty_stage_name(stage_name):
     return stage_name.replace("_", " ").title()
 
 # .....................................................................................................................
 
-def clean_option_name(option_name):
+def pretty_option_name(option_name):
     return option_name.replace(".py", "").replace("_", " ").title()
 
 # .....................................................................................................................
@@ -179,7 +179,7 @@ def clean_option_name(option_name):
 def _select_stage(utility_parent_folder, ordered_stage_names):
     
     # Clean up list for readability
-    clean_stage_list = [clean_stage_name(each_stage) for each_stage in ordered_stage_names]
+    clean_stage_list = [pretty_stage_name(each_stage) for each_stage in ordered_stage_names]
     select_idx, _ = cli_select_from_list(clean_stage_list, 
                                          prompt_heading = "Select stage:")
     
@@ -202,7 +202,7 @@ def _select_stage_option(stage_folder_path, stage_select, default_stage_option =
         raise AttributeError("No options found for stage: {}".format(stage_select))
     
     # Clean up the list for display
-    clean_options_list = [clean_option_name(each_entry) for each_entry in sorted(options_list)]
+    clean_options_list = [pretty_option_name(each_entry) for each_entry in sorted(options_list)]
     
     # Re-order so that passthroughs appear as the first entry
     passthrough_label = "Passthrough"
@@ -219,8 +219,8 @@ def _select_stage_option(stage_folder_path, stage_select, default_stage_option =
         options_list = [passthrough_script] + options_list
         
     # Convert stage name to display friendly format
-    stage_display_name = clean_stage_name(stage_select)
-    default_display_name = clean_option_name(default_stage_option)
+    stage_display_name = pretty_stage_name(stage_select)
+    default_display_name = pretty_option_name(default_stage_option)
     
     # Prompt user to select the stage option
     prompt_msg = "Select {} option:".format(stage_display_name.lower())

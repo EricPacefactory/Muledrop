@@ -64,10 +64,11 @@ from local.lib.ui_utils.local_ui.timing import Local_Timing_Window
 from local.lib.ui_utils.local_ui.playback import Local_Playback_Controls
 from local.lib.ui_utils.display_specification import Tracked_Display
 
+
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define base class
 
-    
+
 class Video_Processing_Loop:
     
     # .................................................................................................................
@@ -93,7 +94,7 @@ class Video_Processing_Loop:
             cli_prog_bar = tqdm(total = total_frames, mininterval = 0.5)
         
         try:
-        
+            
             while True:
                 
                 # Read video frames & get timing info
@@ -106,11 +107,14 @@ class Video_Processing_Loop:
                 self.run_snapshot_capture(frame, *fed_time_args)
                 
                 # Capture frames & generate new background images
-                background_image, background_was_updated = self.run_background_capture(frame, *fed_time_args)
+                background_args = self.run_background_capture(frame, *fed_time_args)
                 
                 # Perform main core processing
                 stage_outputs, _ = \
-                self.run_core_processing(frame, read_time_sec, background_image, background_was_updated, *fed_time_args)
+                self.run_core_processing(frame, read_time_sec, *background_args, *fed_time_args)
+                
+                # Perform station processing
+                self.run_station_processing(frame, *background_args, *fed_time_args)
                 
                 # Capture object data
                 self.run_object_capture(stage_outputs, *fed_time_args)
@@ -118,8 +122,7 @@ class Video_Processing_Loop:
                 # Provide progress feedback if needed
                 if enable_progress_bar:
                     cli_prog_bar.update()
-                    
-                
+            
         except KeyboardInterrupt:
             print("", "Keyboard interrupt! Closing...", sep = "\n")
         
@@ -128,12 +131,12 @@ class Video_Processing_Loop:
         
         except OS_Close:
             print("", "System terminated! Quitting...", sep = "\n")
-            
+        
         # Clean up the progress bar, if needed
         if enable_progress_bar:
             cli_prog_bar.close()
             print("")
-            
+        
         return prev_fed_time_args
         
     # .................................................................................................................
@@ -165,11 +168,14 @@ class Video_Processing_Loop:
                 self.run_snapshot_capture(frame, *fed_time_args)
                 
                 # Capture frames & generate new background images
-                background_image, background_was_updated = self.run_background_capture(frame, *fed_time_args)
+                background_args = self.run_background_capture(frame, *fed_time_args)
                 
                 # Perform main core processing
                 stage_outputs, _ = \
-                self.run_core_processing(frame, read_time_sec, background_image, background_was_updated, *fed_time_args)
+                self.run_core_processing(frame, read_time_sec, *background_args, *fed_time_args)
+                
+                # Perform station processing
+                self.run_station_processing(frame, *background_args, *fed_time_args)
                 
                 # Capture object data
                 self.run_object_capture(stage_outputs, *fed_time_args)
@@ -180,7 +186,7 @@ class Video_Processing_Loop:
                 # Provide progress feedback if needed
                 if enable_progress_bar:
                     cli_prog_bar.update()
-                
+            
         except KeyboardInterrupt:
             print("", "Keyboard interrupt! Closing...", sep = "\n")
         
@@ -189,12 +195,12 @@ class Video_Processing_Loop:
         
         except OS_Close:
             print("", "System terminated! Quitting...", sep = "\n")
-            
+        
         # Clean up the progress bar, if needed
         if enable_progress_bar:
             cli_prog_bar.close()
             print("")
-            
+        
         return prev_fed_time_args
         
     # .................................................................................................................
@@ -260,13 +266,25 @@ class Video_Processing_Loop:
     
     def run_core_processing(self, input_frame, read_time_sec, background_image, background_was_updated,
                             current_frame_index, current_epoch_ms, current_datetime):
-            
+        
         # Handle core processing
         stage_outputs, stage_timing = \
         self.loader.core_bundle.run_all(input_frame, read_time_sec, background_image, background_was_updated,
                                         current_frame_index, current_epoch_ms, current_datetime)
-            
+        
         return stage_outputs, stage_timing
+    
+    # .................................................................................................................
+    
+    def run_station_processing(self, input_frame, background_image, background_was_updated,
+                               current_frame_index, current_epoch_ms, current_datetime):
+        
+        # Handle station processing
+        station_timing_dict = \
+        self.loader.station_bundle.run_all(input_frame, background_image, background_was_updated,
+                                           current_frame_index, current_epoch_ms, current_datetime)
+        
+        return station_timing_dict
     
     # .................................................................................................................
     
@@ -339,7 +357,7 @@ class Reconfigurable_Video_Loop(Video_Processing_Loop):
     def setup_control_windows(self, initial_slider_settings):
         
         # Get UI setup info
-        controls_json = self.configurable_ref.ctrl_spec.to_json()        
+        controls_json = self.configurable_ref.ctrl_spec.to_json()
         local_controls = Local_Window_Controls(self.loader.screen_info, controls_json, initial_slider_settings)
         
         return local_controls, controls_json
@@ -416,14 +434,17 @@ class Reconfigurable_Video_Loop(Video_Processing_Loop):
                 self.read_controls()
                 
                 # Capture snapshots
-                _, current_snapshot_metadata = self.run_snapshot_capture(frame, *fed_time_args)
+                self.run_snapshot_capture(frame, *fed_time_args)
                 
                 # Capture frames & generate new background images
-                background_image, background_was_updated = self.run_background_capture(frame, *fed_time_args)
+                background_args = self.run_background_capture(frame, *fed_time_args)
                 
                 # Perform main core processing
                 stage_outputs, stage_timing = \
-                self.run_core_processing(frame, read_time_sec, background_image, background_was_updated, *fed_time_args)
+                self.run_core_processing(frame, read_time_sec, *background_args, *fed_time_args)
+                
+                # Perform station processing
+                self.run_station_processing(frame, *background_args, *fed_time_args)
                 
                 # Capture object data
                 self.run_object_capture(stage_outputs, *fed_time_args)
@@ -433,7 +454,8 @@ class Reconfigurable_Video_Loop(Video_Processing_Loop):
                 self.display_timing_data(stage_timing)
                     
                 # Store info for debugging
-                self._save_for_debug(frame, stage_outputs, stage_timing, current_snapshot_metadata, fed_time_args)
+                self._save_for_debug(frame, fed_time_args,
+                                     stage_outputs = stage_outputs)
                 
                 # Check for keypresses
                 req_break, video_reset, key_code, modifier_code = self.read_keypress()
@@ -450,10 +472,7 @@ class Reconfigurable_Video_Loop(Video_Processing_Loop):
         # Clean up any open resources
         self.clean_up(*prev_fed_time_args)
         cv2.destroyAllWindows()
-        
-        # Save configurable
-        self.loader.ask_to_save_configurable(self.configurable_ref)
-        
+    
     # .................................................................................................................
     
     def read_controls(self):
@@ -514,11 +533,11 @@ class Reconfigurable_Video_Loop(Video_Processing_Loop):
             mouse_xy = window_ref.mouse_xy
             
             # Have each display window apply it's display function to the input data before updating the display
-            display_image = display_obj.display(stage_outputs, 
+            display_image = display_obj.display(stage_outputs,
                                                 self.configurable_ref,
                                                 mouse_xy,
-                                                current_frame_index, 
-                                                current_epoch_ms, 
+                                                current_frame_index,
+                                                current_epoch_ms,
                                                 current_datetime)
             window_ref.imshow(display_image)
     
@@ -529,14 +548,12 @@ class Reconfigurable_Video_Loop(Video_Processing_Loop):
     
     # .................................................................................................................
     
-    def _save_for_debug(self, frame, stage_outputs, stage_timing, current_snapshot_metadata, fed_time_args):
+    def _save_for_debug(self, frame, fed_time_args, **kwargs):
         
         # Hard-coded storage for accessing helpful debugging info when running as a rec-configurable loop
         self.debug_frame = frame
-        self.debug_stage_outputs = stage_outputs
-        self.debug_stage_timing = stage_timing
-        self.debug_current_snapshot_metadata = current_snapshot_metadata
         self.debug_fed_time_args = fed_time_args
+        self.debug_dict = kwargs
     
     # .................................................................................................................
     # .................................................................................................................
@@ -587,14 +604,15 @@ class Snapshot_Capture_Video_Loop(Reconfigurable_Video_Loop):
                 stage_outputs = self._fake_stage_outputs(frame,
                                                          snapshot_frame,
                                                          current_snapshot_metadata)
-
                 
                 # Display results
                 self.display_image_data(stage_outputs, *fed_time_args)
                 self.display_timing_data(stage_timing)
                 
                 # Store info for debugging
-                self._save_for_debug(frame, stage_outputs, stage_timing, current_snapshot_metadata, fed_time_args)
+                self._save_for_debug(frame, fed_time_args,
+                                     stage_outputs = stage_outputs,
+                                     current_snapshot_metadata = current_snapshot_metadata)
                 
                 # Check for keypresses
                 req_break, video_reset, key_code, modifier_code = self.read_keypress()
@@ -611,9 +629,6 @@ class Snapshot_Capture_Video_Loop(Reconfigurable_Video_Loop):
         # Clean up any open resources
         self.clean_up(*prev_fed_time_args)
         cv2.destroyAllWindows()
-        
-        # Save configurable
-        self.loader.ask_to_save_configurable(self.configurable_ref)
     
     # .................................................................................................................
 
@@ -663,9 +678,6 @@ class Background_Capture_Video_Loop(Reconfigurable_Video_Loop):
         # Allocate storage for buffering time info in case of sudden close/clean up
         prev_fed_time_args = None
         
-        # Allocate fake results for compatibility
-        current_snapshot_metadata = {}
-        
         try:
         
             while True:
@@ -693,7 +705,8 @@ class Background_Capture_Video_Loop(Reconfigurable_Video_Loop):
                 self.display_timing_data(stage_timing)
                     
                 # Store info for debugging
-                self._save_for_debug(frame, stage_outputs, stage_timing, current_snapshot_metadata, fed_time_args)
+                self._save_for_debug(frame, fed_time_args,
+                                     stage_outputs = stage_outputs)
                 
                 # Check for keypresses
                 req_break, video_reset, key_code, modifier_code = self.read_keypress()
@@ -710,9 +723,6 @@ class Background_Capture_Video_Loop(Reconfigurable_Video_Loop):
         # Clean up any open resources
         self.clean_up(*prev_fed_time_args)
         cv2.destroyAllWindows()
-        
-        # Save configurable
-        self.loader.ask_to_save_configurable(self.configurable_ref)
     
     # .................................................................................................................
 
@@ -747,7 +757,6 @@ class Object_Capture_Video_Loop(Reconfigurable_Video_Loop):
         
         # Inherit from parent
         super().__init__(configuration_loader_object, ordered_display_list = ordered_display_list)
-    
     
     # .................................................................................................................
     
@@ -794,7 +803,8 @@ class Object_Capture_Video_Loop(Reconfigurable_Video_Loop):
                 self.display_timing_data(stage_timing)
                     
                 # Store info for debugging
-                self._save_for_debug(frame, stage_outputs, stage_timing, current_snapshot_metadata, fed_time_args)
+                self._save_for_debug(frame, fed_time_args, 
+                                     stage_outputs = stage_outputs)
                 
                 # Check for keypresses
                 req_break, video_reset, key_code, modifier_code = self.read_keypress()
@@ -811,9 +821,6 @@ class Object_Capture_Video_Loop(Reconfigurable_Video_Loop):
         # Clean up any open resources
         self.clean_up(*prev_fed_time_args)
         cv2.destroyAllWindows()
-        
-        # Save configurable
-        self.loader.ask_to_save_configurable(self.configurable_ref)
     
     # .................................................................................................................
 
@@ -828,10 +835,105 @@ class Object_Capture_Video_Loop(Reconfigurable_Video_Loop):
         stage_timing.update({"object_capture": (end_time_sec - start_time_sec)})
         
         return stage_timing
+    
+    # .................................................................................................................
+    # .................................................................................................................
 
+
+# =====================================================================================================================
+# =====================================================================================================================
+
+
+class Station_Processing_Video_Loop(Reconfigurable_Video_Loop):
+    
+    # .................................................................................................................
+    
+    def __init__(self, configuration_loader_object, ordered_display_list):
         
+        # Inherit from parent
+        super().__init__(configuration_loader_object, ordered_display_list = ordered_display_list)
+    
+    # .................................................................................................................
+    
+    def loop(self):
+        
+        ''' Station capture video loop '''
+        
+        # Allocate storage for buffering time info, in case of sudden close/clean up
+        prev_fed_time_args = None
+        
+        try:
+        
+            while True:
+                
+                # Read video frames & get timing info
+                req_break, frame, read_time_sec, *fed_time_args = self.read_frames()
+                if req_break:
+                    break
+                prev_fed_time_args = fed_time_args
+                
+                # Check for control updates
+                self.read_controls()
+                
+                # Capture frames & generate new background images
+                background_args = self.run_background_capture(frame, *fed_time_args)
+                
+                # Run station capture
+                t1 = perf_counter()
+                self.run_station_processing(frame, *background_args, *fed_time_args)
+                t2 = perf_counter()
+                
+                # Re-use core stage outputs to make use of existing functions (somewhat hacky!)
+                stage_outputs = self._fake_stage_outputs(frame)
+                stage_timing = self._fake_stage_timing(read_time_sec, t1, t2)
+                
+                # Display results
+                self.display_image_data(stage_outputs, *fed_time_args)
+                self.display_timing_data(stage_timing)
+                
+                # Store info for debugging
+                self._save_for_debug(frame, fed_time_args)
+                
+                # Check for keypresses
+                req_break, video_reset, key_code, modifier_code = self.read_keypress()
+                if req_break:
+                    break
+                
+                # Reset all stages, since the video position was changed unnaturally
+                if video_reset:
+                    self.reset_all()
+                
+        except KeyboardInterrupt:
+            print("Keyboard interrupt! Closing...")
+        
+        # Clean up any open resources
+        self.clean_up(*prev_fed_time_args)
+        cv2.destroyAllWindows()
+    
+    # .................................................................................................................
+
+    def _fake_stage_outputs(self, video_frame):
+        
+        input_stage = {"video_frame": video_frame}
+        
+        stage_outputs = OrderedDict()
+        stage_outputs.update({"video_capture_input": input_stage})
+        
+        return stage_outputs
+    
+    # .................................................................................................................
+
+    def _fake_stage_timing(self, video_decode_time_sec, start_time_sec, end_time_sec):
+        
+        stage_timing = OrderedDict()
+        stage_timing.update({"video_capture_input": video_decode_time_sec})
+        stage_timing.update({"station_processing": (end_time_sec - start_time_sec)})
+        
+        return stage_timing
+    
     # .................................................................................................................
     # .................................................................................................................
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define functions

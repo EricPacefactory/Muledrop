@@ -49,11 +49,11 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
+from local.lib.ui_utils.script_arguments import script_arg_builder, get_selections_from_script_args
+
 from local.lib.common.launch_helpers import save_data_prompt, delete_existing_report_data
 from local.lib.common.launch_helpers import check_missing_main_selections, print_run_info
 from local.lib.common.feedback import print_time_taken
-
-from local.lib.ui_utils.script_arguments import script_arg_builder, get_selections_from_script_args
 
 from local.lib.launcher_utils.configuration_loaders import File_Configuration_Loader
 from local.lib.launcher_utils.video_processing_loops import Video_Processing_Loop

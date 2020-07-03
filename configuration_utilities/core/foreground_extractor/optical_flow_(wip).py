@@ -82,16 +82,18 @@ Reconfigurable_Video_Loop(loader,
 # Most of the work is done here!
 main_process.loop()
 
+# Ask user to save config
+loader.ask_to_save_configurable_cli(__file__, configurable_ref)
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% For debugging
 
 # Access results for debugging
 final_frame = main_process.debug_frame
-stage_outputs = main_process.debug_stage_outputs
-stage_timing = main_process.debug_stage_timing
-snapshot_metadata = main_process.debug_current_snapshot_metadata
-final_frame_index, final_epoch_ms, final_datetime = main_process.debug_fed_time_args
+final_fed_time_args = main_process.debug_fed_time_args
+debug_dict = main_process.debug_dict
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Scrap

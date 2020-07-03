@@ -50,9 +50,10 @@ find_path_to_local()
 #%% Imports
 
 from local.lib.file_access_utils.shared import find_root_path, find_cameras_folder
+from local.lib.file_access_utils.structures import build_cameras_tree, build_camera_list
 from local.lib.file_access_utils.settings import load_history, save_history
 from local.lib.file_access_utils.video import get_video_names_and_paths_lists
-from local.lib.file_access_utils.structures import build_cameras_tree, build_camera_list
+from local.lib.file_access_utils.stations import get_target_station_names_and_paths_lists
 
 from local.eolib.utils.cli_tools import cli_select_from_list, keyboard_quit, clean_error_quit
 
@@ -159,6 +160,36 @@ class Resource_Selector:
     
     # .................................................................................................................
     
+    @clean_error_quit
+    @keyboard_quit
+    def station(self, camera_select, station_script_name, station_select = None, debug_mode = False):
+        
+        # Get list of existing stations to select
+        station_names_list, station_paths_list = get_target_station_names_and_paths_lists(self.cameras_folder_path,
+                                                                                          camera_select,
+                                                                                          station_script_name)
+        
+        # Add entry for creating a new station as the first entry
+        create_station_name_entry = "Create new station"
+        create_station_path_entry = None
+        station_names_list.insert(0, create_station_name_entry)
+        station_paths_list.insert(0, create_station_path_entry)
+        
+        # Select a target station
+        station_select, path_select = self._make_selection("station", station_select,
+                                                           (station_names_list, station_paths_list),
+                                                           zero_indexed = True,
+                                                           debug_mode = debug_mode)
+        
+        # If the 'create new' entry is selected, replace the selection with None instead of the 'create' text prompt
+        selected_create_new = (station_select == create_station_name_entry)
+        if selected_create_new:
+            station_select = None
+        
+        return station_select, path_select
+    
+    # .................................................................................................................
+    
     def save_camera_select(self, camera_select):
         
         ''' Convenience function used to forcefully save a new camera select entry '''
@@ -181,14 +212,16 @@ class Resource_Selector:
     
     # .................................................................................................................
     
-    def _make_selection(self, entry_type, entry_select, entry_lists, zero_indexed = False, debug_mode = False):
+    def _make_selection(self, entry_type, default_select, entry_lists, zero_indexed = False, debug_mode = False):
         
         # For convenience
         entry_name_list, entry_path_list = entry_lists
         select_type = entry_type + "_select"
         
         # Provide cli prompt if no selection is provided
-        if entry_select is None:
+        entry_select = default_select
+        need_to_prompt = (default_select is None)
+        if need_to_prompt:
             _, entry_select = cli_select_from_list(entry_name_list, 
                                                    prompt_heading = "Select a {}:".format(entry_type), 
                                                    default_selection = self.selection_history[select_type],

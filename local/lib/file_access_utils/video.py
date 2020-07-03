@@ -53,12 +53,13 @@ from shutil import copy2 as copy_with_metadata
 
 from local.lib.common.timekeeper_utils import datetime_to_isoformat_string
 
-from local.lib.file_access_utils.shared import build_resources_folder_path
+from local.lib.file_access_utils.shared import build_resources_folder_path, url_safe_name
 from local.lib.file_access_utils.json_read_write import load_or_create_config_json, update_config_json, save_config_json
 
 from local.eolib.utils.network import build_rtsp_string, check_valid_ip
 from local.eolib.utils.files import replace_user_home_pathing
 from local.eolib.utils.quitters import ide_quit
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes 
@@ -156,21 +157,11 @@ def build_rtsp_file_path(cameras_folder_path, camera_select):
     return build_videos_folder_path(cameras_folder_path, camera_select, "rtsp.json")
 
 # .....................................................................................................................
-
-def clean_video_name(input_video_name):
-    
-    ''' Helper function used to ensure consistency when referring to video files by name '''
-    
-    cleaned_name = input_video_name.strip().lower()
-    
-    return cleaned_name
-
-# .....................................................................................................................
 # .....................................................................................................................
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-#%% Load & Save functions
+#%% Load & save functions
 
 # .....................................................................................................................
 
@@ -307,7 +298,7 @@ def add_video_to_files_dict(cameras_folder_path, camera_select, new_video_path,
         new_video_name = os.path.basename(new_video_path)
     
     # Clean name to ensure consistency. Also helps with detecting duplicates
-    cleaned_video_name = clean_video_name(new_video_name)
+    cleaned_video_name = url_safe_name(new_video_name)
     
     # Load existing video file data
     video_files_dict = load_video_files_dict(cameras_folder_path, camera_select)
@@ -347,7 +338,7 @@ def rename_video_in_files_dict(cameras_folder_path, camera_select, old_video_nam
     ''' Function which renames existing entries in the video file dictionary '''
     
     # Clean name to ensure consistency. Also helps with detecting duplicates
-    cleaned_video_name = clean_video_name(new_video_name)
+    cleaned_video_name = url_safe_name(new_video_name)
     
     # Load existing video file data
     video_files_dict = load_video_files_dict(cameras_folder_path, camera_select)
@@ -372,7 +363,7 @@ def delete_video_in_files_dict(cameras_folder_path, camera_select, video_name_to
     ''' Function which deletes entries in the video file dictionary '''
     
     # Clean name to ensure consistency
-    cleaned_video_name = clean_video_name(video_name_to_delete)
+    cleaned_video_name = url_safe_name(video_name_to_delete)
     
     # Load existing video file data
     video_files_dict = load_video_files_dict(cameras_folder_path, camera_select)
@@ -405,7 +396,7 @@ def change_video_start_datetime(cameras_folder_path, camera_select, video_name, 
     new_start_dt_isoformat = datetime_to_isoformat_string(new_start_datetime)
     
     # Clean name to ensure consistency
-    cleaned_video_name = clean_video_name(video_name)
+    cleaned_video_name = url_safe_name(video_name)
     
     # Load existing video file data
     video_files_dict = load_video_files_dict(cameras_folder_path, camera_select)
@@ -435,7 +426,7 @@ def change_video_timelapse_factor(cameras_folder_path, camera_select, video_name
         new_timelapse_factor = int(round(new_timelapse_factor))
     
     # Clean name to ensure consistency
-    cleaned_video_name = clean_video_name(video_name)
+    cleaned_video_name = url_safe_name(video_name)
     
     # Load existing video file data
     video_files_dict = load_video_files_dict(cameras_folder_path, camera_select)

@@ -51,7 +51,7 @@ find_path_to_local()
 
 from time import sleep
 
-from local.lib.common.timekeeper_utils import get_human_readable_timestamp, get_human_readable_timezone
+from local.lib.common.timekeeper_utils import get_human_readable_timestamp
 from local.lib.common.timekeeper_utils import get_local_datetime, datetime_to_isoformat_string, datetime_to_epoch_ms
 from local.lib.common.exceptions import OS_Close, register_signal_quit
 
@@ -61,22 +61,25 @@ from local.lib.ui_utils.screen_info import Screen_Info
 
 from local.lib.launcher_utils.video_setup import File_Video_Reader, Threaded_File_Video_Reader, RTSP_Video_Reader
 from local.lib.launcher_utils.core_bundle_loader import Core_Bundle
+from local.lib.launcher_utils.station_bundle_loader import Station_Bundle
 from local.lib.launcher_utils.resource_initialization import initialize_background_and_framerate_from_file
 from local.lib.launcher_utils.resource_initialization import initialize_background_and_framerate_from_rtsp
 
+from local.lib.file_access_utils.shared import url_safe_name_from_path
 from local.lib.file_access_utils.structures import create_missing_folder_path
 from local.lib.file_access_utils.configurables import configurable_dot_path, unpack_config_data, unpack_access_info
 from local.lib.file_access_utils.externals import build_externals_folder_path
 from local.lib.file_access_utils.reporting import build_camera_info_metadata_report_path
+from local.lib.file_access_utils.reporting import build_config_info_metadata_report_path
 from local.lib.file_access_utils.resources import reset_capture_folder, reset_generate_folder
 from local.lib.file_access_utils.video import Playback_Access, load_rtsp_config
-
+from local.lib.file_access_utils.stations import build_station_config_file_path
 from local.lib.file_access_utils.state_files import shutdown_running_camera, save_state_file, delete_state_file
 from local.lib.file_access_utils.json_read_write import load_config_json, save_config_json
 from local.lib.file_access_utils.json_read_write import dict_to_human_readable_output
 from local.lib.file_access_utils.metadata_read_write import save_jsongz_metadata
 
-from local.eolib.utils.cli_tools import cli_confirm
+from local.eolib.utils.cli_tools import cli_confirm, cli_prompt_with_defaults
 from local.eolib.utils.function_helpers import dynamic_import_from_module
 from local.eolib.utils.quitters import ide_quit
 
@@ -105,8 +108,9 @@ class File_Configuration_Loader:
         self.estimated_video_fps = None
         self.playback_settings = None
         
-        # Allocate storage for core processing bundle
+        # Allocate storage for core & station processing bundles
         self.core_bundle = None
+        self.station_bundle = None
         
         # Allocate storage for preprocessor unwarping settings
         self.enable_unwarp = None
@@ -193,38 +197,20 @@ class File_Configuration_Loader:
     
     # .................................................................................................................
     
-    def save_camera_info(self):
+    def save_camera_info(self, start_epoch_ms, start_datetime_isoformat):
         
         # Get camera launch info
         rtsp_config, _ = load_rtsp_config(self.cameras_folder_path, self.camera_select)
-        start_datetime = get_local_datetime()
-        start_dt_str = datetime_to_isoformat_string(start_datetime)
-        start_epoch_ms = datetime_to_epoch_ms(start_datetime)
         
         # Split snapshot sizing info for reporting
         video_width, video_height = self.video_wh
         snap_width, snap_height = self.snapcap.get_snapshot_wh()
         
-        # Load all core config data for reporting
-        core_configs_dict = {}
-        for each_stage_name, each_core_stage in self.core_bundle.core_ref_dict.items():
-            core_configs_dict[each_stage_name] = each_core_stage.get_save_data_dict()
-        
-        # Load all externals config data for reporting
-        externals_configs_dict = {}
-        externals_load_zip = zip(["snapshots", "backgrounds", "objects"], [self.snapcap, self.bgcap, self.objcap])
-        for each_stage_name, each_ext_stage in externals_load_zip:
-            externals_configs_dict[each_stage_name] = each_ext_stage.get_save_data_dict()
-        
-        # Bundle camera configs for convenience
-        camera_configs_dict = {"core": core_configs_dict, "externals": externals_configs_dict}
-        
         # Bundle info for saving
         caminfo_id = start_epoch_ms
         camera_info_dict = {"_id": caminfo_id,
                             "ip_address": rtsp_config.get("ip_address", "unknown"),
-                            "time_zone": get_human_readable_timezone(),
-                            "start_datetime_isoformat": start_dt_str,
+                            "start_datetime_isoformat": start_datetime_isoformat,
                             "start_epoch_ms": start_epoch_ms,
                             "video_select": self.video_select,
                             "reported_video_fps": self.video_fps,
@@ -232,8 +218,7 @@ class File_Configuration_Loader:
                             "video_width": video_width,
                             "video_height": video_height,
                             "snapshot_width": snap_width,
-                            "snapshot_height": snap_height,
-                            "configuration": camera_configs_dict}
+                            "snapshot_height": snap_height}
         
         # Build pathing to the camera reporting folder & save
         if self.saving_enabled:
@@ -243,7 +228,40 @@ class File_Configuration_Loader:
             save_jsongz_metadata(camera_info_folder_path, camera_info_dict)
         
         return
+    
+    # .................................................................................................................
+    
+    def save_config_info(self, start_epoch_ms, start_datetime_isoformat):
         
+        ''' Function used to save all configuration data as a post-able output, so that it can end up in a db '''
+        
+        # Load all core & station config data for reporting
+        core_configs_dict = self.core_bundle.get_configs_for_reporting()
+        station_configs_dict = self.station_bundle.get_configs_for_reporting()
+        
+        # Load all externals config data for reporting
+        externals_configs_dict = {"snapshots": self.snapcap.get_save_data_dict(),
+                                  "backgrounds": self.bgcap.get_save_data_dict(),
+                                  "objects": self.objcap.get_save_data_dict()}
+        
+        # Create final output dictionary
+        configinfo_id = start_epoch_ms
+        config_info_dict = {"_id": configinfo_id,
+                            "start_datetime_isoformat": start_datetime_isoformat,
+                            "start_epoch_ms": start_epoch_ms,
+                            "config": {"core": core_configs_dict,
+                                       "stations": station_configs_dict,
+                                       "externals": externals_configs_dict}}
+        
+        # Build pathing to the config reporting folder & save
+        if self.saving_enabled:
+            config_folder_path = build_config_info_metadata_report_path(self.cameras_folder_path,
+                                                                        self.camera_select)
+            create_missing_folder_path(config_folder_path)
+            save_jsongz_metadata(config_folder_path, config_info_dict)
+        
+        return
+    
     # .................................................................................................................
     
     def get_screen_info(self):
@@ -261,7 +279,28 @@ class File_Configuration_Loader:
         '''
         
         return self.cameras_folder_path, self.camera_select
+    
+    # .................................................................................................................
+    
+    def get_start_timing(self):
         
+        '''
+        Function used to get the start timing of the configuration, mean to be provided to saved metadata outputs
+        to indicate when a new data collection run was started
+        
+        Inputs:
+            Nothing!
+        
+        Outputs:
+            start_epoch_ms, start_datetime_isoformat
+        '''
+        
+        start_datetime = get_local_datetime()
+        start_epoch_ms = datetime_to_epoch_ms(start_datetime)
+        start_datetime_isoformat = datetime_to_isoformat_string(start_datetime)
+        
+        return start_epoch_ms, start_datetime_isoformat
+    
     # .................................................................................................................
     
     def setup_video_reader(self):
@@ -279,6 +318,43 @@ class File_Configuration_Loader:
         self.video_type = self.vreader.video_type
         
         return self.vreader
+    
+    # .................................................................................................................
+    
+    def setup_core_bundle(self):
+            
+        # Set up full core bundle (i.e. all core stages configured)
+        shared_config = self._get_shared_config()
+        new_core_bundle = Core_Bundle(**shared_config)
+        new_core_bundle.setup_all()
+        
+        # Pull out the preprocessor unwarping data and store it
+        enable_preprocessor_unwarp, unwarp_function = new_core_bundle.get_preprocessor_unwarping()
+        self.enable_unwarp = enable_preprocessor_unwarp
+        self.unwarp_function = unwarp_function
+        
+        # Store the bundle for re-use
+        self.core_bundle = new_core_bundle
+        
+        return self.core_bundle
+    
+    # .................................................................................................................
+    
+    def setup_station_bundle(self):
+        
+        # Set up all station bundle (i.e. all stations configured)
+        shared_config = self._get_shared_config()
+        new_station_bundle = Station_Bundle(**shared_config)
+        new_station_bundle.setup_all()
+        
+        # Enable/disable saving behaviors
+        new_station_bundle.toggle_report_saving(self.saving_enabled)
+        new_station_bundle.toggle_threaded_saving(self.threading_enabled)
+        
+        # Store bundle for re-use
+        self.station_bundle = new_station_bundle
+        
+        return self.station_bundle
         
     # .................................................................................................................
     
@@ -358,27 +434,6 @@ class File_Configuration_Loader:
     
     # .................................................................................................................
     
-    def setup_core_bundle(self):
-        
-        # Load core bundle config
-        shared_config = self._get_shared_config()
-            
-        # Set up full core bundle (i.e. all core stages configured)
-        new_core_bundle = Core_Bundle(**shared_config, video_select = self.video_select)
-        new_core_bundle.setup_all()
-        
-        # Pull out the preprocessor unwarping data and store it
-        enable_preprocessor_unwarp, unwarp_function = new_core_bundle.get_preprocessor_unwarping()
-        self.enable_unwarp = enable_preprocessor_unwarp
-        self.unwarp_function = unwarp_function
-        
-        # Store the bundle for re-use
-        self.core_bundle = new_core_bundle
-        
-        return self.core_bundle
-    
-    # .................................................................................................................
-    
     def setup_resources(self):
         
         # Make sure we always have a background image before doing anything else
@@ -412,19 +467,22 @@ class File_Configuration_Loader:
             print("", "System terminated during setup! Quitting...", sep = "\n")
             self.close_video_reader()
             ide_quit()
-            
+        
         # Get human readable timestamp for feedback
-        start_timestamp = get_human_readable_timestamp()
+        human_start_timestamp = get_human_readable_timestamp()
         
         # Setup all main processing components
         self.setup_core_bundle()
+        self.setup_station_bundle()
         self.setup_externals()
         self.get_screen_info()
         
-        # Save camera info on start-up, if needed
-        self.save_camera_info()
+        # Save camera & config info on start-up
+        start_epoch_ms, start_datetime_isoformat = self.get_start_timing()
+        self.save_camera_info(start_epoch_ms, start_datetime_isoformat)
+        self.save_config_info(start_epoch_ms, start_datetime_isoformat)
     
-        return start_timestamp
+        return human_start_timestamp
     
     # .................................................................................................................
     
@@ -443,6 +501,9 @@ class File_Configuration_Loader:
         # Close running core process & save any remaining objects
         final_stage_outputs = self.core_bundle.close_all(*fed_time_args)
         self.objcap.close(final_stage_outputs, *fed_time_args)
+        
+        # Close running stations & save any data in-progress
+        self.station_bundle.close_all(*fed_time_args)
         
         return
     
@@ -618,10 +679,9 @@ class Reconfigurable_Loader(File_Configuration_Loader):
         
         # Allocate storage for accessing re-configurable object
         self.configurable_ref = None
-        self.configurable_config_file_path = None
-        self.configurable_access_info_dict = None
-        self.configurable_setup_data_dict = None
-        self._config_util_file_dunder = None
+        self.config_file_path = None
+        self.loaded_access_info_dict = None
+        self.loaded_setup_data_dict = None
         
         # Store overriding settings
         self.override_stage = override_stage
@@ -683,11 +743,9 @@ class Reconfigurable_Loader(File_Configuration_Loader):
         # Setup all main processing components
         self.setup_playback_access()
         self.setup_core_bundle()
+        self.setup_station_bundle()
         self.setup_externals()
         self.get_screen_info()
-        
-        # Store configuration utility info
-        self.record_configuration_utility(file_dunder)
         
         return self.configurable_ref
     
@@ -700,6 +758,7 @@ class Reconfigurable_Loader(File_Configuration_Loader):
         self.bgcap.reset()
         self.objcap.reset()
         self.core_bundle.reset_all()
+        self.station_bundle.reset_all()
     
     # .................................................................................................................
     
@@ -709,31 +768,33 @@ class Reconfigurable_Loader(File_Configuration_Loader):
         self.playback_access = Playback_Access(self.cameras_folder_path, self.camera_select, self.video_select)
         
         return self.playback_access
+    
+    # .................................................................................................................
+    
+    def get_save_path(self):
+        
+        ''' Function used to allow overrides when deciding how to construct save pathing '''
+        
+        # By default, use the internal storage path if it's available
+        save_path = self.config_file_path
+        if save_path is None:
+            raise NameError("Error: Can't save because 'config_file_path' is missing!")
+        
+        return self.config_file_path
 
     # .................................................................................................................
     
-    def record_configuration_utility(self, file_dunder):
-        
-        '''
-        Function used to store pathing to the file used to configure a configurable
-        This information is used to provide a default selection for how to re-launch configuration for a configurable
-        '''
-        
-        self._config_util_file_dunder = file_dunder
-
-    # .................................................................................................................
-    
-    def ask_to_save_configurable(self, configurable_ref):
+    def ask_to_save_configurable_cli(self, configuration_utility_file_dunder, configurable_ref):
         
         # Get save data from configurable & add configuration utility info
-        save_data_dict = configurable_ref.get_save_data_dict(self._config_util_file_dunder)
+        save_data_dict = configurable_ref.get_save_data_dict(configuration_utility_file_dunder)
         access_info_dict, setup_data_dict = unpack_config_data(save_data_dict)
         curr_script_name, _, _ = unpack_access_info(access_info_dict)
         
         # Only save if the saved data has changed
         is_passthrough = ("passthrough" in curr_script_name)
-        access_info_changed = (self.configurable_access_info_dict != access_info_dict)
-        setup_data_changed = (self.configurable_setup_data_dict != setup_data_dict)
+        access_info_changed = (self.loaded_access_info_dict != access_info_dict)
+        setup_data_changed = (self.loaded_setup_data_dict != setup_data_dict)
         need_to_save = (access_info_changed or setup_data_changed or is_passthrough)
         
         # Handle feedback for saving or not
@@ -752,33 +813,32 @@ class Reconfigurable_Loader(File_Configuration_Loader):
         # Provide prompt to user for saving
         user_confirm_save = cli_confirm("Save settings?", default_response = False)
         
-        # Get pathing
-        save_path = self.configurable_config_file_path
-        relative_save_path = os.path.relpath(save_path, self.cameras_folder_path)
+        # Get pathing to save
+        save_path = None
+        if user_confirm_save:
+            save_path = self.get_save_path()
         
         # Don't save
-        if not user_confirm_save:
+        if not user_confirm_save or not save_path:
             
             # Give feedback
-            if print_feedback:                
+            if print_feedback:
                 print("",
                       "Here are the config settings, in case that cancel was an accident!",
-                      "",
-                      "Save path:",
-                      "@ {}".format(relative_save_path),
                       "",
                       "Save data:",
                       dict_to_human_readable_output(save_data_dict),
                       "", sep = "\n")
             
-            return relative_save_path
+            return
         
         # If we get here, we're saving!
         save_config_json(save_path, save_data_dict)
+        relative_save_path = os.path.relpath(save_path, self.cameras_folder_path)
         if print_feedback:
             print("", "Saved configuration:", "@ {}".format(relative_save_path), "", sep = "\n")
         
-        return relative_save_path
+        return
     
     # .................................................................................................................
     
@@ -800,9 +860,9 @@ class Reconfigurable_Loader(File_Configuration_Loader):
         Imported_Externals_Class = dynamic_import_from_module(dot_path, self.override_class)
         
         # Save data to re-access the override script
-        self.configurable_config_file_path = path_to_config
-        self.configurable_access_info_dict = access_info_dict
-        self.configurable_setup_data_dict = setup_data_dict
+        self.config_file_path = path_to_config
+        self.loaded_access_info_dict = access_info_dict
+        self.loaded_setup_data_dict = setup_data_dict
         
         return Imported_Externals_Class, setup_data_dict
         
@@ -813,6 +873,7 @@ class Reconfigurable_Loader(File_Configuration_Loader):
 # =====================================================================================================================
 # =====================================================================================================================
 
+
 class Reconfigurable_Core_Stage_Loader(Reconfigurable_Loader):
     
     # .................................................................................................................
@@ -821,16 +882,18 @@ class Reconfigurable_Core_Stage_Loader(Reconfigurable_Loader):
         
         # Inherit from parent class
         super().__init__(core_stage, script_name, class_name)
+        
+        # We want to turn off saving when working in a re-configuration mode
+        self.toggle_saving(False)
+        self.toggle_threaded_saving(False)
     
     # .................................................................................................................
     
     def setup_core_bundle(self):
-        
-        # Load core bundle
-        shared_config = self._get_shared_config()
             
         # Set up full core bundle (i.e. all core stages configured)
-        new_core_bundle = Core_Bundle(**shared_config, video_select = self.video_select)
+        shared_config = self._get_shared_config()
+        new_core_bundle = Core_Bundle(**shared_config)
         new_core_bundle.setup_all(self.override_stage, self.override_script, self.override_class)
         
         # Grab final core stage as a reconfigurable component
@@ -841,9 +904,9 @@ class Reconfigurable_Core_Stage_Loader(Reconfigurable_Loader):
         # Store configurable reference info
         access_info_dict, setup_data_dict = unpack_config_data(config_data_dict)
         self.configurable_ref = configurable_ref
-        self.configurable_config_file_path = config_file_path
-        self.configurable_access_info_dict = access_info_dict
-        self.configurable_setup_data_dict = setup_data_dict
+        self.config_file_path = config_file_path
+        self.loaded_access_info_dict = access_info_dict
+        self.loaded_setup_data_dict = setup_data_dict
         
         '''
         ^^^ THIS CONFIGURABLE STUFF IS A BIT UGLY, BUT NOT THE END OF THE WORLD FOR NOW...
@@ -868,6 +931,91 @@ class Reconfigurable_Core_Stage_Loader(Reconfigurable_Loader):
 # =====================================================================================================================
 
 
+class Reconfigurable_Single_Station_Loader(Reconfigurable_Loader):
+    
+    # .................................................................................................................
+    
+    def __init__(self, script_name, class_name = None):
+        
+        # The station to override is chosen by the user, after selecting a camera. So cannot be given on init!
+        override_stage = None
+        
+        # Inherit from parent class
+        super().__init__(override_stage, script_name, class_name)
+        
+        # Add entry for holding station selection when loading
+        self.station_select = None
+        
+        # We want to turn off saving when working in a re-configuration mode
+        self.toggle_saving(False)
+        self.toggle_threaded_saving(False)
+    
+    # .................................................................................................................
+    
+    def select_station(self):
+        
+        # Create selector so we can make station selection
+        selector = Resource_Selector()
+        
+        # Select shared components
+        self.station_select, _ = selector.station(self.camera_select, self.override_script)
+        
+        return self
+    
+    # .................................................................................................................
+    
+    def setup_station_bundle(self):
+        
+        # Set up only the target station for re-configuring
+        shared_config = self._get_shared_config()
+        new_station_bundle = Station_Bundle(**shared_config)
+        station_ref = new_station_bundle.setup_one(self.station_select,
+                                                   self.override_script,
+                                                   self.override_class,
+                                                   reset_on_startup = True)
+        
+        # Enable/disable saving behaviors
+        new_station_bundle.toggle_report_saving(self.saving_enabled)
+        new_station_bundle.toggle_threaded_saving(self.threading_enabled)
+        
+        # Store bundle for re-use
+        self.station_bundle = new_station_bundle
+        
+        # Associate single station with re-configurable object
+        self.configurable_ref = station_ref
+        
+        return self.station_bundle
+    
+    # .................................................................................................................
+    
+    def get_save_path(self):
+        
+        # OVERRIDE: Allows for station name entry before saving (if needed)
+        
+        # Check if we already have a name, if not, we need to ask for one
+        need_station_name = (self.station_select is None)
+        
+        # Provide prompt to user for saving
+        if need_station_name:
+            user_station_name = cli_prompt_with_defaults("Enter station name: ")
+            if not user_station_name:
+                return None
+            self.station_select = user_station_name
+        
+        # Build the save path
+        cleaned_station_name = url_safe_name_from_path(self.station_select)
+        save_path = build_station_config_file_path(self.cameras_folder_path, self.camera_select, cleaned_station_name)
+        
+        return save_path
+    
+    # .................................................................................................................
+    # .................................................................................................................
+
+
+# =====================================================================================================================
+# =====================================================================================================================
+
+
 class Reconfigurable_Snapshot_Capture_Loader(Reconfigurable_Loader):
     
     # .................................................................................................................
@@ -876,6 +1024,10 @@ class Reconfigurable_Snapshot_Capture_Loader(Reconfigurable_Loader):
         
         # Inherit from parent class
         super().__init__("snapshot_capture", script_name, class_name)
+        
+        # We want to turn off saving when working in a re-configuration mode
+        self.toggle_saving(False)
+        self.toggle_threaded_saving(False)
     
     # .................................................................................................................
     
@@ -991,6 +1143,10 @@ class Reconfigurable_Object_Capture_Loader(Reconfigurable_Loader):
         
         # Inherit from parent class
         super().__init__("object_capture", script_name, class_name)
+        
+        # We want to turn off saving when working in a re-configuration mode
+        self.toggle_saving(False)
+        self.toggle_threaded_saving(False)
     
     # .................................................................................................................
     
@@ -1036,6 +1192,7 @@ class Reconfigurable_Object_Capture_Loader(Reconfigurable_Loader):
 
 # .....................................................................................................................
 # .....................................................................................................................
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Demo 

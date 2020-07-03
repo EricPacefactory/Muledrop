@@ -203,11 +203,11 @@ class Controls_Specification:
     
     # .................................................................................................................
     
-    def attach_drawing(self, variable_name, *, default_value, 
-                       min_max_entities = (0, None), 
-                       min_max_points = (3, None), 
-                       entity_type = "polygon", 
-                       drawing_style = "zone", 
+    def attach_drawing(self, variable_name, *, default_value,
+                       min_max_entities = (0, None),
+                       min_max_points = (3, None),
+                       entity_type = "polygon",
+                       drawing_style = "zone",
                        out_of_bounds = True,
                        visible = True,
                        save_with_config = True):

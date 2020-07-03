@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Wed May 29 11:34:15 2019
+Created on Thu Jul  2 09:23:38 2020
 
 @author: eo
 """
@@ -49,50 +49,42 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
-from local.lib.launcher_utils.configuration_loaders import Reconfigurable_Core_Stage_Loader
-from local.lib.launcher_utils.video_processing_loops import Reconfigurable_Video_Loop
+import numpy as np
 
-from local.lib.ui_utils.display_specification import Display_Window_Specification, Preprocessed_Display
-from local.lib.ui_utils.display_specification import Filtered_Binary_Display
+from local.lib.launcher_utils.configuration_loaders import Reconfigurable_Single_Station_Loader
+from local.lib.launcher_utils.video_processing_loops import Station_Processing_Video_Loop
+from local.lib.ui_utils.display_specification import Display_Window_Specification
+from local.lib.ui_utils.display_specification import Input_Display
 
-from local.configurables.core.pixel_filter._helper_functions import Color_Filtered
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define displays
 
 
-class Color_Map(Display_Window_Specification):
-    
-    def __init__(self, layout_index, num_rows, num_columns, initial_display = False):
-        
-        # Inherit from parent class
-        super().__init__("Color Map", layout_index, num_rows, num_columns, 
-                         initial_display = initial_display, 
-                         limit_wh = False)
-        
-        raise NotImplementedError("Need to make rgb bar color space display!")
-
-# ---------------------------------------------------------------------------------------------------------------------
-#%% Define functions
-
-
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Main
 
+# For clarity
+target_script_name = "average_brightness_station"
+target_class_name = "Average_Brightness_Station"
+
 # Make all required selections
-loader = Reconfigurable_Core_Stage_Loader("pixel_filter", "rgb_pixelfilter", "Pixel_Filter_Stage")
-arg_selections = loader.parse_standard_args()
-loader.selections(*arg_selections)
+loader = Reconfigurable_Single_Station_Loader(target_script_name, target_class_name)
+loader.selections()
+loader.select_station()
 
 # Set up video capture, processing stages & playback control
 configurable_ref = loader.setup_all(__file__)
 
+# Get drawing specification for the given edge decay variable
+zone_drawing_spec = configurable_ref.get_drawing_spec("station_zones_list")
+
 # Set up object to handle all video processing
 main_process = \
-Reconfigurable_Video_Loop(loader,
-                          ordered_display_list = [Preprocessed_Display(0, 2, 2),
-                                                  Color_Filtered(1, 2, 2),
-                                                  Filtered_Binary_Display(2, 2, 2)])
+Station_Processing_Video_Loop(loader,
+                              ordered_display_list = [Input_Display(1, 4, 1,
+                                                                    window_name = "Draw Station Zones",
+                                                                    drawing_json = zone_drawing_spec)])
 
 # Most of the work is done here!
 main_process.loop()
@@ -114,7 +106,17 @@ debug_dict = main_process.debug_dict
 #%% Scrap
 
 '''
-TODO
-- Make color space display, which contains red/green/blue gradients displayed separately
-- Effect of filtering can then be visualized independently on each channel
+STOPPED HERE
+- NEED TO FIGURE OUT HOW TO 'CREATE NEW' PROPERLY!!!
+- HOW TO DELETE BAD CONFIGS WITHOUT DOING IT MANUALLY???
+- NEED TO THINK ABOUT SAVING STATION INFO FOR DB AS WELL?
 '''
+
+'''
+STOPPED HERE
+- NEED TO BUILD CONFIG UTIL TO DRAW ZONES ZOOMED IN
+- NEED TO THINK ABOUT VISUALIZATION OF OUTPUT DATA?
+- NEED TO CREATE DBSERVER ROUTES
+- SHOULD ALSO BUILD HSV & FTF CONFIGURABLES
+'''
+

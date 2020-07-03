@@ -66,8 +66,10 @@ from local.lib.ui_utils.script_arguments import script_arg_builder
 
 from local.lib.file_access_utils.logging import build_post_db_log_path
 from local.lib.file_access_utils.reporting import build_camera_info_metadata_report_path
+from local.lib.file_access_utils.reporting import build_config_info_metadata_report_path
 from local.lib.file_access_utils.reporting import build_snapshot_metadata_report_path
 from local.lib.file_access_utils.reporting import build_object_metadata_report_path
+from local.lib.file_access_utils.reporting import build_station_metadata_report_path
 from local.lib.file_access_utils.reporting import build_background_metadata_report_path
 from local.lib.file_access_utils.reporting import build_snapshot_image_report_path
 from local.lib.file_access_utils.reporting import build_background_image_report_path
@@ -371,6 +373,37 @@ def post_all_camera_info(server_url, cameras_folder_path, camera_select):
     return response_msg, error_msg
 
 # .....................................................................................................................
+    
+def post_all_config_info(server_url, cameras_folder_path, camera_select):
+    
+    # For clarity
+    collection_name = "configinfo"
+    
+    # Build pathing to all report data
+    md_folder_path = build_config_info_metadata_report_path(cameras_folder_path, camera_select)
+    md_file_paths = get_file_paths_to_post(md_folder_path)
+    
+    # Bail if there is no data
+    num_md_files = len(md_file_paths)
+    no_report_data = (num_md_files == 0)
+    if no_report_data:
+        empty_msg = ""
+        return empty_msg, empty_msg
+    
+    # Build url & post the data!
+    post_url = build_metadata_bulk_post_url(server_url, camera_select, collection_name)
+    total_md_success, total_md_duplicate, total_md_time_ms, md_error_message_list = \
+    post_all_metadata_to_server(post_url, md_file_paths)
+    
+    # Build outputs
+    error_msg = "\n".join(md_error_message_list)
+    response_msg = build_response_count_string(collection_name, "metadata",
+                                               total_md_success, total_md_duplicate, num_md_files, total_md_time_ms)
+    
+    return response_msg, error_msg
+
+
+# .....................................................................................................................
 
 def post_all_background_data(server_url, cameras_folder_path, camera_select):
     
@@ -426,6 +459,36 @@ def post_all_object_data(server_url, cameras_folder_path, camera_select):
     
     # Build pathing to all report data
     md_folder_path = build_object_metadata_report_path(cameras_folder_path, camera_select)
+    md_file_paths = get_file_paths_to_post(md_folder_path)
+    
+    # Bail if there is no data
+    num_md_files = len(md_file_paths)
+    no_report_data = (num_md_files == 0)
+    if no_report_data:
+        empty_msg = ""
+        return empty_msg, empty_msg
+    
+    # Build url & post the data!
+    post_url = build_metadata_bulk_post_url(server_url, camera_select, collection_name)
+    total_md_success, total_md_duplicate, total_md_time_ms, md_error_message_list = \
+    post_all_metadata_to_server(post_url, md_file_paths)
+    
+    # Build outputs
+    error_msg = "\n".join(md_error_message_list)
+    response_msg = build_response_count_string(collection_name, "metadata",
+                                               total_md_success, total_md_duplicate, num_md_files, total_md_time_ms)
+    
+    return response_msg, error_msg
+
+# .....................................................................................................................
+
+def post_all_station_data(server_url, cameras_folder_path, camera_select):
+    
+    # For clarity
+    collection_name = "stations"
+    
+    # Build pathing to all report data
+    md_folder_path = build_station_metadata_report_path(cameras_folder_path, camera_select)
     md_file_paths = get_file_paths_to_post(md_folder_path)
     
     # Bail if there is no data
@@ -626,8 +689,10 @@ def post_data_to_server(server_url, cameras_folder_path, camera_select, log_to_f
     
     # Post each data set
     caminfo_log, caminfo_err = post_all_camera_info(server_url, *camera_pathing_args)
+    cfginfo_log, cfginfo_err = post_all_config_info(server_url, *camera_pathing_args)
     bg_img_log, bg_md_log, bg_err = post_all_background_data(server_url, *camera_pathing_args)
     obj_log, obj_err = post_all_object_data(server_url, *camera_pathing_args)
+    stn_log, stn_err = post_all_station_data(server_url, *camera_pathing_args)
     snap_img_log, snap_md_log, snap_err = post_all_snapshot_data(server_url, *camera_pathing_args)
     
     # Finish timing
@@ -636,11 +701,12 @@ def post_data_to_server(server_url, cameras_folder_path, camera_select, log_to_f
     timing_response_str = "Took {:.0f} ms total (w/ protect)".format(total_time_taken_ms)
     
     # Build complete response string for feedback/logging
-    full_error_msg_list = [caminfo_err, bg_err, obj_err, snap_err]
+    full_error_msg_list = [caminfo_err, cfginfo_err, bg_err, obj_err, stn_err, snap_err]
     reduced_error_msg_list = [each_msg for each_msg in full_error_msg_list if each_msg != ""]
     response_list = build_response_string_list(server_url,
                                                snap_img_log, bg_img_log,
-                                               caminfo_log, bg_md_log, obj_log, snap_md_log,
+                                               caminfo_log, cfginfo_log,
+                                               bg_md_log, stn_log, obj_log, snap_md_log,
                                                timing_response_str,
                                                *reduced_error_msg_list)
     

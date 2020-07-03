@@ -66,7 +66,7 @@ from local.lib.ui_utils.cli_selections import Resource_Selector
 from local.lib.ui_utils.script_arguments import script_arg_builder
 
 from local.lib.file_access_utils.structures import create_missing_folder_path, create_missing_folders_from_file
-from local.lib.file_access_utils.shared import build_camera_path, build_logging_folder_path
+from local.lib.file_access_utils.shared import build_camera_path, build_logging_folder_path, url_safe_name
 from local.lib.file_access_utils.reporting import build_base_report_path
 from local.lib.file_access_utils.logging import make_log_folder
 from local.lib.file_access_utils.logging import build_stdout_log_file_path, build_stderr_log_file_path
@@ -242,7 +242,7 @@ def unzip_cameras_file(file_path, unzip_folder_name = "unzipped"):
     for each_camera_name in unzipped_camera_names_list:
         
         # Make sure camera names don't have spaces
-        clean_name = each_camera_name.replace(" ", "_")
+        clean_name = url_safe_name(each_camera_name)
         if each_camera_name is not clean_name:
             orig_path = os.path.join(unzip_path, each_camera_name)
             clean_path = os.path.join(unzip_path, clean_name)

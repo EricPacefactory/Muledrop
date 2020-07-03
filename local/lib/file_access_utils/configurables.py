@@ -49,7 +49,7 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
-
+from local.lib.file_access_utils.shared import url_safe_name_from_path
 
 
 #%% Pathing functions
@@ -101,10 +101,10 @@ def create_access_info(script_name, class_name, configuration_utility_file_dunde
     '''
     
     # Force the given script/config utility names to have more consistent formatting
-    script_name_no_ext = clean_name(script_name)
+    script_name_no_ext = url_safe_name_from_path(script_name)
     config_util_name_no_ext = None
     if configuration_utility_file_dunder is not None:
-        config_util_name_no_ext = clean_name(configuration_utility_file_dunder)
+        config_util_name_no_ext = url_safe_name_from_path(configuration_utility_file_dunder)
     
     # Bundle access info
     access_info_dict = {"script_name": script_name_no_ext,
@@ -139,6 +139,20 @@ def create_configurable_save_data(script_name, class_name, configuration_utility
     save_data_dict = {"access_info": access_info_dict, "setup_data": setup_data_dict}
     
     return save_data_dict
+
+# .....................................................................................................................
+
+def create_blank_configurable_data_dict(script_name, class_name):
+    
+    # For clarity
+    configuration_utility_file_dunder = None
+    setup_data_dict = {}
+    
+    # Bundle data in target format
+    access_info_dict = create_access_info(script_name, class_name, configuration_utility_file_dunder)
+    blank_config_data_dict = {"access_info": access_info_dict, "setup_data": setup_data_dict}
+    
+    return blank_config_data_dict
 
 # .....................................................................................................................
 # .....................................................................................................................
@@ -222,57 +236,31 @@ def unpack_access_info(access_info_dict):
 
 # .....................................................................................................................
 
-def clean_name(input_name):
-    
-    ''' Helper function used to ensure consistently formatted naming '''
-    
-    # Remove pathing in case it was provided so we're always dealing with file names only
-    file_name_only = os.path.basename(input_name)
-    
-    # Remove common naming patterns that may cause problems
-    cleaned_name = file_name_only.strip().replace(" ", "_").lower()
-    
-    # Remove file extension
-    name_no_ext, _ = os.path.splitext(cleaned_name.strip().lower())
-    
-    return name_no_ext
-
-# .....................................................................................................................
-
-def check_matching_access_info(loaded_config_or_access_info_dict, target_script_name, target_class_name):
+def check_matching_access_info(config_data_dict_A, config_data_dict_B):
     
     '''
-    Helperf function used to check if some loaded access info matches a target script/class name
+    Helper function used to check if two configurations share the same access info
     Intended for use in cases where loaded data may be overridden by a target script/class,
     mostly likely for re-configuration purposes
     
     Inputs:
-        loaded_config_or_access_info_dict -> (Dictionary) Existing configuration data or access info to check against
-        
-        target_script_name -> (String) The script name to check against the loaded configuration data
-        
-        target_class_name -> (String) The class name to check against the loaded configuration data
+        config_data_dict_A, config_data_dict_B -> (Dictionary) Configurations to compare
     
     Outputs:
         matching_access_info
     '''
     
-    # Determine if we got the full configuration data or the nested access info as an input
-    got_full_config_data = ("access_info" in loaded_config_or_access_info_dict.keys())
-    if got_full_config_data:
-        loaded_access_info_dict, _ = unpack_config_data(loaded_config_or_access_info_dict)
-    else:
-        loaded_access_info_dict = loaded_config_or_access_info_dict
+    # First get the access info from each configuration
+    access_info_dict_A, _ = unpack_config_data(config_data_dict_A)
+    access_info_dict_B, _ = unpack_config_data(config_data_dict_B)
     
-    # Break apart the loaded access info
-    loaded_script_name, loaded_class_name, _ = unpack_access_info(loaded_access_info_dict)
-    
-    # Make sure we 'clean' the target script name for consistent comparisons
-    cleaned_target_script_name = clean_name(target_script_name)
+    # Now get the script/class name info, which we'll use for the comparison (don't care about config util!)
+    script_name_A, class_name_A, _ = unpack_access_info(access_info_dict_A)
+    script_name_B, class_name_B, _ = unpack_access_info(access_info_dict_B)
     
     # Check for matches
-    matching_script_name = (loaded_script_name == cleaned_target_script_name)
-    matching_class_name = (loaded_class_name == target_class_name)
+    matching_script_name = (script_name_A == script_name_B)
+    matching_class_name = (class_name_A == class_name_B)
     matching_access_info = (matching_script_name and matching_class_name)
     
     return matching_access_info
