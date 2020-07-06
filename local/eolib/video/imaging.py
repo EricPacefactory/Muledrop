@@ -18,9 +18,8 @@ import numpy as np
 #%% Define classes
 
 
-
 # ---------------------------------------------------------------------------------------------------------------------
-#%% Shared Functions
+#%% Conversion functions
 
 # .....................................................................................................................
 
@@ -37,6 +36,45 @@ def image_1ch_to_3ch(image_1d):
         return image_1d
     
     return cv2.cvtColor(image_1d, cv2.COLOR_GRAY2BGR)
+
+# .....................................................................................................................
+
+def image_to_channel_column_vector(frame):
+    
+    '''
+    Function which converts an image into a column vector
+    with the number of rows equal to the number of pixels in the image,
+    and the number of columns matching the number of channels in the image
+    For example:
+        A 50 x 100 grayscale image outputs a 5000 x 1 vector
+        A 25 x 10 BGR image outputs a 250 x 3 vector
+    '''
+    
+    numel = np.prod(frame.shape[0:2])
+    num_channels = 1 if len(frame.shape) < 3 else frame.shape[2]
+    return np.reshape(frame, (numel, num_channels))
+
+# .....................................................................................................................
+
+def color_list_to_image(color_list, image_height = 30):
+    
+    '''
+    Function which converts a list of color tuples to a numpy image (single channel!).
+    Assumes the list is meant to be interpretted as the columns of the output image.
+    Input color list should have the form:
+        color_list = [[1, 2, 3],
+                      [55, 0, 33],
+                      [255, 255, 255],
+                      ... ]
+    '''
+    return np.repeat(np.expand_dims(np.uint8(color_list), 0), image_height, axis = 0)
+
+# .....................................................................................................................
+# .....................................................................................................................
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Drawing functions
 
 # .....................................................................................................................
 
@@ -146,6 +184,17 @@ def vstack_padded(*frames, pad_height = 15, padding_color = (40, 40, 40),
     return np.vstack(frame_stack)
 
 # .....................................................................................................................
+
+def add_frame_border(frame, border_size = 60, border_color = (40,40,40)):
+    
+    ''' Helper function which adds a consistently sized border of a fixed color around a given frame '''
+    
+    return cv2.copyMakeBorder(frame,
+                              top = border_size, bottom = border_size,
+                              left = border_size, right = border_size,
+                              borderType = cv2.BORDER_CONSTANT, value = border_color)
+
+# .....................................................................................................................
     
 def center_padded_image(display_frame, padded_wh, padding_color = (40, 40, 40)):
     
@@ -174,7 +223,73 @@ def center_padded_image(display_frame, padded_wh, padding_color = (40, 40, 40)):
                               right = right_pad, 
                               borderType = cv2.BORDER_CONSTANT,
                               value = padding_color)
+
+# .....................................................................................................................
+
+def pixelate_image(image, pixelation_factor = 4):
     
+    '''
+    Helper function which takes in an image and returns a same-sized image, with a pixelation effect
+    The higher the pixelation_factor, the more pixelated the resulting image
+    '''
+    
+    orig_height, orig_width = image.shape[0:2]
+    original_dsize = (orig_width, orig_height)
+    downscale_factor = 1.0/pixelation_factor
+    downscaled_image = cv2.resize(image, dsize = None, fx = downscale_factor, fy = downscale_factor,
+                                  interpolation = cv2.INTER_NEAREST)
+    
+    return cv2.resize(downscaled_image, dsize = original_dsize, interpolation = cv2.INTER_NEAREST)
+
+# .....................................................................................................................
+
+def zoom_on_frame(frame, min_display_size = 150, max_display_size = 800):
+    
+    '''
+    Function which 'zooms' in on a given frame
+    Note that zooming will only occur with integer scaling, and only if the input frame is small enough
+    
+    Inputs:
+        frame -> (Image data) Image to be zoomed in on
+        
+        min_display_size -> (Integer) Minimum target side length of the zoomed result
+                            Frames which are smaller than this size will be zoomed
+        
+        max_display_size -> (Integer) Maximum target side length of the zoomed result
+                            Frames won't be zoomed to be any bigger than this size
+    
+    Outputs:
+        output_frame
+    '''
+    
+    # Get frame sizing so we can determine how much to zoom
+    frame_height, frame_width = frame.shape[0:2]
+    
+    # Figure out what integer factor to zoom in by
+    min_zoom_w = min_display_size / frame_width
+    min_zoom_h = min_display_size / frame_height
+    min_zoom_factor = int(np.ceil(max(min_zoom_w, min_zoom_h)))
+    
+    # Figure out what our maximum allowable zoom factor would be
+    max_zoom_w = max_display_size / frame_width
+    max_zoom_h = max_display_size / frame_height
+    max_zoom_factor = int(np.floor(min(max_zoom_w, max_zoom_h)))
+    
+    # Bail if needed
+    zoom_factor = min(min_zoom_factor, max_zoom_factor)
+    no_zoom = (zoom_factor <= 1)
+    if no_zoom:
+        return frame
+    
+    return cv2.resize(frame, dsize = None, fx = zoom_factor, fy = zoom_factor, interpolation = cv2.INTER_NEAREST)
+
+# .....................................................................................................................
+# .....................................................................................................................
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Cropping/Masking Functions
+
 # .....................................................................................................................
 
 def make_mask_1ch(frame_wh, mask_zones_list,
@@ -276,23 +391,6 @@ def make_cropmask_1ch(frame_wh, single_zone, crop_y1y2x1x2 = None, invert = True
     cropmask_1ch = crop_pixels_and_copy(fullmask_1d, crop_y1y2x1x2)
     
     return cropmask_1ch
-
-# .....................................................................................................................
-
-def image_to_channel_column_vector(frame):
-    
-    '''
-    Function which converts an image into a column vector
-    with the number of rows equal to the number of pixels in the image,
-    and the number of columns matching the number of channels in the image
-    For example:
-        A 50 x 100 grayscale image outputs a 5000 x 1 vector
-        A 25 x 10 BGR image outputs a 250 x 3 vector
-    '''
-    
-    numel = np.prod(frame.shape[0:2])
-    num_channels = 1 if len(frame.shape) < 3 else frame.shape[2]
-    return np.reshape(frame, (numel, num_channels))
 
 # .....................................................................................................................
 
@@ -439,38 +537,6 @@ def crop_pixels_and_copy(frame, crop_y1y2x1x2):
     return frame.copy()[cy1:cy2, cx1:cx2]
 
 # .....................................................................................................................
-
-def color_list_to_image(color_list, image_height = 30):
-    
-    '''
-    Function which converts a list of color tuples to a numpy image (single channel!). 
-    Assumes the list is meant to be interpretted as the columns of the output image.
-    Input color list should have the form:
-        color_list = [[1, 2, 3], 
-                      [55, 0, 33], 
-                      [255, 255, 255], 
-                      ... ]
-    '''
-    return np.repeat(np.expand_dims(np.uint8(color_list), 0), image_height, axis = 0)
-
-# .....................................................................................................................
-
-def pixelate_image(image, pixelation_factor = 4):
-    
-    '''
-    Helper function which takes in an image and returns a same-sized image, with a pixelation effect
-    The higher the pixelation_factor, the more pixelated the resulting image
-    '''
-    
-    orig_height, orig_width = image.shape[0:2]
-    original_dsize = (orig_width, orig_height)
-    downscale_factor = 1.0/pixelation_factor
-    downscaled_image = cv2.resize(image, dsize = None, fx = downscale_factor, fy = downscale_factor,
-                                  interpolation = cv2.INTER_NEAREST)
-    
-    return cv2.resize(downscaled_image, dsize = original_dsize, interpolation = cv2.INTER_NEAREST)
-
-# .....................................................................................................................
 # .....................................................................................................................
 
 
@@ -506,6 +572,7 @@ def _count_nested_elements(input_iterable, _num_elements = 0):
 # .....................................................................................................................
 # .....................................................................................................................
 
+
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Demo
 
@@ -531,6 +598,7 @@ if __name__ == "__main__":
     cv2.destroyAllWindows()
     
     pass
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Scrap
