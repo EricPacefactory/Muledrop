@@ -67,8 +67,10 @@ from local.lib.file_access_utils.settings import load_locations_info, get_nice_l
 
 from local.lib.file_access_utils.structures import create_camera_folder_structure, create_missing_folder_path
 from local.lib.file_access_utils.reporting import build_camera_info_metadata_report_path
+from local.lib.file_access_utils.reporting import build_config_info_metadata_report_path
 from local.lib.file_access_utils.reporting import build_snapshot_metadata_report_path
 from local.lib.file_access_utils.reporting import build_object_metadata_report_path
+from local.lib.file_access_utils.reporting import build_station_metadata_report_path
 from local.lib.file_access_utils.reporting import build_background_metadata_report_path
 from local.lib.file_access_utils.reporting import build_snapshot_image_report_path
 from local.lib.file_access_utils.reporting import build_background_image_report_path
@@ -229,31 +231,26 @@ def create_new_camera_entry(selector, camera_select):
 
 # .....................................................................................................................
 
-def request_caminfo_metadata(server_url, camera_select, start_epoch_ms, end_epoch_ms):
+def request_camerainfo_metadata(server_url, camera_select, start_epoch_ms, end_epoch_ms):
     
     # Build route for requesting all camera info metadata
     request_url = build_request_url(server_url, camera_select, "camerainfo", 
                                     "get-many-metadata", "by-time-range",
                                     start_epoch_ms, end_epoch_ms)
-    offline_request_url = build_request_url(server_url, camera_select, "camerainfo", "get-all-camera-info")
-    
-    # HACK FOR OLDER VERSIONS
-    #request_url = offline_request_url
     
     # Grab camera info data
     try:
-        many_caminfo_metadata_list = get_json(request_url)
+        many_camerainfo_metadata_list = get_json(request_url)
         
     except SystemError:
-        # Special case for handling issues that arise when data was generated locally
-        single_caminfo_metadata = get_json(offline_request_url)
-        many_caminfo_metadata_list = [single_caminfo_metadata]
+        many_camerainfo_metadata_list = []
+        print("", "ERROR RETRIEVING CAMERA INFO...")
     
-    return many_caminfo_metadata_list
+    return many_camerainfo_metadata_list
 
 # .....................................................................................................................
 
-def save_caminfo_metadata(cameras_folder_path, camera_select, caminfo_metadata_list):
+def save_camerainfo_metadata(cameras_folder_path, camera_select, camerainfo_metadata_list):
     
     # Make sure the camera info metadata reporting folder exists
     base_save_folder = build_camera_info_metadata_report_path(cameras_folder_path, camera_select)
@@ -261,7 +258,63 @@ def save_caminfo_metadata(cameras_folder_path, camera_select, caminfo_metadata_l
     
     # Loop through all the requested metadata and save back into the filesystem
     print("", "Saving camera info metadata", sep = "\n")
-    for each_metadata_dict in tqdm(caminfo_metadata_list):
+    for each_metadata_dict in tqdm(camerainfo_metadata_list):
+        save_jsongz_metadata(base_save_folder, each_metadata_dict)
+    
+    return
+
+# .....................................................................................................................
+# .....................................................................................................................
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Configuration info functions
+
+# .....................................................................................................................
+
+def count_configs(server_url, camera_select, start_epoch_ms, end_epoch_ms):
+    
+    # Build route for requesting count of config info entries between a start/end time
+    request_url = build_request_url(server_url, camera_select, "configinfo",
+                                    "count", "by-time-range",
+                                    start_epoch_ms, end_epoch_ms)
+    
+    # Grab config info count
+    count_dict = get_json(request_url)
+    configinfo_count = count_dict.get("count", "error")
+    
+    return configinfo_count
+
+# .....................................................................................................................
+
+def request_configinfo_metadata(server_url, camera_select, start_epoch_ms, end_epoch_ms):
+    
+    # Build route for requesting all config info metadata
+    request_url = build_request_url(server_url, camera_select, "configinfo",
+                                    "get-many-metadata", "by-time-range",
+                                    start_epoch_ms, end_epoch_ms)
+    
+    # Grab configuration info data
+    try:
+        many_configinfo_metadata_list = get_json(request_url)
+        
+    except SystemError:
+        many_configinfo_metadata_list = []
+        print("", "ERROR RETRIEVING CONFIG INFO...")
+    
+    return many_configinfo_metadata_list
+
+# .....................................................................................................................
+
+def save_configinfo_metadata(cameras_folder_path, camera_select, configinfo_metadata_list):
+    
+    # Make sure the config info metadata reporting folder exists
+    base_save_folder = build_config_info_metadata_report_path(cameras_folder_path, camera_select)
+    create_missing_folder_path(base_save_folder)
+    
+    # Loop through all the requested metadata and save back into the filesystem
+    print("", "Saving configuration info", sep = "\n")
+    for each_metadata_dict in tqdm(configinfo_metadata_list):
         save_jsongz_metadata(base_save_folder, each_metadata_dict)
     
     return
@@ -394,6 +447,58 @@ def save_object_metadata(cameras_folder_path, camera_select, object_metadata_dic
 
 # .....................................................................................................................
 # .....................................................................................................................
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Station functions
+
+# .....................................................................................................................
+
+def count_station_data(server_url, camera_select, start_epoch_ms, end_epoch_ms):
+    
+    # Build route for requesting count of objects between a start/end time
+    request_url = build_request_url(server_url, camera_select, "stations",
+                                    "count", "by-time-range",
+                                    start_epoch_ms, end_epoch_ms)
+    
+    # Grab object count
+    count_dict = get_json(request_url)
+    object_count = count_dict.get("count", "error")
+    
+    return object_count
+
+# .....................................................................................................................
+
+def request_station_metadata(server_url, camera_select, start_epoch_ms, end_epoch_ms):
+    
+    # Build route for requesting all metadata between a start/end time
+    request_url = build_request_url(server_url, camera_select, "stations",
+                                    "get-many-metadata", "by-time-range",
+                                    start_epoch_ms, end_epoch_ms)
+    
+    # Grab station data
+    many_station_metadata_dict = get_json(request_url)
+    
+    return many_station_metadata_dict
+
+# .....................................................................................................................
+
+def save_station_metadata(cameras_folder_path, camera_select, station_metadata_dict):
+    
+    # Make sure the metadata reporting folder exists
+    base_save_folder = build_station_metadata_report_path(cameras_folder_path, camera_select)
+    create_missing_folder_path(base_save_folder)
+    
+    # Loop through all the requested metadata and save back into the filesystem
+    print("", "Saving station metadata", sep = "\n")
+    for each_stn_id, each_metadata_dict in tqdm(station_metadata_dict.items()):
+        save_jsongz_metadata(base_save_folder, each_metadata_dict)
+    
+    return
+
+# .....................................................................................................................
+# .....................................................................................................................
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Snapshot functions
@@ -577,13 +682,15 @@ end_epoch_ms = datetime_to_epoch_ms(user_end_dt)
 #%% Count data to download
 
 # Request all camera info directly (and count it), since it should be small enough to not matter
-many_caminfo_metadata_list = request_caminfo_metadata(server_url, camera_select, start_epoch_ms, end_epoch_ms)
+many_camerainfo_metadata_list = request_camerainfo_metadata(server_url, camera_select, start_epoch_ms, end_epoch_ms)
 
 # Request counts for background, snapshots and objects
-caminfo_count = len(many_caminfo_metadata_list)
+camerainfo_count = len(many_camerainfo_metadata_list)
+configinfo_count = count_configs(server_url, camera_select, start_epoch_ms, end_epoch_ms)
 background_count = count_backgrounds(server_url, camera_select, start_epoch_ms, end_epoch_ms)
 snapshot_count = count_snapshots(server_url, camera_select, start_epoch_ms, end_epoch_ms)
 object_count = counts_objects(server_url, camera_select, start_epoch_ms, end_epoch_ms)
+station_count = count_station_data(server_url, camera_select, start_epoch_ms, end_epoch_ms)
 
 # Calculate the number of snapshots if we're downsampling
 downsample_str = ""
@@ -601,9 +708,11 @@ print("","",
       "  {} (start)".format(start_dt_str),
       "  {} (end)".format(end_dt_str),
       "",
-      "  {} camera info {}".format(caminfo_count, "entries" if caminfo_count > 1 else "entry"),
+      "  {} camera info {}".format(camerainfo_count, "entries" if camerainfo_count > 1 else "entry"),
+      "  {} config info {}".format(configinfo_count, "entries" if configinfo_count > 1 else "entry"),
       "  {} backgrounds".format(background_count),
       "  {} objects".format(object_count),
+      "  {} station datasets".format(station_count),
       "  {} snapshots{}".format(downsampled_snapshot_count if use_downsampling else snapshot_count, downsample_str),
       sep = "\n")
 
@@ -623,19 +732,20 @@ create_new_camera_entry(selector, camera_select)
 delete_existing_report_data(cameras_folder_path, camera_select,
                             enable_deletion = True, enable_deletion_prompt = True)
 
-
-# ---------------------------------------------------------------------------------------------------------------------
-#%% Get camera info
-
-if caminfo_count > 0:
+# Get camera info
+if camerainfo_count > 0:
     
     # Save all camera info metadata (which we already requested earlier)
-    save_caminfo_metadata(cameras_folder_path, camera_select, many_caminfo_metadata_list)
+    save_camerainfo_metadata(cameras_folder_path, camera_select, many_camerainfo_metadata_list)
 
+# Get config info
+if configinfo_count > 0:
+    
+    # Request all configuration metadata & save it
+    many_configinfo_metadata_dict = request_configinfo_metadata(server_url, camera_select, start_epoch_ms, end_epoch_ms)
+    save_configinfo_metadata(cameras_folder_path, camera_select, many_configinfo_metadata_dict)
 
-# ---------------------------------------------------------------------------------------------------------------------
-#%% Get background info
-
+# Get background info
 if background_count > 0:
     
     # Request all background metadata
@@ -645,20 +755,21 @@ if background_count > 0:
     save_background_metadata(cameras_folder_path, camera_select, many_background_metadata_list)
     save_background_images(server_url, cameras_folder_path, camera_select, many_background_metadata_list)
 
-
-# ---------------------------------------------------------------------------------------------------------------------
-#%% Get object info
-
+# Get object info
 if object_count > 0:
     
     # Request all object metadata & save it
     many_object_metadata_dict = request_object_metadata(server_url, camera_select, start_epoch_ms, end_epoch_ms)
     save_object_metadata(cameras_folder_path, camera_select, many_object_metadata_dict)
 
+# Get station info
+if station_count > 0:
+    
+    # Request all station metadata & save it
+    many_station_metadata_dict = request_station_metadata(server_url, camera_select, start_epoch_ms, end_epoch_ms)
+    save_station_metadata(cameras_folder_path, camera_select, many_station_metadata_dict)
 
-# ---------------------------------------------------------------------------------------------------------------------
-#%% Get snapshot data
-
+# Get snapshot data
 if snapshot_count > 0:
 
     # Request all snapshot metadata
@@ -669,6 +780,7 @@ if snapshot_count > 0:
     # Save snapshot metadata & request corresponding image data
     save_snapshot_metadata(cameras_folder_path, camera_select, many_snapshot_metadata_list)
     save_snapshot_images(server_url, cameras_folder_path, camera_select, many_snapshot_metadata_list)
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Clean up
