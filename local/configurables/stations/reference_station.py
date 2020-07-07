@@ -52,10 +52,6 @@ find_path_to_local()
 from local.configurables.configurable_template import Stations_Configurable_Base
 
 
-from time import sleep
-
-from local.lib.file_access_utils.configurables import unpack_config_data, unpack_access_info
-
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
 
@@ -72,6 +68,10 @@ class Reference_Station(Stations_Configurable_Base):
         # Inherit from base class
         super().__init__(station_name, cameras_folder_path, camera_select, video_wh, file_dunder = file_dunder)
         
+        # Allocate storage for storing current dataset
+        self._latest_one_frame_result_for_config = None
+        self._station_dataset = []
+        
         # Allocate storage for holding a copy of the background image
         self._current_background_image = None
     
@@ -83,6 +83,18 @@ class Reference_Station(Stations_Configurable_Base):
         ''' Function called after video processing completes or is cancelled early '''
         
         raise NotImplementedError("Must implement a close() function for {}".format(self.class_name))
+    
+    # .................................................................................................................
+    
+    # MAY OVERRIDE. Be sure to clear the existing dataset!
+    def reset(self):
+        
+        ''' Function called every time video processing rewinds or jumps around in time. Mostly for configuration '''
+        
+        # Wipe out actual dataset
+        self._clear_dataset_in_place()
+        
+        return
     
     # .................................................................................................................
     
@@ -121,6 +133,7 @@ class Reference_Station(Stations_Configurable_Base):
         one_frame_result = self.process_one_frame(video_frame, current_frame_index, current_epoch_ms, current_datetime)
         
         # Store the processed result
+        self._latest_one_frame_result_for_config = one_frame_result
         self._store_one_frame_result(one_frame_result)
         
         return
@@ -161,8 +174,49 @@ class Reference_Station(Stations_Configurable_Base):
     # MAY OVERRIDE
     def post_process_output_data(self, current_dataset_list):
         
-        # Reference does no post-processing, so just acts as a passthru
+        '''
+        Function used to perform any post-processing on a block of data before saving
+        Can be used to apply smoothing/filter out noise for example
+        Intended for use on processing that can't be done sample-by-sample in real-time
+        
+        Inputs:
+            current_dataset_list -> (List) The current data about to be saved
+        
+        Outputs:
+            post_processed_data_list -> (List) The post-processed data to be saved
+        '''
+        
+        # By default, does no post-processing, so just acts as a passthru
         return current_dataset_list
+    
+    # .................................................................................................................
+    
+    # SHOULDN'T OVERRIDE
+    def output_data_list(self):
+        
+        '''
+        Function which is responsible for outputting the dataset when requested (for saving) 
+        These requests are trigger by the station bundler
+        
+        Note that the internal dataset storage is cleared after every output!
+        
+        Inputs:
+            Nothing!
+        
+        Outputs:
+            post_processed_data_list
+        '''
+        
+        # Get current dataset (list of 'one frame results')
+        current_dataset_list = self._get_dataset()
+        
+        # Apply any post-processing, if needed
+        post_processed_data_list = self.post_process_output_data(current_dataset_list)
+        
+        # Clear internal data storage so we can collecting new data for the next output update
+        self._clear_dataset()
+        
+        return post_processed_data_list
     
     # .................................................................................................................
     
@@ -209,30 +263,70 @@ class Reference_Station(Stations_Configurable_Base):
     # .................................................................................................................
     
     # SHOULDN'T OVERRIDE
-    def ask_to_save(self, configuration_utility_file_dunder):
+    def _store_one_frame_result(self, one_frame_result):
         
-        # Get save data from configurable & add configuration utility info
-        save_data_dict = self.get_save_data_dict(configuration_utility_file_dunder)
-        access_info_dict, setup_data_dict = unpack_config_data(save_data_dict)
-        curr_script_name, _, _ = unpack_access_info(access_info_dict)
+        '''
+        Generic function used to accumulate single-frame results
+        If the dataset type is changed (from the default list type)
+        this function can be overriden to maintain consistent behavior
+        '''
         
-        # Only save if the saved data has changed
-        is_passthrough = ("passthrough" in curr_script_name)
-        access_info_changed = (self.loaded_access_info_dict != access_info_dict)
-        setup_data_changed = (self.loaded_setup_data_dict != setup_data_dict)
-        need_to_save = (access_info_changed or setup_data_changed or is_passthrough)
+        self._station_dataset.append(one_frame_result)
         
-        # Handle feedback for saving or not
-        if need_to_save:
-            #station_name = self._ask_for_station_name()
-            self._ask_to_save_data(save_data_dict)
-        else:
-            print("", "Settings unchanged!", "Skipping save prompt...", "", sep="\n")
+        return
+    
+    # .................................................................................................................
+    
+    # SHOULDN'T OVERRIDE
+    def _get_dataset(self):
         
-        # Delay slightly before closing, may help with strange out-of-order errors on Windows 10?
-        sleep(0.25)
+        '''
+        Generic function used to get the current dataset.
+        If the dataset type is changed (from the default list type)
+        this function can be override to maintain consistent behavior
+        '''
         
-        pass
+        return self._station_dataset
+    
+    # .................................................................................................................
+    
+    # SHOULDN'T OVERRIDE
+    def _update_dataset(self, new_station_data):
+        
+        '''
+        Generic function used to add new single-frame entries to the current dataset.
+        If the dataset type is changed (from the default list type)
+        this function can be override to maintain consistent behavior
+        '''
+        
+        self._station_dataset.append(new_station_data)
+        
+        return
+    
+    # .................................................................................................................
+    
+    # SHOULDN'T OVERRIDE
+    def _clear_dataset(self):
+        
+        '''
+        Generic function used to clear the dataset, but not in-place
+        (in case something else has a reference to the original data)
+        '''
+        
+        self._station_dataset = []
+        
+        return
+    
+    # .................................................................................................................
+    
+    # SHOULDN'T OVERRIDE
+    def _clear_dataset_in_place(self):
+        
+        ''' Function used to delete the current dataset in-place, so that all references are also cleared '''
+        
+        self._station_dataset *= 0
+        
+        return
     
     # .................................................................................................................
     # .................................................................................................................
@@ -257,8 +351,4 @@ if __name__ == "__main__":
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Scrap
 
-'''
-STOPPED HERE
-- NEED TO DECIDE ON BASIC STATION CAPTURE IMPLEMENTATION, WHICH NEEDS TO SUPPORT (RE-)CONFIGURATION!
-    -> Done? Try implementing counters, avg brightness, avg rgb
-'''
+

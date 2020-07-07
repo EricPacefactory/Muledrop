@@ -49,16 +49,34 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
-import numpy as np
+import cv2
 
 from local.lib.launcher_utils.configuration_loaders import Reconfigurable_Single_Station_Loader
 from local.lib.launcher_utils.video_processing_loops import Station_Processing_Video_Loop
-from local.lib.ui_utils.display_specification import Display_Window_Specification
 from local.lib.ui_utils.display_specification import Input_Display
+
+from local.configurables.stations._helper_functions import Zoomed_Station_Display, Data_Display_1ch
 
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define displays
+
+class Station_Display(Zoomed_Station_Display):
+    
+    # .................................................................................................................
+    
+    def __init__(self, layout_index, num_rows, num_columns, initial_display = False):
+        
+        # Inherit from parent class
+        super().__init__(layout_index, num_rows, num_columns, initial_display = initial_display)
+    
+    # .................................................................................................................
+    
+    def postprocess_cropmasked_frame(self, cropmasked_frame):        
+        return cv2.cvtColor(cropmasked_frame, cv2.COLOR_BGR2GRAY)
+    
+    # .................................................................................................................
+    # .................................................................................................................
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -82,7 +100,9 @@ zone_drawing_spec = configurable_ref.get_drawing_spec("station_zones_list")
 # Set up object to handle all video processing
 main_process = \
 Station_Processing_Video_Loop(loader,
-                              ordered_display_list = [Input_Display(1, 4, 1,
+                              ordered_display_list = [Data_Display_1ch(0, 3, 3),
+                                                      Station_Display(2, 3, 3),
+                                                      Input_Display(1, 4, 1,
                                                                     window_name = "Draw Station Zones",
                                                                     drawing_json = zone_drawing_spec)])
 
@@ -105,18 +125,4 @@ debug_dict = main_process.debug_dict
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Scrap
 
-'''
-STOPPED HERE
-- NEED TO FIGURE OUT HOW TO 'CREATE NEW' PROPERLY!!!
-- HOW TO DELETE BAD CONFIGS WITHOUT DOING IT MANUALLY???
-- NEED TO THINK ABOUT SAVING STATION INFO FOR DB AS WELL?
-'''
-
-'''
-STOPPED HERE
-- NEED TO BUILD CONFIG UTIL TO DRAW ZONES ZOOMED IN
-- NEED TO THINK ABOUT VISUALIZATION OF OUTPUT DATA?
-- NEED TO CREATE DBSERVER ROUTES
-- SHOULD ALSO BUILD HSV & FTF CONFIGURABLES
-'''
 

@@ -72,9 +72,8 @@ class Average_Brightness_Station(Reference_Station):
         super().__init__(station_name, cameras_folder_path, camera_select, video_wh, file_dunder = __file__)
         
         # Allocate space for derived variables
-        self._enable_processing = None
         self._zone_crop_coords_list = None
-        self._cropmask_2d_list = None
+        self._cropmask_2d3ch_list = None
         self._logical_cropmasks_1ch_list = None
         
         # .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . Drawing Controls  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
@@ -83,7 +82,7 @@ class Average_Brightness_Station(Reference_Station):
         self.ctrl_spec.attach_drawing(
                 "station_zones_list",
                 default_value = [[[0.48, 0.48], [0.52, 0.48], [0.52,0.52], [0.48, 0.52]]],
-                min_max_entities = None,
+                min_max_entities = (1, 1),
                 min_max_points = (3, None),
                 entity_type = "polygon",
                 drawing_style = "zone")
@@ -102,20 +101,13 @@ class Average_Brightness_Station(Reference_Station):
     
     def setup(self, variables_changed_dict):
         
-        # Handle missing zones (most likely a temporary state during configuration)
-        self._enable_processing = (len(self.station_zones_list) > 0)
-        
         # Re-generate crop co-ordinates & logical cropmasks in case the zone(s) were re-drawn
-        self._zone_crop_coords_list, self._cropmask_2d_list, self._logical_cropmasks_1ch_list = \
+        self._zone_crop_coords_list, self._cropmask_2d3ch_list, self._logical_cropmasks_1ch_list = \
         build_cropping_dataset(self.video_wh, self.station_zones_list)
     
     # .................................................................................................................
     
     def process_one_frame(self, frame, current_frame_index, current_epoch_ms, current_datetime):
-        
-        # Handle disable state
-        if not self._enable_processing:
-            return 0
         
         # Apply cropping + masking for each of the defined zone to get all
         all_pixel_brightness_arrays_list = []
@@ -137,7 +129,7 @@ class Average_Brightness_Station(Reference_Station):
             # Add brightness values to total list
             all_pixel_brightness_arrays_list.append(cropmask_values_1d_array)
         
-        # Now apply desired calculation on the list of all brightness values
+        # Now average brightness values
         single_brightness_array = np.vstack(all_pixel_brightness_arrays_list)
         one_frame_result = int(np.round(np.mean(single_brightness_array)))
         
@@ -173,4 +165,6 @@ TODO:
         -> requires pre-allocating an array to fill with data
         - would need to figure out reliable way of doing this from cropmask data (it is do-able!)
         - will also need to figure out clean/fast way to handle array insertions...
+    - might want to consider always converting to a '1 row of pixels' style output? 
+        - Could generically apply processing (e.g. grayscale) to 1px image
 '''

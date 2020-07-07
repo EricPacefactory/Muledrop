@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Fri Jul  3 11:03:57 2020
+Created on Tue Jul  7 14:03:49 2020
 
 @author: eo
 """
@@ -61,7 +61,7 @@ from local.eolib.video.imaging import crop_pixels_in_place
 #%% Define classes
 
 
-class Average_RGB_Station(Reference_Station):
+class Target_Average_RGB_Station(Reference_Station):
     
     # .................................................................................................................
     
@@ -71,10 +71,17 @@ class Average_RGB_Station(Reference_Station):
         super().__init__(station_name, cameras_folder_path, camera_select, video_wh, file_dunder = __file__)
         
         # Allocate space for derived variables
-        self._enable_processing = None
         self._zone_crop_coords_list = None
         self._cropmask_2d3ch_list = None
         self._logical_cropmasks_1ch_list = None
+        
+        # Allocate space for numpy-based range checks
+        self._low_check_array = None
+        self._high_check_array = None
+        self._invert_array = None
+        
+        # Allocate space for variables to help with visualization during re-configuring
+        self._latest_average_bgr_for_config = None
         
         # .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . Drawing Controls  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
         
@@ -89,7 +96,96 @@ class Average_RGB_Station(Reference_Station):
         
         # .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . Control Group 1 .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
         
-        #self.ctrl_spec.new_control_group("General Controls")
+        self.ctrl_spec.new_control_group("Red Controls")
+        
+        self.high_red = \
+        self.ctrl_spec.attach_slider(
+                "high_red",
+                label = "High value (red)",
+                default_value = 250,
+                min_value = 0,
+                max_value = 255,
+                return_type = int,
+                tooltip = [""])
+        
+        self.low_red = \
+        self.ctrl_spec.attach_slider(
+                "low_red",
+                label = "Low value (red)",
+                default_value = 10,
+                min_value = 0,
+                max_value = 255,
+                return_type = int,
+                tooltip = [""])
+        
+        self.invert_red = \
+        self.ctrl_spec.attach_toggle(
+                "invert_red",
+                label = "Invert red target",
+                default_value = False,
+                tooltip = [""])
+        
+        # .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . Control Group 2 .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
+        
+        self.ctrl_spec.new_control_group("Green Controls")
+        
+        self.high_green = \
+        self.ctrl_spec.attach_slider(
+                "high_green",
+                label = "High value (green)",
+                default_value = 255,
+                min_value = 0,
+                max_value = 255,
+                return_type = int,
+                tooltip = [""])
+        
+        self.low_green = \
+        self.ctrl_spec.attach_slider(
+                "low_green",
+                label = "Low value (green)",
+                default_value = 0,
+                min_value = 0,
+                max_value = 255,
+                return_type = int,
+                tooltip = [""])
+        
+        self.invert_green = \
+        self.ctrl_spec.attach_toggle(
+                "invert_green",
+                label = "Invert green target",
+                default_value = False,
+                tooltip = [""])
+        
+        # .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . Control Group 3 .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
+        
+        self.ctrl_spec.new_control_group("Blue Controls")
+        
+        self.high_blue = \
+        self.ctrl_spec.attach_slider(
+                "high_blue",
+                label = "High value (blue)",
+                default_value = 255,
+                min_value = 0,
+                max_value = 255,
+                return_type = int,
+                tooltip = [""])
+        
+        self.low_blue = \
+        self.ctrl_spec.attach_slider(
+                "low_blue",
+                label = "Low value (blue)",
+                default_value = 0,
+                min_value = 0,
+                max_value = 255,
+                return_type = int,
+                tooltip = [""])
+        
+        self.invert_blue = \
+        self.ctrl_spec.attach_toggle(
+                "invert_blue",
+                label = "Invert blue target",
+                default_value = False,
+                tooltip = [""])
     
     # .................................................................................................................
     
@@ -101,20 +197,18 @@ class Average_RGB_Station(Reference_Station):
     
     def setup(self, variables_changed_dict):
         
-        # Handle missing zones (most likely a temporary state during configuration)
-        self._enable_processing = (len(self.station_zones_list) > 0)
-        
         # Re-generate crop co-ordinates & logical cropmasks in case the zone(s) were re-drawn
         self._zone_crop_coords_list, self._cropmask_2d3ch_list, self._logical_cropmasks_1ch_list = \
         build_cropping_dataset(self.video_wh, self.station_zones_list)
+        
+        # Pre-generate comparison arrays to speed up in-range checks
+        self._low_check_array = np.int32((self.low_blue, self.low_green, self.low_red))
+        self._high_check_array = np.int32((self.high_blue, self.high_green, self.high_red))
+        self._invert_array = np.int32((self.invert_blue, self.invert_green, self.invert_red))
     
     # .................................................................................................................
     
     def process_one_frame(self, frame, current_frame_index, current_epoch_ms, current_datetime):
-        
-        # Handle disable state
-        if not self._enable_processing:
-            return (0, 0, 0)
         
         # Apply cropping + masking for each of the defined zone to get all
         all_pixel_bgr_arrays_list = []
@@ -133,10 +227,17 @@ class Average_RGB_Station(Reference_Station):
             # Accumulate BGR values to total list
             all_pixel_bgr_arrays_list.append(cropmask_values_1d_array)
         
-        # Now average BGR values and re-arrange as RGB for output
+        # Now average BGR values
         single_bgr_array = np.vstack(all_pixel_bgr_arrays_list)
-        average_bgr = np.round(np.uint8(np.mean(single_bgr_array, axis = 0)))
-        one_frame_result = np.flip(average_bgr).tolist()
+        average_bgr = np.round(np.int32(np.mean(single_bgr_array, axis = 0)))
+        
+        # Store averaged BGR value for display purposes (only during config)
+        self._latest_average_bgr_for_config = average_bgr
+        
+        # Check each of the red/green/blue values to see if they are in the proper ranges
+        in_range_check = np.bitwise_and(average_bgr >= self._low_check_array, average_bgr <= self._high_check_array)
+        invert_check = np.bitwise_xor(in_range_check, self._invert_array)
+        one_frame_result = int(np.all(invert_check))
         
         return one_frame_result
     

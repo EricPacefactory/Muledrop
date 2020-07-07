@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Fri Jul  3 11:10:55 2020
+Created on Tue Jul  7 16:17:17 2020
 
 @author: eo
 """
@@ -51,22 +51,59 @@ find_path_to_local()
 
 from local.lib.launcher_utils.configuration_loaders import Reconfigurable_Single_Station_Loader
 from local.lib.launcher_utils.video_processing_loops import Station_Processing_Video_Loop
+
 from local.lib.ui_utils.display_specification import Input_Display
 
-from local.configurables.stations._helper_functions import Zoomed_Station_Display, Data_Display_3ch
+from local.configurables.stations._helper_functions import Zoomed_Station_Display
+from local.configurables.stations._helper_functions import Leveled_Data_Display, Boolean_Result_Display
 
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define displays
 
+class Brightness_Levels_Display(Leveled_Data_Display):
+    
+    # .................................................................................................................
+    
+    def __init__(self, layout_index, num_rows, num_columns, initial_display = False,
+                 lower_level_color = (150, 150, 150),
+                 upper_level_color = (125, 125, 125),
+                 display_width = 500,
+                 display_height = 256):
+        
+        # Inherit from parent class
+        super().__init__(layout_index, num_rows, num_columns, initial_display,
+                         window_name = "Brightness (Levels)",
+                         ch1_color = (255, 255, 255),
+                         lower_level_color = lower_level_color,
+                         upper_level_color = upper_level_color,
+                         display_width = display_width,
+                         display_height = display_height)
+    
+    # .................................................................................................................
+    
+    def get_levels(self, configurable_ref):
+        return (configurable_ref.low_value, configurable_ref.high_value)
+    
+    # .................................................................................................................
+    
+    def get_latest_plot_data(self, configurable_ref):
+        return configurable_ref._latest_average_brightness_for_config
+    
+    # .................................................................................................................
+    # .................................................................................................................
+
+
+# =====================================================================================================================
+# =====================================================================================================================
 
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Main
 
 # For clarity
-target_script_name = "average_rgb_station"
-target_class_name = "Average_RGB_Station"
+target_script_name = "target_average_brightness_station"
+target_class_name = "Target_Average_Brightness_Station"
 
 # Make all required selections
 loader = Reconfigurable_Single_Station_Loader(target_script_name, target_class_name)
@@ -82,7 +119,8 @@ zone_drawing_spec = configurable_ref.get_drawing_spec("station_zones_list")
 # Set up object to handle all video processing
 main_process = \
 Station_Processing_Video_Loop(loader,
-                              ordered_display_list = [Data_Display_3ch(0, 3, 3),
+                              ordered_display_list = [Boolean_Result_Display(0, 4, 1),
+                                                      Brightness_Levels_Display(1, 4, 1),
                                                       Zoomed_Station_Display(2, 3, 3),
                                                       Input_Display(1, 4, 1,
                                                                     window_name = "Draw Station Zones",

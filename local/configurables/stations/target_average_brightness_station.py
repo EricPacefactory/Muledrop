@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Fri Jul  3 11:03:57 2020
+Created on Tue Jul  7 16:18:24 2020
 
 @author: eo
 """
@@ -49,10 +49,11 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
+import cv2
 import numpy as np
 
 from local.configurables.stations.reference_station import Reference_Station
-from local.configurables.stations._helper_functions import inmask_pixels_3ch, build_cropping_dataset
+from local.configurables.stations._helper_functions import inmask_pixels_1ch, build_cropping_dataset
 
 from local.eolib.video.imaging import crop_pixels_in_place
 
@@ -61,7 +62,7 @@ from local.eolib.video.imaging import crop_pixels_in_place
 #%% Define classes
 
 
-class Average_RGB_Station(Reference_Station):
+class Target_Average_Brightness_Station(Reference_Station):
     
     # .................................................................................................................
     
@@ -71,10 +72,12 @@ class Average_RGB_Station(Reference_Station):
         super().__init__(station_name, cameras_folder_path, camera_select, video_wh, file_dunder = __file__)
         
         # Allocate space for derived variables
-        self._enable_processing = None
         self._zone_crop_coords_list = None
         self._cropmask_2d3ch_list = None
         self._logical_cropmasks_1ch_list = None
+        
+        # Allocate space for variables to help with visualization during re-configuring
+        self._latest_average_brightness_for_config = None
         
         # .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . Drawing Controls  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
         
@@ -89,7 +92,34 @@ class Average_RGB_Station(Reference_Station):
         
         # .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . Control Group 1 .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
         
-        #self.ctrl_spec.new_control_group("General Controls")
+        self.ctrl_spec.new_control_group("Threshold Controls")
+        
+        self.high_value = \
+        self.ctrl_spec.attach_slider(
+                "high_value",
+                label = "High brightness value",
+                default_value = 250,
+                min_value = 0,
+                max_value = 255,
+                return_type = int,
+                tooltip = [""])
+        
+        self.low_value = \
+        self.ctrl_spec.attach_slider(
+                "low_value",
+                label = "Low brightness value",
+                default_value = 10,
+                min_value = 0,
+                max_value = 255,
+                return_type = int,
+                tooltip = [""])
+        
+        self.invert_output = \
+        self.ctrl_spec.attach_toggle(
+                "invert_output",
+                label = "Invert output",
+                default_value = False,
+                tooltip = [""])
     
     # .................................................................................................................
     
@@ -101,9 +131,6 @@ class Average_RGB_Station(Reference_Station):
     
     def setup(self, variables_changed_dict):
         
-        # Handle missing zones (most likely a temporary state during configuration)
-        self._enable_processing = (len(self.station_zones_list) > 0)
-        
         # Re-generate crop co-ordinates & logical cropmasks in case the zone(s) were re-drawn
         self._zone_crop_coords_list, self._cropmask_2d3ch_list, self._logical_cropmasks_1ch_list = \
         build_cropping_dataset(self.video_wh, self.station_zones_list)
@@ -112,12 +139,8 @@ class Average_RGB_Station(Reference_Station):
     
     def process_one_frame(self, frame, current_frame_index, current_epoch_ms, current_datetime):
         
-        # Handle disable state
-        if not self._enable_processing:
-            return (0, 0, 0)
-        
         # Apply cropping + masking for each of the defined zone to get all
-        all_pixel_bgr_arrays_list = []
+        all_pixel_brightness_arrays_list = []
         for each_zone_idx, each_zone in enumerate(self.station_zones_list):
             
             # Get pre-calculate zone resources
@@ -127,16 +150,25 @@ class Average_RGB_Station(Reference_Station):
             # Crop each zone
             cropped_frame = crop_pixels_in_place(frame, zone_crop_coordinates)
             
-            # Apply cropped mask to each cropped piece
-            cropmask_values_1d_array = inmask_pixels_3ch(cropped_frame, zone_cropmask_1d_logical)
+            # Convert to brightness (grayscale) values
+            cropped_gray_frame = cv2.cvtColor(cropped_frame, cv2.COLOR_BGR2GRAY)
             
-            # Accumulate BGR values to total list
-            all_pixel_bgr_arrays_list.append(cropmask_values_1d_array)
+            # Apply cropped mask to each cropped piece
+            cropmask_values_1d_array = inmask_pixels_1ch(cropped_gray_frame, zone_cropmask_1d_logical)
+            
+            # Add brightness values to total list
+            all_pixel_brightness_arrays_list.append(cropmask_values_1d_array)
         
-        # Now average BGR values and re-arrange as RGB for output
-        single_bgr_array = np.vstack(all_pixel_bgr_arrays_list)
-        average_bgr = np.round(np.uint8(np.mean(single_bgr_array, axis = 0)))
-        one_frame_result = np.flip(average_bgr).tolist()
+        # Now average brightness values
+        single_brightness_array = np.vstack(all_pixel_brightness_arrays_list)
+        average_brightness = np.int32(np.round(np.mean(single_brightness_array)))
+        
+        # Store averaged brightness value for display purposes (only during config)
+        self._latest_average_brightness_for_config = average_brightness
+        
+        # Finally check if the averaged value is in the target range, with inversion if needed
+        in_range_check = (self.low_value <= average_brightness <= self.high_value)
+        one_frame_result = int(self.invert_output ^ in_range_check)
         
         return one_frame_result
     
