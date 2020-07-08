@@ -102,7 +102,13 @@ class Target_Average_Brightness_Station(Reference_Station):
                 min_value = 0,
                 max_value = 255,
                 return_type = int,
-                tooltip = [""])
+                tooltip = ["Sets an upper threshold for the target brightness value. Works in combination with",
+                           "the low brightness value setting.",
+                           "When the average station brightness is equal to or below this upper threshold",
+                           "and also equal or above than the low threshold value, this station will",
+                           "output a True (1) value. When outside of this range, the output will be False (0).",
+                           "More technically:",
+                           "  station output = (low value <= avg. station brightness <= high value)"])
         
         self.low_value = \
         self.ctrl_spec.attach_slider(
@@ -112,14 +118,20 @@ class Target_Average_Brightness_Station(Reference_Station):
                 min_value = 0,
                 max_value = 255,
                 return_type = int,
-                tooltip = [""])
+                tooltip = ["Sets a lower threshold for the target brightness value. Works in combination with",
+                           "the high brightness value setting.",
+                           "When the average station brightness is equal to or above this lower threshold",
+                           "and also equal or lower than the high threshold value, this station will",
+                           "output a True (1) value. When outside of this range, the output will be False (0)."])
         
         self.invert_output = \
         self.ctrl_spec.attach_toggle(
                 "invert_output",
                 label = "Invert output",
                 default_value = False,
-                tooltip = [""])
+                tooltip = ["If set to True, the output of the station is inverted compared to normal behavior",
+                           "In other words, averaged brightness values within the low-to-high range",
+                           "will generate False (0) outputs, otherwise the output will be True (1)."])
     
     # .................................................................................................................
     

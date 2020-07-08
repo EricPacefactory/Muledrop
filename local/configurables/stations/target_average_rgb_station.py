@@ -106,7 +106,15 @@ class Target_Average_RGB_Station(Reference_Station):
                 min_value = 0,
                 max_value = 255,
                 return_type = int,
-                tooltip = [""])
+                tooltip = ["Sets an upper threshold for the averaged red value of the station. Together with",
+                           "the lower threshold value, the red-channel output is considered to be within",
+                           "the target range if the averaged red channel value is between the",
+                           "lower and upper threshold values (inclusive on both ends). This check is repeated",
+                           "for the green & blue channels, with the final station output being the result",
+                           "of evaluating if the averaged RGB value is within the red AND green AND blue ranges.",
+                           "More technically:",
+                           "  in-red-range = (low red <= avg. red channel value <= high red)",
+                           "  final output = (in-red-range AND in-green-range AND in-blue-range)"])
         
         self.low_red = \
         self.ctrl_spec.attach_slider(
@@ -116,14 +124,21 @@ class Target_Average_RGB_Station(Reference_Station):
                 min_value = 0,
                 max_value = 255,
                 return_type = int,
-                tooltip = [""])
+                tooltip = ["Sets the lower threshold for the average red value of the station. Works together",
+                           "with the upper threshold value to determine if the red-channel is considered to be",
+                           "within the target range.",
+                           "See the 'High value (red)' tooltip for more details."])
         
         self.invert_red = \
         self.ctrl_spec.attach_toggle(
                 "invert_red",
                 label = "Invert red target",
                 default_value = False,
-                tooltip = [""])
+                tooltip = ["If set to True, inverts the normal behavior of the red-channel evaluation.",
+                           "In other words, the in-red-range check acts more like an out-of-red-range check,",
+                           "so that averaged red values within the low/high red values evaluate to False (0)",
+                           "while values outside the range evaluate to True (1).",
+                           "See the 'High value (red)' tooltip for more details."])
         
         # .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . Control Group 2 .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
         
@@ -137,7 +152,8 @@ class Target_Average_RGB_Station(Reference_Station):
                 min_value = 0,
                 max_value = 255,
                 return_type = int,
-                tooltip = [""])
+                tooltip = ["Sets the upper threshold for the average green value of the station",
+                           "See the 'High value (red)' tooltip for more details."])
         
         self.low_green = \
         self.ctrl_spec.attach_slider(
@@ -147,14 +163,16 @@ class Target_Average_RGB_Station(Reference_Station):
                 min_value = 0,
                 max_value = 255,
                 return_type = int,
-                tooltip = [""])
+                tooltip = ["Sets the lower threshold for the average green value of the station",
+                           "See the 'High value (red)' tooltip for more details."])
         
         self.invert_green = \
         self.ctrl_spec.attach_toggle(
                 "invert_green",
                 label = "Invert green target",
                 default_value = False,
-                tooltip = [""])
+                tooltip = ["If True, inverts the normal behavior of the green-channel evaluation.",
+                           "See the 'Invert red target' and 'High value (red)' tooltips for more details."])
         
         # .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . Control Group 3 .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
         
@@ -168,7 +186,8 @@ class Target_Average_RGB_Station(Reference_Station):
                 min_value = 0,
                 max_value = 255,
                 return_type = int,
-                tooltip = [""])
+                tooltip = ["Sets the upper threshold for the average blue value of the station",
+                           "See the 'High value (red)' tooltip for more details."])
         
         self.low_blue = \
         self.ctrl_spec.attach_slider(
@@ -178,14 +197,16 @@ class Target_Average_RGB_Station(Reference_Station):
                 min_value = 0,
                 max_value = 255,
                 return_type = int,
-                tooltip = [""])
+                tooltip = ["Sets the lower threshold for the average blue value of the station",
+                           "See the 'High value (red)' tooltip for more details."])
         
         self.invert_blue = \
         self.ctrl_spec.attach_toggle(
                 "invert_blue",
                 label = "Invert blue target",
                 default_value = False,
-                tooltip = [""])
+                tooltip = ["If True, inverts the normal behavior of the blue-channel evaluation.",
+                           "See the 'Invert red target' and 'High value (red)' tooltips for more details."])
     
     # .................................................................................................................
     
