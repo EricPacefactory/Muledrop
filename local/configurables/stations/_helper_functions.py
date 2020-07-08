@@ -69,26 +69,23 @@ class Zoomed_Station_Display(Display_Window_Specification):
     
     # .................................................................................................................
     
-    def __init__(self, layout_index, num_rows, num_columns, initial_display = False):
+    def __init__(self, layout_index, num_rows, num_columns, initial_display = False,
+                 min_zoom_size = 250, max_zoom_size = 600):
         
         # Inherit from parent class
         super().__init__("Station (zoomed)", layout_index, num_rows, num_columns,
                          initial_display = initial_display, drawing_json = None,
                          limit_wh = False)
         
-        # Hard-code zooming behavior
-        self._min_zoom_size = 250
-        self._max_zoom_size = 600
+        # Store zoom settings
+        self._min_zoom_size = min_zoom_size
+        self._max_zoom_size = max_zoom_size
     
     # .................................................................................................................
     
     def get_crop_info(self, configurable_ref):
         
-        # Get cropping data, so we can cut-out the station
-        crop_y1y2x1x2 = configurable_ref._zone_crop_coords_list[0]
-        cropmask_2d3ch = configurable_ref._cropmask_2d3ch_list[0]
-        
-        return crop_y1y2x1x2, cropmask_2d3ch
+        return configurable_ref._crop_y1y2x1x2, configurable_ref._cropmask_2d3ch
     
     # .................................................................................................................
     
@@ -111,7 +108,7 @@ class Zoomed_Station_Display(Display_Window_Specification):
     
     # .................................................................................................................
     
-    def preprocess_full_frame(self, full_frame):
+    def preprocess_full_frame(self, full_frame, configurable_ref):
         
         # OVERRIDE FOR CUSTOMIZED FUNCTIONALITY
         
@@ -119,7 +116,7 @@ class Zoomed_Station_Display(Display_Window_Specification):
     
     # .................................................................................................................
     
-    def postprocess_cropmasked_frame(self, cropmasked_frame):
+    def postprocess_cropmasked_frame(self, cropmasked_frame, configurable_ref):
         
         # OVERRIDE FOR CUSTOMIZED FUNCTIONALITY
         
@@ -137,9 +134,9 @@ class Zoomed_Station_Display(Display_Window_Specification):
         crop_y1y2x1x2, cropmask_2d3ch = self.get_crop_info(configurable_ref)
         
         # Get cropped & masked frame, with potential pre- & post-processing
-        preprocessed_full_frame = self.preprocess_full_frame(full_display_frame)
+        preprocessed_full_frame = self.preprocess_full_frame(full_display_frame, configurable_ref)
         cropmasked_frame = self._get_cropmasked_frame(preprocessed_full_frame, crop_y1y2x1x2, cropmask_2d3ch)
-        postprocessed_cropmasked_frame = self.postprocess_cropmasked_frame(cropmasked_frame)
+        postprocessed_cropmasked_frame = self.postprocess_cropmasked_frame(cropmasked_frame, configurable_ref)
         
         # Zoom & add a border to the final display frame
         bordered_frame = self._create_zoomed_output(postprocessed_cropmasked_frame)

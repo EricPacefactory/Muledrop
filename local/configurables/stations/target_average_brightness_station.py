@@ -72,9 +72,9 @@ class Target_Average_Brightness_Station(Reference_Station):
         super().__init__(station_name, cameras_folder_path, camera_select, video_wh, file_dunder = __file__)
         
         # Allocate space for derived variables
-        self._zone_crop_coords_list = None
-        self._cropmask_2d3ch_list = None
-        self._logical_cropmasks_1ch_list = None
+        self._crop_y1y2x1x2 = None
+        self._cropmask_2d3ch = None
+        self._logical_cropmask_1ch = None
         
         # Allocate space for variables to help with visualization during re-configuring
         self._latest_average_brightness_for_config = None
@@ -143,37 +143,26 @@ class Target_Average_Brightness_Station(Reference_Station):
     
     def setup(self, variables_changed_dict):
         
-        # Re-generate crop co-ordinates & logical cropmasks in case the zone(s) were re-drawn
-        self._zone_crop_coords_list, self._cropmask_2d3ch_list, self._logical_cropmasks_1ch_list = \
+        # Re-generate crop co-ordinates & logical cropmasks in case the zone was re-drawn
+        zone_crop_coords_list, cropmask_2d3ch_list, logical_cropmasks_1ch_list = \
         build_cropping_dataset(self.video_wh, self.station_zones_list)
+        
+        # Store crop & masking data for a single zone, since the configuration forces 1 zone only
+        self._crop_y1y2x1x2 = zone_crop_coords_list[0]
+        self._cropmask_2d3ch = cropmask_2d3ch_list[0]
+        self._logical_cropmask_1ch = logical_cropmasks_1ch_list[0]
     
     # .................................................................................................................
     
     def process_one_frame(self, frame, current_frame_index, current_epoch_ms, current_datetime):
         
-        # Apply cropping + masking for each of the defined zone to get all
-        all_pixel_brightness_arrays_list = []
-        for each_zone_idx, each_zone in enumerate(self.station_zones_list):
-            
-            # Get pre-calculate zone resources
-            zone_crop_coordinates = self._zone_crop_coords_list[each_zone_idx]
-            zone_cropmask_1d_logical = self._logical_cropmasks_1ch_list[each_zone_idx]
-            
-            # Crop each zone
-            cropped_frame = crop_pixels_in_place(frame, zone_crop_coordinates)
-            
-            # Convert to brightness (grayscale) values
-            cropped_gray_frame = cv2.cvtColor(cropped_frame, cv2.COLOR_BGR2GRAY)
-            
-            # Apply cropped mask to each cropped piece
-            cropmask_values_1d_array = inmask_pixels_1ch(cropped_gray_frame, zone_cropmask_1d_logical)
-            
-            # Add brightness values to total list
-            all_pixel_brightness_arrays_list.append(cropmask_values_1d_array)
+        # Crop & mask the zone
+        cropped_frame = crop_pixels_in_place(frame, self._crop_y1y2x1x2)
+        cropped_gray_frame = cv2.cvtColor(cropped_frame, cv2.COLOR_BGR2GRAY)
+        cropmask_values_1d_array = inmask_pixels_1ch(cropped_gray_frame, self._logical_cropmask_1ch)
         
         # Now average brightness values
-        single_brightness_array = np.vstack(all_pixel_brightness_arrays_list)
-        average_brightness = np.int32(np.round(np.mean(single_brightness_array)))
+        average_brightness = np.int32(np.round(np.mean(cropmask_values_1d_array)))
         
         # Store averaged brightness value for display purposes (only during config)
         self._latest_average_brightness_for_config = average_brightness

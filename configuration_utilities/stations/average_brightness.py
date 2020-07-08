@@ -72,7 +72,7 @@ class Station_Display(Zoomed_Station_Display):
     
     # .................................................................................................................
     
-    def postprocess_cropmasked_frame(self, cropmasked_frame):        
+    def postprocess_cropmasked_frame(self, cropmasked_frame, configurable_ref):
         return cv2.cvtColor(cropmasked_frame, cv2.COLOR_BGR2GRAY)
     
     # .................................................................................................................
