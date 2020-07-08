@@ -2,22 +2,17 @@
 #%% Base setup
 
 # Start with ubuntu-python base
-FROM pacefactory/scv2_ubuntupython_base:1.0.0
+FROM pacefactory/scv2_ubuntupython_base:1.0.1
 
 
 # -----------------------------------------------------------------------------
 #%% Install system dependencies
 
-# Update repo records
-RUN apt-get update --quiet
-
-# Install helpful utilities
-RUN apt-get install --quiet --assume-yes \
-ranger unzip zip
-
-# Install open-cv compatibility libraries
-RUN apt-get install --quiet --assume-yes \
-libsm6 libxext6 libxrender-dev
+# Update repo records & install helpful utils + open-cv compat. libraries
+RUN apt-get update && \
+    apt-get install --quiet --assume-yes \
+    ranger unzip zip \
+    libsm6 libxext6 libxrender-dev
 
 
 # -----------------------------------------------------------------------------
@@ -59,14 +54,14 @@ RUN pip3 install -r requirements.txt
 # Move system files into the image
 COPY . .
 
-# Run the upload server! This is a blocking call...
+# Run the control server! This is a blocking call...
 ENTRYPOINT ["sh", "docker_entrypoint.sh"]
 
 
 # -----------------------------------------------------------------------------
 # To use manually:
 
-# From the realtime root project directory:
-# sudo docker build -t realtime_image -f ./build/docker/Dockerfile .
-# sudo docker run -d --network="host" -v /tmp/realtime:/home/scv2/cameras --name realtime realtime_image
+# From the root project directory:
+# docker build -t realtime_image -f ./build/docker/Dockerfile .
+# docker run -d --network="host" -v /tmp/realtime:/home/scv2/cameras --name realtime realtime_image
 
