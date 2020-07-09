@@ -544,7 +544,7 @@ def inmask_pixels_3ch(frame_3ch, mask_logical_1ch):
 
 # .....................................................................................................................
 
-def build_cropping_dataset(frame_wh, station_zones_list):
+def build_cropping_dataset(frame_wh, station_zones_list, padding_wh = (0, 0)):
     
     '''
     Function used to generate standard datasets used for cropping
@@ -553,6 +553,9 @@ def build_cropping_dataset(frame_wh, station_zones_list):
         frame_wh -> (Tuple) The width and height of the frame to be cropped
         
         station_zones_list -> (List-of-lists-of-xy pairs) The list of zones to be cropped
+        
+        padding_wh -> (Tuple) Used to extend the outer border of the cropped regions. Useful if the region
+                      needs some spatial processing (e.g. blurring) before applying crop mask
     
     Outputs:
         crop_y1y2x1x2_list, cropmask_2d3ch_list, logical_cropmask_1d_list
@@ -562,6 +565,7 @@ def build_cropping_dataset(frame_wh, station_zones_list):
     crop_y1y2x1x2_list, _ = crop_y1y2x1x2_from_zones_list(frame_wh,
                                                           station_zones_list,
                                                           zones_are_normalized = True,
+                                                          padding_wh = padding_wh,
                                                           error_if_no_zones = False)
     
     # Get 2D & logical 1D cropmask data
