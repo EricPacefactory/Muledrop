@@ -356,7 +356,9 @@ def make_mask_1ch(frame_wh, mask_zones_list,
 def make_cropmask_1ch(frame_wh, single_zone, crop_y1y2x1x2 = None, invert = True, mask_line_type = cv2.LINE_4):
     
     '''
-    Helper function which generates a single-channel cropmask image
+    Helper function which generates a single-channel cropmask image. Works by first generating a mask
+    for the entire frame based on the provided zone data, then cropping to the desired crop region.
+    If a crop region is not provided, the function will automatically crop to fit the provided zone.
     (i.e. a masked image where the frame is cropped to the mask-in region)
     Note that the default arguments (invert) assume that provided zone is a mask-in region
     
@@ -364,13 +366,18 @@ def make_cropmask_1ch(frame_wh, single_zone, crop_y1y2x1x2 = None, invert = True
         frame_wh -> (Tuple) The target width and height of the original full frame that is to be masked
         
         single_zone -> (List of tuples) A normalized list of x/y pairs defining a single zone.
-                       This zone is interpretted as being the mask-in region to keep (and crop-to)
+                       Note: this zone is interpretted as being the mask-in region to keep (and crop-to).
+                       Also, the zone should be provided in terms of the full-frame co-ordinates
+                       (i.e. it is NOT meant to be the zone after cropping!)
         
         crop_y1y2x1x2 -> (List or None) The list of crop-cordinates to use for cropping. If set to None, this
                          function will auto-generate the co-ordinates based on the provide zone points
         
         invert -> (Boolean) If False, the provided zone is assumed to be masked-off,
                   otherwise it is considered mask-in
+        
+        mask_line_type -> (cv2.LINE_4, LINE_8 or LINE_AA) Specifies how the edge of the masked region
+                          should be drawn. The default should be fine for almost all use cases
     
     Outputs:
         cropmask_1ch (Single-channel image data)
@@ -394,7 +401,7 @@ def make_cropmask_1ch(frame_wh, single_zone, crop_y1y2x1x2 = None, invert = True
 
 # .....................................................................................................................
 
-def crop_y1y2x1x2_from_single_zone(frame_wh, single_zone, zone_is_normalized = True):
+def crop_y1y2x1x2_from_single_zone(frame_wh, single_zone, zone_is_normalized = True, padding_wh = (0, 0)):
     
     '''
     Function which returns crop co-ordinates, in y1, y2, x1, x2 format for a single provided zone.
@@ -411,6 +418,12 @@ def crop_y1y2x1x2_from_single_zone(frame_wh, single_zone, zone_is_normalized = T
         
         zones_are_normalized -> Boolean. If True, the function will use the provided frame width/height information
                                 to scale the zone co-ordinates into pixel values
+        
+        padding_wh -> (Tuple) An optional padding that can be used to extend the cropped region.
+                      Intended to allow for a slightly enlarged cropped output in cases where some
+                      spatial processing is needed that may distort around edges (ex. blurring).
+                      Note that the region will not be padded if padding would extend outside of the
+                      original frame borders
     
     Outputs:
         crop_y1y2x1x2_list -> List of crop co-ordinates in y1, y2, x1, x2 format
@@ -426,10 +439,15 @@ def crop_y1y2x1x2_from_single_zone(frame_wh, single_zone, zone_is_normalized = T
     zone_def_px = np.int32(np.round(frame_scaling * single_zone))
     
     # Get cropping co-ordinates
-    zone_mins = np.min(zone_def_px, axis = 0)
-    zone_maxs = np.max(zone_def_px, axis = 0)
+    pad_wh_array = np.int32(padding_wh)
+    zone_mins = np.min(zone_def_px, axis = 0) - pad_wh_array
+    zone_maxs = np.max(zone_def_px, axis = 0) + pad_wh_array
     crop_tl_br = [zone_mins, zone_maxs]
-    crop_tl_br = np.clip(crop_tl_br, (0,0), (frame_width - 1, frame_height - 1))
+    
+    # Force crop-cords to be within the given frame dimensions
+    min_crop_xy = (0, 0)
+    max_crop_xy = (frame_width - 1, frame_height - 1)
+    crop_tl_br = np.clip(crop_tl_br, min_crop_xy, max_crop_xy)
     
     # Get the cropped frame mask  & crop co-ordinates
     y1, y2, x1, x2 = crop_tl_br[0][1], crop_tl_br[1][1] + 1, crop_tl_br[0][0], crop_tl_br[1][0] + 1
@@ -439,7 +457,10 @@ def crop_y1y2x1x2_from_single_zone(frame_wh, single_zone, zone_is_normalized = T
 
 # .....................................................................................................................
 
-def crop_y1y2x1x2_from_zones_list(frame_wh, zones_list, zones_are_normalized = True, error_if_no_zones = True):
+def crop_y1y2x1x2_from_zones_list(frame_wh, zones_list,
+                                  zones_are_normalized = True,
+                                  padding_wh = (0, 0),
+                                  error_if_no_zones = True):
     
     '''
     Function which returns crop-cordinates, in y1, y2, x1, x2 format, for each zone in the provided zones_lists.
@@ -460,9 +481,15 @@ def crop_y1y2x1x2_from_zones_list(frame_wh, zones_list, zones_are_normalized = T
         zones_are_normalized -> Boolean. If True, the function will use the provided frame width/height information
                                 to scale the zone co-ordinates into pixel values
         
-        error_if_no_zones -> Boolean. If True, this function will raise a TypeError when an empty zone list is provided
-                             If False, the function will not raise an error, but the bounding_y1y2x1x2 output
-                             will be set to None, since there is no valid output otherwise
+        padding_wh -> (Tuple) An optional padding that can be used to extend each cropped region.
+                      Intended to allow for a slightly enlarged cropped output in cases where some
+                      spatial processing is needed that may distort around edges (ex. blurring).
+                      Note that the region will not be padded if padding would extend outside of the
+                      original frame borders
+        
+        error_if_no_zones -> Boolean. If True, this function will raise a TypeError when an empty
+                             zone list is provided. If False, the function will not raise an error,
+                             but the bounding_y1y2x1x2 output will be set to None
                                 
     Outputs:
         crop_y1y2x1x2_list -> List of tuples. Contains cropping coordinates, in y1, y2, x1, x2 format, 
@@ -497,7 +524,7 @@ def crop_y1y2x1x2_from_zones_list(frame_wh, zones_list, zones_are_normalized = T
     for each_zone in zones_list:
         
         # Get the crop co-ords for each zone
-        new_crop_y1y2x1x2 = crop_y1y2x1x2_from_single_zone(frame_wh, each_zone, zones_are_normalized)
+        new_crop_y1y2x1x2 = crop_y1y2x1x2_from_single_zone(frame_wh, each_zone, zones_are_normalized, padding_wh)
         crop_y1y2x1x2_list.append(new_crop_y1y2x1x2)
         
         # Update the bounding co-ords
