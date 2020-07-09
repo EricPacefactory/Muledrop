@@ -117,8 +117,6 @@ def build_url(server_url, *route_addons):
 # .....................................................................................................................
 
 def build_newest_camerainfo_url(server_url, camera_select):
-    return build_url(server_url, camera_select, "camerainfo", "get-newest-camera-info")
-    # After most recent update
     return build_url(server_url, camera_select, "camerainfo", "get-newest-metadata")
 
 # .....................................................................................................................
