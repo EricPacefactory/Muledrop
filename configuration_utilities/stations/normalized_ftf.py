@@ -78,7 +78,7 @@ class Station_Display(Zoomed_Station_Display):
                 current_frame_index, current_epoch_ms, current_datetime):
         
         # Apply colormapping then zoom & add a border to the final display frame
-        frame_to_display = image_1ch_to_3ch(configurable_ref._latest_thresh_difference_for_config)        
+        frame_to_display = image_1ch_to_3ch(configurable_ref._latest_frame_difference_for_config)
         frame_to_display = cv2.LUT(frame_to_display, configurable_ref._difference_colormap_for_config)        
         bordered_frame = self._create_zoomed_output(frame_to_display)
         
