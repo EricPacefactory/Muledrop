@@ -74,6 +74,60 @@ def color_list_to_image(color_list, image_height = 30):
 
 
 # ---------------------------------------------------------------------------------------------------------------------
+#%% Spatial processing functions
+
+# .....................................................................................................................
+
+def get_2d_kernel(kernel_size_1d):
+    
+    '''
+    Helper function which converts an integer kernel size into a tuple of odd values for x/y
+    Note that an input of 0 maps to an output of (0, 0)
+        -> an input of 1 maps to an output of (3, 3)
+        -> an input of 2 maps to an output of (5, 5) etc.
+    '''
+    
+    # Convert the input to an integer if needed
+    half_side_length_int = int(round(kernel_size_1d))
+    
+    # Handle case where size is too small
+    if half_side_length_int < 1:
+        return (0, 0)
+    
+    # Convert to full kernel length, using odd values only
+    odd_side_length = (1 + 2 * half_side_length_int)
+    
+    return (odd_side_length, odd_side_length)
+
+# .....................................................................................................................
+
+def create_morphology_element(morphology_shape, kernel_size_1d):
+    
+    '''
+    Helper function which builds a morphology structuring element (i.e. a kernel) based on a shape and size
+    
+    Inputs:
+        morphology_shape --> (One of cv2.MORPH_RECT, cv2.MORPH_CROSS or cv2.MORPH_ELLIPSE) Determines the shape
+                             of the morphology kernel
+        
+        kernel_size_1d --> (Integer) Specifies the number of pixels (acting like a radius) that sets the total
+                           size of the morphology element
+    
+    Outputs:
+        morphology_element (for use in cv2.morphologyEx function)
+    '''
+    
+    # Get odd sized tuple for defining the (square) morphology kernel
+    kernel_size_2d = get_2d_kernel(kernel_size_1d)
+    
+    # Create the structure element
+    return cv2.getStructuringElement(morphology_shape, kernel_size_2d)
+
+# .....................................................................................................................
+# .....................................................................................................................
+
+
+# ---------------------------------------------------------------------------------------------------------------------
 #%% Drawing functions
 
 # .....................................................................................................................
