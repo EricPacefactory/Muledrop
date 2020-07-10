@@ -82,7 +82,7 @@ def get_2d_kernel(kernel_size_1d):
     
     '''
     Helper function which converts an integer kernel size into a tuple of odd values for x/y
-    Note that an input of 0 maps to an output of (0, 0)
+    Note that an input of 0 or less maps to an output of (1, 1)
         -> an input of 1 maps to an output of (3, 3)
         -> an input of 2 maps to an output of (5, 5) etc.
     '''
@@ -92,7 +92,7 @@ def get_2d_kernel(kernel_size_1d):
     
     # Handle case where size is too small
     if half_side_length_int < 1:
-        return (0, 0)
+        return (1, 1)
     
     # Convert to full kernel length, using odd values only
     odd_side_length = (1 + 2 * half_side_length_int)

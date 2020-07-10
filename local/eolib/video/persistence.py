@@ -129,15 +129,40 @@ class Frame_Deck:
             frame -> (Image data) A frame which will be used as a reference for creating
                      blank frames (i.e. all zeros) with the same shape/type that will be used to fill the deck
             
-            fill_width_copys -> (Boolean) If True, the blanks will be copied for each entry into the
-                                deck. If the blank frame data will not be modified,
-                                this can be set to False for improved performance
+            fill_with_copys -> (Boolean) If True, the blanks will be copied for each entry into the
+                               deck. If the blank frame data will not be modified,
+                               this can be set to False for improved performance
         
         Outputs:
             Nothing!
         '''
         
         blank_frame = np.zeros_like(frame)
+        self.fill_with_frame(blank_frame, fill_with_copys)
+        
+        return
+    
+    # .................................................................................................................
+    
+    def fill_with_blank_shape(self, frame_shape, data_type = np.uint8, fill_with_copys = False):
+        
+        '''
+        Function used to initialize the deck with blank frames based on a given shape and data type
+        
+        Inputs:
+            frame_shape -> (Tuple) A tuple representing the desired frame shape to fill the deck with
+                           Normally, this tuple would either be (height, width, channel) or in the case of
+                           single channel frames (e.g. binary or grayscale), it would just be (height, width)
+            
+            fill_with_copys -> (Boolean) If True, the blanks will be copied for each entry into the
+                               deck. If the blank frame data will not be modified,
+                               this can be set to False for improved performance
+        
+        Outputs:
+            Nothing!
+        '''
+        
+        blank_frame = np.zeros(frame_shape, dtype = data_type)
         self.fill_with_frame(blank_frame, fill_with_copys)
         
         return
@@ -241,7 +266,7 @@ class Frame_Deck:
         '''
         
         # Gather all the frames needed for summing
-        frame_list = [self.read_from_newest(each_idx) for each_idx in range(1 + num_frames_to_sum)]
+        frame_list = [self.read_from_newest(each_idx) for each_idx in range(num_frames_to_sum)]
         
         # Sum up all frames in float format so we avoid overflow
         summed_frame = np.sum(frame_list, axis = 0, dtype = np.float32)
