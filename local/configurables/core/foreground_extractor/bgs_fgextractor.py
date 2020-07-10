@@ -56,9 +56,8 @@ from local.lib.common.images import scale_factor_downscale
 
 from local.configurables.core.foreground_extractor.reference_fgextractor import Reference_FG_Extractor
 
-from local.configurables.core.foreground_extractor._helper_functions import Frame_Deck_LIFO
-from local.configurables.core.foreground_extractor._helper_functions import get_2d_kernel, create_morphology_element
-from local.configurables.core.foreground_extractor._helper_functions import create_mask_image
+from local.eolib.video.persistence import Frame_Deck
+from local.eolib.video.imaging import get_2d_kernel, create_morphology_element, make_mask_1ch
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -331,7 +330,7 @@ class FG_Extractor_Stage(Reference_FG_Extractor):
         self._enable_post_morph = (self.post_morph_size > 0)
         
         # Re-draw the masking image
-        self._scaled_mask_image = create_mask_image(self._downscale_wh, self.mask_zone_list)
+        self._scaled_mask_image = make_mask_1ch(self._downscale_wh, self.mask_zone_list, zones_are_normalized = True)
         mask_is_meaningful = (np.min(self._scaled_mask_image) == 0)
         self._enable_masking_optimized = (self.enable_masking and mask_is_meaningful)
         
@@ -349,16 +348,17 @@ class FG_Extractor_Stage(Reference_FG_Extractor):
     
     def _setup_decks(self, reset_all = False):
         
-        # Get the input frame size, so we can initialize decks with the right sizing
+        # Get the input frame size, so we can initialize decks with properly sized blank frames
         scaled_width, scaled_height = scale_factor_downscale(self.input_wh, self.downscale_factor)
-        gray_shape = (scaled_height, scaled_width)
-        deck_length = 1 + self._max_deck_length 
+        input_shape = (scaled_height, scaled_width, 3)
+        gray_shape = input_shape[0:2]
         
         # Initialize the summation deck if needed
         summation_deck = self._sum_deck
         if self._sum_deck is None or reset_all:
-            summation_deck = Frame_Deck_LIFO(deck_length)
-            summation_deck.initialize_missing_from_shape(gray_shape)
+            deck_length = 1 + self._max_deck_length if self.configure_mode else (1 + self.summation_depth)
+            summation_deck = Frame_Deck(deck_length)
+            summation_deck.fill_with_blank_shape(gray_shape)
         
         return summation_deck
     
@@ -399,8 +399,8 @@ class FG_Extractor_Stage(Reference_FG_Extractor):
         
         # Sum up frames
         if self._enable_summation:
-            self._sum_deck.add(frame)
-            frame = self._sum_deck.sum_from_deck(self.summation_depth)
+            self._sum_deck.add_to_deck(frame)
+            frame = self._sum_deck.sum_from_deck_uint8(1 + self.summation_depth)
         
         # Apply thresholding
         if self._enable_threshold:

@@ -56,8 +56,8 @@ from local.lib.common.images import scale_factor_downscale
 
 from local.configurables.core.foreground_extractor.reference_fgextractor import Reference_FG_Extractor
 
-from local.configurables.core.foreground_extractor._helper_functions import Frame_Deck_LIFO
-from local.configurables.core.foreground_extractor._helper_functions import get_2d_kernel
+from local.eolib.video.persistence import Frame_Deck
+from local.eolib.video.imaging import get_2d_kernel
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -256,16 +256,16 @@ class FG_Extractor_Stage(Reference_FG_Extractor):
     
     def _setup_decks(self, reset_all = False):
         
-        # Get the input frame size, so we can initialize decks with the right sizing
+        # Get the input frame size, so we can initialize the deck with properly sized blank frames
         scaled_width, scaled_height = scale_factor_downscale(self.input_wh, self.downscale_factor)
         gray_shape = (scaled_height, scaled_width)
-        deck_length = 1 + self._max_deck_length 
         
         # Initialize the summation deck if needed
         flow_deck = self._flow_deck
         if flow_deck is None or reset_all:
-            flow_deck = Frame_Deck_LIFO(deck_length)
-            flow_deck.initialize_missing_from_shape(gray_shape)
+            deck_length = (1 + self._max_deck_length) if self.configure_mode else (1 + self.flow_depth)
+            flow_deck = Frame_Deck(deck_length)
+            flow_deck.fill_with_blank_shape(gray_shape)
         
         return flow_deck
     
@@ -299,7 +299,8 @@ class FG_Extractor_Stage(Reference_FG_Extractor):
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         
         # Store frame in deck
-        prev_frame = self._flow_deck.add_and_read_newest(frame, self.flow_depth)
+        prev_frame = self._flow_deck.read_from_newest()
+        self._flow_deck.add_to_deck(frame)
         
         # Apply optical flow
         frame = apply_optical_flow(frame, prev_frame, self.of_output_scale,

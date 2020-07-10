@@ -55,9 +55,9 @@ import numpy as np
 from local.lib.common.images import scale_factor_downscale
 
 from local.configurables.core.foreground_extractor.reference_fgextractor import Reference_FG_Extractor
-from local.configurables.core.foreground_extractor._helper_functions import Frame_Deck_LIFO
-from local.configurables.core.foreground_extractor._helper_functions import get_2d_kernel, create_morphology_element
-from local.configurables.core.foreground_extractor._helper_functions import create_mask_image
+
+from local.eolib.video.persistence import Frame_Deck
+from local.eolib.video.imaging import get_2d_kernel, create_morphology_element, make_mask_1ch
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -329,7 +329,7 @@ class FG_Extractor_Stage(Reference_FG_Extractor):
         self._enable_post_morph = (self.post_morph_size > 0)
         
         # Re-draw the masking image
-        self._scaled_mask_image = create_mask_image(self._downscale_wh, self.mask_zone_list)
+        self._scaled_mask_image = make_mask_1ch(self._downscale_wh, self.mask_zone_list, zones_are_normalized = True)
         mask_is_meaningful = (np.min(self._scaled_mask_image) == 0)
         self._enable_masking_optimized = (self.enable_masking and mask_is_meaningful)
         
@@ -344,24 +344,26 @@ class FG_Extractor_Stage(Reference_FG_Extractor):
     
     def _setup_decks(self, reset_all = False):
         
-        # Get the input frame size, so we can initialize decks with the right sizing
+        # Get the max allowable size for the decks
+        max_deck_length = (1 + self._max_deck_length)
+        
+        # Get the input frame size, so we can initialize decks with properly sized blank frames
         (scaled_width, scaled_height) = scale_factor_downscale(self.input_wh, self.downscale_factor)
         gray_shape = (scaled_height, scaled_width)
-        max_deck_length = (1 + self._max_deck_length)
         
         # Set up the difference deck if needed
         difference_deck = self._diff_deck
         if self._diff_deck is None or reset_all:
             diff_deck_length = max_deck_length if self.configure_mode else (1 + self.difference_depth)
-            difference_deck = Frame_Deck_LIFO(diff_deck_length)
-            difference_deck.initialize_missing_from_shape(gray_shape)
+            difference_deck = Frame_Deck(diff_deck_length)
+            difference_deck.fill_with_blank_shape(gray_shape)
         
         # Initialize the summation deck if needed
         summation_deck = self._sum_deck
         if self._sum_deck is None or reset_all:
             sum_deck_length = max_deck_length if self.configure_mode else (1 + self.summation_depth)
-            summation_deck = Frame_Deck_LIFO(sum_deck_length)
-            summation_deck.initialize_missing_from_shape(gray_shape)
+            summation_deck = Frame_Deck(sum_deck_length)
+            summation_deck.fill_with_blank_shape(gray_shape)
         
         return difference_deck, summation_deck
     
@@ -408,8 +410,8 @@ class FG_Extractor_Stage(Reference_FG_Extractor):
         
         # Take frame-to-frame difference (of edge images)
         if self._enable_difference:
-            prev_frame = self._diff_deck.add_and_read_newest(frame, self.difference_depth)
-            frame = cv2.absdiff(frame, prev_frame)
+            self._diff_deck.add_to_deck(frame)
+            frame = self._diff_deck.absdiff_from_deck(self.difference_depth)
         
         # Apply post-difference morphology
         if self._enable_post_morph:
@@ -417,8 +419,8 @@ class FG_Extractor_Stage(Reference_FG_Extractor):
         
         # Sum up results if needed
         if self._enable_summation:
-            self._sum_deck.add(frame)
-            frame = self._sum_deck.sum_from_deck(self.summation_depth)
+            self._sum_deck.add_to_deck(frame)
+            frame = self._sum_deck.sum_from_deck_uint8(1 + self.summation_depth)
         
         # Apply masking if needed
         if self._enable_masking_optimized:
