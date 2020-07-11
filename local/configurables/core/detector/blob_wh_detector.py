@@ -58,6 +58,7 @@ from local.configurables.core.detector.reference_detector import Reference_Detec
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
 
+
 class Detector_Stage(Reference_Detector):
     
     # .................................................................................................................
@@ -77,6 +78,17 @@ class Detector_Stage(Reference_Detector):
         # Allocate storage for configuration visualization variables
         self._x_follower_size_px = 0
         self._y_follower_size_px = 0
+        
+        # .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . Drawing Controls  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
+        
+        self.ignore_zones_list = \
+        self.ctrl_spec.attach_drawing(
+                "ignore_zones_list",
+                default_value = [[]],
+                min_max_entities = None,
+                min_max_points = (3, None),
+                entity_type = "polygon",
+                drawing_style = "zone")
         
         # .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . Control Group 1 .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
         
@@ -199,9 +211,10 @@ class Detector_Stage(Reference_Detector):
             new_detection = Unclassified_Detection_Object(each_contour)
             
             # Check that the bounding box is correctly sized before adding to list
+            no_ignore = (not new_detection.in_zones(self.ignore_zones_list))
             goldi_width = (self.min_width_norm < new_detection.width < self.max_width_norm)
             goldi_height = (self.min_height_norm < new_detection.height < self.max_height_norm)
-            if goldi_width and goldi_height:
+            if no_ignore and goldi_width and goldi_height:
                 new_detection_ref_dict[each_idx] = new_detection
             else:
                 reject_ref_dict[each_idx] = new_detection
@@ -239,7 +252,7 @@ def draw_detections(stage_outputs, configurable_ref,
     
     # Record frame sizing so we can draw normalized co-ordinate locations
     frame_h, frame_w = detection_frame.shape[0:2]
-    frame_wh = np.array((frame_w, frame_h))
+    frame_wh = np.array((frame_w - 1, frame_h - 1))
     
     for list_idx, each_list in enumerate((rejections_list, detections_list)):
         

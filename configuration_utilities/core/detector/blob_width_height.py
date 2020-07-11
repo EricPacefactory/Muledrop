@@ -54,11 +54,12 @@ import numpy as np
 from local.lib.launcher_utils.configuration_loaders import Reconfigurable_Core_Stage_Loader
 from local.lib.launcher_utils.video_processing_loops import Reconfigurable_Video_Loop
 
-from local.lib.ui_utils.display_specification import Display_Window_Specification
+from local.lib.ui_utils.display_specification import Display_Window_Specification, Detection_Display
 from local.lib.ui_utils.display_specification import Filtered_Binary_Display
 from local.lib.ui_utils.display_specification import draw_mouse_centered_rectangle
 
-from local.configurables.core.detector.blob_detector import draw_detections
+from local.configurables.core.detector.blob_wh_detector import draw_detections
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define displays
@@ -114,17 +115,23 @@ class Custom_Detections_Display(Display_Window_Specification):
 #%% Main
 
 # Make all required selections
-loader = Reconfigurable_Core_Stage_Loader("detector", "blob_detector", "Detector_Stage")
+loader = Reconfigurable_Core_Stage_Loader("detector", "blob_wh_detector", "Detector_Stage")
 arg_selections = loader.parse_standard_args()
 loader.selections(*arg_selections)
 
 # Set up video capture, processing stages & playback control
 configurable_ref = loader.setup_all(__file__)
 
+# Get drawing specification for the given edge decay variable
+ignore_drawing_spec = configurable_ref.get_drawing_spec("ignore_zones_list")
+
 # Set up object to handle all video processing
 main_process = \
 Reconfigurable_Video_Loop(loader,
-                          ordered_display_list = [Custom_Detections_Display(0, 2, 2),
+                          ordered_display_list = [Detection_Display(3, 2, 2, 
+                                                                    window_name = "Draw Ignore Zones",
+                                                                    drawing_json = ignore_drawing_spec),
+                                                  Custom_Detections_Display(0, 2, 2),
                                                   Filtered_Binary_Display(1, 2, 2)])
 
 # Most of the work is done here!

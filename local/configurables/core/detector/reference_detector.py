@@ -157,7 +157,10 @@ class Reference_Detection_Object:
             # Create a new hull out of the bounding box values, and add 1 to max values along zeroed axes
             hull_px = np.int32([min_xy, max_xy])
             hull_px[1, null_axes] = hull_px[1, null_axes] + 1
-            
+        
+        # Store hull area
+        self.hull_area_px = hull_area_px
+        
         # Scale outline into normalized co-ords
         self.hull_array = np.float32(hull_px) * self._xy_loc_scaling
                 
@@ -193,6 +196,27 @@ class Reference_Detection_Object:
         cls._xy_loc_scaling = 1.0 / np.float32((frame_width_px - 1, frame_height_px - 1))
     
     # .................................................................................................................
+    #%% Position functions
+    
+    def in_zones(self, zones_list):
+        
+        ''' Function which checks if this object is within a list of zones '''
+        
+        for each_zone in zones_list:
+            
+            # If no zone data is present, then we aren't in the zone!
+            if each_zone == []:
+                return False
+            
+            # Otherwise, check if the x/y tracking location is inside any of the zones
+            zone_array = np.float32(each_zone)
+            in_zone = (cv2.pointPolygonTest(zone_array, self.xy_center_tuple, measureDist = False) > 0)
+            if in_zone:
+                return True
+        
+        return False
+    
+    # .................................................................................................................
     #%% Properties
     
     @property
@@ -203,7 +227,7 @@ class Reference_Detection_Object:
     
     @property
     def xy_center_tuple(self):
-        return tuple(self.xy_center)
+        return tuple(self.xy_center_array)
 
     # .................................................................................................................
     # .................................................................................................................
