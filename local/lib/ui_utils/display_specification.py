@@ -617,11 +617,21 @@ def draw_mouse_centered_ellipse(display_frame, mouse_xy_array, ellipse_wh_px,
     start_angle_deg = 0
     end_angle_deg = 360
     
-    # Get circle half-sizing in both dimensions to computer centering offset
+    # Get ellipse half-sizing in both dimensions to draw sizing properly
     elip_half_wh_px = np.int32(np.round(ellipse_wh_px / 2))
     cv2.ellipse(display_frame, tuple(mouse_xy_array), tuple(elip_half_wh_px), 
                 angle_deg, start_angle_deg, end_angle_deg, 
                 line_color, line_thickness, line_type)
+    
+    return display_frame
+
+# .....................................................................................................................
+
+def draw_mouse_centered_circle(display_frame, mouse_xy_array, circle_radius_px,
+                               line_color, line_thickness = 1, line_type = cv2.LINE_AA):
+    
+    # Draw circle. That's it!
+    cv2.circle(display_frame, tuple(mouse_xy_array), circle_radius_px, line_color, line_thickness, line_type)
     
     return display_frame
 
