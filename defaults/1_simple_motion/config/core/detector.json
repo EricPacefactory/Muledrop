@@ -1,8 +1,8 @@
 {
   "access_info": {
-    "script_name": "blob_detector",
     "class_name": "Detector_Stage",
-    "configuration_utility": "blob"
+    "configuration_utility": "blob_width_height",
+    "script_name": "blob_wh_detector"
   },
   "setup_data": {
     "min_width_norm": 0.02,
