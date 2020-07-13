@@ -58,9 +58,11 @@ from time import perf_counter
 from local.lib.common.timekeeper_utils import any_time_type_to_epoch_ms, isoformat_to_datetime
 
 from local.lib.file_access_utils.reporting import build_camera_info_metadata_report_path
+from local.lib.file_access_utils.reporting import build_config_info_metadata_report_path
 from local.lib.file_access_utils.reporting import build_snapshot_image_report_path
 from local.lib.file_access_utils.reporting import build_snapshot_metadata_report_path
 from local.lib.file_access_utils.reporting import build_object_metadata_report_path
+from local.lib.file_access_utils.reporting import build_station_metadata_report_path
 
 from local.lib.file_access_utils.classifier import load_reserved_labels_lut, load_topclass_labels_lut
 from local.lib.file_access_utils.classifier import reserved_notrain_label
@@ -422,6 +424,18 @@ class Camera_Info_DB(File_DB):
     
     # .................................................................................................................
     
+    def get_all_start_ems(self):
+        
+        # Build string to get all camera start times
+        select_cmd = "SELECT start_epoch_ms FROM {}".format(self._table_name)
+        
+        # Get data from database!
+        start_ems_list = self._fetch_1d_list(select_cmd)
+        
+        return start_ems_list
+    
+    # .................................................................................................................
+    
     def get_all_camera_info(self):
         
         # Build string to get all camera info
@@ -458,6 +472,116 @@ class Camera_Info_DB(File_DB):
         snap_wh = self._fetchone_tuple(select_cmd, return_if_missing = (0, 0))
         
         return snap_wh
+    
+    # .................................................................................................................
+    
+    def load_metadata_by_ems(self, target_start_epoch_ms):
+        
+        '''
+        Function which returns camera metadata for a given (start) epoch timing
+        
+        Inputs:
+            target start epoch_ms time (must be a valid time!)
+        
+        Outputs:
+            metadata_dictionary
+        '''
+        
+        
+        # Build selection commands
+        select_cmd = "SELECT {} FROM {} WHERE start_epoch_ms = {}".format(self._metadata_key,
+                                                                          self._table_name,
+                                                                          target_start_epoch_ms)
+        
+        # Get data from database!
+        metadata_json = self._fetchone_item(select_cmd, return_if_missing = None)
+        if metadata_json is None:
+            metadata_json = "{}"
+        
+        # Convert to python dictionary so we can actually interact with it!
+        metadata_dict = fast_json_to_dict(metadata_json)
+        
+        return metadata_dict
+    
+    # .................................................................................................................
+    # .................................................................................................................
+
+
+# /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+# /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+class Config_Info_DB(File_DB):
+    
+    # .................................................................................................................
+    
+    def __init__(self, cameras_folder_path, camera_select,
+                 db_path = ":memory:", check_same_thread = True, debug_connect = False):
+        
+        # Build key info
+        primary_key = "start_epoch_ms"
+        required_keys_set = {"start_datetime_isoformat", "config"}
+        
+        # Inherit from parent
+        super().__init__(cameras_folder_path, camera_select, primary_key, required_keys_set,
+                         db_path, check_same_thread, debug_connect)
+    
+    # .................................................................................................................
+    
+    def get_all_start_ems(self):
+        
+        # Build string to get all start times
+        select_cmd = "SELECT start_epoch_ms FROM {}".format(self._table_name)
+        
+        # Get data from database!
+        start_ems_list = self._fetch_1d_list(select_cmd)
+        
+        return start_ems_list
+    
+    # .................................................................................................................
+    
+    def get_all_config_info(self):
+        
+        # Build string to get all configuration info
+        select_cmd = "SELECT {} FROM {}".format(self._metadata_key, self._table_name)
+        
+        # Get data from database!
+        config_info_json_list = self._fetch_1d_list(select_cmd, return_if_missing = ["{}"])
+        
+        # Convert json to python dictionary so we can wield it
+        config_info_dict_list = [fast_json_to_dict(each_entry) for each_entry in config_info_json_list]
+        
+        return config_info_dict_list
+    
+    # .................................................................................................................
+    
+    def load_metadata_by_ems(self, target_start_epoch_ms):
+        
+        '''
+        Function which returns configuration metadata for a given (start) epoch timing
+        
+        Inputs:
+            target start epoch_ms time (must be a valid time!)
+        
+        Outputs:
+            metadata_dictionary
+        '''
+        
+        
+        # Build selection commands
+        select_cmd = "SELECT {} FROM {} WHERE start_epoch_ms = {}".format(self._metadata_key,
+                                                                          self._table_name,
+                                                                          target_start_epoch_ms)
+        
+        # Get data from database!
+        metadata_json = self._fetchone_item(select_cmd, return_if_missing = None)
+        if metadata_json is None:
+            metadata_json = "{}"
+        
+        # Convert to python dictionary so we can actually interact with it!
+        metadata_dict = fast_json_to_dict(metadata_json)
+        
+        return metadata_dict
     
     # .................................................................................................................
     # .................................................................................................................
@@ -1040,6 +1164,133 @@ class Summary_DB(File_DB):
 # /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 # /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+class Stations_DB(File_DB):
+    
+    # .................................................................................................................
+    
+    def __init__(self, cameras_folder_path, camera_select,
+                 db_path = ":memory:", check_same_thread = True, debug_connect = False):
+        
+        # Build key info
+        primary_key = "first_epoch_ms"
+        required_keys_set = {"final_epoch_ms",
+                             "first_frame_index", "final_frame_index",
+                             "first_datetime_isoformat", "final_datetime_isoformat",
+                             "stations"}
+        
+        # Inherit from parent
+        super().__init__(cameras_folder_path, camera_select, primary_key, required_keys_set,
+                         db_path, check_same_thread, debug_connect)
+    
+    # .................................................................................................................
+    
+    def get_bounding_epoch_ms(self):
+        
+        # Build string to get min/max datetimes from snapshots
+        select_cmd = "SELECT min(first_epoch_ms), max(final_epoch_ms) FROM {}".format(self._table_name)
+        
+        # Get data from database!
+        min_epoch_ms, max_epoch_ms = self._fetchone_tuple(select_cmd, return_if_missing = (-1, 1))
+        
+        return min_epoch_ms, max_epoch_ms
+    
+    # .................................................................................................................
+    
+    def get_bounding_datetimes(self):
+        
+        # First get bounding epoch times of bounding snapshots
+        min_epoch_ms, max_epoch_ms = self.get_bounding_epoch_ms()
+        
+        # Build string to get the corresponding datetime strings for the bounding epoch values
+        select_min_cmd = "SELECT first_datetime_isoformat FROM {} WHERE epoch_ms = {}".format(self._table_name,
+                                                                                              min_epoch_ms)
+        select_max_cmd = "SELECT final_datetime_isoformat FROM {} WHERE epoch_ms = {}".format(self._table_name,
+                                                                                              max_epoch_ms)
+        
+        # Get data from database!
+        min_dt_isoformat = self._fetchone_item(select_min_cmd, return_if_missing = -1)
+        max_dt_isoformat = self._fetchone_item(select_max_cmd, return_if_missing = -1)
+        
+        # Finally, convert datetime isoformat strings back to datetime objects
+        min_dt = isoformat_to_datetime(min_dt_isoformat)
+        max_dt = isoformat_to_datetime(max_dt_isoformat)
+        
+        return min_dt, max_dt
+    
+    # .................................................................................................................
+    
+    def get_all_station_start_times_by_time_range(self, start_time, end_time):
+        
+        # Convert input times to epoch values
+        start_epoch_ms = any_time_type_to_epoch_ms(start_time)
+        end_epoch_ms = any_time_type_to_epoch_ms(end_time)
+        
+        # Build selection commands
+        select_cmd = """
+                     SELECT first_epoch_ms
+                     FROM {}
+                     WHERE
+                     final_epoch_ms >= {}
+                     AND
+                     first_epoch_ms <= {}
+                     """.format(self._table_name, start_epoch_ms, end_epoch_ms)
+        
+        # Get data from database!
+        all_snapshot_epoch_ms_times_list = self._fetch_1d_list(select_cmd)
+        
+        return all_snapshot_epoch_ms_times_list
+    
+    # .................................................................................................................
+    
+    def load_metadata_by_ems(self, target_epoch_ms):
+        
+        '''
+        Function which returns station metadata for a given epoch timing
+        
+        Inputs:
+            target station epoch_ms time (must be a valid time!)
+        
+        Outputs:
+            metadata_dictionary
+        '''
+        
+        # Build selection commands
+        select_cmd = "SELECT {} FROM {} WHERE first_epoch_ms = {}".format(self._metadata_key,
+                                                                          self._table_name,
+                                                                          target_epoch_ms)
+        
+        # Get data from database!
+        metadata_json = self._fetchone_item(select_cmd, return_if_missing = None)
+        if metadata_json is None:
+            metadata_json = "{}"
+        
+        # Convert to python dictionary so we can actually interact with it!
+        metadata_dict = fast_json_to_dict(metadata_json)
+        
+        return metadata_dict
+    
+    # .................................................................................................................
+    
+    def load_metadata_by_time_range(self, start_time, end_time):
+        
+        ''' Acts as a generator! '''
+        
+        # First get all station times for the given time range
+        station_ems_list = self.get_all_station_start_times_by_time_range(start_time, end_time)
+        
+        # Return all station metadata, using a generator
+        for each_ems in station_ems_list:
+            yield self.load_metadata_by_ems(each_ems)
+        
+        return
+    
+    # .................................................................................................................
+    # .................................................................................................................
+    
+
+# /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+# /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 class Rule_DB(File_DB):
     
@@ -1183,6 +1434,30 @@ def post_from_folder_path(folder_path, database):
 
 # .....................................................................................................................
 
+def post_camera_info_report_metadata(cameras_folder_path, camera_select, database):
+    
+    # Build pathing to camera info report data
+    camera_info_metadata_folder_path = build_camera_info_metadata_report_path(cameras_folder_path,
+                                                                              camera_select)
+    
+    time_taken_sec = post_from_folder_path(camera_info_metadata_folder_path, database)
+    
+    return time_taken_sec
+
+# .....................................................................................................................
+
+def post_config_info_report_metadata(cameras_folder_path, camera_select, database):
+    
+    # Build pathing to configuration info report data
+    config_info_metadata_folder_path = build_config_info_metadata_report_path(cameras_folder_path,
+                                                                              camera_select)
+    
+    time_taken_sec = post_from_folder_path(config_info_metadata_folder_path, database)
+    
+    return time_taken_sec
+
+# .....................................................................................................................
+
 def post_snapshot_report_metadata(cameras_folder_path, camera_select, database):
     
     # Build pathing to snapshot report data
@@ -1202,6 +1477,18 @@ def post_object_report_metadata(cameras_folder_path, camera_select, database):
                                                                     camera_select)
     
     time_taken_sec = post_from_folder_path(object_metadata_folder_path, database)
+    
+    return time_taken_sec
+
+# .....................................................................................................................
+
+def post_stations_report_data(cameras_folder_path, camera_select, database):
+    
+    # Build pathing to stations report data
+    stations_metadata_folder_path = build_station_metadata_report_path(cameras_folder_path,
+                                                                       camera_select)
+    
+    time_taken_sec = post_from_folder_path(stations_metadata_folder_path, database)
     
     return time_taken_sec
 
@@ -1245,18 +1532,6 @@ def post_rule_report_data(cameras_folder_path, camera_select, rule_name, databas
 
 # .....................................................................................................................
 
-def post_camera_info_report_metadata(cameras_folder_path, camera_select, database):
-    
-    # Build pathing to object report data
-    camera_info_metadata_folder_path = build_camera_info_metadata_report_path(cameras_folder_path, 
-                                                                              camera_select)
-    
-    time_taken_sec = post_from_folder_path(camera_info_metadata_folder_path, database)
-    
-    return time_taken_sec
-
-# .....................................................................................................................
-
 def post_rule_info_report_metadata(cameras_folder_path, camera_select, database):
     
     # Build pathing to object report data
@@ -1291,58 +1566,82 @@ def _print_missing(error_message):
 
 # .....................................................................................................................
 
-def launch_file_db(cameras_folder_path, camera_select,
-                   check_same_thread = True,
-                   launch_snapshot_db = True,
-                   launch_object_db = True,
-                   launch_classification_db = True,
-                   launch_summary_db = False):
+def launch_dbs(cameras_folder_path, camera_select, *dbs_to_launch,
+               check_same_thread = True, debug_connect = False, db_path = ":memory:"):
     
-    # Initialize outputs
-    cinfo_db = None
-    snap_db = None
-    obj_db = None
-    class_db = None
-    summary_db = None
+    # Specify all the different launch settings for each database type
+    launch_lut = {"camera_info": {"print_name": "Camera info",
+                                  "class_to_init": Camera_Info_DB,
+                                  "post_function": post_camera_info_report_metadata},
+                  "config_info": {"print_name": "Config info",
+                                  "class_to_init": Config_Info_DB,
+                                  "post_function": post_config_info_report_metadata},
+                  "snapshots": {"print_name": "Snapshots",
+                                "class_to_init": Snap_DB,
+                                "post_function": post_snapshot_report_metadata},
+                  "objects": {"print_name": "Objects",
+                              "class_to_init": Object_DB,
+                              "post_function": post_object_report_metadata},
+                  "classifications": {"print_name": "Classifications",
+                                      "class_to_init": Classification_DB,
+                                      "post_function": post_classifier_report_data},
+                  "summary": {"print_name": "Summary",
+                              "class_to_init": Summary_DB,
+                              "post_function": post_summary_report_data},
+                  "stations": {"print_name": "Stations",
+                               "class_to_init": Stations_DB,
+                               "post_function": post_stations_report_data}}
     
     # Bundle args for clarity
-    selection_args = (cameras_folder_path, camera_select)
-    check_thread_arg = {"check_same_thread": check_same_thread}
+    init_args = {"cameras_folder_path": cameras_folder_path,
+                 "camera_select": camera_select,
+                 "check_same_thread": check_same_thread,
+                 "debug_connect": debug_connect,
+                 "db_path": db_path}
     
     # Some feedback
     print("", "Launching FILE DB for {}".format(camera_select), sep = "\n")
     
-    # Always launch camera info db
-    _print_launch("Camera info")
-    cinfo_db = Camera_Info_DB(*selection_args, **check_thread_arg)
-    cam_time = post_camera_info_report_metadata(*selection_args, cinfo_db)
-    _print_done(cam_time)
+    # Load all of the target dbs
+    loaded_dbs_list = []
+    for each_db_name in dbs_to_launch:
+        
+        # Convert each name to lowercase + remove spaces to ensure consistency
+        safe_db_name = each_db_name.lower().replace(" ", "_")
+        if safe_db_name not in launch_lut.keys():
+            valid_db_names_list = list(launch_lut.keyss())
+            err_msg_list = ["Can't load db: {}".format(each_db_name),
+                            "Name not recognized! Should be one of:",
+                            "{}".format(*valid_db_names_list)]
+            err_msg_str = "\n".join(err_msg_list)
+            raise NameError(err_msg_str)
+        
+        # Load the target db and store them for output
+        launch_args_dict = launch_lut[safe_db_name]
+        load_db = launch_one_db(**init_args, **launch_args_dict)
+        loaded_dbs_list.append(load_db)
     
-    if launch_snapshot_db:
-        _print_launch("Snapshots")
-        snap_db = Snap_DB(*selection_args, **check_thread_arg)
-        snap_time = post_snapshot_report_metadata(*selection_args, snap_db)
-        _print_done(snap_time)
+    return loaded_dbs_list
+
+# .....................................................................................................................
+
+def launch_one_db(cameras_folder_path, camera_select, check_same_thread, debug_connect, db_path,
+                  print_name, class_to_init, post_function):
     
-    if launch_object_db:
-        _print_launch("Objects")
-        obj_db = Object_DB(*selection_args, **check_thread_arg)
-        obj_time = post_object_report_metadata(*selection_args, obj_db)
-        _print_done(obj_time)
+    # Bundle init args as a dictionary to make it easier to setup each class
+    init_args_dict = {"cameras_folder_path": cameras_folder_path,
+                      "camera_select": camera_select,
+                      "check_same_thread": check_same_thread,
+                      "debug_connect": debug_connect,
+                      "db_path": db_path}
     
-    if launch_classification_db:
-        _print_launch("Classifications")
-        class_db = Classification_DB(*selection_args, **check_thread_arg)
-        class_time = post_classifier_report_data(*selection_args, class_db)
-        _print_done(class_time)
+    # Print some feedback about launching the target db + the time taken for reference
+    _print_launch(print_name)
+    loaded_db = class_to_init(**init_args_dict)
+    load_time_sec = post_function(cameras_folder_path, camera_select, loaded_db)
+    _print_done(load_time_sec)
     
-    if launch_summary_db:
-        _print_launch("Summary")
-        summary_db = Summary_DB(*selection_args, **check_thread_arg)
-        summary_time = post_summary_report_data(*selection_args, summary_db)
-        _print_done(summary_time)
-    
-    return cinfo_db, snap_db, obj_db, class_db, summary_db
+    return loaded_db
 
 # .....................................................................................................................
 
@@ -1425,12 +1724,15 @@ def close_dbs_if_missing_data(*database_refs,
 # .....................................................................................................................
 # .....................................................................................................................
 
+
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Demo
 
 if __name__ == "__main__":
     pass
 
+
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Scrap
+
 
