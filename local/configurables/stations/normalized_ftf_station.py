@@ -76,7 +76,7 @@ class Normalized_FTF_Station(Reference_Station):
         
         # Allocate space for control variables
         self._max_diff_depth = 30
-        self._max_blur = 25
+        self._max_blur = 15
         
         # Allocate space for derived variables
         self._crop_y1y2x1x2 = None
@@ -129,7 +129,11 @@ class Normalized_FTF_Station(Reference_Station):
                 return_type = int,
                 zero_referenced = True,
                 units = "frames",
-                tooltip = [""])
+                tooltip = ["When performing frame differences between the current frame and previous frames,"
+                           "this setting allows for selecting a frame 'further back in time'. For example,",
+                           "if set to 1, the difference will occur between the current frame and 1 frame backwards",
+                           "(i.e the previous frame). A setting of 2 will take the frame prior to the previous",
+                           "frame and so on."])
         
         self.blur_size = \
         self.ctrl_spec.attach_slider(
@@ -139,7 +143,8 @@ class Normalized_FTF_Station(Reference_Station):
                 min_value = 0,
                 max_value = self._max_blur,
                 return_type = int,
-                tooltip = [""])
+                tooltip = ["Amount to blur the frame data before taking the frame difference",
+                           "Blurring can help avoid errors due to noise and compression artifacts"])
         
         self.difference_threshold = \
         self.ctrl_spec.attach_slider(
@@ -149,7 +154,10 @@ class Normalized_FTF_Station(Reference_Station):
                 min_value = 0,
                 max_value = 255,
                 return_type = int,
-                tooltip = [""])
+                tooltip = ["After taking the frame difference, each value is set to either a 0 or 1,",
+                           "depending on whether the value of the difference is below or above",
+                           "this threshold (respectively). The output of this station is then the",
+                           "(normalized) proportion of pixels that have a value of 1"])
     
     # .................................................................................................................
     
@@ -225,7 +233,7 @@ class Normalized_FTF_Station(Reference_Station):
         
         # Normalize the total difference (based on maximum possible difference)
         norm_count = thresh_count / self._ftf_max_count
-        norm_count_int = int(round(1000 * norm_count))
+        norm_count_int = int(round(1000.0 * norm_count))
         
         # Output the normalized thresholded pixel count
         one_frame_result = norm_count_int
