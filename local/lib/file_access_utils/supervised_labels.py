@@ -49,8 +49,6 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
-from local.lib.common
-
 from local.lib.file_access_utils.reporting import build_after_database_report_path
 from local.lib.file_access_utils.classifier import reserved_unclassified_label, reserved_notrain_label
 from local.lib.file_access_utils.json_read_write import save_config_json, load_config_json

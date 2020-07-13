@@ -62,7 +62,7 @@ from flask import request as flask_request
 
 from local.lib.ui_utils.cli_selections import Resource_Selector
 
-from local.offline_database.file_database import launch_file_db, close_dbs_if_missing_data
+from local.offline_database.file_database import launch_dbs, close_dbs_if_missing_data
 from local.offline_database.object_reconstruction import Smoothed_Object_Reconstruction as Obj_Recon
 
 from local.lib.file_access_utils.classifier import load_reserved_labels_lut, load_topclass_labels_lut
@@ -108,7 +108,7 @@ def get_middle_image(object_full_id):
     obj_md = obj_db.load_metadata_by_id(object_full_id)
     
     # Reconstruct object from metadata, so we can draw it's data
-    snap_wh = cinfo_db.get_snap_frame_wh()
+    snap_wh = caminfo_db.get_snap_frame_wh()
     obj_ref = Obj_Recon(obj_md, snap_wh, earliest_datetime, latest_datetime)
     
     # Find 'middle' snapshot for drawing
@@ -134,7 +134,7 @@ def get_animation(object_full_id, start_padded_time_ms = 3000, end_padded_time_m
     obj_md = obj_db.load_metadata_by_id(object_full_id)
     
     # Reconstruct object from metadata, so we can draw it's data
-    snap_wh = cinfo_db.get_snap_frame_wh()
+    snap_wh = caminfo_db.get_snap_frame_wh()
     obj_ref = Obj_Recon(obj_md, snap_wh, earliest_datetime, latest_datetime)
     first_epoch_ms, last_epoch_ms = obj_ref.get_bounding_epoch_ms()
     
@@ -189,13 +189,9 @@ pathing_args = (cameras_folder_path, camera_select)
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Catalog existing data
 
-cinfo_db, snap_db, obj_db, class_db, summary_db = \
-launch_file_db(*pathing_args,
-               check_same_thread = False,
-               launch_snapshot_db = True,
-               launch_object_db = True,
-               launch_classification_db = False,
-               launch_summary_db = False)
+caminfo_db, snap_db, obj_db = launch_dbs(*pathing_args,
+                                         "camera_info", "snapshots", "objects",
+                                         check_same_thread = False)
 
 # Catch missing data
 close_dbs_if_missing_data(snap_db, error_message_if_missing = "No snapshot data in the database!")
@@ -203,7 +199,7 @@ close_dbs_if_missing_data(obj_db, error_message_if_missing = "No object trail da
 
 # Get the maximum range of the data (based on the snapshots, because that's the most we could show)
 earliest_datetime, latest_datetime = snap_db.get_bounding_datetimes()
-snap_wh = cinfo_db.get_snap_frame_wh()
+snap_wh = caminfo_db.get_snap_frame_wh()
 
 # Get object metadata from the server
 object_id_list = obj_db.get_object_ids_by_time_range(earliest_datetime, latest_datetime)

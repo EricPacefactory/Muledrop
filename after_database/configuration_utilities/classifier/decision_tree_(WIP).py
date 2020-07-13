@@ -63,7 +63,7 @@ from local.configurables.after_database.classifier.decisiontree_classifier impor
 from local.configurables.after_database.classifier.decisiontree_classifier import load_classifier_resources
 from local.configurables.after_database.classifier.decisiontree_classifier import sample_data_from_object
 
-from local.offline_database.file_database import launch_file_db, close_dbs_if_missing_data
+from local.offline_database.file_database import launch_dbs, close_dbs_if_missing_data
 
 from local.offline_database.object_reconstruction import Hover_Mapping
 from local.offline_database.object_reconstruction import create_trail_frame_from_object_reconstruction
@@ -276,16 +276,12 @@ if not sv_labels_exist:
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Catalog existing data
 
-cinfo_db, snap_db, obj_db, class_db, summary_db = \
-launch_file_db(*pathing_args,
-               launch_snapshot_db = True,
-               launch_object_db = True,
-               launch_classification_db = True,
-               launch_summary_db = False)
+snap_db, obj_db, class_db = launch_dbs(cameras_folder_path, camera_select,
+                                       "snapshots", "objects", "classifications")
 
 # Catch missing data
-cinfo_db.close()
 close_dbs_if_missing_data(snap_db, error_message_if_missing = "No snapshot data in the database!")
+close_dbs_if_missing_data(obj_db, error_message_if_missing = "No object trail data in the database!")
 
 
 # ---------------------------------------------------------------------------------------------------------------------

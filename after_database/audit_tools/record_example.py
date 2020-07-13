@@ -62,7 +62,7 @@ from local.lib.common.timekeeper_utils import isoformat_to_datetime, fake_dateti
 from local.lib.file_access_utils.structures import create_missing_folder_path
 from local.lib.file_access_utils.settings import load_recording_info
 
-from local.offline_database.file_database import launch_file_db, close_dbs_if_missing_data
+from local.offline_database.file_database import launch_dbs, close_dbs_if_missing_data
 from local.offline_database.object_reconstruction import Smoothed_Object_Reconstruction as Obj_Recon
 from local.offline_database.classification_reconstruction import create_objects_by_class_dict, get_ordered_object_list
 
@@ -166,7 +166,7 @@ def build_recording_path(base_path, camera_select, timelapse_factor, file_ext):
     tl_str = "" 
     need_tl_str = abs(timelapse_factor - 1.0) > 0.001
     if need_tl_str:
-        tl_str = "-TLx{}".format(no_decimal_string_format(timelapse_factor))
+        tl_str = "TLx{}".format(no_decimal_string_format(timelapse_factor))
     
     # Build file name & combine with recording folder path for final output
     file_name = "{}-{}{}".format(camera_select, tl_str, file_ext)
@@ -274,12 +274,8 @@ camera_select, camera_path = selector.camera(debug_mode=enable_debug_mode)
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Catalog existing data
 
-cinfo_db, snap_db, obj_db, class_db, summary_db = \
-launch_file_db(cameras_folder_path, camera_select,
-               launch_snapshot_db = True,
-               launch_object_db = True,
-               launch_classification_db = True,
-               launch_summary_db = False)
+caminfo_db, snap_db, obj_db, class_db = launch_dbs(cameras_folder_path, camera_select,
+                                                   "camera_info", "snapshots", "objects", "classifications")
 
 # Catch missing data
 close_dbs_if_missing_data(snap_db, error_message_if_missing = "No snapshot data in the database!")
@@ -290,7 +286,7 @@ close_dbs_if_missing_data(snap_db, error_message_if_missing = "No snapshot data 
 
 # Get the maximum range of the data (based on the snapshots, because that's the most we could show)
 earliest_datetime, latest_datetime = snap_db.get_bounding_datetimes()
-snap_wh = cinfo_db.get_snap_frame_wh()
+snap_wh = caminfo_db.get_snap_frame_wh()
 snap_width, snap_height = snap_wh
 
 # Ask the user for the range of datetimes to use for selecting data

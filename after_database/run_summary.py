@@ -63,7 +63,7 @@ from local.lib.file_access_utils.configurables import configurable_dot_path, unp
 from local.lib.file_access_utils.summary import build_summary_adb_metadata_report_path
 from local.lib.file_access_utils.summary import load_summary_config, save_summary_report_data
 
-from local.offline_database.file_database import launch_file_db, close_dbs_if_missing_data
+from local.offline_database.file_database import launch_dbs, close_dbs_if_missing_data
 
 from local.configurables.configurable_template import jsonify_numpy_data
 
@@ -142,15 +142,10 @@ camera_select, camera_path = selector.camera(debug_mode = enable_debug_mode)
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Catalog existing data
 
-cinfo_db, snap_db, obj_db, class_db, summary_db = \
-launch_file_db(cameras_folder_path, camera_select,
-               launch_snapshot_db = True,
-               launch_object_db = True,
-               launch_classification_db = True,
-               launch_summary_db = False)
+snap_db, obj_db, class_db = launch_dbs(cameras_folder_path, camera_select,
+                                       "snapshots", "objects", "classifications")
 
 # Catch missing data
-cinfo_db.close()
 close_dbs_if_missing_data(snap_db, error_message_if_missing = "No snapshot data in the database!")
 close_dbs_if_missing_data(obj_db, error_message_if_missing = "No object data in the database!")
 

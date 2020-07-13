@@ -64,7 +64,7 @@ from local.lib.file_access_utils.rules import build_rule_adb_metadata_report_pat
 from local.lib.file_access_utils.rules import build_rule_adb_info_report_path
 from local.lib.file_access_utils.rules import load_all_rule_configs, save_rule_info, save_rule_report_data
 
-from local.offline_database.file_database import launch_file_db, launch_rule_dbs, close_dbs_if_missing_data
+from local.offline_database.file_database import launch_dbs, launch_rule_dbs, close_dbs_if_missing_data
 
 from local.eolib.utils.files import get_total_folder_size
 from local.eolib.utils.function_helpers import dynamic_import_from_module
@@ -195,14 +195,9 @@ pathing_args = (cameras_folder_path, camera_select)
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Catalog existing data
 
-cinfo_db, snap_db, obj_db, class_db, summary_db = \
-launch_file_db(cameras_folder_path, camera_select,
-               launch_snapshot_db = True,
-               launch_object_db = True,
-               launch_classification_db = False,
-               launch_summary_db = False)
-
 rinfo_db, rule_dbs_dict = launch_rule_dbs(cameras_folder_path, camera_select)
+caminfo_db, snap_db, obj_db = launch_dbs(cameras_folder_path, camera_select,
+                                         "camera_info", "snapshots", "objects")
 
 # Catch missing data
 rinfo_db.close()
@@ -210,7 +205,7 @@ close_dbs_if_missing_data(snap_db, error_message_if_missing = "No snapshot data 
 close_dbs_if_missing_data(obj_db, error_message_if_missing = "No object data in the database!")
 
 # Get frame sizing, for rule configuration
-frame_wh = cinfo_db.get_snap_frame_wh()
+frame_wh = caminfo_db.get_snap_frame_wh()
 
 
 # ---------------------------------------------------------------------------------------------------------------------
