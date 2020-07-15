@@ -57,12 +57,13 @@ from local.lib.ui_utils.cli_selections import Resource_Selector
 from local.lib.ui_utils.script_arguments import script_arg_builder
 
 from local.lib.file_access_utils.configurables import unpack_config_data, unpack_access_info
-from local.lib.file_access_utils.externals import build_externals_folder_path
 from local.lib.file_access_utils.core import get_ordered_core_sequence, build_core_folder_path
+from local.lib.file_access_utils.externals import build_externals_folder_path
+from local.lib.file_access_utils.stations import build_station_config_folder_path
 from local.lib.file_access_utils.json_read_write import load_config_json
 
 from local.eolib.utils.files import get_file_list, get_folder_list
-from local.eolib.utils.cli_tools import cli_confirm, cli_select_from_list, clear_terminal, clean_error_quit
+from local.eolib.utils.cli_tools import cli_confirm, cli_select_from_list, clear_terminal
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -75,7 +76,7 @@ from local.eolib.utils.cli_tools import cli_confirm, cli_select_from_list, clear
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-#%% Define functions
+#%% Define misc functions
 
 # .....................................................................................................................
 
@@ -89,24 +90,16 @@ def parse_recon_args(debug_print = False):
     script_description = "Hub script for launching reconfiguration scripts"
     
     # Build & evaluate script arguments!
-    ap_obj = script_arg_builder(args_list,
-                                description = script_description,
-                                parse_on_call = False,
-                                debug_print = debug_print)
-    
-    
-    # Add script argument for selecting externals config
-    ap_obj.add_argument("-e", "--externals", default = False, action = "store_true",
-                        help = "Reconfigure externals instead of core stages")
-    
-    # Get arg inputs into a dictionary
-    ap_result = vars(ap_obj.parse_args())
+    ap_result = script_arg_builder(args_list,
+                                   description = script_description,
+                                   parse_on_call = True,
+                                   debug_print = debug_print)
     
     return ap_result
 
 # .....................................................................................................................
 
-def clear_with_status(camera_select, video_select, stage_select = None):
+def clear_with_status(camera_select, video_select, first_select = None):
     
     ''' Function which clears the terminal, then prints the current selection status '''
     
@@ -122,8 +115,8 @@ def clear_with_status(camera_select, video_select, stage_select = None):
                   seperator_gfx]
     
     # Add stage selection info, if present
-    if stage_select is not None:
-        stage_display_name = pretty_stage_name(stage_select)
+    if first_select is not None:
+        stage_display_name = pretty_menu_name(first_select)
         stage_str_length = len(stage_display_name)
         left_centering_offset = int(max(0, (num_seperator_symbols + stage_str_length) / 2))
         print_strs += [stage_display_name.rjust(left_centering_offset), seperator_gfx]
@@ -133,28 +126,108 @@ def clear_with_status(camera_select, video_select, stage_select = None):
     
     # Hang for a sec to prevent accidental selections
     sleep(0.5)
+    
+# .....................................................................................................................
+
+def pretty_menu_name(menu_name):
+    return menu_name.replace("_", " ").replace(".py", "").title()
 
 # .....................................................................................................................
 
-def load_externals_info(project_root_path, cameras_folder_path):
+def set_passthru_ordering(entry_list, passthrough_label = "passthrough.py"):
     
-    # Get pathing to the configuration utilites
-    utility_parent_folder = os.path.join(project_root_path, "configuration_utilities", "externals")
+    # Create new list for output, so we don't modify the original
+    ordered_entry_list = entry_list.copy()
     
-    # Figure out stage ordering for presenting the externals stage options
-    stage_ordering = get_folder_list(utility_parent_folder, sort_list = True)
+    # Re-order so that passthroughs appear as the first entry
+    passthrough_in_list = (passthrough_label in entry_list)
+    if passthrough_in_list:
+        pass_idx = entry_list.index(passthrough_label)
+        ordered_entry_list.pop(pass_idx)
+        ordered_entry_list = [passthrough_label] + ordered_entry_list
     
-    # Get pathing to the corresponding config files for the selected camera
-    configs_folder_path = build_externals_folder_path(cameras_folder_path, camera_select)
-    
-    return utility_parent_folder, stage_ordering, configs_folder_path
+    return ordered_entry_list
 
 # .....................................................................................................................
 
-def load_core_info(project_root_path, cameras_folder_path):
+def run_config_utility(camera_select, video_select, config_utility_path):
+    
+    # Build arguments to pass to each config utility
+    script_arg_list = ["-c", camera_select, "-v", video_select]
+    
+    # Get python interpretter path, so we call subprocess using the same environment
+    python_interpretter = sys.executable
+    
+    # Launch selected configuration utility using direct path to the script
+    run_command_list = [python_interpretter, config_utility_path] + script_arg_list    
+    subproc = subprocess.run(run_command_list)
+    
+    # Present errors to user
+    got_subprocess_error = (subproc.returncode != 0)
+    if got_subprocess_error:
+        print("",
+              "ERROR running configuration utility!",
+              "@ {}".format(config_utility_path),
+              "", 
+              "Args: {}".format(" ".join(script_arg_list)),
+              "",
+              "Subprocess:",
+              subproc,
+              "", sep="\n")
+    
+    # Pause after running the configuration utility, to give the user a chance to see terminal output
+    req_break = False
+    try:
+        input("Press enter to return to the configuration menu\n")
+        
+    except KeyboardInterrupt:
+        req_break = True
+    
+    return req_break, subproc
+
+# .....................................................................................................................
+# .....................................................................................................................
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Define pathing functions
+
+# .....................................................................................................................
+
+def build_path_to_config_utils(project_root_path, utility_type):
+    ''' Helper function for building pathing to configuration utilities folders '''
+    return os.path.join(project_root_path, "configuration_utilities", utility_type)
+
+# .....................................................................................................................
+
+def get_util_scripts_list(*path_joins):
+    
+    # First build the path to the location of the script options
+    scripts_folder_path = os.path.join(*path_joins)
+    
+    script_names_list = get_file_list(scripts_folder_path,
+                                      show_hidden_files = True,
+                                      sort_list = True,
+                                      return_full_path = False)
+    
+    # Re-order the script names if there is a passthrough option (so that it appears at the top)
+    ordered_script_names_list = set_passthru_ordering(script_names_list)
+    
+    return ordered_script_names_list
+
+# .....................................................................................................................
+# .....................................................................................................................
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Define info loading functions
+
+# .....................................................................................................................
+
+def load_core_menu_info(project_root_path, cameras_folder_path, camera_select):
     
     # Get pathing to the configuration utilites
-    utility_parent_folder = os.path.join(project_root_path, "configuration_utilities", "core")
+    utility_parent_folder = build_path_to_config_utils(project_root_path, "core")
     
     # Figure out stage ordering for presenting the core stage options
     stage_ordering = get_ordered_core_sequence()
@@ -166,83 +239,112 @@ def load_core_info(project_root_path, cameras_folder_path):
 
 # .....................................................................................................................
 
-def pretty_stage_name(stage_name):
-    return stage_name.replace("_", " ").title()
+def load_stations_menu_info(project_root_path, cameras_folder_path, camera_select):
+    
+    # Get pathing to the configuration utilites
+    utility_parent_folder = build_path_to_config_utils(project_root_path, "stations")
+    
+    # Figure out ordering for presenting the station options
+    option_ordering = get_file_list(utility_parent_folder, sort_list = True)
+    
+    # Get pathing to the corresponding config files for the selected camera
+    configs_folder_path = build_station_config_folder_path(cameras_folder_path, camera_select)
+    
+    return utility_parent_folder, option_ordering, configs_folder_path
 
 # .....................................................................................................................
 
-def pretty_option_name(option_name):
-    return option_name.replace(".py", "").replace("_", " ").title()
+def load_externals_menu_info(project_root_path, cameras_folder_path, camera_select):
+    
+    # Get pathing to the configuration utilites
+    utility_parent_folder = build_path_to_config_utils(project_root_path, "externals")
+    
+    # Figure out stage ordering for presenting the externals stage options
+    stage_ordering = get_folder_list(utility_parent_folder, sort_list = True)
+    
+    # Get pathing to the corresponding config files for the selected camera
+    configs_folder_path = build_externals_folder_path(cameras_folder_path, camera_select)
+    
+    return utility_parent_folder, stage_ordering, configs_folder_path
+
+# .....................................................................................................................
+# .....................................................................................................................
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Define menu functions
 
 # .....................................................................................................................
 
-def _select_stage(utility_parent_folder, ordered_stage_names):
+def menu_select(prompt_msg, entry_list, default_selection = None):
     
-    # Clean up list for readability
-    clean_stage_list = [pretty_stage_name(each_stage) for each_stage in ordered_stage_names]
-    select_idx, _ = cli_select_from_list(clean_stage_list, 
-                                         prompt_heading = "Select stage:")
+    ''' Helper function which wraps the cli menu selection to provide better error handling '''
     
-    # Build the full pathing
-    stage_select = ordered_stage_names[select_idx]
-    stage_folder_path = os.path.join(utility_parent_folder, stage_select)
+    # Initialize outputs
+    selection_error = False
+    selection_empty = False
+    selection_cancelled = False
+    selected_name = None
     
-    return stage_folder_path, stage_select
-
-# .....................................................................................................................
-
-def _select_stage_option(stage_folder_path, stage_select, default_stage_option = None):
+    # Convert names to 'pretty' format for display
+    pretty_entry_list = [pretty_menu_name(each_entry) for each_entry in entry_list]
+    pretty_default = pretty_menu_name(default_selection) if default_selection is not None else None
     
-    # Get all options (scripts) at the given stage path
-    options_list = get_file_list(stage_folder_path, return_full_path = False)
-    
-    # Error if there are no options to display, this is likely an interal error with pathing...
-    if len(options_list) < 1:
-        print("", "!"*36, "Searched path:", "@ {}".format(stage_folder_path), "!"*36, "", sep="\n")
-        raise AttributeError("No options found for stage: {}".format(stage_select))
-    
-    # Clean up the list for display
-    clean_options_list = [pretty_option_name(each_entry) for each_entry in sorted(options_list)]
-    
-    # Re-order so that passthroughs appear as the first entry
-    passthrough_label = "Passthrough"
-    passthrough_in_list = (passthrough_label in clean_options_list)
-    if passthrough_in_list:
-        pass_idx = clean_options_list.index(passthrough_label)
+    try:
+        # Get user to select entry from the menu, then convert back to original input name
+        select_idx, _ = cli_select_from_list(pretty_entry_list, prompt_msg, pretty_default)
+        selected_name = entry_list[select_idx]
         
-        # Update clean option list
-        clean_options_list.pop(pass_idx)
-        clean_options_list = [passthrough_label] + clean_options_list
-        
-        # Update raw script paths as well, since we'll be referring to that later
-        passthrough_script = options_list.pop(pass_idx)
-        options_list = [passthrough_script] + options_list
-        
-    # Convert stage name to display friendly format
-    stage_display_name = pretty_stage_name(stage_select)
-    default_display_name = pretty_option_name(default_stage_option)
+    except KeyboardInterrupt:
+        selection_cancelled = True
     
-    # Prompt user to select the stage option
-    prompt_msg = "Select {} option:".format(stage_display_name.lower())
-    select_idx, option_display_name = cli_select_from_list(clean_options_list, 
-                                                           default_selection = default_display_name,
-                                                           default_indicator = "(current)",
-                                                           prompt_heading = prompt_msg,
-                                                           zero_indexed = passthrough_in_list)
+    # No selection is made
+    except ValueError:
+        selection_empty = True
     
+    # Selected numeric entry that isn't in the list
+    except IndexError:
+        selection_error = True
     
-    # Build outputs
-    option_select = options_list[select_idx]
-    option_path = os.path.join(stage_folder_path, option_select)
+    # Probably an input error (e.g. non-numeric input) also happens from queued up entries
+    except NameError:
+        selection_error = True
     
-    return option_path, option_select
+    return selection_error, selection_cancelled, selection_empty, selected_name
+
+# .....................................................................................................................
+    
+def menu_select_loop_on_error(prompt_msg, entry_list, default_selection = None):
+    
+    ''' Helper function which continues providing menu selection on input errors '''
+    
+    keep_looping = True
+    while keep_looping:
+        s_err, s_cancel, s_empty, selected_name = menu_select(prompt_msg, entry_list, default_selection)
+        keep_looping = s_err
+    
+    return s_cancel, s_empty, selected_name
 
 # .....................................................................................................................
 
-def get_default_option(configs_folder_path, stage_select):
+def ask_to_quit_menu(clear_terminal_if_no_quit = True):
+    
+    ''' Helper function which provides a quit prompt '''
+    
+    quit_menu = cli_confirm("Quit?")
+    if not quit_menu and clear_terminal_if_no_quit:
+        clear_terminal(0, 0.1)
+    
+    return quit_menu
 
-    # Build pathing to existing config file (for the selected stage)
-    existing_config_file_name = "{}.json".format(stage_select)
+# .....................................................................................................................
+
+def get_script_name_from_config_file(configs_folder_path, parent_select):
+
+    ''' Function used to get the default script selection '''
+    
+    # Build pathing to existing config file
+    existing_config_file_name = "{}.json".format(parent_select)
     existing_config_file_path = os.path.join(configs_folder_path, existing_config_file_name)
     
     # If an existing config file isn't found, return no default
@@ -258,119 +360,6 @@ def get_default_option(configs_folder_path, stage_select):
     return previous_config_util_used
 
 # .....................................................................................................................
-
-@clean_error_quit
-def ui_select_stage(utility_parent_folder_path, stage_ordering):
-    
-    # Initialize outputs
-    request_break = False
-    request_continue = False
-    stage_folder_path = None
-    stage_display_name = None
-    
-    # Present stage selection menu
-    try:
-        stage_folder_path, stage_display_name = _select_stage(utility_parent_folder_path, stage_ordering)
-    
-    # Prompt to quit if no selection is made
-    except ValueError:
-        request_break = cli_confirm("Quit?")
-        request_continue = (not request_break)
-        
-    # Quit with no prompt on ctrl + c
-    except KeyboardInterrupt:
-        print("", "", "Keyboard cancel! (Ctrl + c)", sep="\n")
-        request_break = True
-    
-    # Loop on index errors
-    except IndexError as err_msg:
-        request_continue = True
-        print("", err_msg, "", sep = "\n")
-        sleep(1.5)
-    
-    # Ignore (probably) input errors
-    except NameError as err_msg:
-        # Happens due to queued up inputs, should ignore
-        request_continue = True
-        print("", err_msg, "", sep = "\n")
-        sleep(1.0)
-        
-    return request_break, request_continue, stage_folder_path, stage_display_name
-
-# .....................................................................................................................
-
-@clean_error_quit
-def ui_select_stage_option(stage_folder_path, stage_display_name, default_stage_option):
-    
-    # Initialize outputs
-    request_break = False
-    request_continue = False
-    option_path = None
-    option_display_name = None
-    
-    # Present options menu
-    try:
-        option_path, option_display_name = _select_stage_option(stage_folder_path,
-                                                                stage_display_name,
-                                                                default_stage_option)
-    
-    # Cancel option select if no selection is made (return to stage select)
-    except ValueError:
-        # Some feedback before returning to stage select
-        print("", "", "Option select cancelled!", "", sep = "\n")  
-        sleep(0.5)
-        request_continue = True
-    
-    # Cancel option select if ctrl + c was pressed, and return to the main menu
-    except KeyboardInterrupt:
-        request_continue = True
-        
-    # Return to main menu on index errors
-    except IndexError as err_msg:
-        request_continue = True
-        print("", err_msg, "", sep = "\n")
-        sleep(1.5)
-        
-    # Ignore (probably) input errors
-    except NameError as err_msg:
-        # Happens due to queued up inputs, should ignore
-        request_continue = True
-        print("", err_msg, "", sep = "\n")
-        sleep(1.0)
-
-    return request_break, request_continue, option_path, option_display_name
-
-# .....................................................................................................................
-
-def run_config_utility(camera_select, video_select, option_path):
-    
-    # Build arguments to pass to each config utility
-    script_arg_list = ["-c", camera_select,
-                       "-v", video_select]
-    
-    # Get python interpretter path, so we call subprocess using the same environment
-    python_interpretter = sys.executable
-    
-    # Launch selected config util ity using direct path to option script
-    run_command_list = [python_interpretter, option_path] + script_arg_list    
-    subproc = subprocess.run(run_command_list)
-    
-    # Hang on to errors
-    if subproc.returncode != 0:
-        print("",
-              "ERROR running configuration utility!",
-              "@ {}".format(option_path),
-              "", 
-              "Args: {}".format(" ".join(script_arg_list)),
-              "",
-              "Subprocess:",
-              subproc,
-              "", sep="\n")
-        input("Press enter to continue ")
-    
-    return subproc
-
-# .....................................................................................................................
 # .....................................................................................................................
 
 
@@ -381,7 +370,6 @@ def run_config_utility(camera_select, video_select, option_path):
 arg_selections = parse_recon_args()
 arg_camera_select = arg_selections.get("camera", None)
 arg_video_select = arg_selections.get("video", None)
-arg_enable_externals = arg_selections.get("externals", None)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -397,52 +385,156 @@ video_select, video_path = selector.video(camera_select, arg_video_select)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-#%% Build shared pathing
+#%% Prompt to select configurable type
 
-utility_parent_folder, stage_ordering, configs_folder_path = load_core_info(project_root_path, cameras_folder_path)
-if arg_enable_externals:
-    utility_parent_folder, stage_ordering, configs_folder_path = load_externals_info(project_root_path,
-                                                                                     cameras_folder_path)
+# Build menu for which type of configurable we want to reconfigure
+core_option = "Core"
+stations_option = "Stations"
+externals_option = "Externals"
+type_menu_list = [core_option, stations_option, externals_option]
+
+# Prompt user to select a configuration option
+_, type_name = cli_select_from_list(type_menu_list, "Select configuration type:", clear_text = True)
+
+# For convenience/clarity
+selected_core = (type_name == core_option)
+selected_stations = (type_name == stations_option)
+selected_externals = (type_name == externals_option)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-#%% *** MENU LOOP ***    
+#%% *** CORE MENU LOOP ***
 
-while True:
+# Handle core menus
+while selected_core:
+
+    # Load data for handling core menu options
+    core_util_parent_folder, core_stage_ordering, core_configs_folder_path = \
+    load_core_menu_info(project_root_path, cameras_folder_path, camera_select)
     
-    # Have user select a stage
-    clear_with_status(camera_select, video_select)
-    req_break, req_continue, stage_folder_path, stage_select = ui_select_stage(utility_parent_folder, 
-                                                                               stage_ordering)
-    if req_continue: continue
-    if req_break: break
-
-    # Get default stage option selection (if one exists!)
-    default_stage_option = get_default_option(configs_folder_path, stage_select)
-
-    # Have user select a stage option
-    clear_with_status(camera_select, video_select, stage_select)
-    req_break, req_continue, option_path, option_display_name = ui_select_stage_option(stage_folder_path, 
-                                                                                       stage_select, 
-                                                                                       default_stage_option)
-    if req_continue: continue
-    if req_break: break
+    # Select which core stage to re-configure
+    s_cancel, s_empty, select_stage_name = \
+    menu_select_loop_on_error("Select core stage:", core_stage_ordering)
     
-    # Hide all the selection mess before launching into the configuration utility
-    clear_terminal(0, 0.25)
-
-    # If we get this far, run whatever stage option was selected
-    return_code = run_config_utility(camera_select, video_select, option_path)  # Blocking
-    sleep(0.25)
+    # Handle quitting
+    if s_cancel:
+        break
     
+    # Handle empty selection (ask to quit or reset to core stage menu)
+    if s_empty:
+        confirm_quit = ask_to_quit_menu()
+        if confirm_quit: break
+        else:            continue
+    
+    # Figure out which option should be default (if any)
+    core_stage_default = get_script_name_from_config_file(core_configs_folder_path, select_stage_name)
+    
+    # Select which option from the selected stage to load
+    script_options_list = get_util_scripts_list(core_util_parent_folder, select_stage_name)
+    s_cancel, s_empty, select_script_name = \
+    menu_select_loop_on_error("Select option:", script_options_list, core_stage_default)
+    
+    # Handle empty selection (reset to core stage menu)
+    if s_empty or s_cancel:
+        clear_terminal(0, 0.1)
+        continue
+    
+    # If we get this far, run whatever config utility was selected
+    selected_script_path = os.path.join(core_util_parent_folder, select_stage_name, select_script_name)
+    req_break, return_code = run_config_utility(camera_select, video_select, selected_script_path)  # Blocking
+    if req_break:
+        break
+    sleep(0.15)
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+#%% *** STATIONS MENU LOOP ***
+
+# Handle stations menus
+while selected_stations:
+        
+    # Load data for handle stations menu option
+    stn_util_parent_folder, stn_option_ordering, stn_configs_folder_path = \
+    load_stations_menu_info(project_root_path, cameras_folder_path, camera_select)
+    
+    # Select which type of station to re-configure
+    s_cancel, s_empty, select_script_name = \
+    menu_select_loop_on_error("Select station:", stn_option_ordering)
+    
+    # Handle quitting
+    if s_cancel:
+        break
+    
+    # Handle empty selection (ask to quit or reset to stations menu)
+    if s_empty:
+        confirm_quit = ask_to_quit_menu()
+        if confirm_quit: break
+        else:            continue
+    
+    # If we get this far, run whatever config utility was selected
+    selected_script_path = os.path.join(stn_util_parent_folder, select_script_name)
+    req_break, return_code = run_config_utility(camera_select, video_select, selected_script_path)  # Blocking
+    if req_break:
+        break
+    sleep(0.15)
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+#%% *** EXTERNALS MENU LOOP ***
+
+# Handle externals menus
+while selected_externals:
+    
+    # Load data for handling externals menu option
+    ext_util_parent_folder, ext_stage_ordering, ext_configs_folder_path = \
+    load_externals_menu_info(project_root_path, cameras_folder_path, camera_select)
+    
+    # Select which external type to re-configure
+    s_cancel, s_empty, select_type_name = \
+    menu_select_loop_on_error("Select external type:", ext_stage_ordering)
+    
+    # Handle quitting
+    if s_cancel:
+        break
+    
+    # Handle empty selection (ask to quit or reset to external type menu)
+    if s_empty:
+        confirm_quit = ask_to_quit_menu()
+        if confirm_quit: break
+        else:            continue
+    
+    # Figure out which option should be default (if any)
+    external_type_default = get_script_name_from_config_file(ext_configs_folder_path, select_type_name)
+    
+    # Select which option from the selected stage to load
+    script_options_list = get_util_scripts_list(ext_util_parent_folder, select_type_name)
+    s_cancel, s_empty, select_script_name = \
+    menu_select_loop_on_error("Select option:", script_options_list, external_type_default)
+    
+    # Handle empty selection (reset to external type menu)
+    if s_empty or s_cancel:
+        clear_terminal(0, 0.1)
+        continue
+    
+    # If we get this far, run whatever config utility was selected
+    selected_script_path = os.path.join(ext_util_parent_folder, select_type_name, select_script_name)
+    req_break, return_code = run_config_utility(camera_select, video_select, selected_script_path)  # Blocking
+    if req_break:
+        break
+    sleep(0.15)
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Clean up
 
 # Some final cleanup feedback
-print("", "{} closed...".format(os.path.basename(__file__)), "", sep="\n")
+print("", "{} closed...".format(os.path.basename(__file__)), "", sep = "\n")
 
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Scrap
 
 # TODO
-# - Figure out why closing scripts fails from Spyder... Seems to be due to input() function?
-
+# - re-arrange station menus, so that existing configs + 'create new' menu appears first?
+#   - if existing config chosen, immediately load corresponding script
+#   - if 'create new' is chosen, then prompt with another menu for station type

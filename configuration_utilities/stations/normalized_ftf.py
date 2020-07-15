@@ -97,7 +97,8 @@ target_class_name = "Normalized_FTF_Station"
 
 # Make all required selections
 loader = Reconfigurable_Single_Station_Loader(target_script_name, target_class_name)
-loader.selections()
+arg_selections = loader.parse_standard_args()
+loader.selections(*arg_selections)
 loader.select_station()
 
 # Set up video capture, processing stages & playback control

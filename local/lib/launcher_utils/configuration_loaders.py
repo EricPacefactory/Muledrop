@@ -703,11 +703,13 @@ class Reconfigurable_Loader(File_Configuration_Loader):
         args_list = ["camera",  "video"]
         
         # Provide some extra information when accessing help text
-        script_description = "Reconfigure settings for {} stage".format(self.override_stage.replace("_", " "))
+        script_description_list = ["System configuration utility",
+                                   "Can provide camera & video selection arguments to avoid menu prompts"]
+        script_description_str = "\n".join(script_description_list)
         
         # Build & evaluate script arguments!
         ap_result = script_arg_builder(args_list,
-                                       description = script_description,
+                                       description = script_description_str,
                                        parse_on_call = True,
                                        debug_print = debug_print)
         
