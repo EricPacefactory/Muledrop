@@ -109,7 +109,7 @@ def get_ordered_editor_utilities(editor_utils_folder_path):
     editor_util_script_list = get_file_list(editor_utils_folder_path, return_full_path = False, sort_list = False)
     
     # Try to enfore an ordering of the scripts
-    suggested_order_list = ["loc", "cam", "vid", "rts"]
+    suggested_order_list = ["loc", "cam", "vid", "rts", "sta"]
     ordered_script_list = []
     for each_suggestion in suggested_order_list:        
         for each_script in editor_util_script_list:

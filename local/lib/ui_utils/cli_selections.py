@@ -212,6 +212,22 @@ class Resource_Selector:
     
     # .................................................................................................................
     
+    def save_station_select(self, station_select):
+        
+        ''' Convenience function used to forcefully save a new station select entry '''
+        
+        # Don't save 'create new' entries
+        contains_create_new = ("create new" in station_select.lower())
+        if contains_create_new:
+            return
+        
+        self.selection_history["station_select"] = station_select
+        save_history(self.project_root_path, self.selection_history, enable = True)
+        
+        return
+    
+    # .................................................................................................................
+    
     def _make_selection(self, entry_type, default_select, entry_lists, zero_indexed = False, debug_mode = False):
         
         # For convenience
