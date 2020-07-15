@@ -99,7 +99,7 @@ def parse_recon_args(debug_print = False):
 
 # .....................................................................................................................
 
-def clear_with_status(camera_select, video_select, first_select = None):
+def clear_with_status(first_select = None):
     
     ''' Function which clears the terminal, then prints the current selection status '''
     
@@ -110,8 +110,9 @@ def clear_with_status(camera_select, video_select, first_select = None):
     seperator_gfx = "=" * num_seperator_symbols
     print_strs = [seperator_gfx,
                   "Current selections:",
-                  "  Camera: {}".format(camera_select),
-                  "   Video: {}".format(video_select),
+                  "    Camera: {}".format(CAMERA_SELECT),
+                  "     Video: {}".format(VIDEO_SELECT),
+                  "  Category: {}".format(CATEGORY_SELECT),
                   seperator_gfx]
     
     # Add stage selection info, if present
@@ -125,7 +126,7 @@ def clear_with_status(camera_select, video_select, first_select = None):
     print(*print_strs, sep="\n")
     
     # Hang for a sec to prevent accidental selections
-    sleep(0.5)
+    sleep(0.1)
     
 # .....................................................................................................................
 
@@ -150,10 +151,10 @@ def set_passthru_ordering(entry_list, passthrough_label = "passthrough.py"):
 
 # .....................................................................................................................
 
-def run_config_utility(camera_select, video_select, config_utility_path):
+def run_config_utility(config_utility_path):
     
     # Build arguments to pass to each config utility
-    script_arg_list = ["-c", camera_select, "-v", video_select]
+    script_arg_list = ["-c", CAMERA_SELECT, "-v", VIDEO_SELECT]
     
     # Get python interpretter path, so we call subprocess using the same environment
     python_interpretter = sys.executable
@@ -224,7 +225,7 @@ def get_util_scripts_list(*path_joins):
 
 # .....................................................................................................................
 
-def load_core_menu_info(project_root_path, cameras_folder_path, camera_select):
+def load_core_menu_info(project_root_path, cameras_folder_path):
     
     # Get pathing to the configuration utilites
     utility_parent_folder = build_path_to_config_utils(project_root_path, "core")
@@ -233,13 +234,13 @@ def load_core_menu_info(project_root_path, cameras_folder_path, camera_select):
     stage_ordering = get_ordered_core_sequence()
     
     # Get pathing to the corresponding config files for the selected camera
-    configs_folder_path = build_core_folder_path(cameras_folder_path, camera_select)
+    configs_folder_path = build_core_folder_path(cameras_folder_path, CAMERA_SELECT)
     
     return utility_parent_folder, stage_ordering, configs_folder_path
 
 # .....................................................................................................................
 
-def load_stations_menu_info(project_root_path, cameras_folder_path, camera_select):
+def load_stations_menu_info(project_root_path, cameras_folder_path):
     
     # Get pathing to the configuration utilites
     utility_parent_folder = build_path_to_config_utils(project_root_path, "stations")
@@ -248,13 +249,13 @@ def load_stations_menu_info(project_root_path, cameras_folder_path, camera_selec
     option_ordering = get_file_list(utility_parent_folder, sort_list = True)
     
     # Get pathing to the corresponding config files for the selected camera
-    configs_folder_path = build_station_config_folder_path(cameras_folder_path, camera_select)
+    configs_folder_path = build_station_config_folder_path(cameras_folder_path, CAMERA_SELECT)
     
     return utility_parent_folder, option_ordering, configs_folder_path
 
 # .....................................................................................................................
 
-def load_externals_menu_info(project_root_path, cameras_folder_path, camera_select):
+def load_externals_menu_info(project_root_path, cameras_folder_path):
     
     # Get pathing to the configuration utilites
     utility_parent_folder = build_path_to_config_utils(project_root_path, "externals")
@@ -263,7 +264,7 @@ def load_externals_menu_info(project_root_path, cameras_folder_path, camera_sele
     stage_ordering = get_folder_list(utility_parent_folder, sort_list = True)
     
     # Get pathing to the corresponding config files for the selected camera
-    configs_folder_path = build_externals_folder_path(cameras_folder_path, camera_select)
+    configs_folder_path = build_externals_folder_path(cameras_folder_path, CAMERA_SELECT)
     
     return utility_parent_folder, stage_ordering, configs_folder_path
 
@@ -314,12 +315,23 @@ def menu_select(prompt_msg, entry_list, default_selection = None):
 
 # .....................................................................................................................
     
-def menu_select_loop_on_error(prompt_msg, entry_list, default_selection = None):
+def menu_select_loop_on_error(prompt_msg, entry_list, default_selection = None, clear_text = True):
     
     ''' Helper function which continues providing menu selection on input errors '''
     
+    s_err = False
     keep_looping = True
     while keep_looping:
+        
+        # Clear if needed
+        if clear_text:
+            clear_with_status()
+        
+        # Provide some feedback about why the menu is looping!
+        if s_err:
+            print("", "Input error! Must enter a number matching an entry in the list", sep = "\n")
+        
+        # Prompt with menu selection
         s_err, s_cancel, s_empty, selected_name = menu_select(prompt_msg, entry_list, default_selection)
         keep_looping = s_err
     
@@ -380,8 +392,8 @@ selector = Resource_Selector()
 project_root_path, cameras_folder_path = selector.get_cameras_root_pathing()
 
 # Get camera/video selections
-camera_select, camera_path = selector.camera(arg_camera_select)
-video_select, video_path = selector.video(camera_select, arg_video_select)
+CAMERA_SELECT, camera_path = selector.camera(arg_camera_select)
+VIDEO_SELECT, video_path = selector.video(CAMERA_SELECT, arg_video_select)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -391,15 +403,16 @@ video_select, video_path = selector.video(camera_select, arg_video_select)
 core_option = "Core"
 stations_option = "Stations"
 externals_option = "Externals"
-type_menu_list = [core_option, stations_option, externals_option]
+category_menu_list = [core_option, stations_option, externals_option]
 
 # Prompt user to select a configuration option
-_, type_name = cli_select_from_list(type_menu_list, "Select configuration type:", clear_text = True)
+s_cancel, s_empty, CATEGORY_SELECT = \
+menu_select_loop_on_error("Select category:", category_menu_list, clear_text = False)
 
 # For convenience/clarity
-selected_core = (type_name == core_option)
-selected_stations = (type_name == stations_option)
-selected_externals = (type_name == externals_option)
+selected_core = (CATEGORY_SELECT == core_option)
+selected_stations = (CATEGORY_SELECT == stations_option)
+selected_externals = (CATEGORY_SELECT == externals_option)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -410,7 +423,7 @@ while selected_core:
 
     # Load data for handling core menu options
     core_util_parent_folder, core_stage_ordering, core_configs_folder_path = \
-    load_core_menu_info(project_root_path, cameras_folder_path, camera_select)
+    load_core_menu_info(project_root_path, cameras_folder_path)
     
     # Select which core stage to re-configure
     s_cancel, s_empty, select_stage_name = \
@@ -441,7 +454,7 @@ while selected_core:
     
     # If we get this far, run whatever config utility was selected
     selected_script_path = os.path.join(core_util_parent_folder, select_stage_name, select_script_name)
-    req_break, return_code = run_config_utility(camera_select, video_select, selected_script_path)  # Blocking
+    req_break, return_code = run_config_utility(selected_script_path)  # Blocking
     if req_break:
         break
     sleep(0.15)
@@ -455,7 +468,7 @@ while selected_stations:
         
     # Load data for handle stations menu option
     stn_util_parent_folder, stn_option_ordering, stn_configs_folder_path = \
-    load_stations_menu_info(project_root_path, cameras_folder_path, camera_select)
+    load_stations_menu_info(project_root_path, cameras_folder_path)
     
     # Select which type of station to re-configure
     s_cancel, s_empty, select_script_name = \
@@ -473,7 +486,7 @@ while selected_stations:
     
     # If we get this far, run whatever config utility was selected
     selected_script_path = os.path.join(stn_util_parent_folder, select_script_name)
-    req_break, return_code = run_config_utility(camera_select, video_select, selected_script_path)  # Blocking
+    req_break, return_code = run_config_utility(selected_script_path)  # Blocking
     if req_break:
         break
     sleep(0.15)
@@ -487,7 +500,7 @@ while selected_externals:
     
     # Load data for handling externals menu option
     ext_util_parent_folder, ext_stage_ordering, ext_configs_folder_path = \
-    load_externals_menu_info(project_root_path, cameras_folder_path, camera_select)
+    load_externals_menu_info(project_root_path, cameras_folder_path)
     
     # Select which external type to re-configure
     s_cancel, s_empty, select_type_name = \
@@ -518,7 +531,7 @@ while selected_externals:
     
     # If we get this far, run whatever config utility was selected
     selected_script_path = os.path.join(ext_util_parent_folder, select_type_name, select_script_name)
-    req_break, return_code = run_config_utility(camera_select, video_select, selected_script_path)  # Blocking
+    req_break, return_code = run_config_utility(selected_script_path)  # Blocking
     if req_break:
         break
     sleep(0.15)
