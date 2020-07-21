@@ -59,6 +59,7 @@ from local.lib.file_access_utils.video import load_rtsp_config, save_rtsp_config
 
 from local.eolib.utils.network import build_rtsp_string, check_connection
 from local.eolib.utils.cli_tools import Color
+from local.eolib.utils.misc import blank_str_to_none, none_to_blank_str
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -105,22 +106,6 @@ def print_rtsp_info(camera_select, rtsp_config_dict):
           "", sep="\n")
     
     return rtsp_string_is_valid
-
-# .....................................................................................................................
-
-def blank_str_to_none(input_value):
-    
-    ''' Helper function which replaces "" values with None '''
-    
-    return None if input_value == "" else input_value
-
-# .....................................................................................................................
-
-def none_to_blank_str(input_value):
-    
-    ''' Helper function which replaces 'None' values with empty strings '''
-    
-    return "" if input_value is None else input_value
 
 # .....................................................................................................................
 

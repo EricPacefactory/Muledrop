@@ -113,7 +113,11 @@ def select_from_list(entry_list,
 
 # .....................................................................................................................
 
-def prompt_with_defaults(prompt_message, default_value = None, return_type = None, quit_on_no_response = False):
+def prompt_with_defaults(prompt_message,
+                         default_value = None,
+                         return_type = None,
+                         dot_response = ".",
+                         quit_on_no_response = False):
     
     ''' Wrapper around cli_confirm(...) function, with basic error handling. Meant for editor menus '''
     
@@ -127,7 +131,8 @@ def prompt_with_defaults(prompt_message, default_value = None, return_type = Non
         try:
             user_response = cli_prompt_with_defaults(prompt_message,
                                                      default_value = default_value,
-                                                     return_type = return_type)
+                                                     return_type = return_type,
+                                                     dot_response = dot_response)
             keep_looping = False
         
         except KeyboardInterrupt:
@@ -139,8 +144,8 @@ def prompt_with_defaults(prompt_message, default_value = None, return_type = Non
     # Quit if needed
     no_response = (user_response is None)
     if no_response and quit_on_no_response:
-        ide_quit()        
-        
+        ide_quit()
+    
     return user_response
 
 # .....................................................................................................................
@@ -208,6 +213,7 @@ def warn_for_name_taken(name_to_check, existing_names_list, quit_if_name_is_take
     '''
     Helper function which checks if a name is already taken and prints a warning if so
     Can optionally quit as well
+    (Note this function will will match against 'hidden' names as well!)
     '''
     
     # Check if the given name is taken and provide feedback if it is (and optionally quit)
@@ -221,6 +227,26 @@ def warn_for_name_taken(name_to_check, existing_names_list, quit_if_name_is_take
             ide_quit()
     
     return name_already_exists
+
+# .....................................................................................................................
+
+def warn_for_reserved_name(name, name_is_reserved, quit_if_name_is_reserved = True):
+    
+    '''
+    Helper function which prints a warning if a name is reserved
+    Can optionally quit as well
+    '''
+    
+    # Only print warning if the name is reserved, otherwise do nothing
+    if name_is_reserved:
+        print("",
+              "Can't use name: {}".format(name),
+              "  Reserved by the system!",
+              sep = "\n")
+        if quit_if_name_is_reserved:
+            ide_quit()
+    
+    return name_is_reserved
 
 # .....................................................................................................................
 
