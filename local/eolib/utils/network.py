@@ -18,8 +18,6 @@ from ipaddress import ip_address as ip_to_obj
 #%% Define classes
 
 
-
-
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define functions
 
@@ -43,6 +41,8 @@ def get_own_ip(default_missing_ip = "192.168.0.0"):
     
 def build_rtsp_string(ip_address, username, password = "", route = "", port = 554,
                       when_ip_is_bad_return = ""):
+    
+    ''' Function which takes in rtsp connection components and builds a full rtsp string (url) '''
     
     # Bail if the ip isn't valid
     valid_ip = check_valid_ip(ip_address, return_error = False)
@@ -69,6 +69,11 @@ def build_rtsp_string(ip_address, username, password = "", route = "", port = 55
 # .....................................................................................................................
     
 def parse_rtsp_string(rtsp_string):
+    
+    '''
+    Function which attempts to break down an rtsp string into component parts. Returns a dictionary
+    Note that this function may be fooled in cases where additional @ or : symbols exist within the username/password
+    '''
     
     # First make sure we got a valid rtsp string!
     search_prefix = "rtsp://"
@@ -105,39 +110,92 @@ def parse_rtsp_string(rtsp_string):
     
 # .....................................................................................................................
     
-def check_valid_ip(ip_address, return_error = True):
+def check_valid_ip(ip_address, localhost_is_valid = True):
     
+    '''
+    Function which tries to check if a provided IP address is valid
+    Inputs:
+        ip_address -> (String) The ip address to check
+    
+        localhost_is_valid -> (Boolean) If true the provided IP address can be the string 'localhost' and
+                              this function will report the address as being valid
+    
+    Outputs:
+        ip_is_valid (Boolean)
+    '''
+    
+    # Special case check for localhost
+    if localhost_is_valid and _ip_is_localhost(ip_address):
+        return True
+    
+    # Try to create an ip address object, which will fail if the ip isn't valid
     try:
-        # Try to create an ip address object, which will fail if the ip isn't valid
         ip_to_obj(ip_address)
         
-    except ValueError as err:
-        if return_error:
-            raise err
+    except ValueError:
         return False
     
     return True
 
 # .....................................................................................................................
+
+def check_connection(ip_address, port = 80, connection_timeout_sec = 3, localhost_is_valid = True):
     
-def check_connection(ip_address, port = 80):
+    '''
+    Function used to check if a connection is valid
+    Works by trying to make a socket connection on a given port
+    
+    Inputs:
+        ip_address -> (String) IP address to attempt a connection with
+        
+        port -> (Integer) Port used for connection attempt
+        
+        connection_timeout_sec -> (integer) Amount of time (in seconds) to wait for a connection attempt
+        
+        localhost_is_valid -> (Boolean) If true and the provided ip address is the string 'localhost', the
+                              function will automatically return true
+    
+    Outputs:
+        connection_success (Boolean)
+    
+    '''
+    
+    # Special case check for localhost
+    if localhost_is_valid and _ip_is_localhost(ip_address):
+        return True
     
     # Intialize output
-    good_connection = False
+    connection_success = False
     
     # Try to connect
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        sock.settimeout(3)
+        sock.settimeout(connection_timeout_sec)
         try:
             sock.connect((ip_address, int(port)))
-            good_connection = True
+            connection_success = True
         except socket.error:
-            good_connection = False
+            connection_success = False
 
-    return good_connection
+    return connection_success
 
 # .....................................................................................................................
 # .....................................................................................................................
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Helper functions
+
+# .....................................................................................................................
+
+def _ip_is_localhost(ip_address):
+    
+    ''' Helper function used to check if hte provided IP is just the localhost string '''
+    
+    return ("localhost" in ip_address)
+
+# .....................................................................................................................
+# .....................................................................................................................
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Scrap
