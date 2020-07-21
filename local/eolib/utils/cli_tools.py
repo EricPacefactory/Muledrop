@@ -1006,6 +1006,7 @@ def cli_prompt_with_defaults(prompt_message,
                              response_on_newline = False,
                              prepend_newline = True,
                              align_default_with_input = True,
+                             dot_response = "",
                              debug_mode = False):
     
     '''
@@ -1024,6 +1025,9 @@ def cli_prompt_with_defaults(prompt_message,
         align_default_with_input -> Boolean. If true, a default indicator will be printed out above the
                                     user input area, such that it can be aligned with the user's input
                                     (may need to add spaces to prompt message to get exact alignment)
+        
+        dot_response -> Anything. Provides special return value when a user enters '.'
+                        This can be used to provide deletion/empty entry ability, even when a default is provided
                                     
         debug_mode -> Boolean. If true, the default value will be entered automatically, with no user input.
         
@@ -1061,23 +1065,30 @@ def cli_prompt_with_defaults(prompt_message,
     # Build full message string
     full_message = "".join([prefix_1, default_msg, prompt_message, suffix_1])
 
-    # Get user input or use default if nothing is provided (or skip prompt and use default in debug mode)
+    # Get user input or skip prompt and use default in debug mode
     user_response = input(full_message).strip() if not debug_mode else default_value
+    
+    # Handle special case of dot response, which overrides other cases
+    user_dot_response = (user_response == ".")
+    if user_dot_response:
+        return dot_response
+    
+    # Handle default selections
     user_selected_default = (user_response == "")
     if user_selected_default:
         user_response = default_value
-        
+    
     # Convert response in function for convenience (if desired!)
     if return_type is not None:
-            user_response = return_type(user_response) if user_response is not None else None
-        
+        user_response = return_type(user_response) if user_response is not None else None
+    
     # Print default response for clarity
     if user_selected_default and (user_response is not None):
         default_selection_str = "--> {}".format(user_response)
         final_shift = max(0, prompt_message.index(":") - len("--> ") + 2)
         shifted_str = " " * final_shift + default_selection_str
         print(Color(shifted_str).cyan.bold.italic)
-        
+    
     return user_response
 
 # .....................................................................................................................
@@ -1148,65 +1159,6 @@ def cli_confirm(confirm_text,
         print(color_wrap(full_str))
     
     return confirm_response
-
-# .....................................................................................................................
-# .....................................................................................................................
-
-
-# ---------------------------------------------------------------------------------------------------------------------
-#%% Helper functions
-
-# .....................................................................................................................
-
-def reorder_list(entry_list, ordered_hints_list, add_nonmatch_to_end = True):
-    
-    '''
-    Function which allows for re-ordering of a list of string based on a list of 'hints'
-    Non-matched entries can be added to the beginning or end of the ordered component of the list
-    Note that ordering by hints uses a 'starts with' check. So hints are intended to be the first few
-    (unique) characters of the desired entry order
-    
-    Inputs:
-        entry_list --> (List) List of entries to be re-ordered. Assumed to be a list of strings
-        
-        ordered_hints_list --> (List) List of 'hints' used to re-order the list of entries. Ordering works
-                             using a 'starts with' check. So the first few (unique) characters of each
-                             target entry should be provided as hints
-        
-        add_nonmatch_to_end --> (Boolean) If true, entries that are not matched to hints will be added
-                                to the end of the output list. Otherwise they will be at the start
-    
-    Outputs:
-        reordered_list
-    
-    Example:
-        reorder_list(["Japan", "Moncton", "Montreal", "Australia", "Ottawa", "Brazil", "Toronto", "Vancouver"],
-                     ["tor", "van", "monc", "ot", "mont"],
-                     True)
-        => ["Toronto", "Vancouver", "Moncton", "Ottawa", "Montreal", "Japan", "Australia", "Brazil"]
-    '''
-    
-    # Try to enfore an ordering of the input list entries
-    reordered_list = []
-    for each_hint in ordered_hints_list:
-        lowered_hint = str(each_hint).lower()
-        for each_entry in entry_list:
-            lowered_entry = str(each_entry).lower()
-            matches_hint = (lowered_entry.startswith(lowered_hint))
-            if matches_hint:
-                reordered_list.append(each_entry)
-                break
-    
-    # Add any entries that didn't match the target ordering to the listing
-    nonmatch_list = []
-    for each_entry in entry_list:
-        if each_entry not in reordered_list:
-            nonmatch_list.append(each_entry)
-    
-    # Figure out ordering of the final output, which contains matches/unmatch entries
-    output_list = (reordered_list + nonmatch_list) if add_nonmatch_to_end else (nonmatch_list + reordered_list)
-    
-    return output_list
 
 # .....................................................................................................................
 # .....................................................................................................................
