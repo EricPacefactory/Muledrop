@@ -642,7 +642,7 @@ def check_valid_rtsp_ip(cameras_folder_path, camera_select):
     # Check for missing rtsp configuration
     rtsp_config_dict, _ = load_rtsp_config(cameras_folder_path, camera_select)
     rtsp_ip_address = rtsp_config_dict.get("ip_address", "")
-    has_valid_rtsp = check_valid_ip(rtsp_ip_address, return_error = False)
+    has_valid_rtsp = check_valid_ip(rtsp_ip_address)
     
     return has_valid_rtsp
 

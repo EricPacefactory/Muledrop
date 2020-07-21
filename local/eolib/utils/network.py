@@ -45,7 +45,7 @@ def build_rtsp_string(ip_address, username, password = "", route = "", port = 55
     ''' Function which takes in rtsp connection components and builds a full rtsp string (url) '''
     
     # Bail if the ip isn't valid
-    valid_ip = check_valid_ip(ip_address, return_error = False)
+    valid_ip = check_valid_ip(ip_address, localhost_is_valid = False)
     if not valid_ip:
         return when_ip_is_bad_return
     
@@ -93,7 +93,9 @@ def parse_rtsp_string(rtsp_string):
     # Get ip, port and route
     ip_port, *route = ip_port_route.split("/") if "/" in ip_port_route else (ip_port_route, "")
     ip_address, port = ip_port.split(":") if ":" in ip_port else (ip_port, 554)
-    check_valid_ip(ip_address)
+    ip_is_valid = check_valid_ip(ip_address, localhost_is_valid = False)
+    if not ip_is_valid:
+        raise NameError("IP is not valid! ({})".format(ip_address))
     
     # Clean up the port/route values
     port = int(port)
