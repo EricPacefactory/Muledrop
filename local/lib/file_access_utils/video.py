@@ -559,13 +559,6 @@ def create_new_rtsp_config(ip_address, username, password, port = 554, route = "
     if len(route) > 0:
         if route[0] == "/":
             route = route[1:]
-    
-    # Clear any string entries that contain only '.'
-    clear_from_single_dot = lambda in_str: "" if (in_str.strip() == ".") else in_str
-    ip_address = clear_from_single_dot(ip_address)
-    username = clear_from_single_dot(username)
-    password = clear_from_single_dot(password)
-    route = clear_from_single_dot(route)
         
     return {"ip_address": ip_address,
             "username": username,

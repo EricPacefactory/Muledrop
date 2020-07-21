@@ -147,10 +147,10 @@ def prompt_to_enter_rtsp_components(camera_select, current_rtsp_dict):
           "", sep = "\n")
     
     # Ask user for each rtsp component
-    ui_ip_address = prompt_with_defaults("Enter ip address: ", default_ip_address, quit_on_no_response = False)
-    ui_username =   prompt_with_defaults("  Enter username: ", default_username, quit_on_no_response = False)
-    ui_password =   prompt_with_defaults("  Enter password: ", default_password, quit_on_no_response = False)
-    ui_route =      prompt_with_defaults("     Enter route: ", default_route, quit_on_no_response = False)
+    ui_ip_address = prompt_with_defaults("Enter ip address: ", default_ip_address, dot_response = "")
+    ui_username =   prompt_with_defaults("  Enter username: ", default_username, dot_response = "")
+    ui_password =   prompt_with_defaults("  Enter password: ", default_password, dot_response = "")
+    ui_route =      prompt_with_defaults("     Enter route: ", default_route, dot_response = "")
     
     # Clean up inputs (replace None with empty strings)
     new_ip_address = none_to_blank_str(ui_ip_address)
