@@ -78,8 +78,11 @@ class Custom_Stats_Display(Stats_Display):
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Main
 
+# For clarity
+target_script_name = "averaging_backgroundcapture"
+
 # Make all required selections
-loader = Reconfigurable_Background_Capture_Loader("averaging_backgroundcapture")
+loader = Reconfigurable_Background_Capture_Loader(target_script_name)
 arg_selections = loader.parse_standard_args()
 loader.selections(*arg_selections)
 

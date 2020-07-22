@@ -63,8 +63,11 @@ from local.configurables.externals.snapshot_capture._helper_functions import Sna
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Main
 
+# For clarity
+target_script_name = "passthrough_snapcapture"
+
 # Make all required selections
-loader = Reconfigurable_Snapshot_Capture_Loader("passthrough_snapcapture")
+loader = Reconfigurable_Snapshot_Capture_Loader(target_script_name)
 arg_selections = loader.parse_standard_args()
 loader.selections(*arg_selections)
 

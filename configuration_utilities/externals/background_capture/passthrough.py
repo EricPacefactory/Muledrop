@@ -62,8 +62,11 @@ from local.lib.ui_utils.display_specification import Input_Display, Background_D
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Main
 
+# For clarity
+target_script_name = "passthrough_backgroundcapture"
+
 # Make all required selections
-loader = Reconfigurable_Background_Capture_Loader("passthrough_backgroundcapture")
+loader = Reconfigurable_Background_Capture_Loader(target_script_name)
 arg_selections = loader.parse_standard_args()
 loader.selections(*arg_selections)
 

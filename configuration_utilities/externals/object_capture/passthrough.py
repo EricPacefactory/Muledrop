@@ -63,8 +63,11 @@ from local.configurables.externals.object_capture._helper_functions import Dying
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Main
 
+# For clarity
+target_script_name = "passthrough_objectcapture"
+
 # Make all required selections
-loader = Reconfigurable_Object_Capture_Loader("passthrough_objectcapture")
+loader = Reconfigurable_Object_Capture_Loader(target_script_name)
 arg_selections = loader.parse_standard_args()
 loader.selections(*arg_selections)
 
