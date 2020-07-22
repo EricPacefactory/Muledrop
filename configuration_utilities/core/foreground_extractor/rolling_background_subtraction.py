@@ -97,8 +97,13 @@ class Rolling_BG_Display(Display_Window_Specification):
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Main
 
+# For clarity
+target_core_stage_name = "foreground_extractor"
+target_script_name = "rolling_bgs_fgextractor"
+target_class_name = "FG_Extractor_Stage"
+
 # Make all required selections
-loader = Reconfigurable_Core_Stage_Loader("foreground_extractor", "rolling_bgs_fgextractor", "FG_Extractor_Stage")
+loader = Reconfigurable_Core_Stage_Loader(target_core_stage_name, target_script_name, target_class_name)
 arg_selections = loader.parse_standard_args()
 loader.selections(*arg_selections)
 

@@ -63,8 +63,13 @@ from local.configurables.core.foreground_extractor._helper_functions import Outl
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Main
 
+# For clarity
+target_core_stage_name = "foreground_extractor"
+target_script_name = "bgs_fgextractor"
+target_class_name = "FG_Extractor_Stage"
+
 # Make all required selections
-loader = Reconfigurable_Core_Stage_Loader("foreground_extractor", "bgs_fgextractor", "FG_Extractor_Stage")
+loader = Reconfigurable_Core_Stage_Loader(target_core_stage_name, target_script_name, target_class_name)
 arg_selections = loader.parse_standard_args()
 loader.selections(*arg_selections)
 

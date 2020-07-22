@@ -72,6 +72,7 @@ class Color_Map(Display_Window_Specification):
         
         raise NotImplementedError("Need to make rgb bar color space display!")
 
+
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define functions
 
@@ -79,8 +80,13 @@ class Color_Map(Display_Window_Specification):
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Main
 
+# For clarity
+target_core_stage_name = "pixel_filter"
+target_script_name = "rgb_pixelfilter"
+target_class_name = "Pixel_Filter_Stage"
+
 # Make all required selections
-loader = Reconfigurable_Core_Stage_Loader("pixel_filter", "rgb_pixelfilter", "Pixel_Filter_Stage")
+loader = Reconfigurable_Core_Stage_Loader(target_core_stage_name, target_script_name, target_class_name)
 arg_selections = loader.parse_standard_args()
 loader.selections(*arg_selections)
 

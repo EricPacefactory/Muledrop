@@ -114,8 +114,13 @@ class Custom_Detections_Display(Display_Window_Specification):
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Main
 
+# For clarity
+target_core_stage_name = "detector"
+target_script_name = "blob_wh_detector"
+target_class_name = "Detector_Stage"
+
 # Make all required selections
-loader = Reconfigurable_Core_Stage_Loader("detector", "blob_wh_detector", "Detector_Stage")
+loader = Reconfigurable_Core_Stage_Loader(target_core_stage_name, target_script_name, target_class_name)
 arg_selections = loader.parse_standard_args()
 loader.selections(*arg_selections)
 
