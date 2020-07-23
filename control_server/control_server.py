@@ -103,7 +103,6 @@ def parse_control_args(debug_print = False):
     
     # Set script arguments for running files
     args_list = [{"location": {"default": default_location}},
-                 "display",
                  "debug",
                  {"protocol": {"default": default_protocol, "help_text": protocol_help_text}},
                  {"host": {"default": default_host, "help_text": host_help_text}},
@@ -377,20 +376,19 @@ def new_camera_configs(unzip_folder_path):
 
 # .....................................................................................................................
 
-def launch_rtsp_collect(camera_select, enable_display = False):    
+def launch_rtsp_collect(camera_select):
     
     # Get the python interpreter used to launch this server, which we'll use to run the scripts
     python_interpretter = sys.executable
     
     # Build script arguments
-    display_arg = ["-d"] if enable_display else []
     location_arg = ["-l", LOCATION_SELECT]
     camera_arg = ["-c", camera_select]
     
     # Build pathing to the launch script
     launch_script_name = "run_rtsp_collect.py"
     launch_script_path = os.path.join(PROJECT_ROOT_PATH, launch_script_name)
-    launch_args = [python_interpretter, "-u", launch_script_path] + location_arg + camera_arg + display_arg
+    launch_args = [python_interpretter, "-u", launch_script_path] + location_arg + camera_arg
     
     # Build pathing to store stdout/stderr logs
     camera_stdout_log = build_stdout_log_file_path(LOCATION_SELECT_FOLDER_PATH, camera_select)
@@ -458,16 +456,13 @@ ap_result = parse_control_args()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Set up globals
 
-# Toggle collection displays on/off from script args
-ENABLE_DISPLAY = ap_result.get("display")
-
-# Set location selection from script args, which determines 'set of cameras' to run from server
-LOCATION_SELECT = ap_result.get("location")
+# Get location selection through script arguments, in case it's being overriden
+arg_location_select = ap_result.get("location")
 
 # Create selector so we can access existing report data
 SELECTOR = Resource_Selector()
 PROJECT_ROOT_PATH = SELECTOR.get_project_root_pathing()
-LOCATION_SELECT_FOLDER_PATH = SELECTOR.get_location_select_folder_path(LOCATION_SELECT)
+LOCATION_SELECT, LOCATION_SELECT_FOLDER_PATH = SELECTOR.location(arg_location_select)
 
 # Allocate storage for keeping track of subprocess calls
 PROCESS_REF_DICT = {}
@@ -533,7 +528,7 @@ def status_cameras_route():
 @wsgi_app.route("/control/restart/<string:camera_select>")
 def control_restart_camera_route(camera_select):
     
-    launch_rtsp_collect(camera_select, enable_display = ENABLE_DISPLAY)
+    launch_rtsp_collect(camera_select)
     sleep(2.5)
     
     return redirect("/status")

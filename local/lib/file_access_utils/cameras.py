@@ -126,15 +126,6 @@ def build_camera_list(location_select_folder_path, show_hidden_cameras = False, 
         # Overwrite existing outputs
         camera_name_list = filtered_name_list
         camera_path_list = filtered_path_list
-        
-        # Warning if no cameras are left after rtsp-filter
-        no_rtsp_cameras = (len(camera_name_list) == 0)
-        if no_rtsp_cameras:
-            err_msg_str_list = ["No RTSP configuration found for any cameras!",
-                                "@ {}".format(location_select_folder_path),
-                                "",
-                                "Use RTSP editor to configure cameras"]
-            raise AttributeError("\n".join(err_msg_str_list))
     
     return camera_name_list, camera_path_list
 
