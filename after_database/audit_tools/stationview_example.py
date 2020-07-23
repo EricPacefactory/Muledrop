@@ -288,6 +288,32 @@ def create_combined_station_bars_image(station_name_order_list, stations_images_
     return combined_station_bars, combined_bar_height
 
 # .....................................................................................................................
+
+def get_corrected_time_range(snapshot_db, station_db, user_start_dt, user_end_dt):
+    
+    # Get the range of times from each db based on user input
+    snap_times_ms_list = snap_db.get_all_snapshot_times_by_time_range(user_start_dt, user_end_dt)
+    stn_start_times_ms_list = stn_db.get_all_station_start_times_by_time_range(user_start_dt, user_end_dt)
+    
+    # Figure out bounding snap & station metadata (based on user time range)
+    start_snap_md = snap_db.load_snapshot_metadata_by_ems(snap_times_ms_list[0])
+    end_snap_md = snap_db.load_snapshot_metadata_by_ems(snap_times_ms_list[-1])
+    start_stn_md = stn_db.load_metadata_by_ems(stn_start_times_ms_list[0])
+    end_stn_md = stn_db.load_metadata_by_ems(stn_start_times_ms_list[-1])
+    
+    # Figure out bounding times
+    start_snap_time_ms = start_snap_md["epoch_ms"]
+    end_snap_time_ms = end_snap_md["epoch_ms"]
+    start_stn_time_ms = start_stn_md["first_epoch_ms"]
+    end_stn_time_ms = end_stn_md["final_epoch_ms"]
+    
+    # Get the 'minimal' bounding times
+    shared_start_time_ms = max(start_snap_time_ms, start_stn_time_ms)
+    shared_end_time_ms = min(end_snap_time_ms, end_stn_time_ms)
+    
+    return shared_start_time_ms, shared_end_time_ms
+
+# .....................................................................................................................
 # .....................................................................................................................
 
 
@@ -423,17 +449,17 @@ enable_debug_mode = False
 
 # Create selector so we can access existing report data
 selector = Resource_Selector()
-project_root_path, cameras_folder_path = selector.get_cameras_root_pathing()
 
-# Select the camera to show data for (needs to have saved report data already!)
-camera_select, camera_path = selector.camera(debug_mode = enable_debug_mode)
+# Select data to run
+location_select, location_select_folder_path = selector.location(debug_mode = enable_debug_mode)
+camera_select, _ = selector.camera(location_select, debug_mode = enable_debug_mode)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Catalog existing data
 
 # Load standard datasets
-caminfo_db, cfginfo_db, snap_db, stn_db = launch_dbs(cameras_folder_path, camera_select,
+caminfo_db, cfginfo_db, snap_db, stn_db = launch_dbs(location_select_folder_path, camera_select,
                                                      "camera_info", "config_info", "snapshots", "stations")
 
 # Catch missing data
@@ -468,14 +494,17 @@ user_start_dt, user_end_dt = DTIP.cli_prompt_start_end_datetimes(earliest_dateti
 # Provide feedback about the selected time range
 DTIP.print_start_end_time_range(user_start_dt, user_end_dt)
 
+# Get corrected times, based on whether we have enough snapshot/station data
+shared_start_time_ms, shared_end_time_ms = get_corrected_time_range(snap_db, stn_db, user_start_dt, user_end_dt)
+
 # Get all the snapshot times we'll need for animation
-snap_times_ms_list = snap_db.get_all_snapshot_times_by_time_range(user_start_dt, user_end_dt)
+snap_times_ms_list = snap_db.get_all_snapshot_times_by_time_range(shared_start_time_ms, shared_end_time_ms)
 num_snaps = len(snap_times_ms_list)
 
 # Get playback timing information
 start_snap_time_ms = snap_times_ms_list[0]
 end_snap_time_ms = snap_times_ms_list[-1]
-total_ms_duration = end_snap_time_ms - start_snap_time_ms
+total_duration_ms = end_snap_time_ms - start_snap_time_ms
 
 # Get frame index bounds
 first_snap_md = snap_db.load_snapshot_metadata_by_ems(start_snap_time_ms)
@@ -667,7 +696,7 @@ while True:
     
     # Draw the timebar image with playback indicator
     playback_px = get_playback_pixel_location(start_snap_time_ms, end_snap_time_ms, current_snap_time_ms,
-                                              snap_width, total_time = total_ms_duration)
+                                              snap_width, total_time = total_duration_ms)
     play_pt1, play_pt2 = get_playback_line_coords(playback_px, combined_bar_height)
     stations_image = stations_base.copy()
     stations_image = cv2.line(stations_image, play_pt1, play_pt2, (255, 255, 255), 1)

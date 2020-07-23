@@ -76,8 +76,9 @@ from local.lib.file_access_utils.reporting import build_background_image_report_
 
 from local.lib.file_access_utils.metadata_read_write import load_metadata
 
-from local.eolib.utils.files import get_file_list, split_to_sublists
+from local.eolib.utils.files import get_file_list
 from local.eolib.utils.logging import Daily_Logger
+from local.eolib.utils.misc import split_to_sublists
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -102,7 +103,7 @@ def parse_post_args(debug_print = False):
     default_url = "{}://{}:{}".format(default_dbserver_protocol, default_dbserver_host, default_dbserver_port)
     
     # Set script arguments for posting camera data (manually)
-    args_list = ["camera",
+    args_list = ["location", "camera",
                  {"url": {"default": default_url,
                           "help_text": "Specify the url of the upload server\n(Default: {})".format(default_url)}}]
     
@@ -907,26 +908,33 @@ if __name__ == "__main__":
     
     # Grab script arguments, only when running manually
     script_args = parse_post_args()
+    arg_location_select = script_args["location"]
     arg_camera_select = script_args["camera"]
     arg_server_url = script_args["url"]
     
     # Create selector so we can access existing report data
     selector = Resource_Selector()
-    project_root_path, cameras_folder_path = selector.get_cameras_root_pathing()
+    project_root_path = selector.get_project_root_pathing()
+    
+    # Prompt to select a location, if it wasn't already selected through script arguments
+    location_select = arg_location_select
+    if location_select is None:
+        location_select, _ = selector.location()
+    location_select_folder_path = selector.get_location_select_folder_path(location_select)
     
     # Prompt to select a camera, if it wasn't already selected through script arguments
     camera_select = arg_camera_select
     if camera_select is None:
-        camera_select, camera_path = selector.camera()
+        camera_select, camera_path = selector.camera(location_select)
     
     # Some feedback when running manually
-    print("", "Manually posting data for {}...".format(camera_select), sep = "\n")
+    print("", "Manually posting data for {} @ {}".format(camera_select, location_select), sep = "\n")
     
     # Only post once when running directly from this script!
-    response_list = single_post(arg_server_url, cameras_folder_path, camera_select)
+    response_list = single_post(arg_server_url, location_select_folder_path, camera_select)
     
     # Pretend we're logging so we can make use of the same functionality
-    logger = create_logger(cameras_folder_path, camera_select, enabled = False)
+    logger = create_logger(location_select_folder_path, camera_select, enabled = False)
     logger.log_list(response_list, prepend_empty_line = True)
 
 

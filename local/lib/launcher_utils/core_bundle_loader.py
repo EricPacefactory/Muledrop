@@ -433,8 +433,9 @@ if __name__ == "__main__":
     # Make selections for testing core bundle setup
     from local.lib.ui_utils.cli_selections import Resource_Selector
     selector = Resource_Selector(save_selection_history = False, create_folder_structure_on_select = False)
-    camera_select, camera_path = selector.camera()
-    video_select, _ = selector.video(camera_select)
+    location_select, _ = selector.location()
+    camera_select, camera_path = selector.camera(location_select)
+    video_select, _ = selector.video(location_select, camera_select)
     project_root_path, cameras_folder_path = selector.get_cameras_root_pathing()
     fake_video_wh = (100,100)
     

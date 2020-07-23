@@ -56,7 +56,7 @@ from local.lib.ui_utils.editor_lib import warn_for_name_taken, rename_from_path
 from local.lib.ui_utils.editor_lib import select_from_list, prompt_with_defaults, confirm, quit_if_none
 
 from local.lib.file_access_utils.shared import list_default_config_options, url_safe_name
-from local.lib.file_access_utils.structures import build_camera_list, create_camera_folder_structure
+from local.lib.file_access_utils.cameras import create_camera_folder_structure, build_camera_list
 
 from local.eolib.utils.files import replace_user_home_pathing
 
@@ -97,12 +97,9 @@ selector = Resource_Selector(load_selection_history = False,
                              show_hidden_resources = True,
                              create_folder_structure_on_select = True)
 
-project_root_path, cameras_folder_path = selector.get_cameras_root_pathing()
-
-# Get this script name for display
-this_script_path = os.path.abspath(__file__)
-this_script_name = os.path.basename(this_script_path)
-this_file_name, _ = os.path.splitext(this_script_name)
+# Get important pathing & select location
+project_root_path, all_locations_folder_path = selector.get_shared_pathing()
+location_select, location_select_folder_path = selector.location()
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -110,16 +107,16 @@ this_file_name, _ = os.path.splitext(this_script_name)
 
 # Prompt for options
 new_option = "New"
-update_option = "Rename"
+rename_option = "Rename"
 delete_option = "Delete"
-options_menu_list = [new_option, update_option, delete_option]
+options_menu_list = [new_option, rename_option, delete_option]
 select_idx, select_entry = select_from_list(options_menu_list,
-                                            prompt_heading = "Select an option ({})".format(this_file_name),
+                                            prompt_heading = "Select an option (cameras)",
                                             default_selection = None)
 
 # For convenience/clarity
 selected_new = (select_entry == new_option)
-selected_update = (select_entry == update_option)
+selected_rename = (select_entry == rename_option)
 selected_delete = (select_entry == delete_option)
 
 
@@ -131,60 +128,64 @@ if selected_new:
     # Ask user for new camera name
     user_response = prompt_with_defaults("Enter new camera name: ", default_value = None, return_type = str)
     quit_if_none(user_response, "No camera name provided!")
-    cleaned_camera_name = url_safe_name(user_response)
+    safe_camera_name = url_safe_name(user_response)
     
     # Make sure the given name isn't already taken
-    camera_name_list, _ = build_camera_list(cameras_folder_path, show_hidden_cameras = True, must_have_rtsp = False)
-    warn_for_name_taken(cleaned_camera_name, camera_name_list, quit_if_name_is_taken = True)
+    camera_name_list, _ = build_camera_list(all_locations_folder_path, 
+                                            show_hidden_cameras = True, 
+                                            must_have_rtsp = False)
+    warn_for_name_taken(safe_camera_name, camera_name_list, quit_if_name_is_taken = True)
     
     # Prompt for default configuration to use as starting point for the new camera
     default_folder_select, nice_default_select = prompt_for_default_configuration(project_root_path)
     
     # Create the new camera entry
     create_camera_folder_structure(project_root_path,
-                                   cameras_folder_path,
-                                   cleaned_camera_name,
+                                   location_select_folder_path,
+                                   safe_camera_name,
                                    default_folder_select)
     
     # Provide some feedback
     print("",
-          "Done! New camera added ({})".format(cleaned_camera_name),
+          "Done! New camera added ({})".format(safe_camera_name),
           "  -> Using {} configuration".format(nice_default_select),
           "",
           "Don't forget to add videos & rtsp info using the other editor tools!",
           sep = "\n")
     
     # Save new camera as default selection for convenience
-    selector.save_camera_select(cleaned_camera_name)
+    selector.save_camera_select(safe_camera_name)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-#%% Handle 'Update' selection
+#%% Handle 'Rename' selection
 
-if selected_update:
+if selected_rename:
     
     # First ask user to select an existing camera to rename
-    camera_select, camera_path = selector.camera()
+    camera_select, camera_path = selector.camera(location_select)
     
     # Then ask user to enter a new camera name
     new_camera_name = prompt_with_defaults("Enter new camera name: ", default_value = camera_select, return_type = str)
     
     # Make sure the given name isn't already taken
-    cleaned_new_camera_name = url_safe_name(new_camera_name)
-    camera_name_list, _ = build_camera_list(cameras_folder_path, show_hidden_cameras = True, must_have_rtsp = False)
-    warn_for_name_taken(cleaned_new_camera_name, camera_name_list, quit_if_name_is_taken = True)
+    safe_new_camera_name = url_safe_name(new_camera_name)
+    camera_name_list, _ = build_camera_list(location_select_folder_path,
+                                            show_hidden_cameras = True,
+                                            must_have_rtsp = False)
+    warn_for_name_taken(safe_new_camera_name, camera_name_list, quit_if_name_is_taken = True)
     
     # Rename the camera folder
-    rename_from_path(camera_path, cleaned_new_camera_name)
+    rename_from_path(camera_path, safe_new_camera_name)
     
     # We're done! Provide some feedback
     print("",
           "Done! Camera renamed:",
-          "  {}  ->  {}".format(camera_select, cleaned_new_camera_name),
+          "  {}  ->  {}".format(camera_select, safe_new_camera_name),
           sep = "\n")
     
     # Save renamed camera as default selection for convenience
-    selector.save_camera_select(cleaned_new_camera_name)
+    selector.save_camera_select(safe_new_camera_name)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -193,7 +194,7 @@ if selected_update:
 if selected_delete:
     
     # First ask user to select an existing camera to delete
-    camera_select, camera_path = selector.camera()
+    camera_select, camera_path = selector.camera(location_select)
     
     # Confirm with user that they want to delete the selected camera
     user_confirm = confirm("Are you sure you want to delete {}?".format(camera_select), default_response = False)

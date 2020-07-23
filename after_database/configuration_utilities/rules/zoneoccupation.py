@@ -309,16 +309,17 @@ enable_debug_mode = False
 
 # Create selector so we can access existing report data
 selector = Resource_Selector()
-project_root_path, cameras_folder_path = selector.get_cameras_root_pathing()
+project_root_path = selector.get_project_root_pathing()
 
-# Select the camera to show data for (needs to have saved report data already!)
-camera_select, camera_path = selector.camera(debug_mode=enable_debug_mode)
+# Select data to run
+location_select, location_select_folder_path = selector.location(debug_mode = enable_debug_mode)
+camera_select, camera_path = selector.camera(location_select, debug_mode = enable_debug_mode)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Catalog existing data
 
-caminfo_db, snap_db, obj_db, class_db = launch_dbs(cameras_folder_path, camera_select,
+caminfo_db, snap_db, obj_db, class_db = launch_dbs(location_select_folder_path, camera_select,
                                                    "camera_info", "snapshots", "objects", "classifications")
 
 # Catch missing data
@@ -357,7 +358,7 @@ frame_scaling = np.float32((frame_width - 1, frame_height - 1))
 #%% Select rule to load
 
 # Load configurable class for this config utility
-rule_ref = Zoneoccupation_Rule(cameras_folder_path, camera_select, frame_wh)
+rule_ref = Zoneoccupation_Rule(location_select_folder_path, camera_select, frame_wh)
 
 # Ask user to load an existing rule config, or create a new one & configure the rule accordingly
 load_from_existing_config, loaded_rule_name, initial_setup_data_dict = select_rule_to_load(rule_ref)

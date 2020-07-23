@@ -49,9 +49,11 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
-from local.lib.file_access_utils.shared import find_root_path, find_cameras_folder
-from local.lib.file_access_utils.structures import build_cameras_tree, build_camera_list
+from local.lib.file_access_utils.shared import find_root_path, find_locations_folder, build_location_path
 from local.lib.file_access_utils.settings import load_history, save_history
+from local.lib.file_access_utils.locations import build_location_list, load_location_info_dict
+from local.lib.file_access_utils.cameras import create_camera_folder_structure, build_camera_list
+from local.lib.file_access_utils.cameras import check_for_existing_camera_name
 from local.lib.file_access_utils.video import get_video_names_and_paths_lists
 from local.lib.file_access_utils.stations import get_target_station_names_and_paths_lists
 
@@ -73,7 +75,7 @@ class Resource_Selector:
         
         # Store important pathing info
         self.project_root_path = find_root_path()
-        self.cameras_folder_path = find_cameras_folder()
+        self.all_locations_folder_path = find_locations_folder(self.project_root_path)
         
         # Load selection defaults
         self.selection_history = load_history(self.project_root_path, enable = load_selection_history)
@@ -81,7 +83,13 @@ class Resource_Selector:
         
         # Store access settings
         self._show_hidden_resources = show_hidden_resources
-        self._need_to_create_folder_structure = create_folder_structure_on_select
+        
+        # Allocate storage for major selections
+        self.location_select_folder_path = None
+        self.location_select = None
+        self.camera_select = None
+        self.video_select = None
+        self.station_select = None
     
     # .................................................................................................................
     
@@ -89,13 +97,14 @@ class Resource_Selector:
         
         # Build repr output strings
         repr_strs = ["Resource selector",
-                     "    Project root path: {}".format(self.project_root_path),
-                     "  Cameras folder path: {}".format(self.cameras_folder_path)]
+                     "   Project root path: {}".format(self.project_root_path),
+                     "  All locations path: {}".format(self.all_locations_folder_path),
+                     "     Location select: {}".format(self.location_select),
+                     "       Camera select: {}".format(self.camera_select)]
         
         # Add 'notes' depending on what features are active
-        if self._need_to_save_selection_history: repr_strs += ["  *** Selection history saving is active"]        
-        if self._show_hidden_resources: repr_strs += ["  *** Showing hidden resources"]        
-        if self._need_to_create_folder_structure: repr_strs += ["  *** Creating folder structures on selection"]
+        if self._need_to_save_selection_history: repr_strs += ["  *** Selection history saving is active"]
+        if self._show_hidden_resources: repr_strs += ["  *** Showing hidden resources"]
         
         return "\n".join(repr_strs)
     
@@ -103,41 +112,96 @@ class Resource_Selector:
     
     def get_project_root_pathing(self):
         return self.project_root_path
-        
+    
     # .................................................................................................................
-        
+    
+    def get_all_locations_folder_pathing(self):
+        return self.all_locations_folder_path
+    
+    # .................................................................................................................
+    
+    def get_shared_pathing(self):
+        ''' Returns (project_root_path, all_locations_folder_path) '''
+        return self.project_root_path, self.all_locations_folder_path
+    
+    # .................................................................................................................
+    
     def get_cameras_root_pathing(self):        
-        return self.project_root_path, self.cameras_folder_path
+        ''' Returns (project_root_path, location_select_folder_path) '''
+        
+        print("DEBUG: SHOULD DELETE")
+        
+        return self.project_root_path, self.get_location_select_folder_path()
     
     # .................................................................................................................
     
-    def get_cameras_tree(self):
-        return build_cameras_tree(self.cameras_folder_path,
-                                  show_hidden = self._show_hidden_resources)
+    def get_location_select_folder_path(self, location_select = None):
+        
+        ''' Helper function used to construct the pathing to the cameras for the selected location '''
+        
+        # Return the current location select pathing if a new selection isn't provided
+        if location_select is None:
+            return self.location_select_folder_path
+        
+        return build_location_path(self.all_locations_folder_path, location_select)
     
     # .................................................................................................................
     
-    def get_camera_names_and_paths_lists(self, must_have_rtsp = False):
+    def create_empty_camera_folder(self, location_select, camera_select, only_create_if_missing = True):
         
-        ''' Helper function which returns lists of camera names as well as a list of full paths '''
+        # For clarity
+        project_root_path = self.project_root_path
+        location_select_folder_path = self.get_location_select_folder_path(location_select)
         
-        show_hidden_cameras = self._show_hidden_resources
-        camera_names_list, camera_paths_list = build_camera_list(self.cameras_folder_path, 
-                                                                 show_hidden_cameras,
-                                                                 must_have_rtsp)
+        # Check if the target camera already exists
+        camera_already_exists = check_for_existing_camera_name(location_select_folder_path, camera_select)
+        if only_create_if_missing and camera_already_exists:
+            return
         
-        return camera_names_list, camera_paths_list
+        # Create the folder structure if it's missing and/or we're set to always create it
+        create_camera_folder_structure(project_root_path, location_select_folder_path, camera_select)
+        
+        return
+    
+    # .................................................................................................................
+    
+    @keyboard_quit
+    def location(self, location_select = None, debug_mode = False):
+        
+        # Get list of available location names and corresponding paths
+        location_names_list, location_paths_list = build_location_list(self.all_locations_folder_path,
+                                                                       self._show_hidden_resources)
+        
+        # Select from the location names
+        location_select, path_select = self._make_selection("location", location_select,
+                                                            (location_names_list, location_paths_list),
+                                                            debug_mode = debug_mode)
+        
+        # Save the selected location pathing, since it may be requested
+        self.location_select_folder_path = path_select
+        self.location_select = location_select
+        
+        return location_select, path_select
     
     # .................................................................................................................
     
     @clean_error_quit
     @keyboard_quit
-    def camera(self, camera_select = None, must_have_rtsp = False, debug_mode = False):
+    def camera(self, location_select, camera_select = None, must_have_rtsp = False, debug_mode = False):
         
-        # Get list of available selection options and then (try to) select one
-        camera_names_and_paths_lists = self.get_camera_names_and_paths_lists(must_have_rtsp)
-        camera_select, path_select = self._make_selection("camera", camera_select, camera_names_and_paths_lists,
+        # Get list of available camera names & corresponding paths
+        location_select_folder_path = self.get_location_select_folder_path(location_select)
+        camera_names_list, camera_paths_list = build_camera_list(location_select_folder_path, 
+                                                                 self._show_hidden_resources,
+                                                                 must_have_rtsp)
+        
+        # Select from the camera names
+        camera_select, path_select = self._make_selection("camera", camera_select, 
+                                                          (camera_names_list, camera_paths_list),
                                                           debug_mode = debug_mode)
+        
+        # Save selected camera
+        self.camera_select = camera_select
         
         return camera_select, path_select
     
@@ -145,16 +209,22 @@ class Resource_Selector:
     
     @clean_error_quit
     @keyboard_quit
-    def video(self, camera_select, video_select = None, debug_mode = False):
+    def video(self, location_select, camera_select, video_select = None, debug_mode = False):
         
-        # Get list of available selection options and then (try to) select one
-        video_name_path_lists = get_video_names_and_paths_lists(self.cameras_folder_path, 
-                                                                camera_select,
-                                                                error_if_no_videos = True)
+        # Get list of available video names & corresponding paths
+        location_select_folder_path = self.get_location_select_folder_path(location_select)
+        video_names_list, video_paths_list = get_video_names_and_paths_lists(location_select_folder_path, 
+                                                                             camera_select,
+                                                                             error_if_no_videos = True)
         
-        video_select, path_select = self._make_selection("video", video_select, video_name_path_lists,
+        # Select from the video names
+        video_select, path_select = self._make_selection("video", video_select, 
+                                                         (video_names_list, video_paths_list),
                                                          zero_indexed = False,
                                                          debug_mode = debug_mode)
+        
+        # Save selected video
+        self.video_select = video_select
         
         return video_select, path_select
     
@@ -162,10 +232,11 @@ class Resource_Selector:
     
     @clean_error_quit
     @keyboard_quit
-    def station(self, camera_select, station_script_name, station_select = None, debug_mode = False):
+    def station(self, location_select, camera_select, station_script_name, station_select = None, debug_mode = False):
         
         # Get list of existing stations to select
-        station_names_list, station_paths_list = get_target_station_names_and_paths_lists(self.cameras_folder_path,
+        location_select_folder_path = self.get_location_select_folder_path(location_select)
+        station_names_list, station_paths_list = get_target_station_names_and_paths_lists(location_select_folder_path,
                                                                                           camera_select,
                                                                                           station_script_name)
         
@@ -186,7 +257,21 @@ class Resource_Selector:
         if selected_create_new:
             station_select = None
         
+        # Save selected station
+        self.station_select = station_select
+        
         return station_select, path_select
+    
+    # .................................................................................................................
+    
+    def save_location_select(self, location_select):
+        
+        ''' Convenience function used to forcefully save a new location select entry '''
+        
+        self.selection_history["location_select"] = location_select
+        save_history(self.project_root_path, self.selection_history, enable = True)
+        
+        return
     
     # .................................................................................................................
     
@@ -240,7 +325,7 @@ class Resource_Selector:
         if need_to_prompt:
             _, entry_select = cli_select_from_list(entry_name_list, 
                                                    prompt_heading = "Select a {}:".format(entry_type), 
-                                                   default_selection = self.selection_history[select_type],
+                                                   default_selection = self.selection_history.get(select_type),
                                                    zero_indexed = zero_indexed,
                                                    debug_mode = debug_mode)
             
@@ -288,13 +373,64 @@ class Resource_Selector:
 # /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     
 # ---------------------------------------------------------------------------------------------------------------------
-#%% Define functions
+#%% Define tree functions
 
 # .....................................................................................................................
 
+def build_locations_tree(all_locations_folder_path, show_hidden = False):
+    
+    # Get list of all locations
+    location_names_list, location_paths_list = build_location_list(all_locations_folder_path, show_hidden)
+    
+    # Build up a tree structure to store all location & camera data
+    locations_tree = {}
+    for each_location_name, each_location_path in zip(location_names_list, location_paths_list):
+        
+        location_select_folder_path = build_location_path(all_locations_folder_path, each_location_name)
+        locations_tree[each_location_name] = {"cameras": {}, "info": {}}
+        locations_tree[each_location_name]["cameras"] = build_cameras_tree(location_select_folder_path, show_hidden)
+        locations_tree[each_location_name]["info"] = load_location_info_dict(all_locations_folder_path,
+                                                                             each_location_name,
+                                                                             error_if_missing = False)
+    
+    return locations_tree
+
+# .....................................................................................................................
+
+def build_cameras_tree(location_select_folder_path, show_hidden = False):
+
+    # Get a list of all the cameras
+    camera_names_list, _ = build_camera_list(location_select_folder_path,
+                                             show_hidden_cameras = show_hidden)
+    
+    # Build up a tree structure to store all of the info for all cameras
+    cameras_tree = {}
+    for each_camera in camera_names_list:
+        cameras_tree[each_camera] = {"videos": {}} 
+        cameras_tree[each_camera]["videos"] = build_videos_tree(location_select_folder_path,
+                                                                each_camera,
+                                                                show_hidden)
+    
+    return cameras_tree
+
+# .....................................................................................................................
+
+def build_videos_tree(location_select_folder_path, camera_select, show_hidden,
+                      error_if_no_videos = False):
+    
+    video_names_list, video_paths_list = get_video_names_and_paths_lists(location_select_folder_path,
+                                                                         camera_select,
+                                                                         error_if_no_videos)
+    
+    video_tree = {"names": video_names_list,
+                  "paths": video_paths_list}
+    
+    return video_tree
+
 # .....................................................................................................................
 # .....................................................................................................................
- 
+
+
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Scrap
 

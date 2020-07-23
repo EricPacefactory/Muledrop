@@ -100,6 +100,32 @@ def create_folder_structure_from_dictionary(base_path, dictionary, make_folders 
 
 
 # ---------------------------------------------------------------------------------------------------------------------
+#%% Folder creation
+
+# .....................................................................................................................
+
+def create_missing_folder_path(folder_path):
+    
+    ''' Helper function which creates missing folder paths. Nothing happens if the folder path already exists '''
+    
+    os.makedirs(folder_path, exist_ok = True)
+
+# .....................................................................................................................
+
+def create_missing_folders_from_file(file_path):
+    
+    ''' Helper function which creates the folder pathing needed for a given file path '''
+    
+    folder_path = os.path.dirname(file_path)
+    os.makedirs(folder_path, exist_ok = True)
+    
+    return folder_path
+
+# .....................................................................................................................
+# .....................................................................................................................
+
+
+# ---------------------------------------------------------------------------------------------------------------------
 #%% Listing helpers
 
 # .....................................................................................................................

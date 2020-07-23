@@ -175,19 +175,16 @@ enable_debug_mode = True
 
 # Create selector so we can access existing report data
 selector = Resource_Selector()
-project_root_path, cameras_folder_path = selector.get_cameras_root_pathing()
 
-# Select the camera to show data for (needs to have saved report data already!)
-camera_select, camera_path = selector.camera(debug_mode=enable_debug_mode)
-
-# Bundle pathing args for convenience
-pathing_args = (cameras_folder_path, camera_select)
+# Select data to run
+location_select, location_select_folder_path = selector.location(debug_mode = enable_debug_mode)
+camera_select, _ = selector.camera(location_select, debug_mode = enable_debug_mode)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Catalog existing data
 
-snap_db, obj_db, class_db = launch_dbs(cameras_folder_path, camera_select,
+snap_db, obj_db, class_db = launch_dbs(location_select_folder_path, camera_select,
                                        "snapshots", "objects", "classifications")
 
 # Catch missing data

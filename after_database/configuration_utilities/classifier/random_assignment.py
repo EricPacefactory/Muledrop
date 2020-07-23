@@ -77,17 +77,17 @@ enable_debug_mode = False
 
 # Create selector so we can access existing report data
 selector = Resource_Selector()
-project_root_path, cameras_folder_path = selector.get_cameras_root_pathing()
 
-# Select the camera to show data for (needs to have saved report data already!)
-camera_select, _ = selector.camera(debug_mode = enable_debug_mode)
+# Select data to run
+location_select, location_select_folder_path = selector.location(debug_mode = enable_debug_mode)
+camera_select, _ = selector.camera(location_select, debug_mode = enable_debug_mode)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Set up the classifier
 
 # Load configurable class for this config utility
-classifier_ref = Classifier_Stage(cameras_folder_path, camera_select)
+classifier_ref = Classifier_Stage(location_select_folder_path, camera_select)
 
 # Load existing config settings, if available
 initial_setup_data_dict = load_matching_config(classifier_ref)

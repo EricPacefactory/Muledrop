@@ -51,6 +51,8 @@ find_path_to_local()
 
 import json
 
+from local.eolib.utils.files import create_missing_folders_from_file
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define general functions
@@ -62,20 +64,6 @@ def dict_to_human_readable_output(data_dict, sort_keys = True):
     ''' Helper function which can be used to avoid importing json in places that don't need file i/o '''
     
     return json.dumps(data_dict, indent = 2, sort_keys = sort_keys)
-
-# .....................................................................................................................
-
-def _create_missing_folders_from_file(file_path):
-    
-    '''
-    Helper function which creates the folder pathing needed for a given file path.
-    Redefined specifically for this script, to avoid import loops!
-    '''
-    
-    folder_path = os.path.dirname(file_path)
-    os.makedirs(folder_path, exist_ok = True)
-    
-    return folder_path
 
 # .....................................................................................................................
 # .....................................................................................................................
@@ -139,7 +127,7 @@ def save_config_json(save_path, json_data, create_missing_folder_path = False):
         
     # Create the parent folder, if needed
     if create_missing_folder_path:
-        _create_missing_folders_from_file(save_path)
+        create_missing_folders_from_file(save_path)
     
     with open(save_path, "w") as out_file:
         json.dump(json_data, out_file, indent = 2, sort_keys = True)
@@ -170,7 +158,7 @@ def create_missing_config_json(save_path, default_json_data, creation_printout =
     
     # Create the folder path, if needed
     if create_missing_folder_path:
-        _create_missing_folders_from_file(save_path)
+        create_missing_folders_from_file(save_path)
     
     # If the file doesn't exist, create it
     file_exists = (os.path.exists(save_path))

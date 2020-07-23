@@ -103,7 +103,7 @@ def prompt_for_file_selection(enable_ranger = True, enable_tkiner = True):
 
 # .....................................................................................................................
 
-def prompt_for_video_rename(cameras_folder_path, camera_select, video_select):
+def prompt_for_video_rename(location_select_folder_path, camera_select, video_select):
     
     # Prompt for new name entry
     user_new_name = prompt_with_defaults("Enter new video name: ",
@@ -116,11 +116,11 @@ def prompt_for_video_rename(cameras_folder_path, camera_select, video_select):
         return
     
     # If we get here, the user entered a difference name from default, so update it!
-    rename_video_in_files_dict(cameras_folder_path, camera_select, video_select, user_new_name)
+    rename_video_in_files_dict(location_select_folder_path, camera_select, video_select, user_new_name)
 
 # .....................................................................................................................
 
-def prompt_for_new_start_datetime(cameras_folder_path, camera_select, video_select):
+def prompt_for_new_start_datetime(location_select_folder_path, camera_select, video_select):
     
     # Use the local time to set the default values
     current_dt = get_local_datetime()
@@ -155,7 +155,12 @@ def prompt_for_new_start_datetime(cameras_folder_path, camera_select, video_sele
     full_dt = dt.datetime.strptime(full_datetime_str, full_format_str)
     
     # Update the video entry and provide some feedback
-    old_value, new_value = change_video_start_datetime(cameras_folder_path, camera_select, video_select, full_dt)
+    old_value, new_value = change_video_start_datetime(location_select_folder_path, 
+                                                       camera_select, 
+                                                       video_select,
+                                                       full_dt)
+    
+    # Provide some feedback
     print("",
           "Done! Updated {} ({})".format(video_select, camera_select),
           "  old: {}".format(old_value),
@@ -167,7 +172,7 @@ def prompt_for_new_start_datetime(cameras_folder_path, camera_select, video_sele
 
 # .....................................................................................................................
 
-def prompt_for_new_timelapse_factor(cameras_folder_path, camera_select, video_select):
+def prompt_for_new_timelapse_factor(location_select_folder_path, camera_select, video_select):
     
     # Ask the user for new timelapse factor
     user_timelapse_factor = prompt_with_defaults("Enter new timelapse factor: ",
@@ -218,12 +223,9 @@ selector = Resource_Selector(load_selection_history = True,
                              show_hidden_resources = False,
                              create_folder_structure_on_select = True)
 
-project_root_path, cameras_folder_path = selector.get_cameras_root_pathing()
-
-# Get this script name for display
-this_script_path = os.path.abspath(__file__)
-this_script_name = os.path.basename(this_script_path)
-this_file_name, _ = os.path.splitext(this_script_name)
+# Get important pathing & select location
+project_root_path, all_locations_folder_path = selector.get_shared_pathing()
+location_select, location_select_folder_path = selector.location()
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -235,7 +237,7 @@ update_option = "Update"
 delete_option = "Delete"
 options_menu_list = [new_option, update_option, delete_option]
 select_idx, select_entry = select_from_list(options_menu_list,
-                                            prompt_heading = "Select an option ({})".format(this_file_name),
+                                            prompt_heading = "Select an option (videos)",
                                             default_selection = None)
 
 # For convenience/clarity
@@ -250,7 +252,7 @@ selected_delete = (select_entry == delete_option)
 if selected_new:
     
     # First ask user to select a camera
-    camera_select, camera_path = selector.camera()
+    camera_select, camera_path = selector.camera(location_select)
     
     # Prompt to select video(s)
     selected_video_paths_list = prompt_for_file_selection()
@@ -267,7 +269,7 @@ if selected_new:
             continue
         
         # If we get here the path is valid so add it
-        new_video_name = add_video_to_files_dict(cameras_folder_path, camera_select, expanded_path)
+        new_video_name = add_video_to_files_dict(location_select_folder_path, camera_select, expanded_path)
         success_names_list.append(new_video_name)
     
     # Provide some feedback
@@ -284,7 +286,8 @@ if selected_new:
         video_name = success_names_list[0]
         selector.save_video_select(video_name)
     
-    pass
+    # Save selected camera as default selection for convenience
+    selector.save_camera_select(camera_select)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -292,11 +295,9 @@ if selected_new:
 
 if selected_update:
     
-    # First ask user to select a camera
-    camera_select, camera_path = selector.camera()
-    
-    # Then ask to select a video to update
-    video_select, video_path = selector.video(camera_select)
+    # Ask user to select a camera & video to update
+    camera_select, _ = selector.camera(location_select)
+    video_select, _ = selector.video(location_select, camera_select)
     
     # Provide prompt to select what to update
     rename_option = "Rename"
@@ -311,7 +312,7 @@ if selected_update:
     selected_rename = (select_entry == rename_option)
     selected_startdt = (select_entry == start_dt_option)
     selected_timelapse = (select_entry == timelapse_option)
-    pathing_args = (cameras_folder_path, camera_select, video_select)
+    pathing_args = (location_select_folder_path, camera_select, video_select)
     
     # Handle different update options
     if selected_rename:
@@ -321,7 +322,9 @@ if selected_update:
     elif selected_timelapse:
         prompt_for_new_timelapse_factor(*pathing_args)
     
-    pass
+    # Save selected camera & video as default selection for convenience
+    selector.save_camera_select(camera_select)
+    selector.save_video_select(video_select)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -329,16 +332,16 @@ if selected_update:
 
 if selected_delete:
     
-    # First ask user to select a camera
-    camera_select, camera_path = selector.camera()
-    
-    # Then ask to select a video to delete
-    video_select, video_path = selector.video(camera_select)
+    # Ask user to select a camera & video to delete
+    camera_select, _ = selector.camera(location_select)
+    video_select, video_path = selector.video(location_select, camera_select)
     
     # Confirm with user that they want to delete the selected video
     user_confirm = confirm("Are you sure you want to delete {}?".format(video_select), default_response = False)
     if user_confirm:
-        is_local_video, video_path = delete_video_in_files_dict(cameras_folder_path, camera_select, video_select)
+        is_local_video, video_path = delete_video_in_files_dict(location_select_folder_path,
+                                                                camera_select,
+                                                                video_select)
         
         # Provide some feedback
         print("", "Done! Removed {} from video listing".format(video_select), "@ {}".format(video_path), sep = "\n")

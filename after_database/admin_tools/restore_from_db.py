@@ -55,17 +55,15 @@ from tqdm import tqdm
 
 from local.lib.common.timekeeper_utils import isoformat_to_datetime, datetime_to_epoch_ms, get_local_datetime
 from local.lib.common.launch_helpers import delete_existing_report_data
-from local.lib.common.environment import get_dbserver_protocol, get_dbserver_port, get_control_server_port
+from local.lib.common.environment import get_dbserver_protocol
 
 from local.lib.ui_utils.cli_selections import Resource_Selector
 from local.lib.ui_utils.script_arguments import script_arg_builder
 
 from local.online_database.post_to_dbserver import check_server_connection
 
-from local.lib.file_access_utils.settings import create_new_locations_entry, update_locations_info
-from local.lib.file_access_utils.settings import load_locations_info, get_nice_location_names_list
+from local.lib.file_access_utils.locations import load_location_info_dict, unpack_location_info_dict
 
-from local.lib.file_access_utils.structures import create_camera_folder_structure, create_missing_folder_path
 from local.lib.file_access_utils.reporting import build_camera_info_metadata_report_path
 from local.lib.file_access_utils.reporting import build_config_info_metadata_report_path
 from local.lib.file_access_utils.reporting import build_snapshot_metadata_report_path
@@ -79,7 +77,8 @@ from local.lib.file_access_utils.metadata_read_write import save_json_metadata, 
 
 from local.eolib.utils.quitters import ide_quit
 from local.eolib.utils.cli_tools import Datetime_Input_Parser as DTIP
-from local.eolib.utils.cli_tools import cli_select_from_list, cli_confirm, cli_prompt_with_defaults
+from local.eolib.utils.cli_tools import cli_select_from_list, cli_confirm
+from local.eolib.utils.files import create_missing_folder_path
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -122,12 +121,6 @@ def parse_restore_args(debug_print = False):
                                           "Allows image data to be 'downsampled'",
                                           "at the expense of a coarser resolution in time.",
                                           "(Default: {})".format(default_skip_n)]))
-    
-    # Add argument for creating new location entries
-    ap_obj.add_argument("-create", "--create_location", default = False, action = "store_true",
-                        help = "\n".join(["Create a new location to download from.",
-                                          "If set, the script will enter a menu prompting for setup",
-                                          "of a new location. The script will close afterwards."]))
     
     # Evaluate args now
     ap_result = vars(ap_obj.parse_args())
@@ -211,19 +204,6 @@ def request_bounding_times(server_url, camera_select):
     return snapshot_bounding_times_dict
 
 # .....................................................................................................................
-
-def create_new_camera_entry(selector, camera_select):
-    
-    # Check if the camera we're restoring already exists on the system
-    camera_already_exists = (camera_select in selector.get_cameras_tree().keys())
-    if camera_already_exists:
-        return
-    
-    # If the camera doesn't exist, create a blank folder structure for it (so other tools can read it properly)
-    project_root_path, cameras_folder_path = selector.get_cameras_root_pathing()
-    create_camera_folder_structure(project_root_path, cameras_folder_path, camera_select)
-
-# .....................................................................................................................
 # .....................................................................................................................
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -250,10 +230,10 @@ def request_camerainfo_metadata(server_url, camera_select, start_epoch_ms, end_e
 
 # .....................................................................................................................
 
-def save_camerainfo_metadata(cameras_folder_path, camera_select, camerainfo_metadata_list):
+def save_camerainfo_metadata(location_select_folder_path, camera_select, camerainfo_metadata_list):
     
     # Make sure the camera info metadata reporting folder exists
-    base_save_folder = build_camera_info_metadata_report_path(cameras_folder_path, camera_select)
+    base_save_folder = build_camera_info_metadata_report_path(location_select_folder_path, camera_select)
     create_missing_folder_path(base_save_folder)
     
     # Loop through all the requested metadata and save back into the filesystem
@@ -306,10 +286,10 @@ def request_configinfo_metadata(server_url, camera_select, start_epoch_ms, end_e
 
 # .....................................................................................................................
 
-def save_configinfo_metadata(cameras_folder_path, camera_select, configinfo_metadata_list):
+def save_configinfo_metadata(location_select_folder_path, camera_select, configinfo_metadata_list):
     
     # Make sure the config info metadata reporting folder exists
-    base_save_folder = build_config_info_metadata_report_path(cameras_folder_path, camera_select)
+    base_save_folder = build_config_info_metadata_report_path(location_select_folder_path, camera_select)
     create_missing_folder_path(base_save_folder)
     
     # Loop through all the requested metadata and save back into the filesystem
@@ -355,10 +335,10 @@ def request_background_metadata(server_url, camera_select, start_epoch_ms, end_e
 
 # .....................................................................................................................
 
-def save_background_metadata(cameras_folder_path, camera_select, background_metadata_list):
+def save_background_metadata(location_select_folder_path, camera_select, background_metadata_list):
     
     # Make sure the background metadata reporting folder exists
-    base_save_folder = build_background_metadata_report_path(cameras_folder_path, camera_select)
+    base_save_folder = build_background_metadata_report_path(location_select_folder_path, camera_select)
     create_missing_folder_path(base_save_folder)
     
     # Loop through all the requested metadata and save back into the filesystem
@@ -370,10 +350,10 @@ def save_background_metadata(cameras_folder_path, camera_select, background_meta
 
 # .....................................................................................................................
 
-def save_background_images(server_url, cameras_folder_path, camera_select, background_metadata_list):
+def save_background_images(server_url, location_select_folder_path, camera_select, background_metadata_list):
     
     # Make sure the image reporting folder exists
-    base_save_folder = build_background_image_report_path(cameras_folder_path, camera_select)
+    base_save_folder = build_background_image_report_path(location_select_folder_path, camera_select)
     create_missing_folder_path(base_save_folder)
         
     # Loop through all the requested metadata and request + save the correspond images
@@ -432,10 +412,10 @@ def request_object_metadata(server_url, camera_select, start_epoch_ms, end_epoch
 
 # .....................................................................................................................
 
-def save_object_metadata(cameras_folder_path, camera_select, object_metadata_dict):
+def save_object_metadata(location_select_folder_path, camera_select, object_metadata_dict):
     
     # Make sure the metadata reporting folder exists
-    base_save_folder = build_object_metadata_report_path(cameras_folder_path, camera_select)
+    base_save_folder = build_object_metadata_report_path(location_select_folder_path, camera_select)
     create_missing_folder_path(base_save_folder)
     
     # Loop through all the requested metadata and save back into the filesystem
@@ -483,10 +463,10 @@ def request_station_metadata(server_url, camera_select, start_epoch_ms, end_epoc
 
 # .....................................................................................................................
 
-def save_station_metadata(cameras_folder_path, camera_select, station_metadata_dict):
+def save_station_metadata(location_select_folder_path, camera_select, station_metadata_dict):
     
     # Make sure the metadata reporting folder exists
-    base_save_folder = build_station_metadata_report_path(cameras_folder_path, camera_select)
+    base_save_folder = build_station_metadata_report_path(location_select_folder_path, camera_select)
     create_missing_folder_path(base_save_folder)
     
     # Loop through all the requested metadata and save back into the filesystem
@@ -541,10 +521,10 @@ def request_snapshot_metadata(server_url, camera_select, start_epoch_ms, end_epo
 
 # .....................................................................................................................
 
-def save_snapshot_metadata(cameras_folder_path, camera_select, snapshot_metadata_list):
+def save_snapshot_metadata(location_select_folder_path, camera_select, snapshot_metadata_list):
     
     # Make sure the metadata reporting folder exists
-    base_save_folder = build_snapshot_metadata_report_path(cameras_folder_path, camera_select)
+    base_save_folder = build_snapshot_metadata_report_path(location_select_folder_path, camera_select)
     create_missing_folder_path(base_save_folder)
     
     # Loop through all the requested metadata and save back into the filesystem
@@ -556,10 +536,10 @@ def save_snapshot_metadata(cameras_folder_path, camera_select, snapshot_metadata
 
 # .....................................................................................................................
 
-def save_snapshot_images(server_url, cameras_folder_path, camera_select, snapshot_metadata_list):
+def save_snapshot_images(server_url, location_select_folder_path, camera_select, snapshot_metadata_list):
     
     # Make sure the image reporting folder exists
-    base_save_folder = build_snapshot_image_report_path(cameras_folder_path, camera_select)
+    base_save_folder = build_snapshot_image_report_path(location_select_folder_path, camera_select)
     create_missing_folder_path(base_save_folder)
         
     # Loop through all the requested metadata and request + save the correspond images
@@ -586,66 +566,41 @@ def save_snapshot_images(server_url, cameras_folder_path, camera_select, snapsho
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-#%% Get system pathing info
-
-# Create selector to handle camera selection & project pathing
-selector = Resource_Selector()
-project_root_path, cameras_folder_path = selector.get_cameras_root_pathing()
-
-
-# ---------------------------------------------------------------------------------------------------------------------
 #%% Parse script args
 
 # Get script arguments
 ap_result = parse_restore_args()
 skip_n_snapshots = ap_result["skip_n"]
 dbserver_protocol = ap_result["protocol"]
-create_new_location = ap_result["create_location"]
 
-# Prompt to create a new location entry if needed
-if create_new_location:
-    
-    # Get some default settings
-    default_dbserver_port = get_dbserver_port()
-    default_control_server_port = get_control_server_port()
-    
-    # Ask user to enter location info
-    print("", "----- Enter location info -----", sep = "\n")
-    location_name = cli_prompt_with_defaults("Location name: ", return_type = str)
-    location_host = cli_prompt_with_defaults("IP address: ", return_type = str)
-    location_dbserver_port = cli_prompt_with_defaults("dbserver_port: ", default_dbserver_port, return_type = int)
-    location_control_server_port = cli_prompt_with_defaults("control_server_port: ", default_control_server_port)
-    
-    # Add new location entry and quit
-    new_location_entry = \
-    create_new_locations_entry(location_name, location_host, location_dbserver_port, location_control_server_port)
-    update_locations_info(project_root_path, new_location_entry)
-    ide_quit()
+
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Get system pathing info
+
+# Create selector to handle project pathing & location selection
+selector = Resource_Selector()
+project_root_path, all_locations_folder_path = selector.get_shared_pathing()
 
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Set up access to data server
 
-# Get user to select the server to download from
-locations_info_dict = load_locations_info(project_root_path)
-location_names_list = get_nice_location_names_list(locations_info_dict)
-_, location_name_select = cli_select_from_list(location_names_list, "Select location:", default_selection = "local")
+# Select location to communicate with
+location_select, location_path = selector.location()
 
-# Get dbserver access info
-location_select_dict = locations_info_dict[location_name_select]
-dbserver_host = location_select_dict["host"]
-dbserver_port = location_select_dict["dbserver_port"]
+# Get location connection info
+location_info_dict = load_location_info_dict(all_locations_folder_path, location_select, error_if_missing = True)
+host_ip, _, _, dbserver_port, _ = \
+unpack_location_info_dict(location_info_dict)
 
-# Build server url
-server_url = "{}://{}:{}".format(dbserver_protocol, dbserver_host, dbserver_port)
-
-# Check that the server is accessible before we try requesting data from it
+# Build server url & confirm it's accessible before we try to request data from it
+server_url = "{}://{}:{}".format(dbserver_protocol, host_ip, dbserver_port)
+print("", "Checking connection ({})".format(server_url), sep = "\n")
 connection_is_valid = check_server_connection(server_url)
-
-# Bail if we couldn't connect to the server, with some kind of feedback
 if not connection_is_valid:
     ide_quit("Couldn't connect to data server! ({})".format(server_url))
-    
+print("  --> Success")
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Get camera list from the database
@@ -726,24 +681,26 @@ if not user_confirm_download:
 #%% Prepare the save folder
 
 # Create the camera folder, if needed
-create_new_camera_entry(selector, camera_select)
+location_select_folder_path = selector.get_location_select_folder_path(location_select)
+selector.create_empty_camera_folder(location_select, camera_select)
 
 # Remove existing data, if needed
-delete_existing_report_data(cameras_folder_path, camera_select,
-                            enable_deletion = True, enable_deletion_prompt = True)
+delete_existing_report_data(location_select_folder_path, camera_select, 
+                            enable_deletion = True, 
+                            enable_deletion_prompt = True)
 
 # Get camera info
 if camerainfo_count > 0:
     
     # Save all camera info metadata (which we already requested earlier)
-    save_camerainfo_metadata(cameras_folder_path, camera_select, many_camerainfo_metadata_list)
+    save_camerainfo_metadata(location_select_folder_path, camera_select, many_camerainfo_metadata_list)
 
 # Get config info
 if configinfo_count > 0:
     
     # Request all configuration metadata & save it
     many_configinfo_metadata_dict = request_configinfo_metadata(server_url, camera_select, start_epoch_ms, end_epoch_ms)
-    save_configinfo_metadata(cameras_folder_path, camera_select, many_configinfo_metadata_dict)
+    save_configinfo_metadata(location_select_folder_path, camera_select, many_configinfo_metadata_dict)
 
 # Get background info
 if background_count > 0:
@@ -752,22 +709,22 @@ if background_count > 0:
     many_background_metadata_list = request_background_metadata(server_url, camera_select, start_epoch_ms, end_epoch_ms)
     
     # Save background metadata & request corresponding image data
-    save_background_metadata(cameras_folder_path, camera_select, many_background_metadata_list)
-    save_background_images(server_url, cameras_folder_path, camera_select, many_background_metadata_list)
+    save_background_metadata(location_select_folder_path, camera_select, many_background_metadata_list)
+    save_background_images(server_url, location_select_folder_path, camera_select, many_background_metadata_list)
 
 # Get object info
 if object_count > 0:
     
     # Request all object metadata & save it
     many_object_metadata_dict = request_object_metadata(server_url, camera_select, start_epoch_ms, end_epoch_ms)
-    save_object_metadata(cameras_folder_path, camera_select, many_object_metadata_dict)
+    save_object_metadata(location_select_folder_path, camera_select, many_object_metadata_dict)
 
 # Get station info
 if station_count > 0:
     
     # Request all station metadata & save it
     many_station_metadata_dict = request_station_metadata(server_url, camera_select, start_epoch_ms, end_epoch_ms)
-    save_station_metadata(cameras_folder_path, camera_select, many_station_metadata_dict)
+    save_station_metadata(location_select_folder_path, camera_select, many_station_metadata_dict)
 
 # Get snapshot data
 if snapshot_count > 0:
@@ -778,8 +735,8 @@ if snapshot_count > 0:
                                                             skip_n_snapshots)
     
     # Save snapshot metadata & request corresponding image data
-    save_snapshot_metadata(cameras_folder_path, camera_select, many_snapshot_metadata_list)
-    save_snapshot_images(server_url, cameras_folder_path, camera_select, many_snapshot_metadata_list)
+    save_snapshot_metadata(location_select_folder_path, camera_select, many_snapshot_metadata_list)
+    save_snapshot_images(server_url, location_select_folder_path, camera_select, many_snapshot_metadata_list)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -791,7 +748,4 @@ print("")
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Scrap
 
-# TODO
-# - Clean up host/location selection stuff
-#   - new location creation should be handled elsewhere (editor script?)
 

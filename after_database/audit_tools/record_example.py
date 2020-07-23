@@ -59,7 +59,6 @@ from local.lib.ui_utils.cli_selections import Resource_Selector
 
 from local.lib.common.timekeeper_utils import isoformat_to_datetime, fake_datetime_like
 
-from local.lib.file_access_utils.structures import create_missing_folder_path
 from local.lib.file_access_utils.settings import load_recording_info
 
 from local.offline_database.file_database import launch_dbs, close_dbs_if_missing_data
@@ -67,12 +66,13 @@ from local.offline_database.object_reconstruction import Smoothed_Object_Reconst
 from local.offline_database.classification_reconstruction import create_objects_by_class_dict, get_ordered_object_list
 
 from local.eolib.video.text_rendering import position_frame_relative, font_config, simple_text
-
 from local.eolib.video.read_write import Video_Recorder
 
 from local.eolib.utils.cli_tools import Datetime_Input_Parser as DTIP
 from local.eolib.utils.cli_tools import cli_prompt_with_defaults, cli_confirm
+from local.eolib.utils.files import create_missing_folder_path
 from local.eolib.utils.quitters import ide_quit
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
@@ -141,7 +141,7 @@ def no_decimal_string_format(number_for_string):
 
 # .....................................................................................................................
     
-def build_recording_path(base_path, camera_select, timelapse_factor, file_ext):
+def build_recording_path(base_path, location_select, camera_select, timelapse_factor, file_ext):
     
     # Check that the base pathing exists (if not, ask user if it's ok to create the folder)
     if not os.path.exists(base_path):
@@ -159,7 +159,7 @@ def build_recording_path(base_path, camera_select, timelapse_factor, file_ext):
             ide_quit()
     
     # Build full folder pathing
-    recording_folder = os.path.join(base_path, "safety-cv-exports", "recordings")
+    recording_folder = os.path.join(base_path, "safety-cv-exports", "recordings", location_select)
     create_missing_folder_path(recording_folder)
     
     # Build timelapse str, if it isn't just 1
@@ -265,16 +265,17 @@ enable_debug_mode = False
 
 # Create selector so we can access existing report data
 selector = Resource_Selector()
-project_root_path, cameras_folder_path = selector.get_cameras_root_pathing()
+project_root_path = selector.get_project_root_pathing()
 
-# Select the camera to show data for (needs to have saved report data already!)
-camera_select, camera_path = selector.camera(debug_mode=enable_debug_mode)
+# Select data to run
+location_select, location_select_folder_path = selector.location(debug_mode = enable_debug_mode)
+camera_select, _ = selector.camera(location_select, debug_mode = enable_debug_mode)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Catalog existing data
 
-caminfo_db, snap_db, obj_db, class_db = launch_dbs(cameras_folder_path, camera_select,
+caminfo_db, snap_db, obj_db, class_db = launch_dbs(location_select_folder_path, camera_select,
                                                    "camera_info", "snapshots", "objects", "classifications")
 
 # Catch missing data
@@ -355,7 +356,11 @@ recording_codec = recording_info_dict["codec"]
 recording_file_ext = "".join([".", recording_file_ext]).replace("..", ".")
 
 # Build pathing to recorded file
-recording_file_path = build_recording_path(recording_folder_path, camera_select, user_tl_factor, recording_file_ext)
+recording_file_path = build_recording_path(recording_folder_path,
+                                           location_select,
+                                           camera_select,
+                                           user_tl_factor,
+                                           recording_file_ext)
 
 # Create video writer object
 vwriter = Video_Recorder(recording_file_path,

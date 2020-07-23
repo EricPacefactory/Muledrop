@@ -70,15 +70,16 @@ def get_selections_from_script_args(argparse_result):
         argparse_result -> (Dictionary) Result from calling the 'script_arg_builder()' function
     
     Outputs:
-        camera_select, video_select
+        location_select, camera_select, video_select
     
     Note: If any selections are missing, they will have 'None' values
     '''
     
+    location_select = argparse_result.get("location", None)
     camera_select = argparse_result.get("camera", None)
     video_select = argparse_result.get("video", None)
     
-    return camera_select, video_select
+    return location_select, camera_select, video_select
 
 # .....................................................................................................................
 
@@ -164,6 +165,7 @@ def _script_arg_function_lut(key_name):
     func_lut = {"debug": _debug_arg,
                 "enable_prompts": _enable_prompts,
                 "disable_prompts": _disable_prompts,
+                "location": _location_arg,
                 "camera": _camera_arg,
                 "video": _video_arg,
                 "display": _display_arg,
@@ -199,6 +201,11 @@ def _enable_prompts(help_text = "Enable prompts"):
 
 def _disable_prompts(help_text = "Disable prompts"):
     return ("-noprompts", "--disable_prompts"), {"default": False, "action": "store_true", "help": help_text}
+
+# .....................................................................................................................
+    
+def _location_arg(default = None, help_text = "Location select"):
+    return ("-l", "--location"), {"default": default, "type": str, "help": help_text}
 
 # .....................................................................................................................
     

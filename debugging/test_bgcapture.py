@@ -71,20 +71,21 @@ from local.eolib.utils.cli_tools import cli_confirm
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Ask for base selections
 
-# Create selector so we can make camera/video selections
+# Create selector, get important pathing & select location
 selector = Resource_Selector()
-project_root_path, cameras_folder_path = selector.get_cameras_root_pathing()
+project_root_path, all_locations_folder_path = selector.get_shared_pathing()
+location_select, location_select_folder_path = selector.location()
 
-# Select shared components
-camera_select, camera_path = selector.camera()
-video_select, video_path = selector.video(camera_select)
+# Select camera & video to run
+camera_select, camera_path = selector.camera(location_select)
+video_select, video_path = selector.video(location_select, camera_select)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Load video
 
 # Set up the video source
-vreader = File_Video_Reader(cameras_folder_path, camera_select, video_select)
+vreader = File_Video_Reader(location_select_folder_path, camera_select, video_select)
 video_wh = vreader.video_wh
 video_fps = vreader.video_fps
 video_type = vreader.video_type
@@ -97,12 +98,14 @@ saving_enabled = cli_confirm("Save resource data?", default_response = True, deb
 threading_enabled = False
 
 # Make sure we have a starting background
-framerate_estimate = initialize_background_and_framerate_from_file(cameras_folder_path, camera_select, vreader,
+framerate_estimate = initialize_background_and_framerate_from_file(location_select_folder_path,
+                                                                   camera_select,
+                                                                   vreader,
                                                                    force_capture_reset = saving_enabled)
 
-externals_config = {"cameras_folder_path": cameras_folder_path,
+# Bundle externals class init variables for convenience
+externals_config = {"cameras_folder_path": location_select_folder_path,
                     "camera_select": camera_select,
-                    "video_select": video_select,
                     "video_wh": video_wh}
 
 bgcap = Background_Capture(**externals_config)
@@ -162,7 +165,7 @@ while True:
 # Deal with video clean-up
 vreader.release()
 cv2.destroyAllWindows()
-bgcap.close({}, *fed_time_args)
+bgcap.close(*fed_time_args)
 
 
 # ---------------------------------------------------------------------------------------------------------------------

@@ -109,7 +109,7 @@ def print_rtsp_info(camera_select, rtsp_config_dict):
 
 # .....................................................................................................................
 
-def prompt_to_enter_rtsp_components(camera_select, current_rtsp_dict):
+def prompt_to_enter_rtsp_components(current_rtsp_dict):
     
     # Unpack current rtsp configuration to use as default values
     curr_ip_address, curr_username, curr_password, curr_port, curr_route = unpack_rtsp_config(current_rtsp_dict)
@@ -162,12 +162,9 @@ selector = Resource_Selector(load_selection_history = True,
                              show_hidden_resources = False,
                              create_folder_structure_on_select = True)
 
-project_root_path, cameras_folder_path = selector.get_cameras_root_pathing()
-
-# Get this script name for display
-this_script_path = os.path.abspath(__file__)
-this_script_name = os.path.basename(this_script_path)
-this_file_name, _ = os.path.splitext(this_script_name)
+# Get important pathing & select location
+project_root_path, all_locations_folder_path = selector.get_shared_pathing()
+location_select, location_select_folder_path = selector.location()
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -179,7 +176,7 @@ view_option = "View string"
 test_option = "Test connection"
 options_menu_list = [entry_option, view_option, test_option]
 select_idx, select_entry = select_from_list(options_menu_list,
-                                            prompt_heading = "Select an option ({})".format(this_file_name),
+                                            prompt_heading = "Select an option (rtsp)",
                                             default_selection = None)
 
 # For convenience/clarity
@@ -194,13 +191,13 @@ selected_test = (select_entry == test_option)
 if selected_entry:
     
     # First ask user to select a camera
-    camera_select, camera_path = selector.camera()
+    camera_select, _ = selector.camera(location_select)
     
     # Load rtsp info
-    curr_rtsp_dict, curr_rtsp_string = load_rtsp_config(cameras_folder_path, camera_select)
+    curr_rtsp_dict, curr_rtsp_string = load_rtsp_config(location_select_folder_path, camera_select)
     
     # Prompt to enter new RTSP components
-    new_rtsp_dict = prompt_to_enter_rtsp_components(camera_select, curr_rtsp_dict)
+    new_rtsp_dict = prompt_to_enter_rtsp_components(curr_rtsp_dict)
     
     # Display full string for user examination
     rtsp_is_valid = print_rtsp_info(camera_select, new_rtsp_dict)
@@ -209,9 +206,10 @@ if selected_entry:
     if rtsp_is_valid:
         user_confirm = confirm("Save this configuration?", default_response = True)
         if user_confirm:
-            save_rtsp_config(cameras_folder_path, camera_select, new_rtsp_dict)
+            save_rtsp_config(location_select_folder_path, camera_select, new_rtsp_dict)
     
-    pass
+    # Save selected camera as default selection for convenience
+    selector.save_camera_select(camera_select)
     
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -220,13 +218,16 @@ if selected_entry:
 if selected_view:
     
     # First ask user to select a camera
-    camera_select, camera_path = selector.camera()
+    camera_select, _ = selector.camera(location_select)
     
     # Load rtsp info
-    rtsp_config_dict, rtsp_string = load_rtsp_config(cameras_folder_path, camera_select)
+    rtsp_config_dict, rtsp_string = load_rtsp_config(location_select_folder_path, camera_select)
     
     # Build full RTSP string and display for examination
     print_rtsp_info(camera_select, rtsp_config_dict)
+    
+    # Save selected camera as default selection for convenience
+    selector.save_camera_select(camera_select)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -235,10 +236,10 @@ if selected_view:
 if selected_test:
     
     # First ask user to select a camera
-    camera_select, camera_path = selector.camera()
+    camera_select, _ = selector.camera(location_select)
     
     # Load rtsp info
-    rtsp_config_dict, rtsp_string = load_rtsp_config(cameras_folder_path, camera_select)
+    rtsp_config_dict, rtsp_string = load_rtsp_config(location_select_folder_path, camera_select)
     
     # First check the ip/port connection is valid
     ip_address, _, _, port, _ = unpack_rtsp_config(rtsp_config_dict)
@@ -268,7 +269,8 @@ if selected_test:
         except cv2.error as err:
             print("", "Error connecting to video stream!", "", str(err), sep = "\n")
     
-    pass
+    # Save selected camera as default selection for convenience
+    selector.save_camera_select(camera_select)
 
 
 # ---------------------------------------------------------------------------------------------------------------------

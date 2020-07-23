@@ -54,7 +54,7 @@ import subprocess
 from time import sleep
 
 from local.lib.ui_utils.cli_selections import Resource_Selector
-from local.lib.ui_utils.script_arguments import script_arg_builder
+from local.lib.ui_utils.script_arguments import script_arg_builder, get_selections_from_script_args
 
 from local.lib.file_access_utils.configurables import unpack_config_data, unpack_access_info
 from local.lib.file_access_utils.core import get_ordered_core_sequence, build_core_folder_path
@@ -83,8 +83,7 @@ from local.eolib.utils.cli_tools import cli_confirm, cli_select_from_list, clear
 def parse_recon_args(debug_print = False):
     
     # Set script arguments for running files
-    args_list = ["camera",
-                 "video"]
+    args_list = ["location", "camera", "video"]
     
     # Provide some extra information when accessing help text
     script_description = "Hub script for launching reconfiguration scripts"
@@ -110,6 +109,7 @@ def clear_with_status(first_select = None):
     seperator_gfx = "=" * num_seperator_symbols
     print_strs = [seperator_gfx,
                   "Current selections:",
+                  "  Location: {}".format(LOCATION_SELECT),
                   "    Camera: {}".format(CAMERA_SELECT),
                   "     Video: {}".format(VIDEO_SELECT),
                   "  Category: {}".format(CATEGORY_SELECT),
@@ -154,7 +154,7 @@ def set_passthru_ordering(entry_list, passthrough_label = "passthrough.py"):
 def run_config_utility(config_utility_path):
     
     # Build arguments to pass to each config utility
-    script_arg_list = ["-c", CAMERA_SELECT, "-v", VIDEO_SELECT]
+    script_arg_list = ["-l", LOCATION_SELECT, "-c", CAMERA_SELECT, "-v", VIDEO_SELECT]
     
     # Get python interpretter path, so we call subprocess using the same environment
     python_interpretter = sys.executable
@@ -225,7 +225,7 @@ def get_util_scripts_list(*path_joins):
 
 # .....................................................................................................................
 
-def load_core_menu_info(project_root_path, cameras_folder_path):
+def load_core_menu_info(project_root_path, location_select_folder_path):
     
     # Get pathing to the configuration utilites
     utility_parent_folder = build_path_to_config_utils(project_root_path, "core")
@@ -234,13 +234,13 @@ def load_core_menu_info(project_root_path, cameras_folder_path):
     stage_ordering = get_ordered_core_sequence()
     
     # Get pathing to the corresponding config files for the selected camera
-    configs_folder_path = build_core_folder_path(cameras_folder_path, CAMERA_SELECT)
+    configs_folder_path = build_core_folder_path(location_select_folder_path, CAMERA_SELECT)
     
     return utility_parent_folder, stage_ordering, configs_folder_path
 
 # .....................................................................................................................
 
-def load_stations_menu_info(project_root_path, cameras_folder_path):
+def load_stations_menu_info(project_root_path, location_select_folder_path):
     
     # Get pathing to the configuration utilites
     utility_parent_folder = build_path_to_config_utils(project_root_path, "stations")
@@ -249,13 +249,13 @@ def load_stations_menu_info(project_root_path, cameras_folder_path):
     option_ordering = get_file_list(utility_parent_folder, sort_list = True)
     
     # Get pathing to the corresponding config files for the selected camera
-    configs_folder_path = build_station_config_folder_path(cameras_folder_path, CAMERA_SELECT)
+    configs_folder_path = build_station_config_folder_path(location_select_folder_path, CAMERA_SELECT)
     
     return utility_parent_folder, option_ordering, configs_folder_path
 
 # .....................................................................................................................
 
-def load_externals_menu_info(project_root_path, cameras_folder_path):
+def load_externals_menu_info(project_root_path, location_select_folder_path):
     
     # Get pathing to the configuration utilites
     utility_parent_folder = build_path_to_config_utils(project_root_path, "externals")
@@ -264,7 +264,7 @@ def load_externals_menu_info(project_root_path, cameras_folder_path):
     stage_ordering = get_folder_list(utility_parent_folder, sort_list = True)
     
     # Get pathing to the corresponding config files for the selected camera
-    configs_folder_path = build_externals_folder_path(cameras_folder_path, CAMERA_SELECT)
+    configs_folder_path = build_externals_folder_path(location_select_folder_path, CAMERA_SELECT)
     
     return utility_parent_folder, stage_ordering, configs_folder_path
 
@@ -380,20 +380,20 @@ def get_script_name_from_config_file(configs_folder_path, parent_select):
 
 # Parse arguments
 arg_selections = parse_recon_args()
-arg_camera_select = arg_selections.get("camera", None)
-arg_video_select = arg_selections.get("video", None)
+arg_location_select, arg_camera_select, arg_video_select = get_selections_from_script_args(arg_selections)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Ask for base selections
 
-# Get shared pathing
+# Get important pathing
 selector = Resource_Selector()
-project_root_path, cameras_folder_path = selector.get_cameras_root_pathing()
+project_root_path = selector.get_project_root_pathing()
 
-# Get camera/video selections
-CAMERA_SELECT, camera_path = selector.camera(arg_camera_select)
-VIDEO_SELECT, video_path = selector.video(CAMERA_SELECT, arg_video_select)
+# Get data to run
+LOCATION_SELECT, location_select_folder_path = selector.location(arg_location_select)
+CAMERA_SELECT, camera_path = selector.camera(LOCATION_SELECT, arg_camera_select)
+VIDEO_SELECT, video_path = selector.video(LOCATION_SELECT, CAMERA_SELECT, arg_video_select)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -423,7 +423,7 @@ while selected_core:
 
     # Load data for handling core menu options
     core_util_parent_folder, core_stage_ordering, core_configs_folder_path = \
-    load_core_menu_info(project_root_path, cameras_folder_path)
+    load_core_menu_info(project_root_path, location_select_folder_path)
     
     # Select which core stage to re-configure
     s_cancel, s_empty, select_stage_name = \
@@ -468,7 +468,7 @@ while selected_stations:
         
     # Load data for handle stations menu option
     stn_util_parent_folder, stn_option_ordering, stn_configs_folder_path = \
-    load_stations_menu_info(project_root_path, cameras_folder_path)
+    load_stations_menu_info(project_root_path, location_select_folder_path)
     
     # Select which type of station to re-configure
     s_cancel, s_empty, select_script_name = \
@@ -500,7 +500,7 @@ while selected_externals:
     
     # Load data for handling externals menu option
     ext_util_parent_folder, ext_stage_ordering, ext_configs_folder_path = \
-    load_externals_menu_info(project_root_path, cameras_folder_path)
+    load_externals_menu_info(project_root_path, location_select_folder_path)
     
     # Select which external type to re-configure
     s_cancel, s_empty, select_type_name = \

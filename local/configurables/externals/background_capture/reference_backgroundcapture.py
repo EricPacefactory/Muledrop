@@ -58,8 +58,6 @@ from local.configurables.configurable_template import Externals_Configurable_Bas
 
 from local.lib.common.timekeeper_utils import Periodic_Polled_Timer, Periodic_Polled_Integer_Counter
 
-from local.lib.file_access_utils.structures import create_missing_folder_path
-
 from local.lib.file_access_utils.reporting import Background_Report_Data_Saver
 from local.lib.file_access_utils.reporting import create_image_metadata
 
@@ -70,6 +68,8 @@ from local.lib.file_access_utils.resources import build_background_capture_folde
 from local.lib.file_access_utils.resources import build_background_generate_folder_path
 
 from local.lib.launcher_utils.resource_initialization import check_for_valid_background
+
+from local.eolib.utils.files import create_missing_folder_path
 
 
 # ---------------------------------------------------------------------------------------------------------------------

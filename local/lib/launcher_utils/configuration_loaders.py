@@ -66,7 +66,6 @@ from local.lib.launcher_utils.resource_initialization import initialize_backgrou
 from local.lib.launcher_utils.resource_initialization import initialize_background_and_framerate_from_rtsp
 
 from local.lib.file_access_utils.shared import url_safe_name_from_path
-from local.lib.file_access_utils.structures import create_missing_folder_path
 from local.lib.file_access_utils.configurables import configurable_dot_path, unpack_config_data, unpack_access_info
 from local.lib.file_access_utils.externals import build_externals_folder_path
 from local.lib.file_access_utils.reporting import build_camera_info_metadata_report_path
@@ -79,6 +78,7 @@ from local.lib.file_access_utils.json_read_write import load_config_json, save_c
 from local.lib.file_access_utils.json_read_write import dict_to_human_readable_output
 from local.lib.file_access_utils.metadata_read_write import save_jsongz_metadata
 
+from local.eolib.utils.files import create_missing_folder_path
 from local.eolib.utils.cli_tools import cli_confirm, cli_prompt_with_defaults
 from local.eolib.utils.function_helpers import dynamic_import_from_module
 from local.eolib.utils.quitters import ide_quit
@@ -95,7 +95,8 @@ class File_Configuration_Loader:
         
         # Allocate storage for selections
         self.project_root_path = None
-        self.cameras_folder_path = None
+        self.location_select_folder_path = None
+        self.location_select = None
         self.camera_select = None
         self.video_select = None
         
@@ -149,17 +150,21 @@ class File_Configuration_Loader:
     
     # .................................................................................................................
     
-    def selections(self, 
+    def selections(self,
+                   arg_location_select = None,
                    arg_camera_select = None,
                    arg_video_select = None):
         
         # Create selector so we can make camera/video selections
         selector = Resource_Selector()
-        self.project_root_path, self.cameras_folder_path = selector.get_cameras_root_pathing()
         
-        # Select shared components
-        self.camera_select, _ = selector.camera(arg_camera_select)
-        self.video_select, _ = selector.video(self.camera_select, arg_video_select)
+        # Get important pathing
+        self.project_root_path, self.all_locations_folder_path = selector.get_shared_pathing()
+        
+        # Select data to run
+        self.location_select, self.location_select_folder_path = selector.location(arg_location_select)
+        self.camera_select, _ = selector.camera(self.location_select, arg_camera_select)
+        self.video_select, _ = selector.video(self.location_select, self.camera_select, arg_video_select)
         
         return self
     
@@ -200,7 +205,7 @@ class File_Configuration_Loader:
     def save_camera_info(self, start_epoch_ms, start_datetime_isoformat):
         
         # Get camera launch info
-        rtsp_config, _ = load_rtsp_config(self.cameras_folder_path, self.camera_select)
+        rtsp_config, _ = load_rtsp_config(self.location_select_folder_path, self.camera_select)
         
         # Split snapshot sizing info for reporting
         video_width, video_height = self.video_wh
@@ -222,7 +227,7 @@ class File_Configuration_Loader:
         
         # Build pathing to the camera reporting folder & save
         if self.saving_enabled:
-            camera_info_folder_path = build_camera_info_metadata_report_path(self.cameras_folder_path,
+            camera_info_folder_path = build_camera_info_metadata_report_path(self.location_select_folder_path,
                                                                              self.camera_select)
             create_missing_folder_path(camera_info_folder_path)
             save_jsongz_metadata(camera_info_folder_path, camera_info_dict)
@@ -255,7 +260,7 @@ class File_Configuration_Loader:
         
         # Build pathing to the config reporting folder & save
         if self.saving_enabled:
-            config_folder_path = build_config_info_metadata_report_path(self.cameras_folder_path,
+            config_folder_path = build_config_info_metadata_report_path(self.location_select_folder_path,
                                                                         self.camera_select)
             create_missing_folder_path(config_folder_path)
             save_jsongz_metadata(config_folder_path, config_info_dict)
@@ -275,10 +280,10 @@ class File_Configuration_Loader:
         Helper function used to get variables commonly needed for pathing
         
         Returns:
-            cameras_folder_path, camera_select
+            location_select_folder_path, camera_select
         '''
         
-        return self.cameras_folder_path, self.camera_select
+        return self.location_select_folder_path, self.camera_select
     
     # .................................................................................................................
     
@@ -312,7 +317,7 @@ class File_Configuration_Loader:
             print("", "Threaded video capture enabled!", sep = "\n")
 
         # Set up the video source
-        self.vreader = Video_Reader(self.cameras_folder_path, self.camera_select, self.video_select)
+        self.vreader = Video_Reader(self.location_select_folder_path, self.camera_select, self.video_select)
         self.video_wh = self.vreader.video_wh
         self.video_fps = self.vreader.video_fps
         self.video_type = self.vreader.video_type
@@ -437,7 +442,7 @@ class File_Configuration_Loader:
     def setup_resources(self):
         
         # Make sure we always have a background image before doing anything else
-        framerate_estimate = initialize_background_and_framerate_from_file(self.cameras_folder_path,
+        framerate_estimate = initialize_background_and_framerate_from_file(self.location_select_folder_path,
                                                                            self.camera_select,
                                                                            self.vreader,
                                                                            force_capture_reset = self.saving_enabled)
@@ -548,7 +553,7 @@ class File_Configuration_Loader:
         
         # Get path to externals config file
         load_file_with_ext = "{}.json".format(load_file_name_only)
-        path_to_config = build_externals_folder_path(self.cameras_folder_path,
+        path_to_config = build_externals_folder_path(self.location_select_folder_path,
                                                      self.camera_select,
                                                      load_file_with_ext)
         
@@ -562,7 +567,7 @@ class File_Configuration_Loader:
     
     def _get_shared_config(self):
         
-        return {"cameras_folder_path": self.cameras_folder_path,
+        return {"cameras_folder_path": self.location_select_folder_path,
                 "camera_select": self.camera_select,
                 "video_wh": self.video_wh}
 
@@ -586,16 +591,20 @@ class RTSP_Configuration_Loader(File_Configuration_Loader):
     # .................................................................................................................
     
     def selections(self,
+                   arg_location_select = None,
                    arg_camera_select = None,
                    arg_video_select = "rtsp"):
         
         # Create selector so we can make camera/video selections
         # (Disable selection history save/load access, since RTSP may be called quickly by automated systems)
         selector = Resource_Selector(load_selection_history = False, save_selection_history = False)
-        self.project_root_path, self.cameras_folder_path = selector.get_cameras_root_pathing()
         
-        # Select shared components
-        self.camera_select, _ = selector.camera(arg_camera_select, must_have_rtsp = True)
+        # Get important pathing
+        self.project_root_path, self.all_locations_folder_path = selector.get_shared_pathing()
+        
+        # Select data to run
+        self.location_select, self.location_select_folder_path = selector.location(arg_location_select)
+        self.camera_select, _ = selector.camera(self.location_select, arg_camera_select, must_have_rtsp = True)
         self.video_select = arg_video_select
         
         return self
@@ -610,7 +619,7 @@ class RTSP_Configuration_Loader(File_Configuration_Loader):
             print("", "Threaded video capture is not yet implemented for RTSP!", sep = "\n")
 
         # Set up the video source
-        self.vreader = Video_Reader(self.cameras_folder_path, self.camera_select)
+        self.vreader = Video_Reader(self.location_select_folder_path, self.camera_select)
         self.video_wh = self.vreader.video_wh
         self.video_fps = self.vreader.video_fps
         self.video_type = self.vreader.video_type
@@ -622,7 +631,7 @@ class RTSP_Configuration_Loader(File_Configuration_Loader):
     def setup_resources(self):
         
         # Make sure we always have a background image before doing anything else
-        framerate_estimate = initialize_background_and_framerate_from_rtsp(self.cameras_folder_path,
+        framerate_estimate = initialize_background_and_framerate_from_rtsp(self.location_select_folder_path,
                                                                            self.camera_select,
                                                                            self.vreader)
         
@@ -637,7 +646,7 @@ class RTSP_Configuration_Loader(File_Configuration_Loader):
         
         ''' Helper function to handle cleaning up existing camera process & state files '''
         
-        return shutdown_running_camera(self.cameras_folder_path, self.camera_select,
+        return shutdown_running_camera(self.location_select_folder_path, self.camera_select,
                                        max_wait_sec, force_kill_on_timeout)
     
     # .................................................................................................................
@@ -646,7 +655,7 @@ class RTSP_Configuration_Loader(File_Configuration_Loader):
         
         ''' Helper function used to update the camera state file descript and standby settings '''
         
-        return save_state_file(self.cameras_folder_path, self.camera_select,
+        return save_state_file(self.location_select_folder_path, self.camera_select,
                                script_name = self.calling_script_name,
                                pid_value = self.pid,
                                in_standby = in_standby,
@@ -658,7 +667,7 @@ class RTSP_Configuration_Loader(File_Configuration_Loader):
         
         ''' Helper function used to remove the camera state file (intended for use on shutdown only) '''
         
-        return delete_state_file(self.cameras_folder_path, self.camera_select)    
+        return delete_state_file(self.location_select_folder_path, self.camera_select)    
     
     # .................................................................................................................
     # .................................................................................................................
@@ -700,7 +709,7 @@ class Reconfigurable_Loader(File_Configuration_Loader):
     def parse_standard_args(self, debug_print = False):
         
         # Set script arguments for reconfigurable scripts
-        args_list = ["camera",  "video"]
+        args_list = ["location", "camera",  "video"]
         
         # Provide some extra information when accessing help text
         script_description_list = ["System configuration utility",
@@ -713,24 +722,28 @@ class Reconfigurable_Loader(File_Configuration_Loader):
                                        parse_on_call = True,
                                        debug_print = debug_print)
         
-        # Split into camera_select, video_select on return to match selectons input args
-        camera_select, video_select = get_selections_from_script_args(ap_result)
+        # Split into location-select, camera_select, video_select on return to match selectons input args
+        location_select, camera_select, video_select = get_selections_from_script_args(ap_result)
         
-        return camera_select, video_select
+        return location_select, camera_select, video_select
     
     # .................................................................................................................
     
     def selections(self,
+                   arg_location_select = None,
                    arg_camera_select = None,
                    arg_video_select = None):
         
         # Create selector so we can make camera/video selections
         selector = Resource_Selector()
-        self.project_root_path, self.cameras_folder_path = selector.get_cameras_root_pathing()
         
-        # Select shared components
-        self.camera_select, _ = selector.camera(arg_camera_select)
-        self.video_select, _ = selector.video(self.camera_select, arg_video_select)
+        # Get important pathing
+        self.project_root_path, self.all_locations_folder_path = selector.get_shared_pathing()
+        
+        # Select data to run
+        self.location_select, self.location_select_folder_path = selector.location(arg_location_select)
+        self.camera_select, _ = selector.camera(self.location_select, arg_camera_select)
+        self.video_select, _ = selector.video(self.location_select, self.camera_select, arg_video_select)
         
         return self
     
@@ -767,7 +780,7 @@ class Reconfigurable_Loader(File_Configuration_Loader):
     def setup_playback_access(self):
         
         # Create object that can handle file i/o needed to access stored playback settings
-        self.playback_access = Playback_Access(self.cameras_folder_path, self.camera_select, self.video_select)
+        self.playback_access = Playback_Access(self.location_select_folder_path, self.camera_select, self.video_select)
         
         return self.playback_access
     
@@ -836,7 +849,7 @@ class Reconfigurable_Loader(File_Configuration_Loader):
         
         # If we get here, we're saving!
         save_config_json(save_path, save_data_dict)
-        relative_save_path = os.path.relpath(save_path, self.cameras_folder_path)
+        relative_save_path = os.path.relpath(save_path, self.location_select_folder_path)
         if print_feedback:
             print("", "Saved configuration:", "@ {}".format(relative_save_path), "", sep = "\n")
         
@@ -960,7 +973,7 @@ class Reconfigurable_Single_Station_Loader(Reconfigurable_Loader):
         selector = Resource_Selector()
         
         # Select shared components
-        self.station_select, _ = selector.station(self.camera_select, self.override_script)
+        self.station_select, _ = selector.station(self.location_select, self.camera_select, self.override_script)
         
         return self
     
@@ -1005,8 +1018,10 @@ class Reconfigurable_Single_Station_Loader(Reconfigurable_Loader):
             self.station_select = user_station_name
         
         # Build the save path
-        cleaned_station_name = url_safe_name_from_path(self.station_select)
-        save_path = build_station_config_file_path(self.cameras_folder_path, self.camera_select, cleaned_station_name)
+        safe_station_name = url_safe_name_from_path(self.station_select)
+        save_path = build_station_config_file_path(self.location_select_folder_path,
+                                                   self.camera_select,
+                                                   safe_station_name)
         
         return save_path
     
@@ -1120,12 +1135,12 @@ class Reconfigurable_Background_Capture_Loader(Reconfigurable_Loader):
         '''
         
         # Always reset captures
-        reset_capture_folder(self.cameras_folder_path, self.camera_select)
+        reset_capture_folder(self.location_select_folder_path, self.camera_select)
         
         # Make sure user confirms resource reset
         user_confirm_reset = cli_confirm("Reset existing background resources?")
         if user_confirm_reset:
-            reset_generate_folder(self.cameras_folder_path, self.camera_select)
+            reset_generate_folder(self.location_select_folder_path, self.camera_select)
         
         return user_confirm_reset
     

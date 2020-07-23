@@ -67,7 +67,8 @@ from local.lib.launcher_utils.video_processing_loops import Video_Processing_Loo
 def parse_run_args(debug_print = False):
     
     # Set script arguments for running files
-    args_list = ["camera",
+    args_list = ["location",
+                 "camera",
                  "video",
                  "display",
                  "disable_saving",
@@ -107,10 +108,10 @@ delete_existing_data = ap_result.get("delete_existing_data", False)
 provide_prompts = (not ap_result.get("disable_prompts", False))
 
 # Get camera selections from arguments
-arg_camera_select, arg_video_select = get_selections_from_script_args(ap_result)
+arg_location_select, arg_camera_select, arg_video_select = get_selections_from_script_args(ap_result)
 
 # Catch missing inputs, if prompts are disabled
-check_missing_main_selections(arg_camera_select, arg_video_select,
+check_missing_main_selections(arg_location_select, arg_camera_select, arg_video_select,
                               error_if_missing = (not provide_prompts),
                               error_message = "Prompts disabled, but not all selections were specified!")
 
@@ -120,17 +121,17 @@ check_missing_main_selections(arg_camera_select, arg_video_select,
 
 # Make all required selections
 loader = File_Configuration_Loader()
-loader.selections(arg_camera_select, arg_video_select)
+loader.selections(arg_location_select, arg_camera_select, arg_video_select)
 loader.set_script_name(__file__)
 
 # Get shared pathing settings
-cameras_folder_path, camera_select = loader.get_camera_pathing()
+location_select_folder_path, camera_select = loader.get_camera_pathing()
 
 # Ask about saved data and delete existing data (if enabled)
 enable_saving = save_data_prompt(enable_save_prompt = provide_prompts, save_by_default = allow_saving)
 if enable_saving:
     check_delete_existing_data = (provide_prompts or delete_existing_data)
-    delete_existing_report_data(cameras_folder_path, camera_select,
+    delete_existing_report_data(location_select_folder_path, camera_select,
                                 enable_deletion = check_delete_existing_data,
                                 enable_deletion_prompt = provide_prompts)
 

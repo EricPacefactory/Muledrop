@@ -53,9 +53,9 @@ from shutil import copyfile
 
 from time import sleep
 
-from local.lib.common.environment import get_env_cameras_folder
+from local.lib.common.environment import get_env_all_locations_folder
 
-from local.lib.file_access_utils.settings import load_pathing_info
+from local.lib.file_access_utils.settings import load_locations_pathing_info
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -121,40 +121,43 @@ def find_root_path(dunder_file = None, target_folder = "local"):
 
 # .....................................................................................................................
 
-def find_cameras_folder():
+def find_locations_folder(project_root_path):
     
-    # Check if the camera path is available through the environment, in which case, make/use that path
-    env_cameras_folder_path = get_env_cameras_folder()
-    if env_cameras_folder_path is not None:
-        cameras_folder_path = os.path.expanduser(env_cameras_folder_path)
-        os.makedirs(cameras_folder_path, exist_ok = True)
-        return cameras_folder_path
+    # Check if the locations folder path is available through the environment, in which case, make/use that path
+    env_all_locations_folder_path = get_env_all_locations_folder()
+    if env_all_locations_folder_path is not None:
+        all_locations_folder_path = os.path.expanduser(env_all_locations_folder_path)
+        os.makedirs(all_locations_folder_path, exist_ok = True)
+        return all_locations_folder_path
     
-    # If we don't find an environment path, then find the root folder path and load from the pathing info file
-    project_root_path = find_root_path()
-    cameras_folder_path = load_pathing_info(project_root_path)
+    # If we don't find an environment setting, try to load pathing info from a settings file
+    all_locations_folder_path = load_locations_pathing_info(project_root_path)
     
     # Quick warning to hopefully avoid accidently syncing outputs to dropbox
-    dropbox_in_path = "dropbox" in cameras_folder_path.lower()
+    dropbox_in_path = "dropbox" in all_locations_folder_path.lower()
     if dropbox_in_path:
-        print("")
-        print("!" * 36)
-        print("WARNING:")
-        print("  Dropbox found in camera folder path!")
-        print("  {}".format(cameras_folder_path))
-        print("!" * 36)
+        print("",
+              "!" * 36,
+              "WARNING:",
+              "Dropbox found in all locations folder path!",
+              "@ {}".format(all_locations_folder_path),
+              "!" * 36,
+              sep = "\n")
         sleep(2.5)
-        
-    # Create the folder if it doesn't exist yet (and give feedback about it)
-    if not os.path.exists(cameras_folder_path):
-        os.makedirs(cameras_folder_path, exist_ok = True)
-        print("")
-        print("*" * 36)
-        print("Camera folder not found. folder will be created:")
-        print("  {}".format(cameras_folder_path))
-        print("*" * 36)
     
-    return cameras_folder_path
+    # Create the folder if it doesn't exist yet (and give feedback about it)
+    folder_doesnt_exist_yet = (not os.path.exists(all_locations_folder_path))
+    if folder_doesnt_exist_yet:
+        os.makedirs(all_locations_folder_path, exist_ok = True)
+        print("",
+              "*" * 36,
+              "Locations folder not found...",
+              "Folder will be created:",
+              "@ {}".format(all_locations_folder_path),
+              "*" * 36,
+              sep = "\n")
+    
+    return all_locations_folder_path
 
 # .....................................................................................................................
 # .....................................................................................................................
@@ -165,27 +168,48 @@ def find_cameras_folder():
 
 # .....................................................................................................................
 
+def build_location_path(all_locations_folder_path, location_select, *path_joins):
+    
+    '''
+    Generates pathing given a selected location. If no additional paths are supplied,
+    this function will return the 'location_select_folder_path'
+    '''
+    
+    return os.path.join(all_locations_folder_path, location_select, *path_joins)
+
+# .....................................................................................................................
+
 def build_camera_path(cameras_folder_path, camera_select, *path_joins):
+    
+    '''
+    Generates pathing given a selected location folder path and camera. If no additional paths are supplied,
+    this function will return the root folder path for the selected camera
+    '''
+    
     return os.path.join(cameras_folder_path, camera_select, *path_joins)
 
 # .....................................................................................................................
 
 def build_config_folder_path(cameras_folder_path, camera_select, *path_joins):
+    ''' Generates pathing to the configuration folder for a given camera '''
     return build_camera_path(cameras_folder_path, camera_select, "config", *path_joins)
 
 # .....................................................................................................................
     
 def build_defaults_folder_path(project_root_path, *path_joins):
+    ''' Generates pathing to the default configurations folder '''
     return os.path.join(project_root_path, "defaults", *path_joins)
 
 # .....................................................................................................................
     
 def build_resources_folder_path(cameras_folder_path, camera_select, *path_joins):
+    ''' Generates pathing to the resources folder for a given camera '''
     return build_camera_path(cameras_folder_path, camera_select, "resources", *path_joins)
 
 # .....................................................................................................................
 
 def build_logging_folder_path(cameras_folder_path, camera_select, *path_joins):
+    ''' Generates pathing to the logging folder for a given camera '''
     return build_camera_path(cameras_folder_path, camera_select, "logs", *path_joins)
 
 # .....................................................................................................................

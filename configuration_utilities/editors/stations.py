@@ -93,12 +93,9 @@ selector = Resource_Selector(load_selection_history = False,
                              show_hidden_resources = True,
                              create_folder_structure_on_select = True)
 
-project_root_path, cameras_folder_path = selector.get_cameras_root_pathing()
-
-# Get this script name for display
-this_script_path = os.path.abspath(__file__)
-this_script_name = os.path.basename(this_script_path)
-this_file_name, _ = os.path.splitext(this_script_name)
+# Get important pathing & select location
+project_root_path, all_locations_folder_path = selector.get_shared_pathing()
+location_select, location_select_folder_path = selector.location()
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -109,7 +106,7 @@ update_option = "Rename"
 delete_option = "Delete"
 options_menu_list = [update_option, delete_option]
 select_idx, select_entry = select_from_list(options_menu_list,
-                                            prompt_heading = "Select an option ({})".format(this_file_name),
+                                            prompt_heading = "Select an option (stations)",
                                             default_selection = None)
 
 # For convenience/clarity
@@ -123,10 +120,10 @@ selected_delete = (select_entry == delete_option)
 if selected_rename:
     
     # First ask user to select an existing camera
-    camera_select, _ = selector.camera()
+    camera_select, _ = selector.camera(location_select)
     
     # Select an existing station
-    station_config_folder_path = build_station_config_folder_path(cameras_folder_path, camera_select)
+    station_config_folder_path = build_station_config_folder_path(location_select_folder_path, camera_select)
     station_name_select, station_config_path = select_station_config(station_config_folder_path)
     
     # Then ask user to enter a new station name
@@ -159,10 +156,10 @@ if selected_rename:
 if selected_delete:
     
     # First ask user to select an existing camera
-    camera_select, _ = selector.camera()
+    camera_select, _ = selector.camera(location_select)
     
     # Select an existing station
-    station_config_folder_path = build_station_config_folder_path(cameras_folder_path, camera_select)
+    station_config_folder_path = build_station_config_folder_path(location_select_folder_path, camera_select)
     station_select, station_config_path = select_station_config(station_config_folder_path)
     
     # Confirm with user that they want to delete the selected station

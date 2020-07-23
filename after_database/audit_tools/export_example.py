@@ -54,8 +54,6 @@ import numpy as np
 
 from local.lib.ui_utils.cli_selections import Resource_Selector
 
-from local.lib.file_access_utils.structures import create_missing_folder_path
-
 from local.offline_database.file_database import launch_dbs, close_dbs_if_missing_data
 from local.offline_database.object_reconstruction import Smooth_Hover_Object_Reconstruction, Hover_Mapping
 from local.offline_database.object_reconstruction import create_trail_frame_from_object_reconstruction
@@ -66,6 +64,9 @@ from local.offline_database.classification_reconstruction import create_objects_
 from local.lib.ui_utils.local_ui.windows_base import Simple_Window
 
 from local.eolib.utils.cli_tools import Datetime_Input_Parser as DTIP
+from local.eolib.utils.files import create_missing_folder_path
+
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
@@ -456,7 +457,7 @@ def build_base_saving_folder():
     base_path = os.path.expanduser(os.path.join("~", "Desktop"))
     
     # Build full folder pathing
-    saving_folder = os.path.join(base_path, "safety-cv-exports", "csv", camera_select)
+    saving_folder = os.path.join(base_path, "safety-cv-exports", "csv", location_select, camera_select)
     create_missing_folder_path(saving_folder)
     
     return saving_folder
@@ -491,16 +492,16 @@ enable_debug_mode = False
 
 # Create selector so we can access existing report data
 selector = Resource_Selector()
-project_root_path, cameras_folder_path = selector.get_cameras_root_pathing()
 
-# Select the camera to show data for (needs to have saved report data already!)
-camera_select, camera_path = selector.camera(debug_mode=enable_debug_mode)
+# Select data to run
+location_select, location_select_folder_path = selector.location(debug_mode = enable_debug_mode)
+camera_select, _ = selector.camera(location_select, debug_mode = enable_debug_mode)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Catalog existing data
 
-snap_db, obj_db, class_db = launch_dbs(cameras_folder_path, camera_select,
+snap_db, obj_db, class_db = launch_dbs(location_select_folder_path, camera_select,
                                        "snapshots", "objects", "classifications")
 
 # Catch missing data

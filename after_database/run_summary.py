@@ -58,7 +58,6 @@ from local.lib.common.feedback import print_time_taken_ms
 
 from local.lib.ui_utils.cli_selections import Resource_Selector
 
-from local.lib.file_access_utils.structures import create_missing_folder_path
 from local.lib.file_access_utils.configurables import configurable_dot_path, unpack_config_data, unpack_access_info
 from local.lib.file_access_utils.summary import build_summary_adb_metadata_report_path
 from local.lib.file_access_utils.summary import load_summary_config, save_summary_report_data
@@ -67,7 +66,7 @@ from local.offline_database.file_database import launch_dbs, close_dbs_if_missin
 
 from local.configurables.configurable_template import jsonify_numpy_data
 
-from local.eolib.utils.files import get_total_folder_size
+from local.eolib.utils.files import get_total_folder_size, create_missing_folder_path
 from local.eolib.utils.function_helpers import dynamic_import_from_module
 from local.eolib.utils.cli_tools import cli_confirm
 from local.eolib.utils.quitters import ide_quit
@@ -78,10 +77,10 @@ from local.eolib.utils.quitters import ide_quit
 
 # .................................................................................................................
     
-def import_summary_class(cameras_folder_path, camera_select):
+def import_summary_class(location_select_folder_path, camera_select):
     
     # Check configuration file to see which script/class to load from & get configuration data
-    pathing_args = (cameras_folder_path, camera_select)
+    pathing_args = (location_select_folder_path, camera_select)
     _, config_data_dict = load_summary_config(*pathing_args)
     access_info_dict, setup_data_dict = unpack_config_data(config_data_dict)
     script_name, class_name, _ = unpack_access_info(access_info_dict)
@@ -96,7 +95,7 @@ def import_summary_class(cameras_folder_path, camera_select):
 
 def delete_existing_summary_data(enable_deletion_prompt,
                                  save_and_keep,
-                                 cameras_folder_path,
+                                 location_select_folder_path,
                                  camera_select):
     
     # If prompt is skipped and deletion is disabled, don't do anything
@@ -105,7 +104,7 @@ def delete_existing_summary_data(enable_deletion_prompt,
         return
     
     # Build pathing to summary data
-    summary_data_folder = build_summary_adb_metadata_report_path(cameras_folder_path, camera_select)
+    summary_data_folder = build_summary_adb_metadata_report_path(location_select_folder_path, camera_select)
     create_missing_folder_path(summary_data_folder)
     
     # Check if data already exists
@@ -120,7 +119,7 @@ def delete_existing_summary_data(enable_deletion_prompt,
             return
     
     # If we get here, delete the files!
-    rel_data_folder = os.path.relpath(summary_data_folder, cameras_folder_path)
+    rel_data_folder = os.path.relpath(summary_data_folder, location_select_folder_path)
     print("", "Deleting files:", "@ {}".format(rel_data_folder), sep="\n")
     rmtree(summary_data_folder)
 
@@ -135,14 +134,19 @@ enable_debug_mode = False
 
 # Create selector to handle camera selection & project pathing
 selector = Resource_Selector()
-project_root_path, cameras_folder_path = selector.get_cameras_root_pathing()
-camera_select, camera_path = selector.camera(debug_mode = enable_debug_mode)
+
+# Select data to run
+location_select, location_select_folder_path = selector.location(debug_mode = enable_debug_mode)
+camera_select, _ = selector.camera(location_select, debug_mode = enable_debug_mode)
+
+# For convenience
+pathing_args = (location_select_folder_path, camera_select)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Catalog existing data
 
-snap_db, obj_db, class_db = launch_dbs(cameras_folder_path, camera_select,
+snap_db, obj_db, class_db = launch_dbs(*pathing_args,
                                        "snapshots", "objects", "classifications")
 
 # Catch missing data
@@ -168,7 +172,6 @@ if no_object_data:
 #%% Load & configure summary
 
 # Programmatically import the target summary class
-pathing_args = (cameras_folder_path, camera_select)
 Imported_Summary_Class, setup_data_dict = import_summary_class(*pathing_args)
 summary_ref = Imported_Summary_Class(*pathing_args)
 summary_ref.reconfigure(setup_data_dict)

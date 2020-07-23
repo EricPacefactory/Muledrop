@@ -92,10 +92,10 @@ from local.eolib.utils.cli_tools import cli_confirm, cli_select_from_list
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define helper functions
 
-def check_for_existing_resources(cameras_folder_path, camera_select):
+def check_for_existing_resources(location_select_folder_path, camera_select):
     
     # Try to load existing classifier resources
-    _, loaded_lut = load_classifier_resources(cameras_folder_path, camera_select, error_if_missing = False)
+    _, loaded_lut = load_classifier_resources(location_select_folder_path, camera_select, error_if_missing = False)
     resources_exist = (loaded_lut is not None)
     
     return resources_exist
@@ -218,13 +218,13 @@ enable_debug_mode = False
 
 # Create selector so we can access existing report data
 selector = Resource_Selector()
-project_root_path, cameras_folder_path = selector.get_cameras_root_pathing()
 
-# Select the camera to show data for (needs to have saved report data already!)
-camera_select, camera_path = selector.camera(debug_mode=enable_debug_mode)
+# Select data to run
+location_select, location_select_folder_path = selector.location(debug_mode = enable_debug_mode)
+camera_select, _ = selector.camera(location_select, debug_mode = enable_debug_mode)
 
 # Bundle pathing args for convenience
-pathing_args = (cameras_folder_path, camera_select)
+pathing_args = (location_select_folder_path, camera_select)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -276,7 +276,7 @@ if not sv_labels_exist:
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Catalog existing data
 
-snap_db, obj_db, class_db = launch_dbs(cameras_folder_path, camera_select,
+snap_db, obj_db, class_db = launch_dbs(*pathing_args,
                                        "snapshots", "objects", "classifications")
 
 # Catch missing data

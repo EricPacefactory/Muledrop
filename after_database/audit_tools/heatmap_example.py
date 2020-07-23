@@ -218,10 +218,11 @@ enable_debug_mode = False
 
 # Create selector so we can access existing report data
 selector = Resource_Selector()
-project_root_path, cameras_folder_path = selector.get_cameras_root_pathing()
+project_root_path = selector.get_project_root_pathing()
 
-# Select the camera to show data for (needs to have saved report data already!)
-camera_select, camera_path = selector.camera(debug_mode=enable_debug_mode)
+# Select data to run
+location_select, location_select_folder_path = selector.location(debug_mode = enable_debug_mode)
+camera_select, _ = selector.camera(location_select, debug_mode = enable_debug_mode)
 
 # Get screen size so we know where to place windows
 screen_info = Screen_Info(project_root_path)
@@ -232,8 +233,8 @@ screen_wh = (screen_width, screen_height)
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Catalog existing data
 
-snap_db, obj_db, class_db = launch_dbs(cameras_folder_path, camera_select,
-                                                   "snapshots", "objects", "classifications")
+snap_db, obj_db, class_db = launch_dbs(location_select_folder_path, camera_select,
+                                       "snapshots", "objects", "classifications")
 
 # Catch missing data
 close_dbs_if_missing_data(snap_db, error_message_if_missing = "No snapshot data in the database!")

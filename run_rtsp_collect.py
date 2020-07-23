@@ -51,6 +51,7 @@ find_path_to_local()
 
 from local.lib.ui_utils.script_arguments import script_arg_builder, get_selections_from_script_args
 
+from local.lib.common.environment import get_env_location_select
 from local.lib.common.environment import get_dbserver_protocol, get_dbserver_host, get_dbserver_port
 from local.lib.common.launch_helpers import save_data_prompt, delete_existing_report_data
 from local.lib.common.launch_helpers import check_missing_main_selections, print_run_info
@@ -76,8 +77,12 @@ def parse_run_args(debug_print = False):
     default_dbserver_url = "{}://{}:{}".format(dbserver_protocol, dbserver_host, dbserver_port)
     url_help_text = "Specify the url of the db server\n(Default: {})".format(default_dbserver_url)
     
+    # Get default location from environment
+    default_location_select = get_env_location_select()
+    
     # Set script arguments for running on streams
-    args_list = ["camera",
+    args_list = [{"location": {"default": default_location_select}},
+                 "camera",
                  "display",
                  "enable_prompts",
                  "disable_saving",
@@ -117,14 +122,14 @@ delete_existing_data = ap_result.get("delete_existing_data", False)
 provide_prompts = ap_result.get("enable_prompts", False)
 
 # Get selections from arguments
-arg_camera_select, _ = get_selections_from_script_args(ap_result)
+arg_location_select, arg_camera_select, _ = get_selections_from_script_args(ap_result)
 
 # Hard-code some settings for rtsp only
 hardcode_video_select = "rtsp"
 hardcode_threaded_video = False
 
 # Catch missing inputs, if prompts are disabled
-check_missing_main_selections(arg_camera_select, hardcode_video_select,
+check_missing_main_selections(arg_location_select, arg_camera_select, hardcode_video_select,
                               error_if_missing = (not provide_prompts))
 
 
@@ -133,11 +138,11 @@ check_missing_main_selections(arg_camera_select, hardcode_video_select,
 
 # Make all required selections
 loader = RTSP_Configuration_Loader()
-loader.selections(arg_camera_select, hardcode_video_select)
+loader.selections(arg_location_select, arg_camera_select, hardcode_video_select)
 loader.set_script_name(__file__)
 
 # Get shared pathing settings
-cameras_folder_path, camera_select = loader.get_camera_pathing()
+location_select_folder_path, camera_select = loader.get_camera_pathing()
 
 # Make sure we're not already running a camera
 loader.shutdown_existing_camera_process()
@@ -146,11 +151,11 @@ loader.shutdown_existing_camera_process()
 enable_saving = save_data_prompt(enable_save_prompt = provide_prompts, save_by_default = allow_saving)
 if enable_saving:
     check_delete_existing_data = (provide_prompts or delete_existing_data)
-    delete_existing_report_data(cameras_folder_path, camera_select,
+    delete_existing_report_data(location_select_folder_path, camera_select,
                                 enable_deletion = check_delete_existing_data,
                                 enable_deletion_prompt = provide_prompts)
 
-# Turn on saving if needed and enabled threaded i/o on rtps streams, to avoid blocking
+# Turn on saving if needed and enable threaded i/o on rtsp streams, to avoid blocking
 loader.toggle_saving(enable_saving)
 loader.toggle_threaded_saving(threaded_save)
 loader.toggle_threaded_capture(hardcode_threaded_video)
@@ -163,7 +168,7 @@ start_timestamp = loader.setup_all()
 main_process = Video_Processing_Loop(loader, enable_display)
 
 # Start auto-data posting
-parallel_post = create_parallel_scheduled_post(dbserver_url, cameras_folder_path, camera_select)
+parallel_post = create_parallel_scheduled_post(dbserver_url, location_select_folder_path, camera_select)
 
 
 # ---------------------------------------------------------------------------------------------------------------------

@@ -59,7 +59,6 @@ from local.lib.common.feedback import print_time_taken_sec
 
 from local.lib.ui_utils.cli_selections import Resource_Selector
 
-from local.lib.file_access_utils.structures import create_missing_folder_path
 from local.lib.file_access_utils.configurables import configurable_dot_path, unpack_config_data, unpack_access_info
 from local.lib.file_access_utils.classifier import build_classifier_adb_metadata_report_path
 from local.lib.file_access_utils.classifier import load_classifier_config
@@ -68,7 +67,7 @@ from local.lib.file_access_utils.classifier import save_classifier_report_data
 
 from local.offline_database.file_database import launch_dbs, close_dbs_if_missing_data
 
-from local.eolib.utils.files import get_total_folder_size
+from local.eolib.utils.files import get_total_folder_size, create_missing_folder_path
 from local.eolib.utils.function_helpers import dynamic_import_from_module
 from local.eolib.utils.cli_tools import cli_confirm
 from local.eolib.utils.quitters import ide_quit
@@ -79,10 +78,10 @@ from local.eolib.utils.quitters import ide_quit
 
 # .................................................................................................................
     
-def import_classifier_class(cameras_folder_path, camera_select):
+def import_classifier_class(location_select_folder_path, camera_select):
     
     # Check configuration file to see which script/class to load from & get configuration data
-    load_pathing_args = (cameras_folder_path, camera_select)
+    load_pathing_args = (location_select_folder_path, camera_select)
     _, config_data_dict = load_classifier_config(*load_pathing_args)
     access_info_dict, setup_data_dict = unpack_config_data(config_data_dict)
     script_name, class_name, _ = unpack_access_info(access_info_dict)
@@ -96,7 +95,7 @@ def import_classifier_class(cameras_folder_path, camera_select):
 # .....................................................................................................................
 
 def delete_existing_classification_data(enable_deletion_prompt,
-                                        cameras_folder_path,
+                                        location_select_folder_path,
                                         camera_select,
                                         save_and_keep):
     
@@ -106,7 +105,7 @@ def delete_existing_classification_data(enable_deletion_prompt,
         return
     
     # Build pathing to classification data
-    class_data_folder = build_classifier_adb_metadata_report_path(cameras_folder_path, camera_select)
+    class_data_folder = build_classifier_adb_metadata_report_path(location_select_folder_path, camera_select)
     create_missing_folder_path(class_data_folder)
     
     # Check if data already exists
@@ -121,7 +120,7 @@ def delete_existing_classification_data(enable_deletion_prompt,
             return
     
     # If we get here, delete the files!
-    rel_data_folder = os.path.relpath(class_data_folder, cameras_folder_path)
+    rel_data_folder = os.path.relpath(class_data_folder, location_select_folder_path)
     print("", "Deleting existing files:", "@ {}".format(rel_data_folder), sep="\n")
     rmtree(class_data_folder)
 
@@ -152,14 +151,16 @@ enable_debug_mode = False
 
 # Create selector to handle camera selection & project pathing
 selector = Resource_Selector()
-project_root_path, cameras_folder_path = selector.get_cameras_root_pathing()
-camera_select, camera_path = selector.camera(debug_mode=enable_debug_mode)
+
+# Select data to run
+location_select, location_select_folder_path = selector.location(debug_mode = enable_debug_mode)
+camera_select, _ = selector.camera(location_select, debug_mode = enable_debug_mode)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Catalog existing data
 
-snap_db, obj_db = launch_dbs(cameras_folder_path, camera_select,
+snap_db, obj_db = launch_dbs(location_select_folder_path, camera_select,
                              "snapshots", "objects")
 
 # Catch missing data
@@ -185,7 +186,7 @@ if no_object_data:
 #%% Load & configure classifier
 
 # Programmatically import the target classifier class
-import_pathing_args = (cameras_folder_path, camera_select)
+import_pathing_args = (location_select_folder_path, camera_select)
 Imported_Classifier_Class, setup_data_dict = import_classifier_class(*import_pathing_args)
 classifier_ref = Imported_Classifier_Class(*import_pathing_args)
 classifier_ref.reconfigure(setup_data_dict)
@@ -244,14 +245,14 @@ if saving_enabled:
     # Delete existing classification data, if needed
     enable_deletion = True
     save_and_keep = False
-    delete_existing_classification_data(enable_deletion, cameras_folder_path, camera_select, save_and_keep)
+    delete_existing_classification_data(enable_deletion, location_select_folder_path, camera_select, save_and_keep)
     
     # Build pathing & make sure the folder exists before saving!
-    save_folder_path = build_classifier_adb_metadata_report_path(cameras_folder_path, camera_select)
+    save_folder_path = build_classifier_adb_metadata_report_path(location_select_folder_path, camera_select)
     create_missing_folder_path(save_folder_path)
     
     # Loop over all results and save!
-    save_pathing_args = (cameras_folder_path, camera_select)
+    save_pathing_args = (location_select_folder_path, camera_select)
     for each_obj_id, each_report_data_dict in save_data_dict.items():
         save_classifier_report_data(save_folder_path, report_data_dict = each_report_data_dict)
 

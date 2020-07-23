@@ -177,13 +177,13 @@ enable_debug_mode = False
 
 # Create selector so we can access existing report data
 selector = Resource_Selector()
-project_root_path, cameras_folder_path = selector.get_cameras_root_pathing()
 
-# Select the camera to show data for (needs to have saved report data already!)
-camera_select, camera_path = selector.camera(debug_mode=enable_debug_mode)
+# Select data to run
+location_select, location_select_folder_path = selector.location(debug_mode = enable_debug_mode)
+camera_select, _ = selector.camera(location_select, debug_mode = enable_debug_mode)
 
 # Bundle pathing args for convenience
-pathing_args = (cameras_folder_path, camera_select)
+pathing_args = (location_select_folder_path, camera_select)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -215,8 +215,8 @@ if no_object_data:
 #%% Get existing labelling results (if any)
 
 # First get all the available labels
-reserved_colors_dict = load_reserved_labels_lut(cameras_folder_path, camera_select)
-topclass_colors_dict = load_topclass_labels_lut(cameras_folder_path, camera_select)
+reserved_colors_dict = load_reserved_labels_lut(*pathing_args)
+topclass_colors_dict = load_topclass_labels_lut(*pathing_args)
 
 # Get labels in sorted order so we get consistent a display
 sorted_reserved_labels = sorted(list(reserved_colors_dict.keys()))

@@ -159,6 +159,7 @@ class Station_Bundle:
         try:
             total_frames_in_block = (current_frame_index - self._first_frame_index)
             allow_save = (total_frames_in_block > 1)
+            
         except TypeError:
             # Would occur if one of the frame index values (most like the internal storage) is 'None'
             # -> This implies we don't have 'good' data to save
@@ -172,8 +173,11 @@ class Station_Bundle:
         for each_station_name, each_station_ref in self.all_stations_ref_dict.items():
             each_station_ref.close(current_frame_index, current_epoch_ms, current_datetime)
         
+        # Close report saver object
+        self._report_data_saver.close()
+        
         # Final feedback
-        print("Done!")
+        print(" Done!")
         
         return
     
@@ -445,8 +449,9 @@ if __name__ == "__main__":
     # Make selections for testing station bundle setup
     from local.lib.ui_utils.cli_selections import Resource_Selector
     selector = Resource_Selector(save_selection_history = False, create_folder_structure_on_select = False)
-    camera_select, camera_path = selector.camera()
-    video_select, _ = selector.video(camera_select)
+    location_select, _ = selector.location()
+    camera_select, camera_path = selector.camera(location_select)
+    video_select, _ = selector.video(location_select, camera_select)
     project_root_path, cameras_folder_path = selector.get_cameras_root_pathing()
     fake_video_wh = (100,100)
     

@@ -298,15 +298,15 @@ def add_video_to_files_dict(cameras_folder_path, camera_select, new_video_path,
         new_video_name = os.path.basename(new_video_path)
     
     # Clean name to ensure consistency. Also helps with detecting duplicates
-    cleaned_video_name = url_safe_name(new_video_name)
+    safe_video_name = url_safe_name(new_video_name)
     
     # Load existing video file data
     video_files_dict = load_video_files_dict(cameras_folder_path, camera_select)
     
     # Check that the video name isn't already in use
-    name_in_use = (cleaned_video_name in video_files_dict.keys())
+    name_in_use = (safe_video_name in video_files_dict.keys())
     if name_in_use:
-        raise NameError("Error adding video: Video name already taken! ({})".format(cleaned_video_name))
+        raise NameError("Error adding video: Video name already taken! ({})".format(safe_video_name))
     
     # Convert to 'local' pathing and/or remove user home pathing from the new video path, if needed
     is_local_path = check_path_is_local(cameras_folder_path, camera_select, new_video_path)
@@ -321,7 +321,7 @@ def add_video_to_files_dict(cameras_folder_path, camera_select, new_video_path,
         raise AttributeError("Error adding video: Video path already exists! ({})".format(new_video_path))
     
     # If we get here, we had no problems, so create a new video entry
-    new_video_entry = {cleaned_video_name: {"path": new_video_path,
+    new_video_entry = {safe_video_name: {"path": new_video_path,
                                             "start_datetime_isoformat": new_start_datetime_isoformat,
                                             "video_timelapse_factor": new_timelapse_factor}}
     
@@ -329,7 +329,7 @@ def add_video_to_files_dict(cameras_folder_path, camera_select, new_video_path,
     video_files_dict.update(new_video_entry)
     save_video_files_dict(cameras_folder_path, camera_select, video_files_dict)
     
-    return cleaned_video_name
+    return safe_video_name
 
 # .....................................................................................................................
 
@@ -338,19 +338,19 @@ def rename_video_in_files_dict(cameras_folder_path, camera_select, old_video_nam
     ''' Function which renames existing entries in the video file dictionary '''
     
     # Clean name to ensure consistency. Also helps with detecting duplicates
-    cleaned_video_name = url_safe_name(new_video_name)
+    safe_video_name = url_safe_name(new_video_name)
     
     # Load existing video file data
     video_files_dict = load_video_files_dict(cameras_folder_path, camera_select)
     
     # Check that the video name exists (otherwise we can't rename it!)
-    name_in_use = (cleaned_video_name in video_files_dict.keys())
+    name_in_use = (safe_video_name in video_files_dict.keys())
     if name_in_use:
-        raise NameError("Error renaming video: Video name already exists! ({})".format(cleaned_video_name))
+        raise NameError("Error renaming video: Video name already exists! ({})".format(safe_video_name))
 
     # If we get here, we had no problems, so remove the old entry and use it to create a new (renamed) entry
     old_video_data = video_files_dict.pop(old_video_name)
-    new_video_entry = {cleaned_video_name: old_video_data}
+    new_video_entry = {safe_video_name: old_video_data}
     
     # Update the video files dictionary and save it
     video_files_dict.update(new_video_entry)
@@ -363,19 +363,19 @@ def delete_video_in_files_dict(cameras_folder_path, camera_select, video_name_to
     ''' Function which deletes entries in the video file dictionary '''
     
     # Clean name to ensure consistency
-    cleaned_video_name = url_safe_name(video_name_to_delete)
+    safe_video_name = url_safe_name(video_name_to_delete)
     
     # Load existing video file data
     video_files_dict = load_video_files_dict(cameras_folder_path, camera_select)
     
     # Check that the video name exists (otherwise we can't delete it!)
-    name_in_use = (cleaned_video_name in video_files_dict.keys())
+    name_in_use = (safe_video_name in video_files_dict.keys())
     if not name_in_use:
-        raise NameError("Error deleting video: Video name doesn't exist! ({})".format(cleaned_video_name))
+        raise NameError("Error deleting video: Video name doesn't exist! ({})".format(safe_video_name))
     
     # If we get here, we had no problems, so remove the old entry and re-save the file
-    deleted_video_full_path, _, _ = video_info_from_name(cameras_folder_path, camera_select, cleaned_video_name)
-    video_files_dict.pop(cleaned_video_name)
+    deleted_video_full_path, _, _ = video_info_from_name(cameras_folder_path, camera_select, safe_video_name)
+    video_files_dict.pop(safe_video_name)
     save_video_files_dict(cameras_folder_path, camera_select, video_files_dict)
     
     # Delete local copies of videos as well
@@ -396,19 +396,19 @@ def change_video_start_datetime(cameras_folder_path, camera_select, video_name, 
     new_start_dt_isoformat = datetime_to_isoformat_string(new_start_datetime)
     
     # Clean name to ensure consistency
-    cleaned_video_name = url_safe_name(video_name)
+    safe_video_name = url_safe_name(video_name)
     
     # Load existing video file data
     video_files_dict = load_video_files_dict(cameras_folder_path, camera_select)
     
     # Check that the video name exists (otherwise we can't update it!)
-    name_in_use = (cleaned_video_name in video_files_dict.keys())
+    name_in_use = (safe_video_name in video_files_dict.keys())
     if not name_in_use:
-        raise NameError("Error updating video: Video name doesn't exist! ({})".format(cleaned_video_name))
+        raise NameError("Error updating video: Video name doesn't exist! ({})".format(safe_video_name))
     
     # If we get here we had no problems, so update the dictionary entry & save it
-    old_start_dt_isoformat = str(video_files_dict[cleaned_video_name]["start_datetime_isoformat"])
-    video_files_dict[cleaned_video_name]["start_datetime_isoformat"] = new_start_dt_isoformat
+    old_start_dt_isoformat = str(video_files_dict[safe_video_name]["start_datetime_isoformat"])
+    video_files_dict[safe_video_name]["start_datetime_isoformat"] = new_start_dt_isoformat
     save_video_files_dict(cameras_folder_path, camera_select, video_files_dict)
     
     return old_start_dt_isoformat, new_start_dt_isoformat
@@ -426,19 +426,19 @@ def change_video_timelapse_factor(cameras_folder_path, camera_select, video_name
         new_timelapse_factor = int(round(new_timelapse_factor))
     
     # Clean name to ensure consistency
-    cleaned_video_name = url_safe_name(video_name)
+    safe_video_name = url_safe_name(video_name)
     
     # Load existing video file data
     video_files_dict = load_video_files_dict(cameras_folder_path, camera_select)
     
     # Check that the video name exists (otherwise we can't update it!)
-    name_in_use = (cleaned_video_name in video_files_dict.keys())
+    name_in_use = (safe_video_name in video_files_dict.keys())
     if not name_in_use:
-        raise NameError("Error updating video: Video name doesn't exist! ({})".format(cleaned_video_name))
+        raise NameError("Error updating video: Video name doesn't exist! ({})".format(safe_video_name))
     
     # If we get here we had no problems, so update the dictionary entry & save it
-    old_timelapse_factor = video_files_dict[cleaned_video_name]["video_timelapse_factor"]
-    video_files_dict[cleaned_video_name]["video_timelapse_factor"] = new_timelapse_factor
+    old_timelapse_factor = video_files_dict[safe_video_name]["video_timelapse_factor"]
+    video_files_dict[safe_video_name]["video_timelapse_factor"] = new_timelapse_factor
     save_video_files_dict(cameras_folder_path, camera_select, video_files_dict)
     
     return old_timelapse_factor, new_timelapse_factor

@@ -51,12 +51,11 @@ find_path_to_local()
 
 from shutil import rmtree
 
-from local.lib.file_access_utils.structures import create_missing_folder_path
-
 from local.lib.file_access_utils.reporting import build_base_report_path
 
-from local.eolib.utils.files import get_total_folder_size
+from local.eolib.utils.files import get_total_folder_size, create_missing_folder_path
 from local.eolib.utils.cli_tools import cli_confirm
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Classes
@@ -112,16 +111,18 @@ def delete_existing_report_data(cameras_folder_path, camera_select,
         # If we get here, delete the files!
         print("", "Deleting files:", "@ {}".format(report_data_folder), sep="\n")
         rmtree(report_data_folder)
-        
+    
     return
 
 # .....................................................................................................................
 
-def check_missing_main_selections(camera_select, video_select, error_if_missing = True,
+def check_missing_main_selections(location_select, camera_select, video_select, error_if_missing = True,
                                   error_message = "Not all selections were specified!"):
     
+    
+    
     # Get list of data that is missing, in case we need to print it out
-    zip_selects = zip(["camera", "video"], [camera_select, video_select])
+    zip_selects = zip(["location", "camera", "video"], [location_select, camera_select, video_select])
     missing_selection_names = [each_name for each_name, each_arg in zip_selects if each_arg is None]
     is_missing = (len(missing_selection_names) > 0)
     
