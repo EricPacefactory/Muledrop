@@ -61,10 +61,10 @@ class Reference_Rule(After_Database_Configurable_Base):
     
     # .................................................................................................................
     
-    def __init__(self, cameras_folder_path, camera_select, input_wh, *, file_dunder):
+    def __init__(self, location_select_folder_path, camera_select, input_wh, *, file_dunder):
         
         # Inherit from base class
-        super().__init__("rules", cameras_folder_path, camera_select, file_dunder = file_dunder)
+        super().__init__("rules", location_select_folder_path, camera_select, file_dunder = file_dunder)
         
         # Store rule-specific info
         self.input_wh = input_wh

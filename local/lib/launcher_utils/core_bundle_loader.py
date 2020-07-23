@@ -67,15 +67,15 @@ class Core_Bundle:
     
     # .................................................................................................................
     
-    def __init__(self, cameras_folder_path, camera_select, video_wh):
+    def __init__(self, location_select_folder_path, camera_select, video_wh):
         
         # Save selection info
-        self.cameras_folder_path = cameras_folder_path
+        self.location_select_folder_path = location_select_folder_path
         self.camera_select = camera_select
         self.video_wh = video_wh
         
         # First make sure we have pathing to the core configs folder
-        self.core_folder_path = build_core_folder_path(cameras_folder_path, camera_select)
+        self.core_folder_path = build_core_folder_path(location_select_folder_path, camera_select)
         
         # Allocate storage for configured data
         self.final_stage_config_file_paths = None
@@ -319,7 +319,7 @@ class Core_Bundle:
         # Load the given core object
         import_dot_path = configurable_dot_path("core", stage_name, script_name)
         Imported_Core_Class = dynamic_import_from_module(import_dot_path, class_name)
-        core_ref = Imported_Core_Class(self.cameras_folder_path, self.camera_select, input_wh)
+        core_ref = Imported_Core_Class(self.location_select_folder_path, self.camera_select, input_wh)
         
         # For debugging
         #print("IMPORTING:", stage_name)
@@ -436,10 +436,10 @@ if __name__ == "__main__":
     location_select, _ = selector.location()
     camera_select, camera_path = selector.camera(location_select)
     video_select, _ = selector.video(location_select, camera_select)
-    project_root_path, cameras_folder_path = selector.get_cameras_root_pathing()
+    location_select_folder_path = selector.get_location_select_folder_path()
     fake_video_wh = (100,100)
     
-    cb = Core_Bundle(cameras_folder_path, camera_select, fake_video_wh)
+    cb = Core_Bundle(location_select_folder_path, camera_select, fake_video_wh)
     print("", "", "--- BEFORE SETUP ---", sep = "\n")
     print(cb)
     cb.setup_all()

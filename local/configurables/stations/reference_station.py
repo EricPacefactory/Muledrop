@@ -60,13 +60,13 @@ class Reference_Station(Stations_Configurable_Base):
     
     # .................................................................................................................
     
-    def __init__(self, station_name, cameras_folder_path, camera_select, video_wh, *, file_dunder):
+    def __init__(self, station_name, location_select_folder_path, camera_select, video_wh, *, file_dunder):
         
         # Handle missing station names (i.e. when creating new station entries)
         station_name = "Unnamed Station" if station_name is None else station_name
         
         # Inherit from base class
-        super().__init__(station_name, cameras_folder_path, camera_select, video_wh, file_dunder = file_dunder)
+        super().__init__(station_name, location_select_folder_path, camera_select, video_wh, file_dunder = file_dunder)
         
         # Allocate storage for storing current dataset
         self._latest_one_frame_result_for_config = None

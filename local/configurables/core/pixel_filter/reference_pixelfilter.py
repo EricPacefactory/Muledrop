@@ -61,15 +61,16 @@ class Reference_Pixel_Filter(Core_Configurable_Base):
     
     # .................................................................................................................
     
-    def __init__(self, cameras_folder_path, camera_select, input_wh, *, file_dunder):
+    def __init__(self, location_select_folder_path, camera_select, input_wh, *, file_dunder):
         
         # Inherit from parent class
-        super().__init__("pixel_filter", cameras_folder_path, camera_select, input_wh, file_dunder = file_dunder)
+        super().__init__("pixel_filter", location_select_folder_path, camera_select, input_wh,
+                         file_dunder = file_dunder)
         
         # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         
         # For inherited classes, first call:
-        # super().__init__(cameras_folder_path, camera_select, input_wh, file_dunder = __file__)
+        # super().__init__(location_select_folder_path, camera_select, input_wh, file_dunder = __file__)
         
         # Then do any class-specific set up
         # ...

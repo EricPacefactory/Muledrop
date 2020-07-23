@@ -12,7 +12,7 @@ network_setting="host"
 
 # Set volume pathing
 host_volume_path="$HOME/scv2/volumes/$container_name"
-container_volume_path="/home/scv2/cameras"
+container_volume_path="/home/scv2/locations"
 
 
 # -------------------------------------------------------------------------

@@ -66,10 +66,10 @@ class Target_Average_Brightness_Station(Reference_Station):
     
     # .................................................................................................................
     
-    def __init__(self, station_name, cameras_folder_path, camera_select, video_wh):
+    def __init__(self, station_name, location_select_folder_path, camera_select, video_wh):
         
         # Inherit from base class
-        super().__init__(station_name, cameras_folder_path, camera_select, video_wh, file_dunder = __file__)
+        super().__init__(station_name, location_select_folder_path, camera_select, video_wh, file_dunder = __file__)
         
         # Allocate space for derived variables
         self._crop_y1y2x1x2 = None

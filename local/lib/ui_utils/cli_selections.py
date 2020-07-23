@@ -51,7 +51,7 @@ find_path_to_local()
 
 from local.lib.file_access_utils.shared import find_root_path, find_locations_folder, build_location_path
 from local.lib.file_access_utils.settings import load_history, save_history
-from local.lib.file_access_utils.locations import build_location_list, load_location_info_dict
+from local.lib.file_access_utils.locations import build_location_list, load_location_info_dict, create_default_location
 from local.lib.file_access_utils.cameras import create_camera_folder_structure, build_camera_list
 from local.lib.file_access_utils.cameras import check_for_existing_camera_name
 from local.lib.file_access_utils.video import get_video_names_and_paths_lists
@@ -76,6 +76,9 @@ class Resource_Selector:
         # Store important pathing info
         self.project_root_path = find_root_path()
         self.all_locations_folder_path = find_locations_folder(self.project_root_path)
+        
+        # Create default location folder, if none are present
+        create_default_location(self.all_locations_folder_path)
         
         # Load selection defaults
         self.selection_history = load_history(self.project_root_path, enable = load_selection_history)
@@ -126,15 +129,6 @@ class Resource_Selector:
     
     # .................................................................................................................
     
-    def get_cameras_root_pathing(self):        
-        ''' Returns (project_root_path, location_select_folder_path) '''
-        
-        print("DEBUG: SHOULD DELETE")
-        
-        return self.project_root_path, self.get_location_select_folder_path()
-    
-    # .................................................................................................................
-    
     def get_location_select_folder_path(self, location_select = None):
         
         ''' Helper function used to construct the pathing to the cameras for the selected location '''
@@ -172,10 +166,17 @@ class Resource_Selector:
         location_names_list, location_paths_list = build_location_list(self.all_locations_folder_path,
                                                                        self._show_hidden_resources)
         
+        # Special case. If only one location exists, pick it without a menu prompt
+        only_one_location = (len(location_names_list) == 1)
+        no_explicit_select = (location_select is None)
+        if only_one_location and no_explicit_select:
+            location_select = location_names_list[0]
+            debug_mode = True
+        
         # Select from the location names
         location_select, path_select = self._make_selection("location", location_select,
                                                             (location_names_list, location_paths_list),
-                                                            debug_mode = debug_mode)
+                                                            skip_menu = debug_mode)
         
         # Save the selected location pathing, since it may be requested
         self.location_select_folder_path = path_select
@@ -198,7 +199,7 @@ class Resource_Selector:
         # Select from the camera names
         camera_select, path_select = self._make_selection("camera", camera_select, 
                                                           (camera_names_list, camera_paths_list),
-                                                          debug_mode = debug_mode)
+                                                          skip_menu = debug_mode)
         
         # Save selected camera
         self.camera_select = camera_select
@@ -221,7 +222,7 @@ class Resource_Selector:
         video_select, path_select = self._make_selection("video", video_select, 
                                                          (video_names_list, video_paths_list),
                                                          zero_indexed = False,
-                                                         debug_mode = debug_mode)
+                                                         skip_menu = debug_mode)
         
         # Save selected video
         self.video_select = video_select
@@ -250,7 +251,7 @@ class Resource_Selector:
         station_select, path_select = self._make_selection("station", station_select,
                                                            (station_names_list, station_paths_list),
                                                            zero_indexed = True,
-                                                           debug_mode = debug_mode)
+                                                           skip_menu = debug_mode)
         
         # If the 'create new' entry is selected, replace the selection with None instead of the 'create' text prompt
         selected_create_new = (station_select == create_station_name_entry)
@@ -313,7 +314,7 @@ class Resource_Selector:
     
     # .................................................................................................................
     
-    def _make_selection(self, entry_type, default_select, entry_lists, zero_indexed = False, debug_mode = False):
+    def _make_selection(self, entry_type, default_select, entry_lists, zero_indexed = False, skip_menu = False):
         
         # For convenience
         entry_name_list, entry_path_list = entry_lists
@@ -327,7 +328,7 @@ class Resource_Selector:
                                                    prompt_heading = "Select a {}:".format(entry_type), 
                                                    default_selection = self.selection_history.get(select_type),
                                                    zero_indexed = zero_indexed,
-                                                   debug_mode = debug_mode)
+                                                   debug_mode = skip_menu)
             
         # Check that selection is valid, if not, error out!
         self._check_selection_is_valid(entry_select, entry_name_list, entry_type)

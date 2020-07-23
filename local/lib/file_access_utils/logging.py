@@ -84,31 +84,31 @@ def make_log_folder(log_path, make_parent_folder = True):
 
 # .....................................................................................................................
 
-def build_configurables_log_path(cameras_folder_path, camera_select, *path_joins):
+def build_configurables_log_path(location_select_folder_path, camera_select, *path_joins):
     ''' Build pathing to the configurables logging folder for a given camera '''
-    return build_logging_folder_path(cameras_folder_path, camera_select, "configurables", *path_joins)
+    return build_logging_folder_path(location_select_folder_path, camera_select, "configurables", *path_joins)
 
 # .....................................................................................................................
 
-def build_system_log_path(cameras_folder_path, camera_select, *path_joins):
+def build_system_log_path(location_select_folder_path, camera_select, *path_joins):
     ''' Build pathing to the system logging folder for a given camera '''
-    return build_logging_folder_path(cameras_folder_path, camera_select, "system", *path_joins)
+    return build_logging_folder_path(location_select_folder_path, camera_select, "system", *path_joins)
 
 # .....................................................................................................................
 
-def build_post_db_log_path(cameras_folder_path, camera_select, *path_joins):
+def build_post_db_log_path(location_select_folder_path, camera_select, *path_joins):
     ''' Build path to the folder containing logging info for posting to a database, for a given camera '''    
-    return build_system_log_path(cameras_folder_path, camera_select, "post_to_db", *path_joins)
+    return build_system_log_path(location_select_folder_path, camera_select, "post_to_db", *path_joins)
 
 # .....................................................................................................................
     
-def build_state_file_path(cameras_folder_path, camera_select):
+def build_state_file_path(location_select_folder_path, camera_select):
     ''' Build pathing to the file used to store state information for running processes '''
-    return build_system_log_path(cameras_folder_path, camera_select, "state", "state.json")
+    return build_system_log_path(location_select_folder_path, camera_select, "state", "state.json")
 
 # .....................................................................................................................
 
-def build_stdout_log_file_path(cameras_folder_path, camera_select):
+def build_stdout_log_file_path(location_select_folder_path, camera_select):
     
     ''' Build pathing to a file used to store stdout log for a running camera '''
     
@@ -116,7 +116,7 @@ def build_stdout_log_file_path(cameras_folder_path, camera_select):
     current_date_str = get_filesafe_date()
     
     # Get pathing to where we'll want to put the log file
-    log_folder_path =  build_system_log_path(cameras_folder_path, camera_select, "stdout", current_date_str)
+    log_folder_path =  build_system_log_path(location_select_folder_path, camera_select, "stdout", current_date_str)
     make_log_folder(log_folder_path, make_parent_folder = False)
     
     # Decide the file name and build the final path
@@ -128,7 +128,7 @@ def build_stdout_log_file_path(cameras_folder_path, camera_select):
 
 # .....................................................................................................................
 
-def build_stderr_log_file_path(cameras_folder_path, camera_select):
+def build_stderr_log_file_path(location_select_folder_path, camera_select):
     
     ''' Build pathing to the file used to store stderr logs for a running camera '''
     
@@ -136,7 +136,7 @@ def build_stderr_log_file_path(cameras_folder_path, camera_select):
     current_date_str = get_filesafe_date()
     
     # Get pathing to where we'll want to put the log file
-    log_folder_path =  build_system_log_path(cameras_folder_path, camera_select, "stderr", current_date_str)
+    log_folder_path =  build_system_log_path(location_select_folder_path, camera_select, "stderr", current_date_str)
     make_log_folder(log_folder_path, make_parent_folder = False)
     
     # Decide the file name and build the final path
@@ -148,21 +148,21 @@ def build_stderr_log_file_path(cameras_folder_path, camera_select):
 
 # .....................................................................................................................
 
-def build_upload_folder_path(cameras_folder_path, camera_select, *path_joins):
+def build_upload_folder_path(location_select_folder_path, camera_select, *path_joins):
     ''' Build pathing to the folder used to store logs from the upload/configuration server '''
-    return build_system_log_path(cameras_folder_path, camera_select, "upload_server", *path_joins)
+    return build_system_log_path(location_select_folder_path, camera_select, "upload_server", *path_joins)
 
 # .....................................................................................................................
 
-def build_upload_new_log_file_path(cameras_folder_path, camera_select):
+def build_upload_new_log_file_path(location_select_folder_path, camera_select):
     ''' Build pathing to the upload server new log file '''
-    return build_upload_folder_path(cameras_folder_path, camera_select, "new.log")
+    return build_upload_folder_path(location_select_folder_path, camera_select, "new.log")
 
 # .....................................................................................................................
 
-def build_upload_update_log_file_path(cameras_folder_path, camera_select):
+def build_upload_update_log_file_path(location_select_folder_path, camera_select):
     ''' Build pathing to the upload server update log file '''
-    return build_upload_folder_path(cameras_folder_path, camera_select, "update.log")
+    return build_upload_folder_path(location_select_folder_path, camera_select, "update.log")
 
 # .....................................................................................................................
 # .....................................................................................................................

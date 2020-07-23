@@ -49,7 +49,9 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
-from local.lib.file_access_utils.shared import build_location_path
+from local.lib.common.environment import get_env_location_select, get_dbserver_port, get_control_server_port
+
+from local.lib.file_access_utils.shared import build_location_path, url_safe_name
 from local.lib.file_access_utils.json_read_write import save_config_json, load_config_json
 
 from local.eolib.utils.files import get_folder_list
@@ -105,6 +107,31 @@ def save_location_info_dict(all_locations_folder_path, location_select, location
 
 # .....................................................................................................................
 
+def create_new_location_folder(all_locations_folder_path, location_name,
+                               ip_address, ssh_username, ssh_password,
+                               dbserver_port = None, ctrlserver_port = None):
+    
+    ''' Function which manages creation of new location folders & initializes location info '''
+    
+    # Get default server ports on creation in case ports aren't provided
+    default_dbserver_port = get_dbserver_port()
+    default_ctrlserver_port = get_control_server_port()
+    
+    # Build location info to save with location folder
+    location_info_dict = build_location_info_dict(ip_address,
+                                                  ssh_username,
+                                                  ssh_password,
+                                                  dbserver_port if dbserver_port else default_dbserver_port,
+                                                  ctrlserver_port if ctrlserver_port else default_ctrlserver_port)
+    
+    # Save the location info entry
+    safe_location_name = url_safe_name(location_name)
+    new_location_path = save_location_info_dict(all_locations_folder_path, safe_location_name, location_info_dict)
+    
+    return new_location_path
+
+# .....................................................................................................................
+
 def build_location_info_dict(host_ip, ssh_username, ssh_password, dbserver_port, control_server_port):
     
     ''' Helper function used to create consistently formatted location info data '''
@@ -152,6 +179,39 @@ def unpack_location_info_dict(location_info_dict):
 
 # .....................................................................................................................
 
+def create_default_location(all_locations_folder_path):
+    
+    '''
+    Helper function used to create a 'default' location folder
+    Will only create a folder if no other location folders exist!
+    '''
+    
+    # Check if locations already exist, in which case do nothing
+    existing_location_folders, _ = build_location_list(all_locations_folder_path, show_hidden_locations = False)
+    locations_already_exist = (len(existing_location_folders) > 0)
+    if locations_already_exist:
+        return
+    
+    # Figure out what to use as a default location name
+    default_location_name = get_env_location_select()
+    if default_location_name is None:
+        default_location_name = "localhost"
+    
+    # Set ssh defaults
+    default_host_ip = "localhost"
+    default_ssh_username = None
+    default_ssh_password = None
+    
+    # Create the default location folder!
+    create_new_location_folder(all_locations_folder_path, default_location_name,
+                               ip_address = default_host_ip,
+                               ssh_username = default_ssh_username,
+                               ssh_password = default_ssh_password)
+    
+    return
+
+# .....................................................................................................................
+
 def build_location_list(all_locations_folder_path, show_hidden_locations = False):
     
     ''' Function which returns all location names & corresponding folder paths '''
@@ -164,11 +224,13 @@ def build_location_list(all_locations_folder_path, show_hidden_locations = False
     location_name_list = [os.path.basename(each_path) for each_path in location_paths_list]
     
     # Re-order so that localhost is always at the top of the list
-    localhost_index = location_name_list.index("localhost")
-    localhost_name = location_name_list.pop(localhost_index)
-    localhost_path = location_paths_list.pop(localhost_index)
-    location_name_list.insert(0, localhost_name)
-    location_paths_list.insert(0, localhost_path)
+    localhost_in_list = ("localhost" in location_name_list)
+    if localhost_in_list:
+        localhost_index = location_name_list.index("localhost")
+        localhost_name = location_name_list.pop(localhost_index)
+        localhost_path = location_paths_list.pop(localhost_index)
+        location_name_list.insert(0, localhost_name)
+        location_paths_list.insert(0, localhost_path)
     
     return location_name_list, location_paths_list
 

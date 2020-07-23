@@ -58,14 +58,14 @@ from local.lib.file_access_utils.logging import build_configurables_log_path
 
 # .....................................................................................................................
 
-def build_core_folder_path(cameras_folder_path, camera_select, *path_joins):
+def build_core_folder_path(location_select_folder_path, camera_select, *path_joins):
     ''' Function which builds the path the folder containing core configuration files '''
-    return build_config_folder_path(cameras_folder_path, camera_select, "core", *path_joins)
+    return build_config_folder_path(location_select_folder_path, camera_select, "core", *path_joins)
 
 # .....................................................................................................................
 
-def build_core_logging_folder_path(cameras_folder_path, camera_select, stage_name):
-    return build_configurables_log_path(cameras_folder_path, camera_select, "core", stage_name)
+def build_core_logging_folder_path(location_select_folder_path, camera_select, stage_name):
+    return build_configurables_log_path(location_select_folder_path, camera_select, "core", stage_name)
 
 # .....................................................................................................................
 # .....................................................................................................................

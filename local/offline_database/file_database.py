@@ -90,12 +90,12 @@ class File_DB:
     
     # .................................................................................................................
     
-    def __init__(self, cameras_folder_path, camera_select,
+    def __init__(self, location_select_folder_path, camera_select,
                  primary_key, required_keys_set,
                  db_path = ":memory:", check_same_thread = True, debug_connect = False):
         
         # Store camera selections
-        self.cameras_folder_path = cameras_folder_path
+        self.location_select_folder_path = location_select_folder_path
         self.camera_select = camera_select
         
         # Store key info
@@ -409,7 +409,7 @@ class Camera_Info_DB(File_DB):
     
     # .................................................................................................................
     
-    def __init__(self, cameras_folder_path, camera_select,
+    def __init__(self, location_select_folder_path, camera_select,
                  db_path = ":memory:", check_same_thread = True, debug_connect = False):
         
         # Build key info
@@ -419,7 +419,7 @@ class Camera_Info_DB(File_DB):
                              "video_width", "video_height"}
         
         # Inherit from parent
-        super().__init__(cameras_folder_path, camera_select, primary_key, required_keys_set,
+        super().__init__(location_select_folder_path, camera_select, primary_key, required_keys_set,
                          db_path, check_same_thread, debug_connect)
     
     # .................................................................................................................
@@ -515,7 +515,7 @@ class Config_Info_DB(File_DB):
     
     # .................................................................................................................
     
-    def __init__(self, cameras_folder_path, camera_select,
+    def __init__(self, location_select_folder_path, camera_select,
                  db_path = ":memory:", check_same_thread = True, debug_connect = False):
         
         # Build key info
@@ -523,7 +523,7 @@ class Config_Info_DB(File_DB):
         required_keys_set = {"start_datetime_isoformat", "config"}
         
         # Inherit from parent
-        super().__init__(cameras_folder_path, camera_select, primary_key, required_keys_set,
+        super().__init__(location_select_folder_path, camera_select, primary_key, required_keys_set,
                          db_path, check_same_thread, debug_connect)
     
     # .................................................................................................................
@@ -595,7 +595,7 @@ class Rule_Info_DB(File_DB):
     
     # .................................................................................................................
     
-    def __init__(self, cameras_folder_path, camera_select,
+    def __init__(self, location_select_folder_path, camera_select,
                  db_path = ":memory:", check_same_thread = True, debug_connect = False):
         
         # Build key info
@@ -603,7 +603,7 @@ class Rule_Info_DB(File_DB):
         required_keys_set = {"rule_type"}
         
         # Inherit from parent
-        super().__init__(cameras_folder_path, camera_select, primary_key, required_keys_set,
+        super().__init__(location_select_folder_path, camera_select, primary_key, required_keys_set,
                          db_path, check_same_thread, debug_connect)
         
     # .................................................................................................................
@@ -653,7 +653,7 @@ class Background_DB(File_DB):
     
     # .................................................................................................................
     
-    def __init__(self, cameras_folder_path, camera_select,
+    def __init__(self, location_select_folder_path, camera_select,
                  db_path = ":memory:", check_same_thread = True, debug_connect = False):
         
         # Build key info
@@ -661,7 +661,7 @@ class Background_DB(File_DB):
         required_keys_set = {"frame_index"}
         
         # Inherit from parent
-        super().__init__(cameras_folder_path, camera_select, primary_key, required_keys_set,
+        super().__init__(location_select_folder_path, camera_select, primary_key, required_keys_set,
                          db_path, check_same_thread, debug_connect)
         
     # .................................................................................................................
@@ -676,7 +676,7 @@ class Snap_DB(File_DB):
     
     # .................................................................................................................
     
-    def __init__(self, cameras_folder_path, camera_select,
+    def __init__(self, location_select_folder_path, camera_select,
                  db_path = ":memory:", check_same_thread = True, debug_connect = False):
         
         # Build key info
@@ -684,11 +684,11 @@ class Snap_DB(File_DB):
         required_keys_set = {"frame_index", "datetime_isoformat"}
         
         # Inherit from parent
-        super().__init__(cameras_folder_path, camera_select, primary_key, required_keys_set,
+        super().__init__(location_select_folder_path, camera_select, primary_key, required_keys_set,
                          db_path, check_same_thread, debug_connect)
         
         # Set up pathing to load image data
-        self.snap_images_folder_path = build_snapshot_image_report_path(cameras_folder_path, 
+        self.snap_images_folder_path = build_snapshot_image_report_path(location_select_folder_path, 
                                                                         camera_select)
             
         # Check that the snapshot path is valid before continuing
@@ -911,7 +911,7 @@ class Object_DB(File_DB):
     
     # .................................................................................................................
     
-    def __init__(self, cameras_folder_path, camera_select,
+    def __init__(self, location_select_folder_path, camera_select,
                  db_path = ":memory:", check_same_thread = True, debug_connect = False):
         
         # Build key info
@@ -921,7 +921,7 @@ class Object_DB(File_DB):
                              "tracking"}
         
         # Inherit from parent
-        super().__init__(cameras_folder_path, camera_select, primary_key, required_keys_set,
+        super().__init__(location_select_folder_path, camera_select, primary_key, required_keys_set,
                          db_path, check_same_thread, debug_connect)
     
     # .................................................................................................................
@@ -1024,19 +1024,19 @@ class Classification_DB(File_DB):
     
     # .................................................................................................................
     
-    def __init__(self, cameras_folder_path, camera_select,
+    def __init__(self, location_select_folder_path, camera_select,
                  db_path = ":memory:", check_same_thread = True, debug_connect = False):
         
         # Load classification labels & colors
-        self.reserved_labels_lut = load_reserved_labels_lut(cameras_folder_path, camera_select)
-        self.topclass_labels_lut = load_topclass_labels_lut(cameras_folder_path, camera_select)
+        self.reserved_labels_lut = load_reserved_labels_lut(location_select_folder_path, camera_select)
+        self.topclass_labels_lut = load_topclass_labels_lut(location_select_folder_path, camera_select)
         self.all_label_colors_lut = {**self.reserved_labels_lut, **self.topclass_labels_lut}
         
         # Load reference to special label that is meant as a training directive only
         self.no_train_label, _ = reserved_notrain_label()
         
         # Get pathing to 'local' classification results
-        self.local_classification_folder = build_classifier_adb_metadata_report_path(cameras_folder_path,
+        self.local_classification_folder = build_classifier_adb_metadata_report_path(location_select_folder_path,
                                                                                      camera_select)
         
         # Build key info
@@ -1044,7 +1044,7 @@ class Classification_DB(File_DB):
         required_keys_set = {"topclass_label", "topclass_dict"}
         
         # Inherit from parent
-        super().__init__(cameras_folder_path, camera_select, primary_key, required_keys_set,
+        super().__init__(location_select_folder_path, camera_select, primary_key, required_keys_set,
                          db_path, check_same_thread, debug_connect)
     
     # .................................................................................................................
@@ -1129,7 +1129,7 @@ class Summary_DB(File_DB):
     
     # .................................................................................................................
     
-    def __init__(self, cameras_folder_path, camera_select,
+    def __init__(self, location_select_folder_path, camera_select,
                  db_path = ":memory:", check_same_thread = True, debug_connect = False):
         
         # Build key info
@@ -1137,7 +1137,7 @@ class Summary_DB(File_DB):
         required_keys_set = {}
         
         # Inherit from parent
-        super().__init__(cameras_folder_path, camera_select, primary_key, required_keys_set,
+        super().__init__(location_select_folder_path, camera_select, primary_key, required_keys_set,
                          db_path, check_same_thread, debug_connect)
     
     # .................................................................................................................
@@ -1168,7 +1168,7 @@ class Stations_DB(File_DB):
     
     # .................................................................................................................
     
-    def __init__(self, cameras_folder_path, camera_select,
+    def __init__(self, location_select_folder_path, camera_select,
                  db_path = ":memory:", check_same_thread = True, debug_connect = False):
         
         # Build key info
@@ -1179,7 +1179,7 @@ class Stations_DB(File_DB):
                              "stations"}
         
         # Inherit from parent
-        super().__init__(cameras_folder_path, camera_select, primary_key, required_keys_set,
+        super().__init__(location_select_folder_path, camera_select, primary_key, required_keys_set,
                          db_path, check_same_thread, debug_connect)
     
     # .................................................................................................................
@@ -1296,7 +1296,7 @@ class Rule_DB(File_DB):
     
     # .................................................................................................................
     
-    def __init__(self, cameras_folder_path, camera_select, rule_name,
+    def __init__(self, location_select_folder_path, camera_select, rule_name,
                  db_path = ":memory:", check_same_thread = True, debug_connect = False):
         
         # Store rule name
@@ -1307,7 +1307,7 @@ class Rule_DB(File_DB):
         required_keys_set = {"rule_type", "rule_results_dict", "rule_results_list"}
         
         # Inherit from parent
-        super().__init__(cameras_folder_path, camera_select, primary_key, required_keys_set,
+        super().__init__(location_select_folder_path, camera_select, primary_key, required_keys_set,
                          db_path, check_same_thread, debug_connect)
         
         # Override the built-in table name to account for separate rules
@@ -1318,7 +1318,7 @@ class Rule_DB(File_DB):
     def save_entry(self, rule_name, rule_type, object_full_id, new_rule_results_dict, new_rule_results_list):
         
         # Save a file to represent the rule evalation data
-        save_rule_report_data(self.cameras_folder_path, self.camera_select,
+        save_rule_report_data(self.location_select_folder_path, self.camera_select,
                               rule_name, rule_type, object_full_id, new_rule_results_dict, new_rule_results_list)
     
     # .................................................................................................................
@@ -1358,10 +1358,10 @@ class Rule_DB(File_DB):
     
     # .................................................................................................................
     
-    def _get_existing_rule_report_names(self, cameras_folder_path, camera_select):
+    def _get_existing_rule_report_names(self, location_select_folder_path, camera_select):
         
         # Check reporting folder for rule results
-        rule_report_folder_path = build_rule_adb_metadata_report_path(cameras_folder_path, camera_select)
+        rule_report_folder_path = build_rule_adb_metadata_report_path(location_select_folder_path, camera_select)
         
         # Get all reporting folders
         rule_report_folders_list = get_folder_list(rule_report_folder_path, 
@@ -1434,10 +1434,10 @@ def post_from_folder_path(folder_path, database):
 
 # .....................................................................................................................
 
-def post_camera_info_report_metadata(cameras_folder_path, camera_select, database):
+def post_camera_info_report_metadata(location_select_folder_path, camera_select, database):
     
     # Build pathing to camera info report data
-    camera_info_metadata_folder_path = build_camera_info_metadata_report_path(cameras_folder_path,
+    camera_info_metadata_folder_path = build_camera_info_metadata_report_path(location_select_folder_path,
                                                                               camera_select)
     
     time_taken_sec = post_from_folder_path(camera_info_metadata_folder_path, database)
@@ -1446,10 +1446,10 @@ def post_camera_info_report_metadata(cameras_folder_path, camera_select, databas
 
 # .....................................................................................................................
 
-def post_config_info_report_metadata(cameras_folder_path, camera_select, database):
+def post_config_info_report_metadata(location_select_folder_path, camera_select, database):
     
     # Build pathing to configuration info report data
-    config_info_metadata_folder_path = build_config_info_metadata_report_path(cameras_folder_path,
+    config_info_metadata_folder_path = build_config_info_metadata_report_path(location_select_folder_path,
                                                                               camera_select)
     
     time_taken_sec = post_from_folder_path(config_info_metadata_folder_path, database)
@@ -1458,10 +1458,10 @@ def post_config_info_report_metadata(cameras_folder_path, camera_select, databas
 
 # .....................................................................................................................
 
-def post_snapshot_report_metadata(cameras_folder_path, camera_select, database):
+def post_snapshot_report_metadata(location_select_folder_path, camera_select, database):
     
     # Build pathing to snapshot report data
-    snapshot_metadata_folder_path = build_snapshot_metadata_report_path(cameras_folder_path, 
+    snapshot_metadata_folder_path = build_snapshot_metadata_report_path(location_select_folder_path, 
                                                                         camera_select)
     
     time_taken_sec = post_from_folder_path(snapshot_metadata_folder_path, database)
@@ -1470,10 +1470,10 @@ def post_snapshot_report_metadata(cameras_folder_path, camera_select, database):
     
 # .....................................................................................................................
 
-def post_object_report_metadata(cameras_folder_path, camera_select, database):
+def post_object_report_metadata(location_select_folder_path, camera_select, database):
     
     # Build pathing to object report data
-    object_metadata_folder_path = build_object_metadata_report_path(cameras_folder_path, 
+    object_metadata_folder_path = build_object_metadata_report_path(location_select_folder_path, 
                                                                     camera_select)
     
     time_taken_sec = post_from_folder_path(object_metadata_folder_path, database)
@@ -1482,10 +1482,10 @@ def post_object_report_metadata(cameras_folder_path, camera_select, database):
 
 # .....................................................................................................................
 
-def post_stations_report_data(cameras_folder_path, camera_select, database):
+def post_stations_report_data(location_select_folder_path, camera_select, database):
     
     # Build pathing to stations report data
-    stations_metadata_folder_path = build_station_metadata_report_path(cameras_folder_path,
+    stations_metadata_folder_path = build_station_metadata_report_path(location_select_folder_path,
                                                                        camera_select)
     
     time_taken_sec = post_from_folder_path(stations_metadata_folder_path, database)
@@ -1494,10 +1494,10 @@ def post_stations_report_data(cameras_folder_path, camera_select, database):
 
 # .....................................................................................................................
 
-def post_classifier_report_data(cameras_folder_path, camera_select, database):
+def post_classifier_report_data(location_select_folder_path, camera_select, database):
     
     # Build pathing to object classification report data
-    classifier_adb_metadata_folder_path = build_classifier_adb_metadata_report_path(cameras_folder_path, 
+    classifier_adb_metadata_folder_path = build_classifier_adb_metadata_report_path(location_select_folder_path, 
                                                                                     camera_select)
     
     time_taken_sec = post_from_folder_path(classifier_adb_metadata_folder_path, database)
@@ -1507,10 +1507,10 @@ def post_classifier_report_data(cameras_folder_path, camera_select, database):
 
 # .....................................................................................................................
 
-def post_summary_report_data(cameras_folder_path, camera_select, database):
+def post_summary_report_data(location_select_folder_path, camera_select, database):
     
     # Build pathing to object summary report data
-    summary_adb_metadata_folder_path = build_summary_adb_metadata_report_path(cameras_folder_path,
+    summary_adb_metadata_folder_path = build_summary_adb_metadata_report_path(location_select_folder_path,
                                                                               camera_select)
     
     time_taken_sec = post_from_folder_path(summary_adb_metadata_folder_path, database)
@@ -1519,10 +1519,10 @@ def post_summary_report_data(cameras_folder_path, camera_select, database):
 
 # .....................................................................................................................
 
-def post_rule_report_data(cameras_folder_path, camera_select, rule_name, database):
+def post_rule_report_data(location_select_folder_path, camera_select, rule_name, database):
     
     # Build pathing to rule report data
-    rule_adb_metadata_folder_path = build_rule_adb_metadata_report_path(cameras_folder_path,
+    rule_adb_metadata_folder_path = build_rule_adb_metadata_report_path(location_select_folder_path,
                                                                         camera_select,
                                                                         rule_name)
     
@@ -1532,10 +1532,10 @@ def post_rule_report_data(cameras_folder_path, camera_select, rule_name, databas
 
 # .....................................................................................................................
 
-def post_rule_info_report_metadata(cameras_folder_path, camera_select, database):
+def post_rule_info_report_metadata(location_select_folder_path, camera_select, database):
     
     # Build pathing to object report data
-    rule_info_metadata_folder_path = build_rule_adb_info_report_path(cameras_folder_path, 
+    rule_info_metadata_folder_path = build_rule_adb_info_report_path(location_select_folder_path, 
                                                                      camera_select)
     
     time_taken_sec = post_from_folder_path(rule_info_metadata_folder_path, database)
@@ -1566,7 +1566,7 @@ def _print_missing(error_message):
 
 # .....................................................................................................................
 
-def launch_dbs(cameras_folder_path, camera_select, *dbs_to_launch,
+def launch_dbs(location_select_folder_path, camera_select, *dbs_to_launch,
                check_same_thread = True, debug_connect = False, db_path = ":memory:"):
     
     # Specify all the different launch settings for each database type
@@ -1593,7 +1593,7 @@ def launch_dbs(cameras_folder_path, camera_select, *dbs_to_launch,
                                "post_function": post_stations_report_data}}
     
     # Bundle args for clarity
-    init_args = {"cameras_folder_path": cameras_folder_path,
+    init_args = {"location_select_folder_path": location_select_folder_path,
                  "camera_select": camera_select,
                  "check_same_thread": check_same_thread,
                  "debug_connect": debug_connect,
@@ -1625,11 +1625,11 @@ def launch_dbs(cameras_folder_path, camera_select, *dbs_to_launch,
 
 # .....................................................................................................................
 
-def launch_one_db(cameras_folder_path, camera_select, check_same_thread, debug_connect, db_path,
+def launch_one_db(location_select_folder_path, camera_select, check_same_thread, debug_connect, db_path,
                   print_name, class_to_init, post_function):
     
     # Bundle init args as a dictionary to make it easier to setup each class
-    init_args_dict = {"cameras_folder_path": cameras_folder_path,
+    init_args_dict = {"location_select_folder_path": location_select_folder_path,
                       "camera_select": camera_select,
                       "check_same_thread": check_same_thread,
                       "debug_connect": debug_connect,
@@ -1638,14 +1638,14 @@ def launch_one_db(cameras_folder_path, camera_select, check_same_thread, debug_c
     # Print some feedback about launching the target db + the time taken for reference
     _print_launch(print_name)
     loaded_db = class_to_init(**init_args_dict)
-    load_time_sec = post_function(cameras_folder_path, camera_select, loaded_db)
+    load_time_sec = post_function(location_select_folder_path, camera_select, loaded_db)
     _print_done(load_time_sec)
     
     return loaded_db
 
 # .....................................................................................................................
 
-def launch_rule_dbs(cameras_folder_path, camera_select,
+def launch_rule_dbs(location_select_folder_path, camera_select,
                     check_same_thread = True):
     
     # Initialize outputs
@@ -1653,7 +1653,7 @@ def launch_rule_dbs(cameras_folder_path, camera_select,
     rule_dbs_dict = {}
     
     # Bundle args for clarity
-    selection_args = (cameras_folder_path, camera_select)
+    selection_args = (location_select_folder_path, camera_select)
     check_thread_arg = {"check_same_thread": check_same_thread}
     
     # Some feedback

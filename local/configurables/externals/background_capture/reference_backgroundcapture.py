@@ -80,10 +80,11 @@ class Reference_Background_Capture(Externals_Configurable_Base):
     
     # .................................................................................................................
     
-    def __init__(self, cameras_folder_path, camera_select, video_wh, *, file_dunder):
+    def __init__(self, location_select_folder_path, camera_select, video_wh, *, file_dunder):
         
         # Inherit from base class
-        super().__init__("background_capture", cameras_folder_path, camera_select, video_wh, file_dunder = file_dunder)
+        super().__init__("background_capture", location_select_folder_path, camera_select, video_wh,
+                         file_dunder = file_dunder)
         
         # Store state config
         self.report_saving_enabled = None
@@ -128,15 +129,16 @@ class Reference_Background_Capture(Externals_Configurable_Base):
         
         # Make sure we a background exists on startup (another function is responsible for initial bg generation!)
         background_available = \
-        check_for_valid_background(cameras_folder_path, camera_select, *video_wh, print_feedback_on_existing = False)
+        check_for_valid_background(location_select_folder_path, camera_select, *video_wh, 
+                                   print_feedback_on_existing = False)
         if not background_available:
             error_msg = "Can't initialize background capture, no initial background image found!"
             self.log(error_msg)
             raise FileNotFoundError(error_msg)
         
         # Build pathing to captures/generation folders and make sure they exist
-        self._capture_folder_path = build_background_capture_folder_path(cameras_folder_path, camera_select)
-        self._generate_folder_path = build_background_generate_folder_path(cameras_folder_path, camera_select)
+        self._capture_folder_path = build_background_capture_folder_path(location_select_folder_path, camera_select)
+        self._generate_folder_path = build_background_generate_folder_path(location_select_folder_path, camera_select)
         create_missing_folder_path(self._capture_folder_path)
         create_missing_folder_path(self._generate_folder_path)
     
@@ -379,7 +381,7 @@ class Reference_Background_Capture(Externals_Configurable_Base):
     
     # SHOULDN'T OVERRIDE, instead override the generate_background_from_resources
     def _generate_and_save_new_background(self,
-                                          cameras_folder_path, camera_select,
+                                          location_select_folder_path, camera_select,
                                           target_width, target_height, save_index, threading_enabled):
         
         '''
@@ -393,13 +395,13 @@ class Reference_Background_Capture(Externals_Configurable_Base):
             sleep(4.0)
         
         # Set up generator to grab captures that are available. Bail if there aren't any
-        num_captures, capture_image_iter = load_background_captures_iter(cameras_folder_path, camera_select)
+        num_captures, capture_image_iter = load_background_captures_iter(location_select_folder_path, camera_select)
         if num_captures == 0:
             self.log("Error: Trying to generate background but no captures available")
             return
         
         # Set up generator to grab existing generated images that are available. Bail if there aren't any
-        num_generates, generate_image_iter = load_background_generates_iter(cameras_folder_path, camera_select)
+        num_generates, generate_image_iter = load_background_generates_iter(location_select_folder_path, camera_select)
         if num_generates == 0:
             self.log("Error: Trying to generate background but no generates available")
             return
@@ -425,7 +427,7 @@ class Reference_Background_Capture(Externals_Configurable_Base):
             wrong_width = (new_width != target_width)
             wrong_height = (new_height != target_height)
             if not (wrong_width or wrong_height):
-                save_generated_image(cameras_folder_path, camera_select, new_background_image, save_index)
+                save_generated_image(location_select_folder_path, camera_select, new_background_image, save_index)
         
         return
     
@@ -476,7 +478,7 @@ class Reference_Background_Capture(Externals_Configurable_Base):
         '''
         
         # Load image data
-        loaded_background_image = load_newest_generated_background(self.cameras_folder_path, self.camera_select)
+        loaded_background_image = load_newest_generated_background(self.location_select_folder_path, self.camera_select)
         if loaded_background_image is None:
             error_msg = "Error loading background data!"
             self.log(error_msg)
@@ -628,7 +630,7 @@ class Reference_Background_Capture(Externals_Configurable_Base):
         next_save_index = self._generate_counter.get_current_count()
         
         # Bundle process arguments for convenience
-        proc_kwargs = {"cameras_folder_path": self.cameras_folder_path,
+        proc_kwargs = {"location_select_folder_path": self.location_select_folder_path,
                        "camera_select": self.camera_select,
                        "target_width": video_width,
                        "target_height": video_height,
@@ -656,7 +658,7 @@ class Reference_Background_Capture(Externals_Configurable_Base):
         
         ''' Helper function used to set/reset the report data saving object with new settings '''
         
-        return Background_Report_Data_Saver(self.cameras_folder_path,
+        return Background_Report_Data_Saver(self.location_select_folder_path,
                                             self.camera_select,
                                             self.report_saving_enabled,
                                             self.threaded_saving_enabled)
@@ -668,7 +670,7 @@ class Reference_Background_Capture(Externals_Configurable_Base):
         
         ''' Helper function used to set/reset the resource data saving object with new settings '''
         
-        return Background_Resources_Data_Saver(self.cameras_folder_path,
+        return Background_Resources_Data_Saver(self.location_select_folder_path,
                                                self.camera_select,
                                                self.resource_saving_enabled,
                                                self.threaded_saving_enabled)

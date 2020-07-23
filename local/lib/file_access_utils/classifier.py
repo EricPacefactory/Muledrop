@@ -62,44 +62,44 @@ from local.lib.file_access_utils.metadata_read_write import save_json_metadata
 
 # .....................................................................................................................
 
-def build_classifier_config_path(cameras_folder_path, camera_select, *path_joins):
-    return build_after_database_configs_folder_path(cameras_folder_path, camera_select, "classifier.json")
+def build_classifier_config_path(location_select_folder_path, camera_select, *path_joins):
+    return build_after_database_configs_folder_path(location_select_folder_path, camera_select, "classifier.json")
 
 # .....................................................................................................................
 
-def build_classifier_adb_metadata_report_path(cameras_folder_path, camera_select, *path_joins):
-    return build_after_database_report_path(cameras_folder_path, camera_select, "classifier")
+def build_classifier_adb_metadata_report_path(location_select_folder_path, camera_select, *path_joins):
+    return build_after_database_report_path(location_select_folder_path, camera_select, "classifier")
 
 # .....................................................................................................................
 
-def build_classifier_resources_path(cameras_folder_path, camera_select, *path_joins):
-    return build_base_resources_path(cameras_folder_path, camera_select, "classifier", *path_joins)
+def build_classifier_resources_path(location_select_folder_path, camera_select, *path_joins):
+    return build_base_resources_path(location_select_folder_path, camera_select, "classifier", *path_joins)
     
 # .....................................................................................................................
 
-def build_model_resources_path(cameras_folder_path, camera_select, *path_joins):
-    classifier_folder_path = build_classifier_resources_path(cameras_folder_path, camera_select)
+def build_model_resources_path(location_select_folder_path, camera_select, *path_joins):
+    classifier_folder_path = build_classifier_resources_path(location_select_folder_path, camera_select)
     return os.path.join(classifier_folder_path, "models", *path_joins)
 
 # .....................................................................................................................
 
-def build_reserved_labels_lut_path(cameras_folder_path, camera_select):
-    return build_classifier_resources_path(cameras_folder_path, camera_select, "reserved_labels_lut.json")
+def build_reserved_labels_lut_path(location_select_folder_path, camera_select):
+    return build_classifier_resources_path(location_select_folder_path, camera_select, "reserved_labels_lut.json")
 
 # .....................................................................................................................
 
-def build_topclass_labels_lut_path(cameras_folder_path, camera_select):
-    return build_classifier_resources_path(cameras_folder_path, camera_select, "topclass_label_lut.json")
+def build_topclass_labels_lut_path(location_select_folder_path, camera_select):
+    return build_classifier_resources_path(location_select_folder_path, camera_select, "topclass_label_lut.json")
 
 # .....................................................................................................................
 
-def build_subclass_labels_lut_path(cameras_folder_path, camera_select):
-    return build_classifier_resources_path(cameras_folder_path, camera_select, "subclass_label_lut.json")
+def build_subclass_labels_lut_path(location_select_folder_path, camera_select):
+    return build_classifier_resources_path(location_select_folder_path, camera_select, "subclass_label_lut.json")
 
 # .....................................................................................................................
 
-def build_attributes_dict_path(cameras_folder_path, camera_select):
-    return build_classifier_resources_path(cameras_folder_path, camera_select, "attributes_dict.json")
+def build_attributes_dict_path(location_select_folder_path, camera_select):
+    return build_classifier_resources_path(location_select_folder_path, camera_select, "attributes_dict.json")
 
 # .....................................................................................................................
 # .....................................................................................................................
@@ -195,10 +195,10 @@ def create_classifier_report_file_name(object_full_id):
 def path_to_configuration_file(configurable_ref):
     
     # Get major pathing info from the configurable
-    cameras_folder_path = configurable_ref.cameras_folder_path
+    location_select_folder_path = configurable_ref.location_select_folder_path
     camera_select = configurable_ref.camera_select
     
-    return build_classifier_config_path(cameras_folder_path, camera_select)
+    return build_classifier_config_path(location_select_folder_path, camera_select)
 
 # .....................................................................................................................
 
@@ -344,14 +344,14 @@ def get_highest_score_label(label_score_dict, default_label = None):
 
 # .....................................................................................................................
     
-def load_classifier_config(cameras_folder_path, camera_select):
+def load_classifier_config(location_select_folder_path, camera_select):
     
     ''' 
     Function which loads configuration files for a classifier
     '''
     
     # Get path to the config file
-    config_file_path = build_classifier_config_path(cameras_folder_path, camera_select)
+    config_file_path = build_classifier_config_path(location_select_folder_path, camera_select)
     
     # Load json data and split into file access info & setup configuration data
     config_data_dict = load_config_json(config_file_path)
@@ -360,7 +360,7 @@ def load_classifier_config(cameras_folder_path, camera_select):
 
 # .....................................................................................................................
 
-def load_reserved_labels_lut(cameras_folder_path, camera_select):
+def load_reserved_labels_lut(location_select_folder_path, camera_select):
     
     ''' Function which loads a dictionary of label:color pairs corresponding to the reserved labels '''
     
@@ -378,7 +378,7 @@ def load_reserved_labels_lut(cameras_folder_path, camera_select):
     reserved_labels_dict[incomplete_label] = incomplete_color
     
     # Load stored reserved file, in case the user has modified default values
-    reserved_labels_file_path = build_reserved_labels_lut_path(cameras_folder_path, camera_select)
+    reserved_labels_file_path = build_reserved_labels_lut_path(location_select_folder_path, camera_select)
     loaded_reserved_labels_dict = load_config_json(reserved_labels_file_path)
     
     # Update the built-in defaults with the loaded data
@@ -388,7 +388,7 @@ def load_reserved_labels_lut(cameras_folder_path, camera_select):
 
 # .....................................................................................................................
 
-def load_topclass_labels_lut(cameras_folder_path, camera_select):
+def load_topclass_labels_lut(location_select_folder_path, camera_select):
     
     ''' Function which loads a dictionary of label:color pairs corresponding to topclass labels '''
     
@@ -396,7 +396,7 @@ def load_topclass_labels_lut(cameras_folder_path, camera_select):
     topclass_labels_dict = {}
     
     # Load stored labels file
-    topclass_labels_file_path = build_topclass_labels_lut_path(cameras_folder_path, camera_select)
+    topclass_labels_file_path = build_topclass_labels_lut_path(location_select_folder_path, camera_select)
     loaded_topclass_labels_dict = load_config_json(topclass_labels_file_path)
     
     # Update the built-in defaults with the loaded data
@@ -406,7 +406,7 @@ def load_topclass_labels_lut(cameras_folder_path, camera_select):
 
 # .....................................................................................................................
 
-def load_subclass_labels_lut(cameras_folder_path, camera_select):
+def load_subclass_labels_lut(location_select_folder_path, camera_select):
     
     ''' 
     Function which loads a dictionary of lists,
@@ -422,7 +422,7 @@ def load_subclass_labels_lut(cameras_folder_path, camera_select):
     subclass_labels_dict = {}
     
     # Load stored labels file
-    subclass_labels_file_path = build_subclass_labels_lut_path(cameras_folder_path, camera_select)
+    subclass_labels_file_path = build_subclass_labels_lut_path(location_select_folder_path, camera_select)
     loaded_subclass_labels_dict = load_config_json(subclass_labels_file_path)
     
     # Update the built-in defaults with the loaded data
@@ -432,7 +432,7 @@ def load_subclass_labels_lut(cameras_folder_path, camera_select):
 
 # .....................................................................................................................
 
-def load_attributes_dict(cameras_folder_path, camera_select):
+def load_attributes_dict(location_select_folder_path, camera_select):
     
     '''
     Function which loads a dictionary of dictionaries of lists

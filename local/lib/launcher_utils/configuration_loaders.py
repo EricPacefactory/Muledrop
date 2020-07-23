@@ -567,7 +567,7 @@ class File_Configuration_Loader:
     
     def _get_shared_config(self):
         
-        return {"cameras_folder_path": self.location_select_folder_path,
+        return {"location_select_folder_path": self.location_select_folder_path,
                 "camera_select": self.camera_select,
                 "video_wh": self.video_wh}
 

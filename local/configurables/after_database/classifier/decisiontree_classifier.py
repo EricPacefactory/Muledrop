@@ -78,10 +78,10 @@ class Classifier_Stage(Reference_Classifier):
     
     # .................................................................................................................
     
-    def __init__(self, cameras_folder_path, camera_select):
+    def __init__(self, location_select_folder_path, camera_select):
         
         # Inherit from base class
-        super().__init__(cameras_folder_path, camera_select, file_dunder = __file__)
+        super().__init__(location_select_folder_path, camera_select, file_dunder = __file__)
         
         # Storage for the decision tree & id-to-label mapping
         self._column_names_list = None
@@ -132,7 +132,7 @@ class Classifier_Stage(Reference_Classifier):
     def setup(self, variables_changed_dict):
         
     
-        tree_classifier, id_to_label_dict = load_classifier_resources(self.cameras_folder_path,
+        tree_classifier, id_to_label_dict = load_classifier_resources(self.location_select_folder_path,
                                                                       self.camera_select,
                                                                       error_if_missing = False)
         
@@ -268,52 +268,52 @@ class Classifier_Stage(Reference_Classifier):
 
 # .....................................................................................................................
 
-def build_dtree_folder_path(cameras_folder_path, camera_select, *path_joins):
+def build_dtree_folder_path(location_select_folder_path, camera_select, *path_joins):
     
     ''' Helper function which provides a consistent base folder path for storing/retrieving decision tree data '''
     
-    return build_model_resources_path(cameras_folder_path, camera_select, "decision_tree", *path_joins)
+    return build_model_resources_path(location_select_folder_path, camera_select, "decision_tree", *path_joins)
 
 # .....................................................................................................................
 
-def build_dtree_date_folder(cameras_folder_path, camera_select, date_str, *path_joins):
+def build_dtree_date_folder(location_select_folder_path, camera_select, date_str, *path_joins):
     
     ''' Helper function which provides consistent pathing to the date folder where files are saved together '''
     
-    return build_dtree_folder_path(cameras_folder_path, camera_select, date_str, *path_joins)
+    return build_dtree_folder_path(location_select_folder_path, camera_select, date_str, *path_joins)
 
 # .....................................................................................................................
 
-def build_model_path(cameras_folder_path, camera_select, date_str):
+def build_model_path(location_select_folder_path, camera_select, date_str):
     
     ''' Helper function which provides consistent pathing to the saved decision tree model file '''
     
-    return build_dtree_date_folder(cameras_folder_path, camera_select, date_str, "dtree.pkl")
+    return build_dtree_date_folder(location_select_folder_path, camera_select, date_str, "dtree.pkl")
 
 # .....................................................................................................................
 
-def build_lut_path(cameras_folder_path, camera_select, date_str):
+def build_lut_path(location_select_folder_path, camera_select, date_str):
     
     ''' Helper function which provides consistent pathing to the id-to-label lookup file '''
     
-    return build_dtree_date_folder(cameras_folder_path, camera_select, date_str, "id_to_label.json")
+    return build_dtree_date_folder(location_select_folder_path, camera_select, date_str, "id_to_label.json")
 
 # .....................................................................................................................
 
-def build_explain_path(cameras_folder_path, camera_select, date_str):
+def build_explain_path(location_select_folder_path, camera_select, date_str):
     
     ''' Helper function which provides consistent pathing to the text-based model explanation file '''
     
-    return build_dtree_date_folder(cameras_folder_path, camera_select, date_str, "tree_as_text.txt")
+    return build_dtree_date_folder(location_select_folder_path, camera_select, date_str, "tree_as_text.txt")
 
 # .....................................................................................................................
 
-def build_all_file_paths(cameras_folder_path, camera_select, date_str):
+def build_all_file_paths(location_select_folder_path, camera_select, date_str):
     
     ''' Helper function which bundles all save paths into a single call, since they'll usually be shared! '''
     
     # Bundle shared args for convenience
-    path_args = (cameras_folder_path, camera_select, date_str)
+    path_args = (location_select_folder_path, camera_select, date_str)
     
     # Get all the save paths
     model_path = build_model_path(*path_args)
@@ -384,7 +384,7 @@ def _load_lut_data(load_path):
 def save_classifier_resources(configurable_ref):
     
     # Get camera selection pathing info from the configurable
-    cameras_folder_path = configurable_ref.cameras_folder_path
+    location_select_folder_path = configurable_ref.location_select_folder_path
     camera_select = configurable_ref.camera_select
     
     # Get data to save from the configurable
@@ -397,7 +397,7 @@ def save_classifier_resources(configurable_ref):
     
     # Get save pathing
     model_save_path, lut_save_path, explain_save_path = \
-    build_all_file_paths(cameras_folder_path, camera_select, save_date_str)
+    build_all_file_paths(location_select_folder_path, camera_select, save_date_str)
     
     # Save everything
     _save_lut_data(lut_save_path, id_to_label_dict)
@@ -408,7 +408,7 @@ def save_classifier_resources(configurable_ref):
 
 # .....................................................................................................................
 
-def load_classifier_resources(cameras_folder_path, camera_select, 
+def load_classifier_resources(location_select_folder_path, camera_select, 
                               error_if_missing = True):
     
     # Initialize outputs
@@ -416,7 +416,7 @@ def load_classifier_resources(cameras_folder_path, camera_select,
     id_to_label_dict = None
     
     # Check that the folder pathing is valid
-    dtree_folder_path = build_dtree_folder_path(cameras_folder_path, camera_select)
+    dtree_folder_path = build_dtree_folder_path(location_select_folder_path, camera_select)
     if not os.path.exists(dtree_folder_path):
         if error_if_missing:
             print("", "Error! No classifier folder:", "@ {}".format(dtree_folder_path), "", sep = "\n")
@@ -453,7 +453,7 @@ def load_classifier_resources(cameras_folder_path, camera_select,
     
     # Get pathing to the saved resources
     model_load_path, lut_load_path, _ = \
-    build_all_file_paths(cameras_folder_path, camera_select, newest_date_folder)
+    build_all_file_paths(location_select_folder_path, camera_select, newest_date_folder)
     
     # Load resources
     tree_classifier = _load_model_data(model_load_path)

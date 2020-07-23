@@ -104,7 +104,7 @@ framerate_estimate = initialize_background_and_framerate_from_file(location_sele
                                                                    force_capture_reset = saving_enabled)
 
 # Bundle externals class init variables for convenience
-externals_config = {"cameras_folder_path": location_select_folder_path,
+externals_config = {"location_select_folder_path": location_select_folder_path,
                     "camera_select": camera_select,
                     "video_wh": video_wh}
 

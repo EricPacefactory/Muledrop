@@ -345,13 +345,13 @@ def single_post_image(image_post_url, image_path, post_kwargs):
 
 # .....................................................................................................................
 
-def post_all_camera_info(server_url, cameras_folder_path, camera_select):
+def post_all_camera_info(server_url, location_select_folder_path, camera_select):
     
     # For clarity
     collection_name = "camerainfo"
     
     # Build pathing to all report data
-    md_folder_path = build_camera_info_metadata_report_path(cameras_folder_path, camera_select)
+    md_folder_path = build_camera_info_metadata_report_path(location_select_folder_path, camera_select)
     md_file_paths = get_file_paths_to_post(md_folder_path)
     
     # Bail if there is no data
@@ -375,13 +375,13 @@ def post_all_camera_info(server_url, cameras_folder_path, camera_select):
 
 # .....................................................................................................................
     
-def post_all_config_info(server_url, cameras_folder_path, camera_select):
+def post_all_config_info(server_url, location_select_folder_path, camera_select):
     
     # For clarity
     collection_name = "configinfo"
     
     # Build pathing to all report data
-    md_folder_path = build_config_info_metadata_report_path(cameras_folder_path, camera_select)
+    md_folder_path = build_config_info_metadata_report_path(location_select_folder_path, camera_select)
     md_file_paths = get_file_paths_to_post(md_folder_path)
     
     # Bail if there is no data
@@ -406,14 +406,14 @@ def post_all_config_info(server_url, cameras_folder_path, camera_select):
 
 # .....................................................................................................................
 
-def post_all_background_data(server_url, cameras_folder_path, camera_select):
+def post_all_background_data(server_url, location_select_folder_path, camera_select):
     
     # For clarity
     collection_name = "backgrounds"
     
     # Build pathing to all report data
-    md_folder_path = build_background_metadata_report_path(cameras_folder_path, camera_select)
-    img_folder_path = build_background_image_report_path(cameras_folder_path, camera_select)
+    md_folder_path = build_background_metadata_report_path(location_select_folder_path, camera_select)
+    img_folder_path = build_background_image_report_path(location_select_folder_path, camera_select)
     
     # Get all metadata paths before images so that the metadata will lag the images on the db
     # -> This way, we won't have the 'newest' metadata entries posted without corresponding image data!
@@ -453,13 +453,13 @@ def post_all_background_data(server_url, cameras_folder_path, camera_select):
 
 # .....................................................................................................................
 
-def post_all_object_data(server_url, cameras_folder_path, camera_select):
+def post_all_object_data(server_url, location_select_folder_path, camera_select):
     
     # For clarity
     collection_name = "objects"
     
     # Build pathing to all report data
-    md_folder_path = build_object_metadata_report_path(cameras_folder_path, camera_select)
+    md_folder_path = build_object_metadata_report_path(location_select_folder_path, camera_select)
     md_file_paths = get_file_paths_to_post(md_folder_path)
     
     # Bail if there is no data
@@ -483,13 +483,13 @@ def post_all_object_data(server_url, cameras_folder_path, camera_select):
 
 # .....................................................................................................................
 
-def post_all_station_data(server_url, cameras_folder_path, camera_select):
+def post_all_station_data(server_url, location_select_folder_path, camera_select):
     
     # For clarity
     collection_name = "stations"
     
     # Build pathing to all report data
-    md_folder_path = build_station_metadata_report_path(cameras_folder_path, camera_select)
+    md_folder_path = build_station_metadata_report_path(location_select_folder_path, camera_select)
     md_file_paths = get_file_paths_to_post(md_folder_path)
     
     # Bail if there is no data
@@ -513,14 +513,14 @@ def post_all_station_data(server_url, cameras_folder_path, camera_select):
 
 # .....................................................................................................................
 
-def post_all_snapshot_data(server_url, cameras_folder_path, camera_select):
+def post_all_snapshot_data(server_url, location_select_folder_path, camera_select):
     
     # For clarity
     collection_name = "snapshots"
     
     # Build pathing to all report data
-    md_folder_path = build_snapshot_metadata_report_path(cameras_folder_path, camera_select)
-    img_folder_path = build_snapshot_image_report_path(cameras_folder_path, camera_select)
+    md_folder_path = build_snapshot_metadata_report_path(location_select_folder_path, camera_select)
+    img_folder_path = build_snapshot_image_report_path(location_select_folder_path, camera_select)
     
     # Get all metadata paths before images so that the metadata will lag the images on the db
     # -> This way, we won't have the 'newest' metadata entries posted without corresponding image data!
@@ -680,13 +680,13 @@ def post_all_images_to_server(server_url, camera_select, collection_name, image_
 
 # .....................................................................................................................
 
-def post_data_to_server(server_url, cameras_folder_path, camera_select, log_to_file = True):
+def post_data_to_server(server_url, location_select_folder_path, camera_select, log_to_file = True):
     
     # Start timing
     t1 = perf_counter()
     
     # Bundle pathing args for convenience
-    camera_pathing_args = (cameras_folder_path, camera_select)
+    camera_pathing_args = (location_select_folder_path, camera_select)
     
     # Post each data set
     caminfo_log, caminfo_err = post_all_camera_info(server_url, *camera_pathing_args)
@@ -776,11 +776,11 @@ def remove_if_possible(file_path_to_remove):
 
 # .....................................................................................................................
 
-def create_logger(cameras_folder_path, camera_select, enabled = True):
+def create_logger(location_select_folder_path, camera_select, enabled = True):
     
     ''' Helper function to standardize the logger inputs, in case we use it when running this script directly '''
     
-    logging_folder_path = build_post_db_log_path(cameras_folder_path, camera_select)
+    logging_folder_path = build_post_db_log_path(location_select_folder_path, camera_select)
     logger = Daily_Logger(logging_folder_path, log_files_to_keep = 10, enabled = enabled, include_timestamp = False)
     
     return logger
@@ -807,7 +807,7 @@ def check_server_connection(server_url):
 
 # .....................................................................................................................
 
-def scheduled_post(server_url, cameras_folder_path, camera_select, log_to_file = True):
+def scheduled_post(server_url, location_select_folder_path, camera_select, log_to_file = True):
     
     # Bail if we don't get a valid server url
     invalid_url = (server_url in {"", "None", "none", None})
@@ -818,7 +818,7 @@ def scheduled_post(server_url, cameras_folder_path, camera_select, log_to_file =
     register_signal_quit()
     
     # Create logger to handle saving feedback (or printing to terminal)
-    logger = create_logger(cameras_folder_path, camera_select, enabled = log_to_file)
+    logger = create_logger(location_select_folder_path, camera_select, enabled = log_to_file)
     
     # If we aren't posting on startup, we need to have an initial sleep period before posting!
     post_on_startup = get_autopost_on_startup()
@@ -831,7 +831,7 @@ def scheduled_post(server_url, cameras_folder_path, camera_select, log_to_file =
         while True:
             
             # Post all available data
-            response_list = single_post(server_url, cameras_folder_path, camera_select)
+            response_list = single_post(server_url, location_select_folder_path, camera_select)
             
             # Print or log response
             logger.log_list(response_list)
@@ -862,7 +862,7 @@ def scheduled_post(server_url, cameras_folder_path, camera_select, log_to_file =
 
 # .....................................................................................................................
 
-def single_post(server_url, cameras_folder_path, camera_select):
+def single_post(server_url, location_select_folder_path, camera_select):
     
     # Check that the server is accessible before we try posting tons of stuff to it
     connection_is_valid = check_server_connection(server_url)
@@ -873,19 +873,19 @@ def single_post(server_url, cameras_folder_path, camera_select):
         return response_list
     
     # If we get here, try to post the data to the server!
-    response_list = post_data_to_server(server_url, cameras_folder_path, camera_select)
+    response_list = post_data_to_server(server_url, location_select_folder_path, camera_select)
     
     return response_list
 
 # .....................................................................................................................
 
-def create_parallel_scheduled_post(server_url, cameras_folder_path, camera_select,
+def create_parallel_scheduled_post(server_url, location_select_folder_path, camera_select,
                                    log_to_file = True,
                                    start_on_call = True):
     
     # Build configuration input for parallel process setup
     config_dict = {"server_url": server_url,
-                   "cameras_folder_path": cameras_folder_path,
+                   "location_select_folder_path": location_select_folder_path,
                    "camera_select": camera_select,
                    "log_to_file": log_to_file}
     

@@ -59,10 +59,10 @@ class Classifier_Stage(Reference_Classifier):
     
     # .................................................................................................................
     
-    def __init__(self, cameras_folder_path, camera_select):
+    def __init__(self, location_select_folder_path, camera_select):
         
         # Inherit from base class
-        super().__init__(cameras_folder_path, camera_select, file_dunder = __file__)
+        super().__init__(location_select_folder_path, camera_select, file_dunder = __file__)
         
     # .................................................................................................................
     

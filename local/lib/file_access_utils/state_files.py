@@ -122,21 +122,21 @@ def new_state_data(script_name, pid_value, in_standby = False, state_description
 
 # .....................................................................................................................
 
-def save_state_file(cameras_folder_path, camera_select, *, 
+def save_state_file(location_select_folder_path, camera_select, *, 
                     script_name, pid_value, in_standby, state_description_str):
     
     ''' Function which saves a state logging file, used to keep tracking of running processes '''
     
     # Bundle data & save!
     save_data_dict = new_state_data(script_name, pid_value, in_standby, state_description_str)
-    file_save_path = build_state_file_path(cameras_folder_path, camera_select)
+    file_save_path = build_state_file_path(location_select_folder_path, camera_select)
     save_config_json(file_save_path, save_data_dict, create_missing_folder_path = True)
     
     return file_save_path
 
 # .....................................................................................................................
 
-def load_state_file(cameras_folder_path, camera_select):
+def load_state_file(location_select_folder_path, camera_select):
     
     '''
     Function which tries to load existing state file data for a given camera
@@ -144,7 +144,7 @@ def load_state_file(cameras_folder_path, camera_select):
     '''
     
     # Build pathing to the state file (if one exists)
-    state_file_path = build_state_file_path(cameras_folder_path, camera_select)
+    state_file_path = build_state_file_path(location_select_folder_path, camera_select)
     
     # Try to load the state file data but skip it if the file is missing (it may be cleared while we're reading!)
     loaded_state_data = load_config_json(state_file_path, error_if_missing = False)
@@ -154,7 +154,7 @@ def load_state_file(cameras_folder_path, camera_select):
 
 # .....................................................................................................................
 
-def delete_state_file(cameras_folder_path, camera_select):
+def delete_state_file(location_select_folder_path, camera_select):
     
     '''
     Helper function for removing the state file of a given camera
@@ -163,7 +163,7 @@ def delete_state_file(cameras_folder_path, camera_select):
     '''
     
     # Build path to state file
-    state_file_path = build_state_file_path(cameras_folder_path, camera_select)
+    state_file_path = build_state_file_path(location_select_folder_path, camera_select)
     
     # Try to remove the state file
     # - may fail if the file is cleared before we get to it or if it didn't exist to begin with!
@@ -183,7 +183,7 @@ def delete_state_file(cameras_folder_path, camera_select):
     
 # .....................................................................................................................
 
-def check_running_camera(cameras_folder_path, camera_select):
+def check_running_camera(location_select_folder_path, camera_select):
     
     ''' Helper functions for checking if a camera is online, using state files '''
     
@@ -192,7 +192,7 @@ def check_running_camera(cameras_folder_path, camera_select):
     state_data_dict = {}
     
     # Load all existing state data and check if any of the files correspond to a running camera
-    no_state_data, state_data_dict = load_state_file(cameras_folder_path, camera_select)
+    no_state_data, state_data_dict = load_state_file(location_select_folder_path, camera_select)
     if no_state_data:
         return camera_is_online, state_data_dict
     
@@ -263,12 +263,14 @@ def kill_running_pid(pid_value, script_name, max_wait_sec = 30.0, force_kill_on_
 
 # .....................................................................................................................
 
-def shutdown_running_camera(cameras_folder_path, camera_select, max_wait_sec = 30.0, force_kill_on_timeout = False):
+def shutdown_running_camera(location_select_folder_path, camera_select,
+                            max_wait_sec = 30.0,
+                            force_kill_on_timeout = False):
     
     ''' Function which both ends a running camera process and also clears the camera state file '''
     
     # First check that the camera is actually running
-    camera_is_running, state_dict = check_running_camera(cameras_folder_path, camera_select)
+    camera_is_running, state_dict = check_running_camera(location_select_folder_path, camera_select)
     
     # Shutdown the process of the running camera, if needed
     if camera_is_running:
@@ -277,7 +279,7 @@ def shutdown_running_camera(cameras_folder_path, camera_select, max_wait_sec = 3
         kill_running_pid(camera_pid, camera_script_name, force_kill_on_timeout)
     
     # Finally, remove the state file
-    delete_state_file(cameras_folder_path, camera_select)
+    delete_state_file(location_select_folder_path, camera_select)
     
     return
 

@@ -70,7 +70,7 @@ from local.lib.file_access_utils.image_read_write import save_png_image
 
 # .....................................................................................................................
 
-def initialize_background_and_framerate_from_file(cameras_folder_path, camera_select, video_reader_ref,
+def initialize_background_and_framerate_from_file(location_select_folder_path, camera_select, video_reader_ref,
                                                   force_capture_reset = False):
     
     '''
@@ -89,10 +89,10 @@ def initialize_background_and_framerate_from_file(cameras_folder_path, camera_se
     
     # Delete any existing captures, in case they came from a different file/timing
     if force_capture_reset:
-        reset_capture_folder(cameras_folder_path, camera_select)
+        reset_capture_folder(location_select_folder_path, camera_select)
     
     # Check if we already have a valid background, in which case we don't have to do anything
-    background_already_exists = check_for_valid_background(cameras_folder_path,
+    background_already_exists = check_for_valid_background(location_select_folder_path,
                                                            camera_select,
                                                            video_width,
                                                            video_height)
@@ -109,13 +109,13 @@ def initialize_background_and_framerate_from_file(cameras_folder_path, camera_se
                                                                   max_frames_to_use = 25)
     
     # Clear out existing resources and save the new background
-    _save_initial_background_image(cameras_folder_path, camera_select, new_background_image)
+    _save_initial_background_image(location_select_folder_path, camera_select, new_background_image)
     
     return framerate_estimate
 
 # .....................................................................................................................
 
-def initialize_background_and_framerate_from_rtsp(cameras_folder_path, camera_select, video_reader_ref,
+def initialize_background_and_framerate_from_rtsp(location_select_folder_path, camera_select, video_reader_ref,
                                                   force_capture_reset = True):
     
     '''
@@ -137,10 +137,10 @@ def initialize_background_and_framerate_from_rtsp(cameras_folder_path, camera_se
     
     # Delete any existing captures, in case they came from a different time
     if force_capture_reset:
-        reset_capture_folder(cameras_folder_path, camera_select)
+        reset_capture_folder(location_select_folder_path, camera_select)
     
     # Check if we already have a valid background, in which case we don't have to do anything else
-    background_already_exists = check_for_valid_background(cameras_folder_path,
+    background_already_exists = check_for_valid_background(location_select_folder_path,
                                                            camera_select,
                                                            video_width,
                                                            video_height)
@@ -158,7 +158,7 @@ def initialize_background_and_framerate_from_rtsp(cameras_folder_path, camera_se
                                                                   max_frames_to_use = 25)
     
     # Clear out existing resources and save the new background
-    _save_initial_background_image(cameras_folder_path, camera_select, new_background_image)
+    _save_initial_background_image(location_select_folder_path, camera_select, new_background_image)
     
     return framerate_estimate
 
@@ -171,7 +171,7 @@ def initialize_background_and_framerate_from_rtsp(cameras_folder_path, camera_se
 
 # .....................................................................................................................
 
-def check_for_valid_background(cameras_folder_path, camera_select, video_width, video_height,
+def check_for_valid_background(location_select_folder_path, camera_select, video_width, video_height,
                                print_feedback_on_existing = True):
     
     ''' Helper function used to check if a valid (i.e. properly sized) background file exists '''
@@ -180,7 +180,7 @@ def check_for_valid_background(cameras_folder_path, camera_select, video_width, 
     background_exists = False
     
     # See if we can just load an existing background
-    newest_background = load_newest_generated_background(cameras_folder_path, camera_select, 
+    newest_background = load_newest_generated_background(location_select_folder_path, camera_select, 
                                                          error_if_no_backgrounds = False)
     if newest_background is None:
         return background_exists
@@ -424,12 +424,12 @@ def _generate_initial_background_from_rtsp(video_reader_ref,
 
 # .....................................................................................................................
 
-def _save_initial_background_image(cameras_folder_path, camera_select, new_background_image):
+def _save_initial_background_image(location_select_folder_path, camera_select, new_background_image):
     
     ''' Helper function which clears out existing background resource data and save a new 'initial' image '''
     
     # Reset resource folders & get paths so we can save the generate image data
-    generate_folder_path = reset_generate_folder(cameras_folder_path, camera_select)
+    generate_folder_path = reset_generate_folder(location_select_folder_path, camera_select)
     
     # Save the generated data as the 'first' file in the folder
     save_name_no_ext = "0"

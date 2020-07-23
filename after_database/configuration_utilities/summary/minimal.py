@@ -68,10 +68,10 @@ from local.eolib.utils.cli_tools import cli_confirm
 def path_to_configuration_file(configurable_ref):
     
     # Get major pathing info from the configurable
-    cameras_folder_path = configurable_ref.cameras_folder_path
+    location_select_folder_path = configurable_ref.location_select_folder_path
     camera_select = configurable_ref.camera_select
     
-    return build_summary_config_path(cameras_folder_path, camera_select)
+    return build_summary_config_path(location_select_folder_path, camera_select)
 
 # .....................................................................................................................
 

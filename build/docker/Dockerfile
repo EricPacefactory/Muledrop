@@ -21,8 +21,9 @@ RUN apt-get update && \
 # Create a 'home' folder path to avoid storing everything in the root fs
 ENV HOME                        /home/scv2
 
-# Set pathing to the camera configuration folder
-ENV CAMERAS_FOLDER_PATH         $HOME/cameras
+# Set pathing to the locations folder, which holds camera configurations
+ENV ALL_LOCATIONS_FOLDER_PATH   $HOME/locations
+ENV LOCATION_SELECT             localhost
 
 # Set variables for accessing the database server
 ENV DBSERVER_HOST               localhost
@@ -63,5 +64,5 @@ ENTRYPOINT ["sh", "docker_entrypoint.sh"]
 
 # From the root project directory:
 # docker build -t realtime_image -f ./build/docker/Dockerfile .
-# docker run -d --network="host" -v /tmp/realtime:/home/scv2/cameras --name realtime realtime_image
+# docker run -d --network="host" -v /tmp/realtime:/home/scv2/locations --name realtime realtime_image
 

@@ -183,10 +183,10 @@ def load_locations_pathing_info(project_root_path):
     expanded_locations_pathing = os.path.expanduser(saved_locations_pathing)
     
     # Return the default locations pathing if the loaded path is empty or not valid
-    path_exists = (os.path.exists(expanded_locations_pathing))
-    final_camera_path = expanded_locations_pathing if path_exists else default_all_locations_folder_path
+    path_is_valid = (expanded_locations_pathing != default_empty_path)
+    final_locations_path = expanded_locations_pathing if path_is_valid else default_all_locations_folder_path
     
-    return final_camera_path
+    return final_locations_path
 
 # .....................................................................................................................
 

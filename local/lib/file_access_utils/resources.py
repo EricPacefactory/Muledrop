@@ -72,17 +72,17 @@ class Background_Resources_Data_Saver:
     
     # .................................................................................................................
     
-    def __init__(self, cameras_folder_path, camera_select, 
+    def __init__(self, location_select_folder_path, camera_select,
                  saving_enabled = True, threading_enabled = True):
         
         # Store inputs
-        self.cameras_folder_path = cameras_folder_path
+        self.location_select_folder_path = location_select_folder_path
         self.camera_select = camera_select
         self.saving_enabled = saving_enabled
         self.threading_enabled = threading_enabled
         
         # Build saving path
-        self.image_save_folder_path = build_background_capture_folder_path(cameras_folder_path, camera_select)
+        self.image_save_folder_path = build_background_capture_folder_path(location_select_folder_path, camera_select)
         
         # Initialize saver object & pathing as needed
         self._data_saver = None
@@ -137,9 +137,9 @@ class Background_Resources_Data_Saver:
 
 # .....................................................................................................................
 
-def build_base_resources_path(cameras_folder_path, camera_select, *path_joins):
+def build_base_resources_path(location_select_folder_path, camera_select, *path_joins):
     ''' Build path to base resources folder for a given camera '''
-    return os.path.join(cameras_folder_path, camera_select, "resources", *path_joins)
+    return os.path.join(location_select_folder_path, camera_select, "resources", *path_joins)
 
 # .....................................................................................................................
 # .....................................................................................................................
@@ -149,20 +149,20 @@ def build_base_resources_path(cameras_folder_path, camera_select, *path_joins):
 
 # .....................................................................................................................
 
-def build_background_capture_folder_path(cameras_folder_path, camera_select):    
-    return build_base_resources_path(cameras_folder_path, camera_select, "backgrounds", "captures")
+def build_background_capture_folder_path(location_select_folder_path, camera_select):    
+    return build_base_resources_path(location_select_folder_path, camera_select, "backgrounds", "captures")
 
 # .....................................................................................................................
 
-def build_background_generate_folder_path(cameras_folder_path, camera_select):
-    return build_base_resources_path(cameras_folder_path, camera_select, "backgrounds", "generated")
+def build_background_generate_folder_path(location_select_folder_path, camera_select):
+    return build_base_resources_path(location_select_folder_path, camera_select, "backgrounds", "generated")
 
 # .....................................................................................................................
 
-def reset_capture_folder(cameras_folder_path, camera_select):
+def reset_capture_folder(location_select_folder_path, camera_select):
     
     # Build path to captures folder, delete it, then remake it
-    capture_folder_path = build_background_capture_folder_path(cameras_folder_path, camera_select)
+    capture_folder_path = build_background_capture_folder_path(location_select_folder_path, camera_select)
     if os.path.exists(capture_folder_path):
         rmtree(capture_folder_path)
     os.makedirs(capture_folder_path, exist_ok = True)
@@ -171,10 +171,10 @@ def reset_capture_folder(cameras_folder_path, camera_select):
 
 # .....................................................................................................................
 
-def reset_generate_folder(cameras_folder_path, camera_select):
+def reset_generate_folder(location_select_folder_path, camera_select):
     
     # Build path to generate folder, delete it, then remake it
-    generate_folder_path = build_background_generate_folder_path(cameras_folder_path, camera_select)
+    generate_folder_path = build_background_generate_folder_path(location_select_folder_path, camera_select)
     if os.path.exists(generate_folder_path):
         rmtree(generate_folder_path)
     os.makedirs(generate_folder_path, exist_ok = True)
@@ -190,11 +190,11 @@ def reset_generate_folder(cameras_folder_path, camera_select):
 
 # .....................................................................................................................
 
-def save_captured_image(cameras_folder_path, camera_select, image_data, 
+def save_captured_image(location_select_folder_path, camera_select, image_data,
                         image_index = 0, png_compression_0_to_9 = 0):
     
     # Build save path
-    save_folder_path = build_background_capture_folder_path(cameras_folder_path, camera_select)
+    save_folder_path = build_background_capture_folder_path(location_select_folder_path, camera_select)
     save_name = "{}.png".format(image_index) 
     save_path = os.path.join(save_folder_path, save_name)
     
@@ -203,11 +203,11 @@ def save_captured_image(cameras_folder_path, camera_select, image_data,
 
 # .....................................................................................................................
 
-def save_generated_image(cameras_folder_path, camera_select, image_data, 
+def save_generated_image(location_select_folder_path, camera_select, image_data,
                          image_index = 0, png_compression_0_to_9 = 0):
     
     # Build save path
-    save_folder_path = build_background_generate_folder_path(cameras_folder_path, camera_select)
+    save_folder_path = build_background_generate_folder_path(location_select_folder_path, camera_select)
     save_name = "{}.png".format(image_index) 
     save_path = os.path.join(save_folder_path, save_name)
     
@@ -216,7 +216,7 @@ def save_generated_image(cameras_folder_path, camera_select, image_data,
 
 # .....................................................................................................................
 
-def load_newest_generated_background(cameras_folder_path, camera_select,
+def load_newest_generated_background(location_select_folder_path, camera_select,
                                      error_if_no_backgrounds = True):
     
     '''
@@ -226,7 +226,7 @@ def load_newest_generated_background(cameras_folder_path, camera_select,
     '''
     
     # First build pathing to the generated backgrounds folder & list out all the available files
-    load_folder_path = build_background_generate_folder_path(cameras_folder_path, camera_select)
+    load_folder_path = build_background_generate_folder_path(location_select_folder_path, camera_select)
     _, background_file_paths = get_file_list_by_age(load_folder_path,
                                                     newest_first = True,
                                                     show_hidden_files = False,
@@ -249,7 +249,7 @@ def load_newest_generated_background(cameras_folder_path, camera_select,
 
 # .....................................................................................................................
 
-def load_background_captures_iter(cameras_folder_path, camera_select):
+def load_background_captures_iter(location_select_folder_path, camera_select):
     
     '''
     Function which returns an iterator that will load the capture data, newest first, for a given camera
@@ -260,7 +260,7 @@ def load_background_captures_iter(cameras_folder_path, camera_select):
     Also note that new captures may be saved (and old ones overwritten) if loading is performed 'too slowly'!!!
     
     Inputs:
-        cameras_folder_path --> (String) Path to the folder containing all camera data
+        location_select_folder_path --> (String) Folder containing data for all cameras for the selected location
         
         camera_select --> (String) The specific camera to load capture data from
         
@@ -271,7 +271,7 @@ def load_background_captures_iter(cameras_folder_path, camera_select):
     '''
     
     # Get all of the capture image file paths
-    load_folder_path = build_background_capture_folder_path(cameras_folder_path, camera_select)
+    load_folder_path = build_background_capture_folder_path(location_select_folder_path, camera_select)
     _, capture_file_paths = get_file_list_by_age(load_folder_path,
                                                  newest_first = True,
                                                  show_hidden_files = False,
@@ -287,7 +287,7 @@ def load_background_captures_iter(cameras_folder_path, camera_select):
 
 # .....................................................................................................................
 
-def load_background_generates_iter(cameras_folder_path, camera_select):
+def load_background_generates_iter(location_select_folder_path, camera_select):
     
     '''
     Function which returns an iterator that will load existing generated background data,
@@ -297,7 +297,7 @@ def load_background_generates_iter(cameras_folder_path, camera_select):
     Keep in mind that loading many frames into memory all at once may consume a large amount of RAM!
     
     Inputs:
-        cameras_folder_path --> (String) Path to the folder containing all camera data
+        location_select_folder_path --> (String) Folder containing data for all cameras for the selected location
         
         camera_select --> (String) The specific camera to load capture data from
         
@@ -308,7 +308,7 @@ def load_background_generates_iter(cameras_folder_path, camera_select):
     '''
     
     # Get all of the generated image file paths
-    load_folder_path = build_background_generate_folder_path(cameras_folder_path, camera_select)
+    load_folder_path = build_background_generate_folder_path(location_select_folder_path, camera_select)
     _, generate_file_paths = get_file_list_by_age(load_folder_path,
                                                   newest_first = True,
                                                   show_hidden_files = False,
@@ -341,11 +341,11 @@ def _load_image_generator(image_file_paths):
 
 if __name__ == "__main__":
     
-    example_cameras_folder_path = "/path/to/nowhere"
+    example_location_select_folder_path = "/path/to/nowhere"
     example_camera_select = "fake_camera"
     print("",
           "Example resource folder path:",
-          build_base_resources_path(example_cameras_folder_path, example_camera_select),
+          build_base_resources_path(example_location_select_folder_path, example_camera_select),
           sep = "\n")
 
 # ---------------------------------------------------------------------------------------------------------------------

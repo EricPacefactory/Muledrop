@@ -68,7 +68,7 @@ class Station_Bundle:
     
     # .................................................................................................................
     
-    def __init__(self, cameras_folder_path, camera_select, video_wh):
+    def __init__(self, location_select_folder_path, camera_select, video_wh):
         
         '''
         Object which is responsible for loading, setting up, running and closing all 'station' configurations
@@ -76,12 +76,12 @@ class Station_Bundle:
         '''
         
         # Save selection info
-        self.cameras_folder_path = cameras_folder_path
+        self.location_select_folder_path = location_select_folder_path
         self.camera_select = camera_select
         self.video_wh = video_wh
         
         # First make sure we have pathing to the station configs folder
-        self.station_configs_folder_path = build_station_config_folder_path(cameras_folder_path, camera_select)
+        self.station_configs_folder_path = build_station_config_folder_path(location_select_folder_path, camera_select)
         
         # Allocate storage for configured data
         self.all_stations_config_paths_dict = None
@@ -418,7 +418,9 @@ class Station_Bundle:
         # Load the given station object
         import_dot_path = configurable_dot_path("stations", script_name)
         Imported_Station_Class = dynamic_import_from_module(import_dot_path, class_name)
-        station_ref = Imported_Station_Class(station_name, self.cameras_folder_path, self.camera_select, input_wh)
+        station_ref = Imported_Station_Class(station_name, self.location_select_folder_path,
+                                             self.camera_select,
+                                             input_wh)
         
         # Load initial configuration
         station_ref.set_configure_mode(configure_mode)
@@ -432,7 +434,7 @@ class Station_Bundle:
         
         ''' Helper function used to set/reset the report data saving object with new settings '''
         
-        return Station_Report_Data_Saver(self.cameras_folder_path,
+        return Station_Report_Data_Saver(self.location_select_folder_path,
                                          self.camera_select,
                                          self.report_saving_enabled,
                                          self.threaded_saving_enabled)
@@ -452,10 +454,10 @@ if __name__ == "__main__":
     location_select, _ = selector.location()
     camera_select, camera_path = selector.camera(location_select)
     video_select, _ = selector.video(location_select, camera_select)
-    project_root_path, cameras_folder_path = selector.get_cameras_root_pathing()
+    location_select_folder_path = selector.get_location_select_folder_path()
     fake_video_wh = (100,100)
     
-    sb = Station_Bundle(cameras_folder_path, camera_select, fake_video_wh)
+    sb = Station_Bundle(location_select_folder_path, camera_select, fake_video_wh)
     print("", "", "--- BEFORE SETUP ---", sep = "\n")
     print(sb)
     sb.setup_all()

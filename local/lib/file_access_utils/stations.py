@@ -63,21 +63,21 @@ from local.eolib.utils.files import get_file_list
 
 # .....................................................................................................................
 
-def build_station_config_folder_path(cameras_folder_path, camera_select, *path_joins):
+def build_station_config_folder_path(location_select_folder_path, camera_select, *path_joins):
     ''' Function which builds the path the folder containing station configuration files '''
-    return build_config_folder_path(cameras_folder_path, camera_select, "stations", *path_joins)
+    return build_config_folder_path(location_select_folder_path, camera_select, "stations", *path_joins)
 
 # .....................................................................................................................
 
-def build_station_config_file_path(cameras_folder_path, camera_select, station_name):
+def build_station_config_file_path(location_select_folder_path, camera_select, station_name):
     ''' Function which builds the pathing to a config file for the given station name '''
-    return build_station_config_folder_path(cameras_folder_path, camera_select, "{}.json".format(station_name))
+    return build_station_config_folder_path(location_select_folder_path, camera_select, "{}.json".format(station_name))
 
 # .....................................................................................................................
 
-def build_stations_logging_folder_path(cameras_folder_path, camera_select, station_name):
+def build_stations_logging_folder_path(location_select_folder_path, camera_select, station_name):
     ''' Function which builds the pathing to a folder container logging files for station configurables'''
-    return build_configurables_log_path(cameras_folder_path, camera_select, "station", station_name)
+    return build_configurables_log_path(location_select_folder_path, camera_select, "station", station_name)
 
 # .....................................................................................................................
 # .....................................................................................................................
@@ -111,14 +111,14 @@ def get_station_config_paths(station_config_folder_path):
                                               return_full_path = True,
                                               sort_list = True)
     
-    # Construct 'cleaned' list of names
+    # Construct 'safe' list of names
     station_names_list = [url_safe_name_from_path(each_path) for each_path in station_config_paths_list]
     
     return station_config_paths_list, station_names_list
 
 # .....................................................................................................................
 
-def get_target_station_names_and_paths_lists(cameras_folder_path, camera_select, station_script_name):
+def get_target_station_names_and_paths_lists(location_select_folder_path, camera_select, station_script_name):
     
     ''' 
     Function which returns a list of existing station names and corresponding loading paths
@@ -126,7 +126,7 @@ def get_target_station_names_and_paths_lists(cameras_folder_path, camera_select,
     '''
     
     # Build pathing to station config files
-    station_configs_folder_path = build_station_config_folder_path(cameras_folder_path, camera_select)
+    station_configs_folder_path = build_station_config_folder_path(location_select_folder_path, camera_select)
     
     # Load all config data so we can filter out only the target configs
     all_config_paths_dict, all_config_data_dict = load_all_station_config_data(station_configs_folder_path,
@@ -160,7 +160,7 @@ def load_all_station_config_data(station_configs_folder_path, load_hidden_files 
         
         '''
         Function which finds and loads all station config data & config file paths.
-        Results are stored in dictionaries which are 'keyed' using the station names (cleaned file names)
+        Results are stored in dictionaries which are 'keyed' using the station names ('safe' file names)
         
         Inputs:
             load_hidden_file -> (Boolean) If true, hidden configs will also be loaded
@@ -203,14 +203,14 @@ def load_all_station_config_data(station_configs_folder_path, load_hidden_files 
 
 # .....................................................................................................................
 
-def save_station_config(cameras_folder_path, camera_select, station_name, script_name, class_name, config_data,
+def save_station_config(location_select_folder_path, camera_select, station_name, script_name, class_name, config_data,
                         confirm_save = True):
     
     # Make sure we use consistent naming
-    cleaned_name = url_safe_name_from_path(station_name)
+    safe_name = url_safe_name_from_path(station_name)
     
     # Build save pathing & save data
-    save_file_path = build_station_config_file_path(cameras_folder_path, camera_select, cleaned_name)
+    save_file_path = build_station_config_file_path(location_select_folder_path, camera_select, safe_name)
     save_data_dict = create_configurable_save_data(script_name, class_name, config_data)
     
     # Fully overwrite the existing config

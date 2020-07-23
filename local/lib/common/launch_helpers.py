@@ -83,7 +83,7 @@ def save_data_prompt(enable_save_prompt = True, save_by_default = False):
 
 # .....................................................................................................................
 
-def delete_existing_report_data(cameras_folder_path, camera_select,
+def delete_existing_report_data(location_select_folder_path, camera_select,
                                 enable_deletion = True, enable_deletion_prompt = True):
     
     # If disabled, provide some feedback but otherwise don't do anything
@@ -92,7 +92,7 @@ def delete_existing_report_data(cameras_folder_path, camera_select,
         return
     
     # Build pathing to report data
-    report_data_folder = build_base_report_path(cameras_folder_path, camera_select)
+    report_data_folder = build_base_report_path(location_select_folder_path, camera_select)
     create_missing_folder_path(report_data_folder)
     
     # Check if data already exists
@@ -118,8 +118,6 @@ def delete_existing_report_data(cameras_folder_path, camera_select,
 
 def check_missing_main_selections(location_select, camera_select, video_select, error_if_missing = True,
                                   error_message = "Not all selections were specified!"):
-    
-    
     
     # Get list of data that is missing, in case we need to print it out
     zip_selects = zip(["location", "camera", "video"], [location_select, camera_select, video_select])

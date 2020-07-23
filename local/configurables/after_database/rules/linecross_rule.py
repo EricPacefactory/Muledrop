@@ -63,10 +63,10 @@ class Linecross_Rule(Reference_Rule):
     
     # .................................................................................................................
     
-    def __init__(self, cameras_folder_path, camera_select, input_wh):
+    def __init__(self, location_select_folder_path, camera_select, input_wh):
         
         # Inherit from base class
-        super().__init__(cameras_folder_path, camera_select, input_wh, file_dunder = __file__)
+        super().__init__(location_select_folder_path, camera_select, input_wh, file_dunder = __file__)
         
         # Allocate storage for the fixed-line object
         self.fixed_line = None

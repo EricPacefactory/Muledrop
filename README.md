@@ -88,7 +88,9 @@ Also note that the run command above will map persistent data (camera configs) i
 
 `AUTOPOST_PERIOD_MINS` = 2.5
 
-`CAMERAS_FOLDER_PATH` = (none, defaults to the project foot folder)
+`ALL_LOCATIONS_FOLDER_PATH` = ~/locations
+
+`LOCATION_SELECT` = localhost
 
 `DBSERVER_PROTOCOL` = http
 

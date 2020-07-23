@@ -62,16 +62,16 @@ class Image_Based_Classifier_Stage(Reference_Classifier):
     
     # .................................................................................................................
     
-    def __init__(self, cameras_folder_path, camera_select):
+    def __init__(self, location_select_folder_path, camera_select):
         
         # Inherit from base class
-        super().__init__(cameras_folder_path, camera_select, file_dunder = __file__)
+        super().__init__(location_select_folder_path, camera_select, file_dunder = __file__)
         
         # Allocate storage for the classifier
         self.classifier_model = None
         
         # Build pathing to a saved model file, if present
-        self.path_to_model_folder = build_model_resources_path(cameras_folder_path, camera_select)
+        self.path_to_model_folder = build_model_resources_path(location_select_folder_path, camera_select)
         self._path_to_model_file = None
         
         # If no model files exist, raise an error (config utility should be responsible for creating base model file!)

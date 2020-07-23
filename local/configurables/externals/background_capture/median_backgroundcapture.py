@@ -63,10 +63,10 @@ class Background_Capture(Reference_Background_Capture):
     
     # .................................................................................................................
     
-    def __init__(self, cameras_folder_path, camera_select, video_wh):
+    def __init__(self, location_select_folder_path, camera_select, video_wh):
         
         # Inherit from base class
-        super().__init__(cameras_folder_path, camera_select, video_wh, file_dunder = __file__)
+        super().__init__(location_select_folder_path, camera_select, video_wh, file_dunder = __file__)
         
         # Allocate storage for pre-calculated values
         self._ram_limited_min_captures_to_use = None

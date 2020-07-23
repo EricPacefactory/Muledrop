@@ -132,22 +132,22 @@ if selected_rename:
     
     # Make sure the given name isn't already taken
     _, station_names_list = get_station_config_paths(station_config_folder_path)
-    cleaned_new_station_name = url_safe_name(new_station_name)
-    warn_for_name_taken(cleaned_new_station_name, station_names_list, quit_if_name_is_taken = True)
+    safe_new_station_name = url_safe_name(new_station_name)
+    warn_for_name_taken(safe_new_station_name, station_names_list, quit_if_name_is_taken = True)
     
     # Rename the station config file (with proper extension)
     _, station_ext = os.path.splitext(station_config_path)
-    cleaned_save_name = "{}{}".format(cleaned_new_station_name, station_ext)
-    rename_from_path(station_config_path, cleaned_save_name)
+    safe_save_name = "{}{}".format(safe_new_station_name, station_ext)
+    rename_from_path(station_config_path, safe_save_name)
     
     # We're done! Provide some feedback
     print("",
           "Done! Station renamed:",
-          "  {}  ->  {}".format(station_name_select, cleaned_new_station_name),
+          "  {}  ->  {}".format(station_name_select, safe_new_station_name),
           sep = "\n")
     
     # Save renamed station as default selection for convenience
-    selector.save_station_select(cleaned_new_station_name)
+    selector.save_station_select(safe_new_station_name)
 
 
 # ---------------------------------------------------------------------------------------------------------------------

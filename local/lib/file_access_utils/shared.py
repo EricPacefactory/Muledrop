@@ -139,7 +139,7 @@ def find_locations_folder(project_root_path):
         print("",
               "!" * 36,
               "WARNING:",
-              "Dropbox found in all locations folder path!",
+              "Dropbox found in parent locations folder path!",
               "@ {}".format(all_locations_folder_path),
               "!" * 36,
               sep = "\n")
@@ -151,7 +151,7 @@ def find_locations_folder(project_root_path):
         os.makedirs(all_locations_folder_path, exist_ok = True)
         print("",
               "*" * 36,
-              "Locations folder not found...",
+              "Parent locations folder not found...",
               "Folder will be created:",
               "@ {}".format(all_locations_folder_path),
               "*" * 36,
@@ -179,20 +179,20 @@ def build_location_path(all_locations_folder_path, location_select, *path_joins)
 
 # .....................................................................................................................
 
-def build_camera_path(cameras_folder_path, camera_select, *path_joins):
+def build_camera_path(location_select_folder_path, camera_select, *path_joins):
     
     '''
     Generates pathing given a selected location folder path and camera. If no additional paths are supplied,
     this function will return the root folder path for the selected camera
     '''
     
-    return os.path.join(cameras_folder_path, camera_select, *path_joins)
+    return os.path.join(location_select_folder_path, camera_select, *path_joins)
 
 # .....................................................................................................................
 
-def build_config_folder_path(cameras_folder_path, camera_select, *path_joins):
+def build_config_folder_path(location_select_folder_path, camera_select, *path_joins):
     ''' Generates pathing to the configuration folder for a given camera '''
-    return build_camera_path(cameras_folder_path, camera_select, "config", *path_joins)
+    return build_camera_path(location_select_folder_path, camera_select, "config", *path_joins)
 
 # .....................................................................................................................
     
@@ -202,15 +202,15 @@ def build_defaults_folder_path(project_root_path, *path_joins):
 
 # .....................................................................................................................
     
-def build_resources_folder_path(cameras_folder_path, camera_select, *path_joins):
+def build_resources_folder_path(location_select_folder_path, camera_select, *path_joins):
     ''' Generates pathing to the resources folder for a given camera '''
-    return build_camera_path(cameras_folder_path, camera_select, "resources", *path_joins)
+    return build_camera_path(location_select_folder_path, camera_select, "resources", *path_joins)
 
 # .....................................................................................................................
 
-def build_logging_folder_path(cameras_folder_path, camera_select, *path_joins):
+def build_logging_folder_path(location_select_folder_path, camera_select, *path_joins):
     ''' Generates pathing to the logging folder for a given camera '''
-    return build_camera_path(cameras_folder_path, camera_select, "logs", *path_joins)
+    return build_camera_path(location_select_folder_path, camera_select, "logs", *path_joins)
 
 # .....................................................................................................................
 # .....................................................................................................................
@@ -316,7 +316,8 @@ def list_default_config_options(project_root_path):
 
 # .....................................................................................................................
 
-def copy_from_defaults(project_root_path, cameras_folder_path, camera_select, default_select = None,
+def copy_from_defaults(project_root_path, location_select_folder_path, camera_select,
+                       default_select = None,
                        debug_print = False):
     
     '''
@@ -326,7 +327,7 @@ def copy_from_defaults(project_root_path, cameras_folder_path, camera_select, de
     Inputs:
         project_root_path -> (String) Path to root project folder
         
-        cameras_folder_path, camera_select -> (Strings) Camera pathing
+        location_select_folder_path, camera_select -> (Strings) Camera pathing
         
         default_select -> (String or None) The name of the defaults folder to copy from. If set to None, then
                           the first folder (after sorting) will be chosen (assumed to be the 'blank' default)
@@ -344,7 +345,7 @@ def copy_from_defaults(project_root_path, cameras_folder_path, camera_select, de
     
     # Get pathing to the defaults folder
     defaults_folder_root = build_defaults_folder_path(project_root_path, default_select)
-    camera_folder_root = build_camera_path(cameras_folder_path, camera_select)
+    camera_folder_root = build_camera_path(location_select_folder_path, camera_select)
     
     # Error if missing defaults folder
     no_defaults_folder = (not os.path.exists(defaults_folder_root))

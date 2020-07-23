@@ -59,8 +59,8 @@ from local.lib.file_access_utils.json_read_write import save_config_json, load_c
 
 # .....................................................................................................................
 
-def build_supervised_labels_folder_path(cameras_folder_path, camera_select):
-    return build_after_database_report_path(cameras_folder_path, camera_select, "supervised_labels")
+def build_supervised_labels_folder_path(location_select_folder_path, camera_select):
+    return build_after_database_report_path(location_select_folder_path, camera_select, "supervised_labels")
 
 # .....................................................................................................................
 # .....................................................................................................................
@@ -164,10 +164,10 @@ def get_svlabel_attributes_dict(supervised_labels_dict, object_id = None):
 
 # .....................................................................................................................
 
-def save_single_supervised_label(cameras_folder_path, camera_select, supervised_label_entry):
+def save_single_supervised_label(location_select_folder_path, camera_select, supervised_label_entry):
     
     # Build parent folder path
-    svlabels_folder_path = build_supervised_labels_folder_path(cameras_folder_path, camera_select)
+    svlabels_folder_path = build_supervised_labels_folder_path(location_select_folder_path, camera_select)
     os.makedirs(svlabels_folder_path, exist_ok = True)
     
     # Build path to save target object data
@@ -179,7 +179,7 @@ def save_single_supervised_label(cameras_folder_path, camera_select, supervised_
 
 # .....................................................................................................................
     
-def load_single_supervised_label(cameras_folder_path, camera_select, object_id,
+def load_single_supervised_label(location_select_folder_path, camera_select, object_id,
                                  default_label_if_missing = None, return_nested = False):
     
     '''
@@ -187,7 +187,7 @@ def load_single_supervised_label(cameras_folder_path, camera_select, object_id,
     If the object id doesn't have an entry, this function will return a default (empty) entry
     
     Inputs:
-        cameras_folder_path --> (string) Folder pathing to the cameras folder
+        location_select_folder_path --> (string) Path to the folder containing all camera data for a selected location
         
         camera_select --> (string) The selected camera name
         
@@ -211,7 +211,7 @@ def load_single_supervised_label(cameras_folder_path, camera_select, object_id,
         default_label_if_missing, _ = reserved_unclassified_label()
     
     # Build parent folder path
-    svlabels_folder_path = build_supervised_labels_folder_path(cameras_folder_path, camera_select)
+    svlabels_folder_path = build_supervised_labels_folder_path(location_select_folder_path, camera_select)
     
     # Build pathing to target object data
     load_file_name = create_supervised_label_file_name(object_id)
@@ -232,12 +232,12 @@ def load_single_supervised_label(cameras_folder_path, camera_select, object_id,
 
 # .....................................................................................................................
     
-def load_all_supervised_labels(cameras_folder_path, camera_select, object_id_list):
+def load_all_supervised_labels(location_select_folder_path, camera_select, object_id_list):
     
     ''' Function which loads all '''
     
     # Build parent folder path
-    svlabels_folder_path = build_supervised_labels_folder_path(cameras_folder_path, camera_select)
+    svlabels_folder_path = build_supervised_labels_folder_path(location_select_folder_path, camera_select)
     os.makedirs(svlabels_folder_path, exist_ok = True)
     
     # Get label to use as default, if nothing is available
@@ -248,7 +248,7 @@ def load_all_supervised_labels(cameras_folder_path, camera_select, object_id_lis
     for each_full_id in object_id_list:
         
         # Get a single object labeling entry
-        single_object_entry = load_single_supervised_label(cameras_folder_path, camera_select,
+        single_object_entry = load_single_supervised_label(location_select_folder_path, camera_select,
                                                            each_full_id, default_label_if_missing)
         
         # Bundle all object IDs together
@@ -258,7 +258,7 @@ def load_all_supervised_labels(cameras_folder_path, camera_select, object_id_lis
 
 # .....................................................................................................................
 
-def check_supervised_labels_exist(cameras_folder_path, camera_select):
+def check_supervised_labels_exist(location_select_folder_path, camera_select):
     
     '''
     Helper function used to check if any supervised label data already exists 
@@ -270,7 +270,7 @@ def check_supervised_labels_exist(cameras_folder_path, camera_select):
     files_exist = False
     
     # Build pathing to where the labels would be stored (if they exist)
-    sv_labels_folder = build_supervised_labels_folder_path(cameras_folder_path, camera_select)
+    sv_labels_folder = build_supervised_labels_folder_path(location_select_folder_path, camera_select)
     sv_labels_folder_exists = os.path.exists(sv_labels_folder)
     if not sv_labels_folder_exists:
         return files_exist

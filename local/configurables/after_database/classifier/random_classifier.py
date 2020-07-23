@@ -63,13 +63,13 @@ class Classifier_Stage(Reference_Classifier):
     
     # .................................................................................................................
     
-    def __init__(self, cameras_folder_path, camera_select):
+    def __init__(self, location_select_folder_path, camera_select):
         
         # Inherit from base class
-        super().__init__(cameras_folder_path, camera_select, file_dunder = __file__)
+        super().__init__(location_select_folder_path, camera_select, file_dunder = __file__)
         
         # Get pathing to topclass labels, so we know what to randomly assign!
-        topclass_labels_lut = load_topclass_labels_lut(cameras_folder_path, camera_select)
+        topclass_labels_lut = load_topclass_labels_lut(location_select_folder_path, camera_select)
         
         # Remove indicator labels, so we don't assign them
         self.valid_labels = list(topclass_labels_lut.keys())

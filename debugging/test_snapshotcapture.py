@@ -99,7 +99,7 @@ saving_enabled = cli_confirm("Save snapshot data?", default_response = False)
 threading_enabled = True
 
 # Bundle externals class init variables for convenience
-externals_config = {"cameras_folder_path": location_select_folder_path,
+externals_config = {"location_select_folder_path": location_select_folder_path,
                     "camera_select": camera_select,
                     "video_wh": video_wh}
 

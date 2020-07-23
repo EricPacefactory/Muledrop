@@ -96,6 +96,77 @@ def create_folder_structure_from_dictionary(base_path, dictionary, make_folders 
     return path_list
 
 # .....................................................................................................................
+
+def get_all_folder_names_from_path(input_path, expand_user_home_path = True):
+    
+    '''
+    Helper function which splits apart all folder names in a given path into a list
+    On unix-based systems (with "/" path separators), this function is similar to using: input_path.split("/")
+    
+    Inputs:
+        input_path -> (String) Path to be split into list of folder names
+        
+        expand_user_home_path -> (Boolean) If true, user home shortcuts (e.g. ~) will be expanded before splitting
+    
+    Outputs:
+        folder_name_list
+    '''
+    
+    # Expand the pathing if needed
+    remaining_path = input_path
+    if expand_user_home_path:
+        remaining_path = os.path.expanduser(input_path)
+    
+    # Remove final component if it is a file or has an ext to suggest it would be a file
+    if would_be_file(remaining_path):
+        remaining_path = os.path.dirname(remaining_path)
+    
+    # Loop over all directory components and store their names
+    folder_names_list = []
+    while True:
+        
+        # Get the top-most folder name
+        folder_name = os.path.basename(remaining_path)
+        
+        # Only append actual names
+        if folder_name:
+            folder_names_list.append(folder_name)
+            
+        # Store the path before truncating so we can check if we're still 'moving down' the folders
+        prior_path = remaining_path
+        remaining_path = os.path.dirname(remaining_path)
+        if remaining_path == prior_path:
+            break
+    
+    return list(reversed(folder_names_list))
+
+# .....................................................................................................................
+
+def would_be_file(input_path):
+    
+    '''
+    Helper function which checks if a given path could represent a file (based on having a file extension)
+    It'll also report if a path represents an existing file
+    (even for files without an extension, but only if they already exist!)
+    
+    Inputs:
+        input_path -> (String) This path will be checked to confirm if it does/would belong to a file
+        
+    Returns:
+        would_be_file (boolean) 
+    '''
+    
+    # Expand user home pathing just in case
+    expanded_path = os.path.expanduser(input_path)
+    
+    # Check if the path has a file extension or directly points to an existing file
+    has_ext = (os.path.splitext(expanded_path)[1] != "")
+    is_file = os.path.isfile(expanded_path)
+    would_be_file = (has_ext or is_file)
+    
+    return would_be_file
+
+# .....................................................................................................................
 # .....................................................................................................................
 
 

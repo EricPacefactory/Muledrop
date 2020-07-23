@@ -52,21 +52,23 @@ find_path_to_local()
 from local.lib.file_access_utils.shared import build_config_folder_path
 from local.lib.file_access_utils.logging import build_configurables_log_path
 
+
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Pathing functions
 
 # .....................................................................................................................
 
-def build_externals_folder_path(cameras_folder_path, camera_select, *path_joins):
-    return build_config_folder_path(cameras_folder_path, camera_select, "externals", *path_joins)
+def build_externals_folder_path(location_select_folder_path, camera_select, *path_joins):
+    return build_config_folder_path(location_select_folder_path, camera_select, "externals", *path_joins)
 
 # .....................................................................................................................
 
-def build_externals_logging_folder_path(cameras_folder_path, camera_select, instance_type):
-    return build_configurables_log_path(cameras_folder_path, camera_select, "externals", instance_type)
+def build_externals_logging_folder_path(location_select_folder_path, camera_select, instance_type):
+    return build_configurables_log_path(location_select_folder_path, camera_select, "externals", instance_type)
 
 # .....................................................................................................................
 # .....................................................................................................................
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Config functions
@@ -75,6 +77,7 @@ def build_externals_logging_folder_path(cameras_folder_path, camera_select, inst
 
 # .....................................................................................................................
 # .....................................................................................................................
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Scrap
