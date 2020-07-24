@@ -51,8 +51,6 @@ find_path_to_local()
 
 from shutil import rmtree
 
-from local.lib.common.environment import get_dbserver_port, get_control_server_port
-
 from local.lib.ui_utils.cli_selections import Resource_Selector
 from local.lib.ui_utils.editor_lib import warn_for_reserved_name, warn_for_name_taken
 from local.lib.ui_utils.editor_lib import select_from_list, prompt_with_defaults, confirm, quit_if_none
@@ -61,6 +59,7 @@ from local.lib.file_access_utils.shared import url_safe_name
 from local.lib.file_access_utils.locations import load_location_info_dict, save_location_info_dict
 from local.lib.file_access_utils.locations import build_location_info_dict, unpack_location_info_dict
 from local.lib.file_access_utils.locations import build_location_list, get_printable_location_info
+from local.lib.file_access_utils.locations import create_new_location_folder
 from local.lib.file_access_utils.cameras import build_camera_list
 
 from local.eolib.utils.files import replace_user_home_pathing
@@ -70,28 +69,6 @@ from local.eolib.utils.misc import blank_str_to_none, none_to_blank_str
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define functions
-
-# .....................................................................................................................
-
-def create_new_location_folder(all_locations_folder_path, new_location_name,
-                               ip_address, ssh_username, ssh_password,
-                               dbserver_port = None, ctrlserver_port = None):
-    
-    # Get default server ports on creation in case ports aren't provided
-    default_dbserver_port = get_dbserver_port()
-    default_ctrlserver_port = get_control_server_port()
-    
-    # Build location info to save with location folder
-    location_info_dict = build_location_info_dict(ip_address,
-                                                  ssh_username,
-                                                  ssh_password,
-                                                  dbserver_port if dbserver_port else default_dbserver_port,
-                                                  ctrlserver_port if ctrlserver_port else default_ctrlserver_port)
-    
-    # Save the location info entry
-    new_location_path = save_location_info_dict(all_locations_folder_path, new_location_name, location_info_dict)
-    
-    return new_location_path
 
 # .....................................................................................................................
 
@@ -175,8 +152,6 @@ def prompt_for_modify_info(all_locations_folder_path, location_select):
     
     # First load existing ip info, if present & get default server ports from environment
     location_info_dict = load_location_info_dict(all_locations_folder_path, location_select, error_if_missing = False)
-    env_default_dbserver_port = get_dbserver_port()
-    env_default_ctrlserver_port = get_control_server_port()
     
     # Unpack current location info to use as default values
     curr_host, curr_ssh_user, curr_ssh_pass, curr_dbserver_port, curr_ctrlserver_port = \
@@ -186,8 +161,8 @@ def prompt_for_modify_info(all_locations_folder_path, location_select):
     default_host_ip = blank_str_to_none(curr_host)
     default_ssh_user = blank_str_to_none(curr_ssh_user)
     default_ssh_pass = blank_str_to_none(curr_ssh_pass)
-    default_dbserver_port = blank_str_to_none(curr_dbserver_port, env_default_dbserver_port)
-    default_ctrlserver_port = blank_str_to_none(curr_ctrlserver_port, env_default_ctrlserver_port)
+    default_dbserver_port = blank_str_to_none(curr_dbserver_port)
+    default_ctrlserver_port = blank_str_to_none(curr_ctrlserver_port)
     
     # Provide some indication of what's happening
     print("",
@@ -290,18 +265,12 @@ if selected_new:
     location_ssh_username = prompt_with_defaults("Enter ssh username: ", default_value = None, return_type = str)
     location_ssh_password = prompt_with_defaults("Enter ssh password: ", default_value = None, return_type = str)
     
-    # Assume default server ports on creation (can change from update menu)
-    default_dbserver_port = get_dbserver_port()
-    default_ctrlserver_port = get_control_server_port()
-    
     # Create the new location entry
     create_new_location_folder(all_locations_folder_path,
                                safe_location_name,
                                location_ip_address,
                                location_ssh_username,
-                               location_ssh_password,
-                               default_dbserver_port,
-                               default_ctrlserver_port)
+                               location_ssh_password)
     
     # Provide some feedback
     has_ip_address = (location_ip_address not in [None, ""])
