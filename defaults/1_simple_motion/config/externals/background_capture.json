@@ -1,8 +1,7 @@
 {
   "access_info": {
-    "script_name": "rollingaverage_backgroundcapture",
-    "class_name": "Background_Capture",
-    "configuration_utility": "rolling_average"
+    "configuration_utility": "rolling_average",
+    "script_name": "rollingaverage_backgroundcapture"
   },
   "setup_data": {
     "capture_period_hr": 1,

@@ -1,15 +1,14 @@
 {
   "access_info": {
-    "script_name": "fixed_period_snapcapture",
-    "class_name": "Snapshot_Capture",
-    "configuration_utility": "fixed_period"
+    "configuration_utility": "fixed_period",
+    "script_name": "fixed_period_snapcapture"
   },
   "setup_data": {
+    "downscale_interpolation": 3,
+    "jpg_quality": 25,
+    "max_dimension_px": 640,
     "snapshot_period_hr": 0,
     "snapshot_period_min": 0,
-    "snapshot_period_sec": 1.0,
-    "max_dimension_px": 640,
-    "jpg_quality": 25,
-    "downscale_interpolation": 3
+    "snapshot_period_sec": 1.0
   }
 }

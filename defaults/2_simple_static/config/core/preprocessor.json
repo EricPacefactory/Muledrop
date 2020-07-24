@@ -1,6 +1,5 @@
 {
   "access_info": {
-    "class_name": "Preprocessor_Stage",
     "configuration_utility": "scaling",
     "script_name": "scaling_preprocessor"
   },

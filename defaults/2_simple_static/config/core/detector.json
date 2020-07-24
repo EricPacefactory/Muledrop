@@ -1,13 +1,12 @@
 {
   "access_info": {
-    "class_name": "Detector_Stage",
     "configuration_utility": "blob_width_height",
     "script_name": "blob_wh_detector"
   },
   "setup_data": {
-    "min_width_norm": 0.03,
-    "min_height_norm": 0.05,
+    "max_height_norm": 0.95,
     "max_width_norm": 0.95,
-    "max_height_norm": 0.95
+    "min_height_norm": 0.05,
+    "min_width_norm": 0.03
   }
 }
