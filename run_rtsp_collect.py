@@ -120,8 +120,7 @@ enable_display = ap_result.get("display", False)
 allow_saving = (not ap_result.get("disable_saving", True))
 delete_existing_data = ap_result.get("delete_existing_data", False)
 provide_prompts = ap_result.get("enable_prompts", False)
-print("DBSERVER URL:", dbserver_url)
-raise SystemExit("DEBUG")
+
 # Get selections from arguments
 arg_location_select, arg_camera_select, _ = get_selections_from_script_args(ap_result)
 
