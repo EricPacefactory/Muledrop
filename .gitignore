@@ -3,6 +3,7 @@
 cameras/
 specifications/
 settings/
+forward_compatibility_scripts/
 
 # Cache files
 *.pyc
