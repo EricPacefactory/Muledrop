@@ -56,6 +56,7 @@ from local.lib.ui_utils.display_specification import Preprocessed_BG_Display, Bi
 
 from local.configurables.core.foreground_extractor._helper_functions import Outlined_Input, Masked_Differences
 
+
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define displays
 
@@ -66,10 +67,9 @@ from local.configurables.core.foreground_extractor._helper_functions import Outl
 # For clarity
 target_core_stage_name = "foreground_extractor"
 target_script_name = "bgs_fgextractor"
-target_class_name = "FG_Extractor_Stage"
 
 # Make all required selections
-loader = Reconfigurable_Core_Stage_Loader(target_core_stage_name, target_script_name, target_class_name)
+loader = Reconfigurable_Core_Stage_Loader(target_core_stage_name, target_script_name)
 arg_selections = loader.parse_standard_args()
 loader.selections(*arg_selections)
 
@@ -105,4 +105,5 @@ debug_dict = main_process.debug_dict
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Scrap
+
 

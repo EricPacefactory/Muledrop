@@ -353,7 +353,6 @@ class Configurable_Base:
         
         # Create save data using a standardized function to guarantee consistent formatting
         save_data_dict = create_configurable_save_data(self.script_name,
-                                                       self.class_name,
                                                        configuration_utility_file_dunder,
                                                        setup_data_dict)
         
@@ -572,7 +571,7 @@ class Stations_Configurable_Base(Configurable_Base):
         # Get save data from configurable & add configuration utility info
         save_data_dict = self.get_save_data_dict(configuration_utility_file_dunder)
         access_info_dict, setup_data_dict = unpack_config_data(save_data_dict)
-        curr_script_name, _, _ = unpack_access_info(access_info_dict)
+        curr_script_name, _ = unpack_access_info(access_info_dict)
         
         # Only save if the saved data has changed
         is_passthrough = ("passthrough" in curr_script_name)

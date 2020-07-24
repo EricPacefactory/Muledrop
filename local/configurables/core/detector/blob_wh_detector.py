@@ -59,7 +59,7 @@ from local.configurables.core.detector.reference_detector import Reference_Detec
 #%% Define classes
 
 
-class Detector_Stage(Reference_Detector):
+class Configurable(Reference_Detector):
     
     # .................................................................................................................
     

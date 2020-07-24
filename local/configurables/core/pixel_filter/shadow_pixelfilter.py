@@ -57,7 +57,7 @@ from local.configurables.core.pixel_filter.reference_pixelfilter import Referenc
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
 
-class Pixel_Filter_Stage(Reference_Pixel_Filter):
+class Configurable(Reference_Pixel_Filter):
     
     # .................................................................................................................
     

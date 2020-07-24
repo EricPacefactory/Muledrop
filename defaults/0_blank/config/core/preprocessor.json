@@ -1,7 +1,6 @@
 {
   "access_info": {
     "script_name": "passthrough_preprocessor.py",
-    "class_name": "Preprocessor_Stage",
     "configuration_utility": "passthrough"
   },
   "setup_data": {}

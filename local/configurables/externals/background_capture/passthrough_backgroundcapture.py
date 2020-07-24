@@ -55,7 +55,7 @@ from local.configurables.externals.background_capture.reference_backgroundcaptur
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
 
-class Background_Capture(Reference_Background_Capture):
+class Configurable(Reference_Background_Capture):
     
     # .................................................................................................................
     

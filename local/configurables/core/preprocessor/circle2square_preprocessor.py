@@ -62,7 +62,7 @@ from local.eolib.math.linear_algebra import rotation_matrix_2D, rotate_around_ce
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
 
-class Preprocessor_Stage(Reference_Preprocessor):
+class Configurable(Reference_Preprocessor):
     
     # .................................................................................................................
     

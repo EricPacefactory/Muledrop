@@ -129,16 +129,16 @@ class Custom_Tracking_Display(Display_Window_Specification):
 # .....................................................................................................................
 # .....................................................................................................................
 
+
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Main
 
 # For clarity
 target_core_stage_name = "tracker"
 target_script_name = "jaccard_tracker"
-target_class_name = "Tracker_Stage"
 
 # Make all required selections
-loader = Reconfigurable_Core_Stage_Loader(target_core_stage_name, target_script_name, target_class_name)
+loader = Reconfigurable_Core_Stage_Loader(target_core_stage_name, target_script_name)
 arg_selections = loader.parse_standard_args()
 loader.selections(*arg_selections)
 

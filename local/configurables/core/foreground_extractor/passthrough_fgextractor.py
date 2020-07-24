@@ -55,7 +55,7 @@ from local.configurables.core.foreground_extractor.reference_fgextractor import 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
 
-class FG_Extractor_Stage(Reference_FG_Extractor):
+class Configurable(Reference_FG_Extractor):
     
     # .................................................................................................................
     

@@ -59,7 +59,7 @@ from local.eolib.math.geometry import Fixed_Line_Cross
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
 
-class Linecross_Rule(Reference_Rule):
+class Configurable(Reference_Rule):
     
     # .................................................................................................................
     

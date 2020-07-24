@@ -58,7 +58,7 @@ from local.configurables.core.pixel_filter._helper_functions import inRange_with
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
 
-class Pixel_Filter_Stage(Reference_Pixel_Filter):
+class Configurable(Reference_Pixel_Filter):
     
     # .................................................................................................................
     

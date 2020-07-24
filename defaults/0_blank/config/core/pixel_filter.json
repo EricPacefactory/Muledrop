@@ -1,7 +1,6 @@
 {
   "access_info": {
     "script_name": "passthrough_pixelfilter.py",
-    "class_name": "Pixel_Filter_Stage",
     "configuration_utility": "passthrough"
   },
   "setup_data": {}

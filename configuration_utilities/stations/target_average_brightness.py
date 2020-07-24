@@ -99,10 +99,9 @@ class Brightness_Levels_Display(Leveled_Data_Display):
 
 # For clarity
 target_script_name = "target_average_brightness_station"
-target_class_name = "Target_Average_Brightness_Station"
 
 # Make all required selections
-loader = Reconfigurable_Single_Station_Loader(target_script_name, target_class_name)
+loader = Reconfigurable_Single_Station_Loader(target_script_name)
 arg_selections = loader.parse_standard_args()
 loader.selections(*arg_selections)
 loader.select_station()

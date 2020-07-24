@@ -134,7 +134,7 @@ def get_rule_type(access_info_dict):
     ''' Helper function which determines the rule type (i.e. script name) from a given rule config '''
     
     # Pull out the script name, and be sure to remove any .py extensions (just in case)
-    script_name, _, _ = unpack_access_info(access_info_dict)
+    script_name, _ = unpack_access_info(access_info_dict)
     clean_rule_type, _ = os.path.splitext(script_name)
     
     return clean_rule_type

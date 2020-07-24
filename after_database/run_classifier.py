@@ -59,7 +59,7 @@ from local.lib.common.feedback import print_time_taken_sec
 
 from local.lib.ui_utils.cli_selections import Resource_Selector
 
-from local.lib.file_access_utils.configurables import configurable_dot_path, unpack_config_data, unpack_access_info
+from local.lib.file_access_utils.configurables import dynamic_import_classifier, unpack_config_data, unpack_access_info
 from local.lib.file_access_utils.classifier import build_classifier_adb_metadata_report_path
 from local.lib.file_access_utils.classifier import load_classifier_config
 from local.lib.file_access_utils.classifier import new_classifier_report_entry
@@ -68,7 +68,6 @@ from local.lib.file_access_utils.classifier import save_classifier_report_data
 from local.offline_database.file_database import launch_dbs, close_dbs_if_missing_data
 
 from local.eolib.utils.files import get_total_folder_size, create_missing_folder_path
-from local.eolib.utils.function_helpers import dynamic_import_from_module
 from local.eolib.utils.cli_tools import cli_confirm
 from local.eolib.utils.quitters import ide_quit
 
@@ -80,15 +79,14 @@ from local.eolib.utils.quitters import ide_quit
     
 def import_classifier_class(location_select_folder_path, camera_select):
     
-    # Check configuration file to see which script/class to load from & get configuration data
+    # Check configuration file to see which script to load from & get configuration data
     load_pathing_args = (location_select_folder_path, camera_select)
     _, config_data_dict = load_classifier_config(*load_pathing_args)
     access_info_dict, setup_data_dict = unpack_config_data(config_data_dict)
-    script_name, class_name, _ = unpack_access_info(access_info_dict)
+    script_name, _ = unpack_access_info(access_info_dict)
     
     # Programmatically import the target class
-    dot_path = configurable_dot_path("after_database", "classifier", script_name)
-    Imported_Classifier_Class = dynamic_import_from_module(dot_path, class_name)
+    Imported_Classifier_Class = dynamic_import_classifier(script_name)
     
     return Imported_Classifier_Class, setup_data_dict
 

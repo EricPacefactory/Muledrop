@@ -65,7 +65,7 @@ from local.eolib.utils.colormaps import create_interpolated_colormap
 #%% Define classes
 
 
-class Normalized_FTF_Station(Reference_Station):
+class Configurable(Reference_Station):
     
     # .................................................................................................................
     

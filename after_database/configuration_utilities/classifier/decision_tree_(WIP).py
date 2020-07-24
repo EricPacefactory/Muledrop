@@ -58,7 +58,7 @@ from sklearn.model_selection import train_test_split
 
 from local.lib.ui_utils.cli_selections import Resource_Selector
 
-from local.configurables.after_database.classifier.decisiontree_classifier import Classifier_Stage
+from local.configurables.after_database.classifier.decisiontree_classifier import Configurable
 from local.configurables.after_database.classifier.decisiontree_classifier import save_classifier_resources
 from local.configurables.after_database.classifier.decisiontree_classifier import load_classifier_resources
 from local.configurables.after_database.classifier.decisiontree_classifier import sample_data_from_object
@@ -253,7 +253,7 @@ if resources_already_exist:
         user_confirm_save = cli_confirm("Save decision tree classifier config?", default_response = False)
         if user_confirm_save:            
             # Update the classifier config for the selected camera
-            classifier_ref = Classifier_Stage(*pathing_args)
+            classifier_ref = Configurable(*pathing_args)
             save_classifier_config(classifier_ref, __file__)
         ide_quit("Saved classifier config. Done!" if user_confirm_save else "Save cancelled...")
 
@@ -312,7 +312,7 @@ frame_wh = (frame_width, frame_height)
 #%% Set up the classifier
 
 # Load configurable class for this config utility
-classifier_ref = Classifier_Stage(*pathing_args)
+classifier_ref = Configurable(*pathing_args)
 
 # Load existing config settings, if available
 initial_setup_data_dict = load_matching_config(classifier_ref)

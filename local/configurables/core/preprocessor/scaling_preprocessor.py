@@ -61,7 +61,7 @@ from local.configurables.core.preprocessor._helper_functions import adjust_aspec
 #%% Define classes
     
 
-class Preprocessor_Stage(Reference_Preprocessor):
+class Configurable(Reference_Preprocessor):
     
     # .................................................................................................................
     

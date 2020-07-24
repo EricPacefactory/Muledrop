@@ -216,16 +216,14 @@ def load_matching_config(configurable_ref):
     # Load existing config
     config_data = load_config_json(load_path)
     access_info_dict, setup_data_dict = unpack_config_data(config_data)
-    saved_script_name, saved_class_name, _ = unpack_access_info(access_info_dict)
+    saved_script_name, _ = unpack_access_info(access_info_dict)
     
     # Get target script/class from the configurable, to see if the saved config matches
     target_script_name = configurable_ref.script_name
-    target_class_name = configurable_ref.class_name
     
     # Check if file access matches
     script_match = (target_script_name == saved_script_name)
-    class_match = (target_class_name == saved_class_name)
-    if script_match and class_match:
+    if script_match:
         return setup_data_dict
     
     # If file acces doesn't match, return an empty setup dictionary

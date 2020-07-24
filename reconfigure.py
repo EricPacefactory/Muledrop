@@ -367,7 +367,7 @@ def get_script_name_from_config_file(configs_folder_path, parent_select):
     # If a file does exist, try to extract the configuration utility used to construct it
     config_data_dict = load_config_json(existing_config_file_path)
     access_info_dict, _ = unpack_config_data(config_data_dict)
-    _, _, previous_config_util_used = unpack_access_info(access_info_dict)
+    _, previous_config_util_used = unpack_access_info(access_info_dict)
     
     return previous_config_util_used
 

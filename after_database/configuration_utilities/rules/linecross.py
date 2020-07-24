@@ -68,7 +68,7 @@ from local.offline_database.object_reconstruction import create_trail_frame_from
 from local.offline_database.snapshot_reconstruction import median_background_from_snapshots
 from local.offline_database.classification_reconstruction import create_objects_by_class_dict, get_ordered_object_list
 
-from local.configurables.after_database.rules.linecross_rule import Linecross_Rule
+from local.configurables.after_database.rules.linecross_rule import Configurable
 
 from local.eolib.utils.cli_tools import Datetime_Input_Parser as DTIP
 
@@ -260,7 +260,7 @@ frame_scaling = np.float32((frame_width - 1, frame_height - 1))
 #%% Select rule to load
 
 # Load configurable class for this config utility
-rule_ref = Linecross_Rule(location_select_folder_path, camera_select, frame_wh)
+rule_ref = Configurable(location_select_folder_path, camera_select, frame_wh)
 
 # Ask user to load an existing rule config, or create a new one & configure the rule accordingly
 load_from_existing_config, loaded_rule_name, initial_setup_data_dict = select_rule_to_load(rule_ref)

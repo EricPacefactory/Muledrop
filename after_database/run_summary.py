@@ -58,7 +58,7 @@ from local.lib.common.feedback import print_time_taken_ms
 
 from local.lib.ui_utils.cli_selections import Resource_Selector
 
-from local.lib.file_access_utils.configurables import configurable_dot_path, unpack_config_data, unpack_access_info
+from local.lib.file_access_utils.configurables import dynamic_import_summary, unpack_config_data, unpack_access_info
 from local.lib.file_access_utils.summary import build_summary_adb_metadata_report_path
 from local.lib.file_access_utils.summary import load_summary_config, save_summary_report_data
 
@@ -67,7 +67,6 @@ from local.offline_database.file_database import launch_dbs, close_dbs_if_missin
 from local.configurables.configurable_template import jsonify_numpy_data
 
 from local.eolib.utils.files import get_total_folder_size, create_missing_folder_path
-from local.eolib.utils.function_helpers import dynamic_import_from_module
 from local.eolib.utils.cli_tools import cli_confirm
 from local.eolib.utils.quitters import ide_quit
 
@@ -79,15 +78,14 @@ from local.eolib.utils.quitters import ide_quit
     
 def import_summary_class(location_select_folder_path, camera_select):
     
-    # Check configuration file to see which script/class to load from & get configuration data
+    # Check configuration file to see which script to load from & get configuration data
     pathing_args = (location_select_folder_path, camera_select)
     _, config_data_dict = load_summary_config(*pathing_args)
     access_info_dict, setup_data_dict = unpack_config_data(config_data_dict)
-    script_name, class_name, _ = unpack_access_info(access_info_dict)
+    script_name, _ = unpack_access_info(access_info_dict)
     
     # Programmatically import the target class
-    dot_path = configurable_dot_path("after_database", "summary", script_name)
-    Imported_Summary_Class = dynamic_import_from_module(dot_path, class_name)
+    Imported_Summary_Class = dynamic_import_summary(script_name)
     
     return Imported_Summary_Class, setup_data_dict
 

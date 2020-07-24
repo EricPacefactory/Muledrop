@@ -74,7 +74,7 @@ from local.eolib.utils.files import get_folder_list
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
 
-class Classifier_Stage(Reference_Classifier):
+class Configurable(Reference_Classifier):
     
     # .................................................................................................................
     

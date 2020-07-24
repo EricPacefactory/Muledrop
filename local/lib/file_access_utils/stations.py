@@ -50,10 +50,9 @@ find_path_to_local()
 #%% Imports
 
 from local.lib.file_access_utils.shared import build_config_folder_path, url_safe_name_from_path
-from local.lib.file_access_utils.configurables import create_configurable_save_data
 from local.lib.file_access_utils.configurables import unpack_config_data, unpack_access_info
 from local.lib.file_access_utils.logging import build_configurables_log_path
-from local.lib.file_access_utils.json_read_write import save_config_json, load_config_json
+from local.lib.file_access_utils.json_read_write import load_config_json
 
 from local.eolib.utils.files import get_file_list
 
@@ -144,7 +143,7 @@ def get_target_station_names_and_paths_lists(location_select_folder_path, camera
         # Pull out the script name from the config data
         each_config_data_dict = all_config_data_dict[each_station_name]
         loaded_access_info_dict, _ = unpack_config_data(each_config_data_dict)
-        loaded_script_name, _, _ = unpack_access_info(loaded_access_info_dict)
+        loaded_script_name, _ = unpack_access_info(loaded_access_info_dict)
         
         # Only store the name/path if the loaded script name info matches our target
         matches_target_script_name = (loaded_script_name == station_script_name)
@@ -194,30 +193,6 @@ def load_all_station_config_data(station_configs_folder_path, load_hidden_files 
             all_config_data_dict[station_name] = station_config_data_dict
         
         return all_config_paths_dict, all_config_data_dict
-
-# .....................................................................................................................
-# .....................................................................................................................
-
-# ---------------------------------------------------------------------------------------------------------------------
-#%% Config functions
-
-# .....................................................................................................................
-
-def save_station_config(location_select_folder_path, camera_select, station_name, script_name, class_name, config_data,
-                        confirm_save = True):
-    
-    # Make sure we use consistent naming
-    safe_name = url_safe_name_from_path(station_name)
-    
-    # Build save pathing & save data
-    save_file_path = build_station_config_file_path(location_select_folder_path, camera_select, safe_name)
-    save_data_dict = create_configurable_save_data(script_name, class_name, config_data)
-    
-    # Fully overwrite the existing config
-    if confirm_save:
-        save_config_json(save_file_path, save_data_dict)
-    
-    return save_file_path, save_data_dict
 
 # .....................................................................................................................
 # .....................................................................................................................

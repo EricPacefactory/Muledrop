@@ -63,7 +63,7 @@ from local.configurables.core.tracker.euclidean_tracker import pair_objects_to_d
 #%% Define classes
 
 
-class Tracker_Stage(Reference_Tracker):
+class Configurable(Reference_Tracker):
     
     # .................................................................................................................
     

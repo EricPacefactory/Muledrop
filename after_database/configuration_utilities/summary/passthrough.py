@@ -55,7 +55,7 @@ from local.lib.file_access_utils.configurables import unpack_config_data, unpack
 from local.lib.file_access_utils.summary import build_summary_config_path
 from local.lib.file_access_utils.json_read_write import load_config_json, save_config_json
 
-from local.configurables.after_database.summary.passthrough_summary import Summary_Stage
+from local.configurables.after_database.summary.passthrough_summary import Configurable
 
 from local.eolib.utils.cli_tools import cli_confirm
 
@@ -84,17 +84,15 @@ def load_matching_config(configurable_ref):
     config_data_dict = load_config_json(load_path)
     access_info_dict, setup_data_dict = unpack_config_data(config_data_dict)
     
-    # Get target script/class from the configurable, to see if the saved config matches
+    # Get target script from the configurable, to see if the saved config matches
     target_script_name = configurable_ref.script_name
-    target_class_name = configurable_ref.class_name
     
     # Get the saved access info for comparison
-    loaded_script_name, loaded_class_name, _ = unpack_access_info(access_info_dict)
+    loaded_script_name, _ = unpack_access_info(access_info_dict)
     
     # Check if file access matches
     script_match = (target_script_name == loaded_script_name)
-    class_match = (target_class_name == loaded_class_name)
-    if script_match and class_match:
+    if script_match:
         return setup_data_dict
     
     # If file acces doesn't match, return an empty setup dictionary
@@ -138,7 +136,7 @@ camera_select, _ = selector.camera(location_select, debug_mode = enable_debug_mo
 #%% Set up the classifier
 
 # Load configurable class for this config utility
-summary_ref = Summary_Stage(location_select_folder_path, camera_select)
+summary_ref = Configurable(location_select_folder_path, camera_select)
 
 # Load existing config settings, if available
 initial_setup_data_dict = load_matching_config(summary_ref)

@@ -58,7 +58,7 @@ from local.configurables.after_database.classifier.reference_classifier import R
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
 
-class Classifier_Stage(Reference_Classifier):
+class Configurable(Reference_Classifier):
     
     # .................................................................................................................
     

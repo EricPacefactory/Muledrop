@@ -60,7 +60,7 @@ from local.configurables.externals.snapshot_capture.reference_snapcapture import
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
 
-class Snapshot_Capture(Reference_Snapshot_Capture):
+class Configurable(Reference_Snapshot_Capture):
     
     # .................................................................................................................
     

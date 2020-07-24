@@ -153,10 +153,9 @@ def draw_mouse_indicator(display_frame, configurable_ref, mouse_xy):
 # For clarity
 target_core_stage_name = "tracker"
 target_script_name = "kalman_euclidean_tracker"
-target_class_name = "Tracker_Stage"
 
 # Make all required selections
-loader = Reconfigurable_Core_Stage_Loader(target_core_stage_name, target_script_name, target_class_name)
+loader = Reconfigurable_Core_Stage_Loader(target_core_stage_name, target_script_name)
 arg_selections = loader.parse_standard_args()
 loader.selections(*arg_selections)
 

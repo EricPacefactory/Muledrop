@@ -55,7 +55,7 @@ from local.configurables.core.preprocessor.reference_preprocessor import Referen
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
 
-class Preprocessor_Stage(Reference_Preprocessor):
+class Configurable(Reference_Preprocessor):
     
     # .................................................................................................................
     

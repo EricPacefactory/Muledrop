@@ -61,7 +61,7 @@ from local.eolib.video.imaging import crop_pixels_in_place
 #%% Define classes
 
 
-class Target_Average_RGB_Station(Reference_Station):
+class Configurable(Reference_Station):
     
     # .................................................................................................................
     

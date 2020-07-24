@@ -54,11 +54,9 @@ from time import perf_counter
 from local.lib.common.timekeeper_utils import Periodic_Polled_Timer, datetime_to_isoformat_string
 
 from local.lib.file_access_utils.reporting import Station_Report_Data_Saver
-from local.lib.file_access_utils.configurables import configurable_dot_path, unpack_config_data, unpack_access_info
+from local.lib.file_access_utils.configurables import dynamic_import_stations, unpack_config_data, unpack_access_info
 from local.lib.file_access_utils.configurables import create_blank_configurable_data_dict, check_matching_access_info
 from local.lib.file_access_utils.stations import build_station_config_folder_path, load_all_station_config_data
-
-from local.eolib.utils.function_helpers import dynamic_import_from_module
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -124,13 +122,12 @@ class Station_Bundle:
         for each_station_name, each_config_data_dict in self.all_stations_config_dict.items():
             
             access_info_dict, setup_data_dict = unpack_config_data(each_config_data_dict)
-            script_name, class_name, _ = unpack_access_info(access_info_dict)
+            script_name, _ = unpack_access_info(access_info_dict)
             num_properties = len(setup_data_dict)
             
             repr_strs += ["",
                           "--> {}".format(each_station_name),
                           "  Script: {}".format(script_name),
-                          "   Class: {}".format(class_name),
                           "  ({} configured properties)".format(num_properties)]
         
         # Special output if nothing is loaded/configured
@@ -280,12 +277,12 @@ class Station_Bundle:
     
     # .................................................................................................................
     
-    def setup_one(self, station_name, script_name, class_name, reset_on_startup = True):
+    def setup_one(self, station_name, script_name, reset_on_startup = True):
         
         '''
         Function which loads a single (target) station object. Intended for re-configuration
         If a station name is given which doesn't match an existing configuration file, this
-        function will still instantiate the target script/class, but with no configuration data
+        function will still instantiate the target script, but with no configuration data
         
         Otherwise behaves like the 'setup_all' function
         '''
@@ -297,7 +294,7 @@ class Station_Bundle:
         all_config_paths_dict, all_config_data_dict = load_all_station_config_data(self.station_configs_folder_path)
         
         # Create a blank configuration, which we'll use if we can't find an existing config to load
-        single_config_data_dict = create_blank_configurable_data_dict(script_name, class_name)
+        single_config_data_dict = create_blank_configurable_data_dict(script_name)
         
         # Check if the station name is something we already know about, in which case use the existing config data
         station_already_exists = (station_name in all_config_data_dict.keys())
@@ -413,11 +410,10 @@ class Station_Bundle:
         
         # Separate the raw data contained in the config file
         access_info_dict, setup_data_dict = unpack_config_data(station_config_data_dict)
-        script_name, class_name, _ = unpack_access_info(access_info_dict)
+        script_name, _ = unpack_access_info(access_info_dict)
         
         # Load the given station object
-        import_dot_path = configurable_dot_path("stations", script_name)
-        Imported_Station_Class = dynamic_import_from_module(import_dot_path, class_name)
+        Imported_Station_Class = dynamic_import_stations(script_name)
         station_ref = Imported_Station_Class(station_name, self.location_select_folder_path,
                                              self.camera_select,
                                              input_wh)

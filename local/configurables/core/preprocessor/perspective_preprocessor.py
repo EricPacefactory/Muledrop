@@ -61,7 +61,7 @@ from local.configurables.core.preprocessor._helper_functions import unwarp_from_
 #%% Define classes
     
 
-class Preprocessor_Stage(Reference_Preprocessor):
+class Configurable(Reference_Preprocessor):
     
     # .................................................................................................................
     

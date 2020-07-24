@@ -57,6 +57,7 @@ from local.lib.ui_utils.display_specification import Display_Window_Specificatio
 from local.lib.ui_utils.display_specification import Detection_Display, Filtered_Binary_Display
 from local.lib.ui_utils.display_specification import draw_mouse_centered_ellipse, draw_objects_on_frame
 
+
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define displays
 
@@ -151,10 +152,9 @@ def draw_mouse_indicator(display_frame, configurable_ref, mouse_xy):
 # For clarity
 target_core_stage_name = "tracker"
 target_script_name = "euclidean_tracker"
-target_class_name = "Tracker_Stage"
 
 # Make all required selections
-loader = Reconfigurable_Core_Stage_Loader(target_core_stage_name, target_script_name, target_class_name)
+loader = Reconfigurable_Core_Stage_Loader(target_core_stage_name, target_script_name)
 arg_selections = loader.parse_standard_args()
 loader.selections(*arg_selections)
 

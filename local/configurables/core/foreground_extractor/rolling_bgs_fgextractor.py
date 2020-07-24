@@ -64,7 +64,7 @@ from local.eolib.video.imaging import get_2d_kernel, create_morphology_element, 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
 
-class FG_Extractor_Stage(Reference_FG_Extractor):
+class Configurable(Reference_FG_Extractor):
     
     # .................................................................................................................
     
@@ -465,8 +465,8 @@ class FG_Extractor_Stage(Reference_FG_Extractor):
     # .................................................................................................................
     
     def process_background_frame(self, frame):
-        # Rolling-background frame-processor doesn't use the actual background image data!
-        return 0
+        # Rolling-background frame-processor uses background for initial launch only
+        return frame
     
     # .................................................................................................................
     
@@ -514,7 +514,10 @@ class FG_Extractor_Stage(Reference_FG_Extractor):
             
         except cv2.error:
             # Fails on first run, since we don't have a previous frame to average with!
-            self._rolling_bg_frame_float32 = frame_float32
+            # So instead use initial system-generated background
+            internal_bg_frame = self.get_internal_background_frame()
+            downscaled_bg_frame = cv2.resize(internal_bg_frame, dsize = self.input_wh, interpolation = cv2.INTER_AREA)
+            self._rolling_bg_frame_float32 = np.float32(downscaled_bg_frame)
         
         # Convert to uint8 for use in foreground processing
         new_rbg_uint8 = np.uint8(np.round(self._rolling_bg_frame_float32))
@@ -557,3 +560,9 @@ if __name__ == "__main__":
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Scrap
+
+
+# TODO:
+# - provide option to have rolling bg reset on system bg-generated updates
+#   - idea is that system generated updates may be cleaner and reseting avoids long-term errors?
+

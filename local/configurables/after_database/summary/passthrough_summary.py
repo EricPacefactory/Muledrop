@@ -55,7 +55,7 @@ from local.configurables.after_database.summary.reference_summary import Referen
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
 
-class Summary_Stage(Reference_Summary):
+class Configurable(Reference_Summary):
     
     # .................................................................................................................
     

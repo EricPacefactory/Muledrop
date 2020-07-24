@@ -1,7 +1,6 @@
 {
   "access_info": {
     "script_name": "fixed_period_snapcapture",
-    "class_name": "Snapshot_Capture",
     "configuration_utility": "fixed_period"
   },
   "setup_data": {

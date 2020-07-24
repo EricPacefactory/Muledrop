@@ -180,11 +180,14 @@ selector = Resource_Selector()
 location_select, location_select_folder_path = selector.location(debug_mode = enable_debug_mode)
 camera_select, _ = selector.camera(location_select, debug_mode = enable_debug_mode)
 
+# For convenience
+pathing_args = (location_select_folder_path, camera_select)
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Catalog existing data
 
-snap_db, obj_db, class_db = launch_dbs(location_select_folder_path, camera_select,
+snap_db, obj_db, class_db = launch_dbs(*pathing_args,
                                        "snapshots", "objects", "classifications")
 
 # Catch missing data

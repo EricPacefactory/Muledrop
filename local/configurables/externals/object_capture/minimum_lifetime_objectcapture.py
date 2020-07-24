@@ -55,7 +55,7 @@ from local.configurables.externals.object_capture.reference_objectcapture import
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
 
-class Object_Capture(Reference_Object_Capture):
+class Configurable(Reference_Object_Capture):
     
     # .................................................................................................................
     

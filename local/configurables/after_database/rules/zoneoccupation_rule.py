@@ -62,7 +62,7 @@ from local.offline_database.object_reconstruction import Smoothed_Object_Reconst
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
 
-class Zoneoccupation_Rule(Reference_Rule):
+class Configurable(Reference_Rule):
     
     # .................................................................................................................
     
@@ -199,11 +199,11 @@ class Zoneoccupation_Rule(Reference_Rule):
         inner_state_change_indices = (1 + np.nonzero(np.diff(in_zone_pixels))[0])
         
         # Add 'artificial' starting and ending state change indices, so we can process everything in one shot
-        full_stage_change_indices = chain([0], inner_state_change_indices, [total_samples])
+        full_state_change_indices = chain([0], inner_state_change_indices, [total_samples])
         
         # Loop through all zone entry/exit events and build rule result entries
         rule_results_list = []
-        for first_index, final_index_plus_one in pairs_of(full_stage_change_indices):
+        for first_index, final_index_plus_one in pairs_of(full_state_change_indices):
             
             # Determine the state of each zone entry/exit event
             current_state = in_zone_pixels[first_index]

@@ -53,7 +53,7 @@ from local.lib.ui_utils.cli_selections import Resource_Selector
 
 from local.lib.file_access_utils.classifier import load_matching_config, save_classifier_config
 
-from local.configurables.after_database.classifier.random_classifier import Classifier_Stage
+from local.configurables.after_database.classifier.random_classifier import Configurable
 
 from local.eolib.utils.cli_tools import cli_confirm
 
@@ -87,7 +87,7 @@ camera_select, _ = selector.camera(location_select, debug_mode = enable_debug_mo
 #%% Set up the classifier
 
 # Load configurable class for this config utility
-classifier_ref = Classifier_Stage(location_select_folder_path, camera_select)
+classifier_ref = Configurable(location_select_folder_path, camera_select)
 
 # Load existing config settings, if available
 initial_setup_data_dict = load_matching_config(classifier_ref)
@@ -99,7 +99,7 @@ classifier_ref.reconfigure(initial_setup_data_dict)
 
 user_confirm_save = cli_confirm("Save random classifier config?", default_response = False)
 if user_confirm_save:
-    save_classifier_config(classifier_ref)
+    save_classifier_config(classifier_ref, __file__)
 
 
 # ---------------------------------------------------------------------------------------------------------------------

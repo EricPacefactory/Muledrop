@@ -59,7 +59,7 @@ from local.configurables.externals.background_capture._helper_functions import c
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
 
-class Background_Capture(Reference_Background_Capture):
+class Configurable(Reference_Background_Capture):
     
     # .................................................................................................................
     

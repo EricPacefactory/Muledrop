@@ -55,7 +55,7 @@ from local.configurables.core.tracker.reference_tracker import Reference_Tracker
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
 
-class Tracker_Stage(Reference_Tracker):
+class Configurable(Reference_Tracker):
     
     # .................................................................................................................
     

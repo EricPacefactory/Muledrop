@@ -62,7 +62,7 @@ from local.configurables.core.tracker._helper_functions import minsum_object_det
 #%% Define classes
 
 
-class Tracker_Stage(Reference_Tracker):
+class Configurable(Reference_Tracker):
     
     # .................................................................................................................
     

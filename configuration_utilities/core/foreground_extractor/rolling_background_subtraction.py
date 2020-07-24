@@ -58,6 +58,7 @@ from local.lib.ui_utils.display_specification import Display_Window_Specificatio
 
 from local.configurables.core.foreground_extractor._helper_functions import Outlined_Input, Masked_Differences
 
+
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define displays
 
@@ -90,6 +91,7 @@ class Rolling_BG_Display(Display_Window_Specification):
     # .................................................................................................................
     # .................................................................................................................
 
+
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define functions
 
@@ -100,10 +102,9 @@ class Rolling_BG_Display(Display_Window_Specification):
 # For clarity
 target_core_stage_name = "foreground_extractor"
 target_script_name = "rolling_bgs_fgextractor"
-target_class_name = "FG_Extractor_Stage"
 
 # Make all required selections
-loader = Reconfigurable_Core_Stage_Loader(target_core_stage_name, target_script_name, target_class_name)
+loader = Reconfigurable_Core_Stage_Loader(target_core_stage_name, target_script_name)
 arg_selections = loader.parse_standard_args()
 loader.selections(*arg_selections)
 

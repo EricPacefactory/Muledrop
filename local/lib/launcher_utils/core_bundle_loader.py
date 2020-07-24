@@ -52,12 +52,10 @@ find_path_to_local()
 from time import perf_counter
 from collections import OrderedDict
 
-from local.lib.file_access_utils.configurables import create_configurable_save_data, configurable_dot_path
-from local.lib.file_access_utils.configurables import unpack_config_data, unpack_access_info
+from local.lib.file_access_utils.configurables import dynamic_import_core, create_blank_configurable_data_dict
+from local.lib.file_access_utils.configurables import unpack_config_data, unpack_access_info, check_matching_access_info
 from local.lib.file_access_utils.json_read_write import load_config_json
 from local.lib.file_access_utils.core import build_core_folder_path, get_ordered_config_paths
-
-from local.eolib.utils.function_helpers import dynamic_import_from_module
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -102,13 +100,12 @@ class Core_Bundle:
         for each_stage, each_config_data_dict in self.final_stage_config_dict.items():
             
             access_info_dict, setup_data_dict = unpack_config_data(each_config_data_dict)
-            script_name, class_name, _ = unpack_access_info(access_info_dict)
+            script_name, _ = unpack_access_info(access_info_dict)
             num_properties = len(setup_data_dict)
             
             repr_strs += ["",
                           "--> {}".format(titleize(each_stage)),
                           "  Script: {}".format(script_name),
-                          "   Class: {}".format(class_name),
                           "  ({} configured properties)".format(num_properties)]
             
         return "\n".join(repr_strs)
@@ -203,8 +200,7 @@ class Core_Bundle:
     
     # .................................................................................................................
 
-    def setup_all(self, override_stage = None, override_script = None, override_class = None,
-                  reset_on_startup = True):
+    def setup_all(self, override_stage = None, override_script = None, reset_on_startup = True):
         
         # Load all known data
         all_stage_config_file_paths, all_stage_config_dict = self._load_all_config_data()
@@ -212,8 +208,7 @@ class Core_Bundle:
         # Override target stage, if needed
         final_stage_config_dict = self._override_configuration(all_stage_config_dict,
                                                                override_stage,
-                                                               override_script,
-                                                               override_class)
+                                                               override_script)
         
         # Initialize an empty dictionary to hold references to each configured core stage object
         core_ref_dict = OrderedDict()
@@ -229,9 +224,9 @@ class Core_Bundle:
             
             # Import and configure each core object
             set_configure_mode = (each_stage_name == override_stage)
-            core_ref, new_input_wh = self._setup_single(each_stage_name, 
-                                                        new_input_wh, 
-                                                        each_config_dict, 
+            core_ref, new_input_wh = self._setup_single(each_stage_name,
+                                                        new_input_wh,
+                                                        each_config_dict,
                                                         set_configure_mode)
             
             # Store configured results
@@ -314,11 +309,10 @@ class Core_Bundle:
         
         # Separate the raw data contained in the config file
         access_info_dict, setup_data_dict = unpack_config_data(stage_config_dict)
-        script_name, class_name, _ = unpack_access_info(access_info_dict)
+        script_name, _ = unpack_access_info(access_info_dict)
         
         # Load the given core object
-        import_dot_path = configurable_dot_path("core", stage_name, script_name)
-        Imported_Core_Class = dynamic_import_from_module(import_dot_path, class_name)
+        Imported_Core_Class = dynamic_import_core(stage_name, script_name)
         core_ref = Imported_Core_Class(self.location_select_folder_path, self.camera_select, input_wh)
         
         # For debugging
@@ -337,18 +331,17 @@ class Core_Bundle:
     # .................................................................................................................
         
     def _override_configuration(self, all_stage_config_dict, 
-                                override_stage = None, override_script = None, override_class = None):
+                                override_stage = None, override_script = None):
         
         '''
         Function used alter the configuration sequence by overriding a target stage with a 
-        (potentially) different script and/or class.
+        (potentially) different script.
         This is intended to be used to create a re-configurable 
         '''
         
         # For clarity
         no_stage = (override_stage is None)
         no_script = (override_script is None)
-        no_class = (override_class is None)
         
         # Do nothing if neither stage or script are being overriden
         if no_stage and no_script:
@@ -367,10 +360,6 @@ class Core_Bundle:
             error_msg = "Override stage ({}) is not part of the core processing sequence!".format(override_stage)
             seq_msg = "Expecting one of: {}".format(actual_sequence)
             raise NameError("{} {}".format(error_msg, seq_msg))
-        
-        # Guess at the class if it wasn't specifed
-        if no_class:
-            override_class = override_script.title()
             
         # Remove all stages after the overriden one
         final_stage_config_dict = OrderedDict()
@@ -379,24 +368,17 @@ class Core_Bundle:
             if each_key == override_stage:
                 break
         
-        # Alter loading info for the overriden stage. Keep setup data if the script/class match. Otherwise blank it
-        override_config = final_stage_config_dict[override_stage]
-        access_info_dict, setup_data_dict = unpack_config_data(override_config)
-        loaded_script_name, loaded_class_name, _ = unpack_access_info(access_info_dict)
+        # Create a (default) blank configuration dict and get the existing/loaded config for comparison
+        use_config_data_dict = create_blank_configurable_data_dict(override_script)
+        loaded_config_data_dict = final_stage_config_dict[override_stage]
         
-        # If there is a mismatch, override the loaded config data so we load the target script/class instead
-        mismatch_script = (loaded_script_name != override_script)
-        mismatch_class = (loaded_class_name != override_class)
-        if mismatch_script or mismatch_class:
-            override_config_util = None
-            override_setup_data_dict = {}
-            override_config = create_configurable_save_data(override_script, 
-                                                            override_class, 
-                                                            override_config_util, 
-                                                            override_setup_data_dict)
+        # If the loaded config matches the default config access info, we'll initialize with the loaded data instead
+        matches_target = check_matching_access_info(use_config_data_dict, loaded_config_data_dict)
+        if matches_target:
+            use_config_data_dict = loaded_config_data_dict
             
         # Write access/setup data back into overriden stage
-        final_stage_config_dict[override_stage] = override_config
+        final_stage_config_dict[override_stage] = use_config_data_dict
         
         return final_stage_config_dict
     

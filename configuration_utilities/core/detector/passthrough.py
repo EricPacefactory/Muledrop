@@ -54,6 +54,7 @@ from local.lib.launcher_utils.video_processing_loops import Reconfigurable_Video
 
 from local.lib.ui_utils.display_specification import Preprocessed_Display, Filtered_Binary_Display
 
+
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define displays
 
@@ -64,10 +65,9 @@ from local.lib.ui_utils.display_specification import Preprocessed_Display, Filte
 # For clarity
 target_core_stage_name = "detector"
 target_script_name = "passthrough_detector"
-target_class_name = "Detector_Stage"
 
 # Make all required selections
-loader = Reconfigurable_Core_Stage_Loader(target_core_stage_name, target_script_name, target_class_name)
+loader = Reconfigurable_Core_Stage_Loader(target_core_stage_name, target_script_name)
 arg_selections = loader.parse_standard_args()
 loader.selections(*arg_selections)
 

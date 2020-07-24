@@ -56,7 +56,7 @@ from local.configurables.stations.reference_station import Reference_Station
 #%% Define classes
 
 
-class Time_Reference_Station(Reference_Station):
+class Configurable(Reference_Station):
     
     # .................................................................................................................
     

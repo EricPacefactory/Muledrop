@@ -60,6 +60,7 @@ from local.lib.ui_utils.display_specification import Preprocessed_Display
 
 from local.eolib.video.text_rendering import simple_text
 
+
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define displays
 
@@ -109,6 +110,7 @@ class Scaling_Info(Display_Window_Specification):
     # .................................................................................................................
     # .................................................................................................................
 
+
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define functions
 
@@ -119,10 +121,9 @@ class Scaling_Info(Display_Window_Specification):
 # For clarity
 target_core_stage_name = "preprocessor"
 target_script_name = "scaling_preprocessor"
-target_class_name = "Preprocessor_Stage"
 
 # Make all required selections
-loader = Reconfigurable_Core_Stage_Loader(target_core_stage_name, target_script_name, target_class_name)
+loader = Reconfigurable_Core_Stage_Loader(target_core_stage_name, target_script_name)
 arg_selections = loader.parse_standard_args()
 loader.selections(*arg_selections)
 

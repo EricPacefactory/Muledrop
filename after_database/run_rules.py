@@ -58,7 +58,7 @@ from local.lib.common.feedback import print_time_taken_ms
 
 from local.lib.ui_utils.cli_selections import Resource_Selector
 
-from local.lib.file_access_utils.configurables import configurable_dot_path, unpack_config_data, unpack_access_info
+from local.lib.file_access_utils.configurables import dynamic_import_rules, unpack_config_data, unpack_access_info
 from local.lib.file_access_utils.rules import build_rule_adb_metadata_report_path
 from local.lib.file_access_utils.rules import build_rule_adb_info_report_path
 from local.lib.file_access_utils.rules import load_all_rule_configs, save_rule_info, save_rule_report_data
@@ -66,7 +66,6 @@ from local.lib.file_access_utils.rules import load_all_rule_configs, save_rule_i
 from local.offline_database.file_database import launch_dbs, launch_rule_dbs, close_dbs_if_missing_data
 
 from local.eolib.utils.files import get_total_folder_size, create_missing_folder_path
-from local.eolib.utils.function_helpers import dynamic_import_from_module
 from local.eolib.utils.cli_tools import cli_confirm
 from local.eolib.utils.quitters import ide_quit
 
@@ -78,11 +77,10 @@ from local.eolib.utils.quitters import ide_quit
 def import_rule_class(access_info_dict):
     
     # Pull out info needed to import the rule class
-    script_name, class_name, _ = unpack_access_info(access_info_dict)
+    script_name, _ = unpack_access_info(access_info_dict)
     
     # Programmatically import the target class
-    dot_path = configurable_dot_path("after_database", "rules", script_name)
-    Imported_Rule_Class = dynamic_import_from_module(dot_path, class_name)
+    Imported_Rule_Class = dynamic_import_rules(script_name)
     
     return Imported_Rule_Class
 
@@ -210,7 +208,7 @@ frame_wh = caminfo_db.get_snap_frame_wh()
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-#%% Get object IDs to classify
+#%% Get object IDs to evaluate
 
 # Get the maximum range of the data (based on the snapshots, because that's the most we could show)
 earliest_datetime, latest_datetime = snap_db.get_bounding_datetimes()

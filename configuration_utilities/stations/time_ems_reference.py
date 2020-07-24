@@ -61,11 +61,10 @@ from local.lib.ui_utils.display_specification import Input_Display
 #%% Main
 
 # For clarity
-target_script_name = "timeref_station"
-target_class_name = "Time_Reference_Station"
+target_script_name = "time_ems_station"
 
 # Make all required selections
-loader = Reconfigurable_Single_Station_Loader(target_script_name, target_class_name)
+loader = Reconfigurable_Single_Station_Loader(target_script_name)
 arg_selections = loader.parse_standard_args()
 loader.selections(*arg_selections)
 loader.select_station()

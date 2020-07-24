@@ -93,10 +93,9 @@ class Station_Display(Zoomed_Station_Display):
 
 # For clarity
 target_script_name = "normalized_ftf_station"
-target_class_name = "Normalized_FTF_Station"
 
 # Make all required selections
-loader = Reconfigurable_Single_Station_Loader(target_script_name, target_class_name)
+loader = Reconfigurable_Single_Station_Loader(target_script_name)
 arg_selections = loader.parse_standard_args()
 loader.selections(*arg_selections)
 loader.select_station()

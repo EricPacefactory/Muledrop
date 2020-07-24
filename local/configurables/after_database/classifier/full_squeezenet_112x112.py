@@ -58,7 +58,7 @@ from local.lib.classifier_models.squeezenet_variants import Full_SqueezeNet_112x
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
 
-class Image_Based_Classifier_Stage(Reference_Classifier):
+class Configurable(Reference_Classifier):
     
     # .................................................................................................................
     

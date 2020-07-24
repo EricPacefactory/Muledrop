@@ -66,7 +66,7 @@ from local.lib.launcher_utils.resource_initialization import initialize_backgrou
 from local.lib.launcher_utils.resource_initialization import initialize_background_and_framerate_from_rtsp
 
 from local.lib.file_access_utils.shared import url_safe_name_from_path
-from local.lib.file_access_utils.configurables import configurable_dot_path, unpack_config_data, unpack_access_info
+from local.lib.file_access_utils.configurables import unpack_config_data, unpack_access_info, dynamic_import_externals
 from local.lib.file_access_utils.externals import build_externals_folder_path
 from local.lib.file_access_utils.reporting import build_camera_info_metadata_report_path
 from local.lib.file_access_utils.reporting import build_config_info_metadata_report_path
@@ -80,7 +80,6 @@ from local.lib.file_access_utils.metadata_read_write import save_jsongz_metadata
 
 from local.eolib.utils.files import create_missing_folder_path
 from local.eolib.utils.cli_tools import cli_confirm, cli_prompt_with_defaults
-from local.eolib.utils.function_helpers import dynamic_import_from_module
 from local.eolib.utils.quitters import ide_quit
 
 
@@ -532,11 +531,10 @@ class File_Configuration_Loader:
         
         # Check configuration file to see which script/class to load from & get configuration data
         _, access_info_dict, setup_data_dict = self._load_externals_config_data(externals_type)
-        script_name, class_name, _ = unpack_access_info(access_info_dict)
+        script_name, _ = unpack_access_info(access_info_dict)
         
         # Programmatically import the target class
-        dot_path = configurable_dot_path("externals", externals_type, script_name)
-        Imported_Externals_Class = dynamic_import_from_module(dot_path, class_name)
+        Imported_Externals_Class = dynamic_import_externals(externals_type, script_name)
         
         return Imported_Externals_Class, setup_data_dict
         
@@ -681,7 +679,7 @@ class Reconfigurable_Loader(File_Configuration_Loader):
     
     # .................................................................................................................
     
-    def __init__(self, override_stage, override_script_name, override_class_name = None):
+    def __init__(self, override_stage, override_script_name):
         
         # Inherit from parent class
         super().__init__()
@@ -695,7 +693,6 @@ class Reconfigurable_Loader(File_Configuration_Loader):
         # Store overriding settings
         self.override_stage = override_stage
         self.override_script = override_script_name
-        self.override_class = override_class_name if override_class_name is not None else override_stage.title()
         
         # Allocate storage for a playback settings access
         self.playback_access = None
@@ -804,7 +801,7 @@ class Reconfigurable_Loader(File_Configuration_Loader):
         # Get save data from configurable & add configuration utility info
         save_data_dict = configurable_ref.get_save_data_dict(configuration_utility_file_dunder)
         access_info_dict, setup_data_dict = unpack_config_data(save_data_dict)
-        curr_script_name, _, _ = unpack_access_info(access_info_dict)
+        curr_script_name, _ = unpack_access_info(access_info_dict)
         
         # Only save if the saved data has changed
         is_passthrough = ("passthrough" in curr_script_name)
@@ -861,18 +858,16 @@ class Reconfigurable_Loader(File_Configuration_Loader):
         
         # Check configuration file to see which script/class to load from & get configuration data
         path_to_config, access_info_dict, setup_data_dict = self._load_externals_config_data(self.override_stage)
-        existing_script_name, existing_class_name, _ = unpack_access_info(access_info_dict)
+        existing_script_name, _ = unpack_access_info(access_info_dict)
         
         # If we're loading a different script from what was saved, wipe out the loaded data
         matching_script = (existing_script_name == self.override_script)
-        matching_class = (existing_class_name == self.override_class)
-        if not (matching_script and matching_class):
+        if not matching_script:
             access_info_dict = {}
             setup_data_dict = {}
         
         # Programmatically import the target class
-        dot_path = configurable_dot_path("externals", self.override_stage, self.override_script)
-        Imported_Externals_Class = dynamic_import_from_module(dot_path, self.override_class)
+        Imported_Externals_Class = dynamic_import_externals(self.override_stage, self.override_script)
         
         # Save data to re-access the override script
         self.config_file_path = path_to_config
@@ -893,10 +888,10 @@ class Reconfigurable_Core_Stage_Loader(Reconfigurable_Loader):
     
     # .................................................................................................................
     
-    def __init__(self, core_stage, script_name, class_name = None):
+    def __init__(self, core_stage, script_name):
         
         # Inherit from parent class
-        super().__init__(core_stage, script_name, class_name)
+        super().__init__(core_stage, script_name)
         
         # We want to turn off saving when working in a re-configuration mode
         self.toggle_saving(False)
@@ -909,7 +904,7 @@ class Reconfigurable_Core_Stage_Loader(Reconfigurable_Loader):
         # Set up full core bundle (i.e. all core stages configured)
         shared_config = self._get_shared_config()
         new_core_bundle = Core_Bundle(**shared_config)
-        new_core_bundle.setup_all(self.override_stage, self.override_script, self.override_class)
+        new_core_bundle.setup_all(self.override_stage, self.override_script)
         
         # Grab final core stage as a reconfigurable component
         configurable_stage_name, configurable_ref = new_core_bundle.last_item()
@@ -950,13 +945,13 @@ class Reconfigurable_Single_Station_Loader(Reconfigurable_Loader):
     
     # .................................................................................................................
     
-    def __init__(self, script_name, class_name = None):
+    def __init__(self, script_name):
         
         # The station to override is chosen by the user, after selecting a camera. So cannot be given on init!
         override_stage = None
         
         # Inherit from parent class
-        super().__init__(override_stage, script_name, class_name)
+        super().__init__(override_stage, script_name)
         
         # Add entry for holding station selection when loading
         self.station_select = None
@@ -986,7 +981,6 @@ class Reconfigurable_Single_Station_Loader(Reconfigurable_Loader):
         new_station_bundle = Station_Bundle(**shared_config)
         station_ref = new_station_bundle.setup_one(self.station_select,
                                                    self.override_script,
-                                                   self.override_class,
                                                    reset_on_startup = True)
         
         # Enable/disable saving behaviors
@@ -1037,10 +1031,10 @@ class Reconfigurable_Snapshot_Capture_Loader(Reconfigurable_Loader):
     
     # .................................................................................................................
     
-    def __init__(self, script_name, class_name = "Snapshot_Capture"):
+    def __init__(self, script_name):
         
         # Inherit from parent class
-        super().__init__("snapshot_capture", script_name, class_name)
+        super().__init__("snapshot_capture", script_name)
         
         # We want to turn off saving when working in a re-configuration mode
         self.toggle_saving(False)
@@ -1083,10 +1077,10 @@ class Reconfigurable_Background_Capture_Loader(Reconfigurable_Loader):
     
     # .................................................................................................................
     
-    def __init__(self, script_name, class_name = "Background_Capture"):
+    def __init__(self, script_name):
         
         # Inherit from parent class
-        super().__init__("background_capture", script_name, class_name)
+        super().__init__("background_capture", script_name)
         
         # Will need to turn on saving in order to properly use background capture during config!
         self.toggle_saving(True)
@@ -1156,10 +1150,10 @@ class Reconfigurable_Object_Capture_Loader(Reconfigurable_Loader):
     
     # .................................................................................................................
     
-    def __init__(self, script_name, class_name = "Object_Capture"):
+    def __init__(self, script_name):
         
         # Inherit from parent class
-        super().__init__("object_capture", script_name, class_name)
+        super().__init__("object_capture", script_name)
         
         # We want to turn off saving when working in a re-configuration mode
         self.toggle_saving(False)

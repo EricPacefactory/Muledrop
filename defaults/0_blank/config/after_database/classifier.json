@@ -1,6 +1,5 @@
 {
   "access_info": {
-    "class_name": "Classifier_Stage",
     "script_name": "passthrough_classifier.py",
     "configuration_utility": "passthrough"
   },
