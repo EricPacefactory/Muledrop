@@ -61,7 +61,7 @@ from waitress import serve as wsgi_serve
 
 from local.lib.common.timekeeper_utils import get_utc_epoch_ms, get_human_readable_timestamp
 from local.lib.common.environment import get_env_location_select
-from local.lib.common.environment import get_control_server_protocol, get_control_server_host, get_control_server_port
+from local.lib.common.environment import get_ctrlserver_protocol, get_ctrlserver_host, get_ctrlserver_port
 
 from local.lib.ui_utils.cli_selections import Resource_Selector
 from local.lib.ui_utils.script_arguments import script_arg_builder
@@ -90,11 +90,10 @@ from local.eolib.utils.files import create_missing_folder_path, create_missing_f
 def parse_control_args(debug_print = False):
     
     # Set defaults
-    default_protocol = get_control_server_protocol()
-    default_host = get_control_server_host()
-    default_port = get_control_server_port()
+    default_protocol = get_ctrlserver_protocol()
+    default_host = get_ctrlserver_host()
+    default_port = get_ctrlserver_port()
     default_location = get_env_location_select()
-    
     
     # Set arg help text
     protocol_help_text = "Specify the protocol of the control server\n(Default: {})".format(default_protocol)

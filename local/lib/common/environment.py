@@ -109,17 +109,17 @@ def get_dbserver_port():
 
 # .....................................................................................................................
 
-def get_control_server_protocol():
+def get_ctrlserver_protocol():
     return os.environ.get("CTRLSERVER_PROTOCOL", "http")
 
 # .....................................................................................................................
 
-def get_control_server_host():
+def get_ctrlserver_host():
     return os.environ.get("CTRLSERVER_HOST", "0.0.0.0")
 
 # .....................................................................................................................
 
-def get_control_server_port():
+def get_ctrlserver_port():
     return int(os.environ.get("CTRLSERVER_PORT", 8181))
 
 # .....................................................................................................................

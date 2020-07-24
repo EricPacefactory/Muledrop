@@ -49,7 +49,7 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
-from local.lib.common.environment import get_env_location_select, get_dbserver_port, get_control_server_port
+from local.lib.common.environment import get_env_location_select, get_dbserver_port, get_ctrlserver_port
 
 from local.lib.file_access_utils.shared import build_location_path, url_safe_name
 from local.lib.file_access_utils.json_read_write import save_config_json, load_config_json
@@ -115,7 +115,7 @@ def create_new_location_folder(all_locations_folder_path, location_name,
     
     # Get default server ports on creation in case ports aren't provided
     default_dbserver_port = get_dbserver_port()
-    default_ctrlserver_port = get_control_server_port()
+    default_ctrlserver_port = get_ctrlserver_port()
     
     # Build location info to save with location folder
     location_info_dict = build_location_info_dict(ip_address,
@@ -132,7 +132,7 @@ def create_new_location_folder(all_locations_folder_path, location_name,
 
 # .....................................................................................................................
 
-def build_location_info_dict(host_ip, ssh_username, ssh_password, dbserver_port, control_server_port):
+def build_location_info_dict(host_ip, ssh_username, ssh_password, dbserver_port, ctrlserver_port):
     
     ''' Helper function used to create consistently formatted location info data '''
     
@@ -140,7 +140,7 @@ def build_location_info_dict(host_ip, ssh_username, ssh_password, dbserver_port,
                           "ssh_username": ssh_username, 
                           "ssh_password": ssh_password,
                           "dbserver_port": dbserver_port, 
-                          "control_server_port": control_server_port}
+                          "ctrlserver_port": ctrlserver_port}
     
     return location_info_dict
 
@@ -166,9 +166,9 @@ def unpack_location_info_dict(location_info_dict):
     ssh_username = location_info_dict.get("ssh_username", None)
     ssh_password = location_info_dict.get("ssh_password", None)
     dbserver_port = location_info_dict.get("dbserver_port", None)
-    control_server_port = location_info_dict.get("control_server_port", None)
+    ctrlserver_port = location_info_dict.get("ctrlserver_port", None)
     
-    return host_ip, ssh_username, ssh_password, dbserver_port, control_server_port
+    return host_ip, ssh_username, ssh_password, dbserver_port, ctrlserver_port
 
 # .....................................................................................................................
 # .....................................................................................................................
