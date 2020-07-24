@@ -55,8 +55,11 @@ RUN pip3 install -r requirements.txt
 # Move system files into the image
 COPY . .
 
+# Make sure the entrypoint script is executable
+RUN chmod +x docker_entrypoint.sh
+
 # Run the control server! This is a blocking call...
-ENTRYPOINT ["sh", "docker_entrypoint.sh"]
+ENTRYPOINT ["./docker_entrypoint.sh"]
 
 
 # -----------------------------------------------------------------------------

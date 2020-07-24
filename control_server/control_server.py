@@ -54,6 +54,7 @@ from tempfile import TemporaryDirectory
 import zipfile
 import shutil
 import subprocess
+import signal
 
 from time import sleep
 
@@ -387,7 +388,7 @@ def launch_rtsp_collect(camera_select):
     # Build pathing to the launch script
     launch_script_name = "run_rtsp_collect.py"
     launch_script_path = os.path.join(PROJECT_ROOT_PATH, launch_script_name)
-    launch_args = [python_interpretter, "-u", launch_script_path] + location_arg + camera_arg
+    launch_args = [python_interpretter, "-u", launch_script_path] + camera_arg + location_arg
     
     # Build pathing to store stdout/stderr logs
     camera_stdout_log = build_stdout_log_file_path(LOCATION_SELECT_FOLDER_PATH, camera_select)
@@ -440,6 +441,32 @@ def clean_process_dict():
                                 max_wait_sec = 0,
                                 force_kill_on_timeout = True)
 
+    return
+
+# .....................................................................................................................
+
+def register_waitress_shutdown_command():
+    
+    ''' Awkward hack to get waitress server to close on SIGTERM signals '''
+    
+    def convert_sigterm_to_keyboard_interrupt(signal_number, stack_frame):
+        
+        # Some feedback about catching kill signal
+        print("", "", "*" * 48, "Kill signal received! ({})".format(signal_number), "*" * 48, "", sep = "\n")
+        
+        # Try to 'gracefully' close all open processes
+        for _, each_proc_dict in PROCESS_REF_DICT.items():
+            camera_select = each_proc_dict["camera_select"]
+            shutdown_running_camera(LOCATION_SELECT_FOLDER_PATH,
+                                    camera_select,
+                                    max_wait_sec = 0.5,
+                                    force_kill_on_timeout = False)
+        
+        # Raise a keyboard interrupt, which waitress will respond to! (unlike SIGTERM)
+        raise KeyboardInterrupt
+    
+    signal.signal(signal.SIGTERM, convert_sigterm_to_keyboard_interrupt)
+    
     return
 
 # .....................................................................................................................
@@ -653,6 +680,7 @@ if __name__ == "__main__":
     if enable_debug_mode:
         wsgi_app.run(server_host, port = server_port, debug = True)
     else:
+        register_waitress_shutdown_command()
         wsgi_serve(wsgi_app, host = server_host, port = server_port, url_scheme = server_protocol)
     
     # Feedback in case we get here
