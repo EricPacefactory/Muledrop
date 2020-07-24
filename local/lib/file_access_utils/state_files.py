@@ -276,7 +276,7 @@ def shutdown_running_camera(location_select_folder_path, camera_select,
     if camera_is_running:
         camera_pid = state_dict["PID"]
         camera_script_name = state_dict["script_name"]
-        kill_running_pid(camera_pid, camera_script_name, force_kill_on_timeout)
+        kill_running_pid(camera_pid, camera_script_name, max_wait_sec, force_kill_on_timeout)
     
     # Finally, remove the state file
     delete_state_file(location_select_folder_path, camera_select)
