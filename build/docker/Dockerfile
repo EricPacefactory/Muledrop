@@ -16,6 +16,14 @@ RUN apt-get update && \
 
 
 # -----------------------------------------------------------------------------
+#%% Setup python requirements
+
+# Install python requirements
+COPY requirements.txt /tmp/scv2
+RUN pip3 install -r /tmp/scv2/requirements.txt
+
+
+# -----------------------------------------------------------------------------
 #%% Set environment variables
 
 # Create a 'home' folder path to avoid storing everything in the root fs
@@ -39,18 +47,10 @@ ENV AUTOPOST_PERIOD_MINS        2.5
 
 
 # -----------------------------------------------------------------------------
-#%% Setup python 
+#%% Launch!
 
 # Work with files outside of the root fs
 WORKDIR $HOME/realtime
-
-# Install python requirements
-COPY requirements.txt $HOME/realtime
-RUN pip3 install -r requirements.txt
-
-
-# -----------------------------------------------------------------------------
-#%% Launch!
 
 # Move system files into the image
 COPY . .
