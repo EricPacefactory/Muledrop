@@ -672,7 +672,11 @@ class Entity_Drawer:
         up_arrow = 65362
         right_arrow = 65363
         down_arrow = 65364
-        arrow_key_pressed = (keycode in {left_arrow, up_arrow, right_arrow, down_arrow})
+        a_key = 97
+        w_key = 119
+        d_key = 100
+        s_key = 115
+        arrow_key_pressed = (keycode in {left_arrow, up_arrow, right_arrow, down_arrow, a_key, w_key, d_key, s_key})
         
         # Only check for nearby points if an arrow key is actually pressed
         if arrow_key_pressed:
@@ -683,8 +687,12 @@ class Entity_Drawer:
                     
             # Build shift amounts/direction
             amount_to_shift = 1 + 10 * mod_shift
-            x_shift = amount_to_shift * (int(keycode == right_arrow) - int(keycode == left_arrow))
-            y_shift = amount_to_shift * (int(keycode == down_arrow) - int(keycode == up_arrow))
+            left_shift = int(keycode == left_arrow or keycode == a_key)
+            right_shift = int(keycode == right_arrow or keycode == d_key)
+            up_shift = int(keycode == up_arrow or keycode == w_key)
+            down_shift = int(keycode == down_arrow or keycode == s_key)
+            x_shift = amount_to_shift * (right_shift - left_shift)
+            y_shift = amount_to_shift * (down_shift - up_shift)
             self.entity_collection.shift_entity_point(x_shift, y_shift, record_history = True)
             
             # Signal change to entities
