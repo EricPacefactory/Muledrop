@@ -50,21 +50,71 @@ find_path_to_local()
 #%% Imports
 
 
+
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Helper functions
+
+# .....................................................................................................................
+
+def get_env(environment_variable_name, default_value_if_missing = None, return_type = None, convert_none_types = True):
+    
+    '''
+    Helper function which grabs environment variables, with defaults if missing. Can also handle
+    conversion to a specific data type if needed, and will replace 'None' or 'Null' entries with
+    python-specific None type data
+    
+    Inputs:
+        envasdasd --> (String) Name of environment variable to read
+        
+        default_value_if_missing --> (Any) Value to return if the environment variable isn't found
+        
+        return_type --> (Data type or None) If set to None, the return type of the environment variable 
+                        or default value will not be altered. If a type is provided, (e.g. str, int, float etc)
+                        the returned data will be converted before returning, unless it is None
+        
+        convert_none_types --> (Boolean) If true, entries such as "None" or "null" will be converted to
+                               python None types on return
+    
+    Outputs:
+        environment_variable_value
+    '''
+    
+    # First try to access the environment variable value (or use the default value if missing)
+    env_value = os.environ.get(environment_variable_name, default_value_if_missing)
+    
+    # Correct 'none' entries if needed
+    already_none = (env_value is None)
+    if convert_none_types and not already_none:
+        lowered_var_str = str(env_value).strip().lower()
+        replace_with_none = (lowered_var_str in {"none", "null"})
+        env_value = None if replace_with_none else env_value
+    
+    # Apply type casting if needed
+    if return_type is not None:
+        env_value = return_type(env_value)
+    
+    return env_value
+
+# .....................................................................................................................
+# .....................................................................................................................
+
+
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Posting functions
 
 # .....................................................................................................................
 
-def get_autopost_on_startup():
-    return bool(int(os.environ.get("AUTOPOST_ON_STARTUP", 1)))
+def get_env_autopost_on_startup():
+    return get_env("AUTOPOST_ON_STARTUP", 1, bool)
 
 # .....................................................................................................................
 
-def get_autopost_period_mins():
-    return float(os.environ.get("AUTOPOST_PERIOD_MINS", 2.5))
+def get_env_autopost_period_mins():
+    return get_env("AUTOPOST_PERIOD_MINS", 2.5, float)
 
 # .....................................................................................................................
 # .....................................................................................................................
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Pathing functions
@@ -72,12 +122,12 @@ def get_autopost_period_mins():
 # .....................................................................................................................
 
 def get_env_all_locations_folder():
-    return os.environ.get("ALL_LOCATIONS_FOLDER_PATH", None)
+    return get_env("ALL_LOCATIONS_FOLDER_PATH", None)
 
 # .....................................................................................................................
 
 def get_env_location_select():
-    return os.environ.get("LOCATION_SELECT", None)
+    return get_env("LOCATION_SELECT", None)
 
 # .....................................................................................................................
 # .....................................................................................................................
@@ -89,20 +139,21 @@ def get_env_location_select():
 # .....................................................................................................................
 
 def get_dbserver_protocol():
-    return os.environ.get("DBSERVER_PROTOCOL", "http")
+    return get_env("DBSERVER_PROTOCOL", "http", str)
 
 # .....................................................................................................................
 
 def get_dbserver_host():
-    return os.environ.get("DBSERVER_HOST", "localhost")
+    return get_env("DBSERVER_HOST", "localhost", str)
 
 # .....................................................................................................................
 
 def get_dbserver_port():
-    return int(os.environ.get("DBSERVER_PORT", 8050))
+    return get_env("DBSERVER_PORT", 8050, int)
 
 # .....................................................................................................................
 # .....................................................................................................................
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Upload server functions
@@ -110,17 +161,17 @@ def get_dbserver_port():
 # .....................................................................................................................
 
 def get_ctrlserver_protocol():
-    return os.environ.get("CTRLSERVER_PROTOCOL", "http")
+    return get_env("CTRLSERVER_PROTOCOL", "http", str)
 
 # .....................................................................................................................
 
 def get_ctrlserver_host():
-    return os.environ.get("CTRLSERVER_HOST", "0.0.0.0")
+    return get_env("CTRLSERVER_HOST", "0.0.0.0", str)
 
 # .....................................................................................................................
 
 def get_ctrlserver_port():
-    return int(os.environ.get("CTRLSERVER_PORT", 8181))
+    return get_env("CTRLSERVER_PORT", 8181, int)
 
 # .....................................................................................................................
 # .....................................................................................................................
@@ -129,6 +180,26 @@ def get_ctrlserver_port():
 #%% Demo
 
 if __name__ == "__main__":
+    
+    print("",
+          "POSTING:",
+          "Autpost on startup: {}".format(get_env_autopost_on_startup()),
+          "Autopost period (mins): {}".format(get_env_autopost_period_mins()),
+          "",
+          "PATHING:",
+          "All locations: {}".format(get_env_all_locations_folder()),
+          "Location select: {}".format(get_env_location_select()),
+          "",
+          "DBSERVER:",
+          get_dbserver_protocol(),
+          get_dbserver_host(),
+          get_dbserver_port(),
+          "",
+          "CTRLSERVER:",
+          get_ctrlserver_protocol(),
+          get_ctrlserver_host(),
+          get_ctrlserver_port(),
+          "", sep = "\n")
     
     pass
 

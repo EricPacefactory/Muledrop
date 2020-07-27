@@ -58,7 +58,7 @@ from random import random as unit_random
 
 from local.lib.common.timekeeper_utils import get_human_readable_timestamp, get_local_datetime
 from local.lib.common.environment import get_dbserver_protocol, get_dbserver_host, get_dbserver_port
-from local.lib.common.environment import get_autopost_on_startup, get_autopost_period_mins
+from local.lib.common.environment import get_env_autopost_on_startup, get_env_autopost_period_mins
 from local.lib.common.exceptions import OS_Close, register_signal_quit
 
 from local.lib.ui_utils.cli_selections import Resource_Selector
@@ -749,7 +749,7 @@ def calculate_sleep_delay_sec(minimum_sleep_sec = 20.0):
     '''
     
     # Get delay values
-    post_period_mins = get_autopost_period_mins()
+    post_period_mins = get_env_autopost_period_mins()
     post_period_sec = (60.0 * post_period_mins)
     random_period_sec = max(0.2 * post_period_sec, minimum_sleep_sec)
     
@@ -821,7 +821,7 @@ def scheduled_post(server_url, location_select_folder_path, camera_select, log_t
     logger = create_logger(location_select_folder_path, camera_select, enabled = log_to_file)
     
     # If we aren't posting on startup, we need to have an initial sleep period before posting!
-    post_on_startup = get_autopost_on_startup()
+    post_on_startup = get_env_autopost_on_startup()
     if not post_on_startup:
         sleep_time_sec = calculate_sleep_delay_sec()
         sleep(sleep_time_sec)

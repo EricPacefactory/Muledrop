@@ -465,6 +465,7 @@ def register_waitress_shutdown_command():
         # Raise a keyboard interrupt, which waitress will respond to! (unlike SIGTERM)
         raise KeyboardInterrupt
     
+    # Replaces SIGTERM signals with a Keyboard interrupt, which the server will handle properly
     signal.signal(signal.SIGTERM, convert_sigterm_to_keyboard_interrupt)
     
     return
