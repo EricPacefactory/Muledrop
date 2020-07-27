@@ -19,7 +19,7 @@ RUN apt-get update && \
 #%% Setup python requirements
 
 # Install python requirements
-COPY requirements.txt /tmp/scv2
+COPY requirements.txt /tmp/scv2/requirements.txt
 RUN pip3 install -r /tmp/scv2/requirements.txt
 
 
