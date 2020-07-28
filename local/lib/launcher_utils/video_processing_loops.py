@@ -767,9 +767,6 @@ class Object_Capture_Video_Loop(Reconfigurable_Video_Loop):
         # Allocate storage for buffering time info in case of sudden close/clean up
         prev_fed_time_args = None
         
-        # Allocate fake results for compatibility
-        current_snapshot_metadata = {}
-        
         try:
         
             while True:
