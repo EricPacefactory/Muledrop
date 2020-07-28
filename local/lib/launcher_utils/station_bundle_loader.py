@@ -154,8 +154,9 @@ class Station_Bundle:
         # Check if we could save the current dataset
         allow_save = False
         try:
-            total_frames_in_block = (current_frame_index - self._first_frame_index)
-            allow_save = (total_frames_in_block > 1)
+            have_frames_in_block = ((current_frame_index - self._first_frame_index) > 1)
+            safe_to_save = (not self._need_to_update_block_start_times)
+            allow_save = (safe_to_save and have_frames_in_block)
             
         except TypeError:
             # Would occur if one of the frame index values (most like the internal storage) is 'None'
