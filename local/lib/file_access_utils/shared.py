@@ -290,7 +290,7 @@ def list_default_config_options(project_root_path):
             folder_nice_name_str = " ".join(remaining_names_list)
             
         except AttributeError:
-            print("", 
+            print("",
                   "Error splitting default config name: {}".format(each_config_name),
                   "  Expecting a string...", sep = "\n")
             continue
@@ -377,7 +377,7 @@ def copy_from_defaults(project_root_path, location_select_folder_path, camera_se
                 copyfile(default_file_path, camera_file_path, follow_symlinks = False)
                 
                 if debug_print:
-                    print("  MAKE FILE: {}".format(camera_file_path), 
+                    print("  MAKE FILE: {}".format(camera_file_path),
                           "      (from: {})".format(default_file_path), sep = "\n")
             else:
                 if debug_print:

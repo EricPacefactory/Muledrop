@@ -113,11 +113,11 @@ def update_rule_results(rule_ref, obj_by_class_dict, snap_db, frame_wh):
 
 # .....................................................................................................................
 
-def update_event_frame(display_frame, rule_ref, rule_results_per_class_dict, all_label_colors_dict, 
+def update_event_frame(display_frame, rule_ref, rule_results_per_class_dict, all_label_colors_dict,
                        start_epoch_ms, end_epoch_ms,
                        line_color = (255, 0, 255), line_thickness = 1, line_type = cv2.LINE_AA,
-                       event_bar_height = 24, 
-                       event_bar_dark_bg_color = (30, 30, 30), 
+                       event_bar_height = 24,
+                       event_bar_dark_bg_color = (30, 30, 30),
                        event_bar_light_bg_color = (40, 40, 40)):
     
     # Create copy of the display frame so we don't mess with the original

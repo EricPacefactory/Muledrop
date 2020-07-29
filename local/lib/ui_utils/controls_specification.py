@@ -110,8 +110,8 @@ class Controls_Specification:
         Outputs:
             save_draw_vars (List),
             nosave_draw_vars (List),
-            save_slider_vars (List), 
-            nosave_slider_vars (List), 
+            save_slider_vars (List),
+            nosave_slider_vars (List),
             invisible_vars_set (Set)
         '''
         
@@ -184,7 +184,7 @@ class Controls_Specification:
         and corresponding controls within each group
         
         The output takes on the following format:
-            control_groups_list = [{"group_name": "...", 
+            control_groups_list = [{"group_name": "...",
                                     "control_list": [{<control_spec>}, {<control_spec>}, {...}]}]
             
         NOTE:
@@ -248,7 +248,7 @@ class Controls_Specification:
     
     # .................................................................................................................
     
-    def attach_toggle(self, variable_name, *, label, default_value, tooltip = "", visible = True, 
+    def attach_toggle(self, variable_name, *, label, default_value, tooltip = "", visible = True,
                       save_with_config = True):
         
         ''' Function used to associate a toggle control with a variable '''
@@ -260,8 +260,8 @@ class Controls_Specification:
     
     # .................................................................................................................
     
-    def attach_slider(self, variable_name, *, label, default_value, min_value, max_value, 
-                      step_size = 1, units = None, return_type = float, zero_referenced = False, 
+    def attach_slider(self, variable_name, *, label, default_value, min_value, max_value,
+                      step_size = 1, units = None, return_type = float, zero_referenced = False,
                       tooltip = "", visible = True, save_with_config = True):
         
         ''' Function used to associate a slider control with a variable '''
@@ -273,9 +273,9 @@ class Controls_Specification:
     
     # .................................................................................................................
 
-    def attach_numentry(self, variable_name, *, label, default_value, min_value, max_value, 
+    def attach_numentry(self, variable_name, *, label, default_value, min_value, max_value,
                         step_size = 1, units = None, return_type = float, zero_referenced = False,
-                        force_min = True, force_max = True, force_step = True, tooltip = "", 
+                        force_min = True, force_max = True, force_step = True, tooltip = "",
                         visible = True, save_with_config = True):
         
         ''' Function used to associate a numerical entry (i.e. an unbounded slider) control with a variable '''
@@ -446,16 +446,16 @@ if __name__ == "__main__":
     cspec.new_control_group("Blur Controls")
         
     blur_size = \
-    cspec.attach_slider("blur_size", 
-                        label = "Bluriness", 
+    cspec.attach_slider("blur_size",
+                        label = "Bluriness",
                         default_value = 0,
                         min_value = 0,
                         max_value = 15,
                         return_type = int)
     
     fast_blur = \
-    cspec.attach_toggle("fast_blur", 
-                        label = "Bluriness", 
+    cspec.attach_toggle("fast_blur",
+                        label = "Bluriness",
                         default_value = False)
     
     
@@ -463,8 +463,8 @@ if __name__ == "__main__":
     cspec.new_control_group("Thresholding Controls")
     
     threshold = \
-    cspec.attach_slider("threshold", 
-                        label = "Threshold", 
+    cspec.attach_slider("threshold",
+                        label = "Threshold",
                         default_value = 50,
                         min_value = 1,
                         max_value = 255,
@@ -472,16 +472,16 @@ if __name__ == "__main__":
                         zero_referenced = True)
     
     sum_depth = \
-    cspec.attach_slider("sum_depth", 
-                        label = "Summation Depth", 
+    cspec.attach_slider("sum_depth",
+                        label = "Summation Depth",
                         default_value = 1,
                         min_value = 0,
                         max_value = 15,
                         return_type = int)
     
     interp = \
-    cspec.attach_menu("interp", 
-                      label = "Interpolation", 
+    cspec.attach_menu("interp",
+                      label = "Interpolation",
                       default_value = "Area",
                       option_label_value_list = [("Nearest Neighbour", 0),
                                                  ("Bilinear", 5),

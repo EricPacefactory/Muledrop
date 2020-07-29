@@ -350,7 +350,7 @@ class Threaded_JPG_and_JSON_Saver:
     
     # .................................................................................................................
     
-    def save_data(self, file_save_name_no_ext, image_data, metadata_dict, 
+    def save_data(self, file_save_name_no_ext, image_data, metadata_dict,
                   jpg_quality_0_to_100 = 25, json_double_precision = 3):
         
         '''

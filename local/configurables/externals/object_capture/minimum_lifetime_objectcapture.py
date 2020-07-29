@@ -73,8 +73,8 @@ class Configurable(Reference_Object_Capture):
         
         self.minimum_object_lifetime_ms = \
         self.ctrl_spec.attach_slider(
-                "minimum_object_lifetime_ms", 
-                label = "Minimum Object Lifetime", 
+                "minimum_object_lifetime_ms",
+                label = "Minimum Object Lifetime",
                 default_value = 3500,
                 min_value = 0, max_value = 15000,
                 return_type = int,

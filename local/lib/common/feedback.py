@@ -149,7 +149,7 @@ def print_time_taken(t_start_sec, t_end_sec = None,
 
 # .....................................................................................................................
 
-def print_time_taken_sec(t_start_sec, t_end_sec = None, 
+def print_time_taken_sec(t_start_sec, t_end_sec = None,
                          prepend_newline = True, string_format = "{:.1f}", inset_spaces = 0):
     
     # Add prepended empty line if needed
@@ -174,7 +174,7 @@ def print_time_taken_sec(t_start_sec, t_end_sec = None,
 
 # .....................................................................................................................
 
-def print_time_taken_ms(t_start_sec, t_end_sec = None, 
+def print_time_taken_ms(t_start_sec, t_end_sec = None,
                         prepend_newline = True, string_format = "{:.0f}", inset_spaces = 0):
     
     # Add prepended empty line if needed

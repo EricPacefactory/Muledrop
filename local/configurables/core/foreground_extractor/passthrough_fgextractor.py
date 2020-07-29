@@ -83,7 +83,7 @@ class Configurable(Reference_FG_Extractor):
         
         # Passthru does nothing, returns a blank binary frame
         # -> Override speeds up passthru by ~20 times!
-        return {"binary_frame_1ch": self._blank_frame, 
+        return {"binary_frame_1ch": self._blank_frame,
                 "preprocessed_frame": preprocessed_frame,
                 "preprocessed_bg_frame": preprocessed_bg_frame,
                 "bg_update": bg_update}

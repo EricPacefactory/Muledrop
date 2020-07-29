@@ -147,8 +147,8 @@ class Configurable(Reference_Detector):
         
         self.min_area_norm_sqrt = \
         self.ctrl_spec.attach_slider(
-                "min_area_norm_sqrt", 
-                label = "Minimum Area", 
+                "min_area_norm_sqrt",
+                label = "Minimum Area",
                 default_value = 0.10,
                 min_value = 0.00, max_value = 1.00, step_size = 1/1000,
                 return_type = float,

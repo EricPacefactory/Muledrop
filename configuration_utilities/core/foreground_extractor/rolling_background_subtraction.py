@@ -70,8 +70,8 @@ class Rolling_BG_Display(Display_Window_Specification):
                  window_name = "Rolling Background"):
         
         # Inherit from parent class
-        super().__init__(window_name, layout_index, num_rows, num_columns, 
-                         initial_display = initial_display, 
+        super().__init__(window_name, layout_index, num_rows, num_columns,
+                         initial_display = initial_display,
                          limit_wh = limit_wh)
         
     # .................................................................................................................
@@ -85,7 +85,7 @@ class Rolling_BG_Display(Display_Window_Specification):
         # Scale it to the display size
         display_height, display_width = stage_outputs["preprocessor"]["preprocessed_frame"].shape[0:2]
         
-        return cv2.resize(rolling_background_frame, dsize = (display_width, display_height), 
+        return cv2.resize(rolling_background_frame, dsize = (display_width, display_height),
                           interpolation = cv2.INTER_NEAREST)
         
     # .................................................................................................................

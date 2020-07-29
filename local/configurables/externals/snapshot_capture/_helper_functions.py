@@ -71,7 +71,7 @@ class Snap_Display(Display_Window_Specification):
     def __init__(self, layout_index, num_rows, num_columns, initial_display = False, drawing_json = None):
         
         # Inherit from parent class
-        super().__init__("Snapshots", layout_index, num_rows, num_columns, 
+        super().__init__("Snapshots", layout_index, num_rows, num_columns,
                          initial_display = initial_display, drawing_json= drawing_json,
                          limit_wh = False)
         
@@ -106,7 +106,7 @@ class Snap_Stats_Display(Display_Window_Specification):
         
         # Inherit from parent class
         super().__init__(window_name, layout_index, num_rows, num_columns,
-                         initial_display = initial_display, 
+                         initial_display = initial_display,
                          limit_wh = False)
         
         # Allocate storage for snapshot timing

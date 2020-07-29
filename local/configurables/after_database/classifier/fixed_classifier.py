@@ -90,16 +90,16 @@ class Configurable(Reference_Classifier):
         
         self.fixed_class_label = \
         self.ctrl_spec.attach_menu(
-                "fixed_class_label", 
-                label = "Fixed Class Label", 
+                "fixed_class_label",
+                label = "Fixed Class Label",
                 default_value = default_menu_select,
-                option_label_value_list = self._menu_list, 
+                option_label_value_list = self._menu_list,
                 tooltip = "Set the (fixed) class label to assign to all objects.")
         
         self.fixed_class_score = \
         self.ctrl_spec.attach_slider(
-                "fixed_class_score", 
-                label = "Fixed Class Score", 
+                "fixed_class_score",
+                label = "Fixed Class Score",
                 default_value = 1.0,
                 min_value = 0.0, max_value = 1.0, step_size = 1/100,
                 return_type = float,

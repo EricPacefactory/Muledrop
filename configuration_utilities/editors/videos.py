@@ -82,7 +82,7 @@ def prompt_for_file_selection(enable_ranger = True, enable_tkiner = True):
     if enable_ranger and ranger_exists():
         ranger_msg_list = ["Please use ranger to select one or more video files",
                            "  - Use enter to confirm selection",
-                           "  - Use spacebar to select more than one file", 
+                           "  - Use spacebar to select more than one file",
                            "  - Use q to exit ranger without a selection", ""]
         ranger_preprompt("\n".join(ranger_msg_list))
         selected_video_files_list = ranger_multifile_select()
@@ -155,8 +155,8 @@ def prompt_for_new_start_datetime(location_select_folder_path, camera_select, vi
     full_dt = dt.datetime.strptime(full_datetime_str, full_format_str)
     
     # Update the video entry and provide some feedback
-    old_value, new_value = change_video_start_datetime(location_select_folder_path, 
-                                                       camera_select, 
+    old_value, new_value = change_video_start_datetime(location_select_folder_path,
+                                                       camera_select,
                                                        video_select,
                                                        full_dt)
     

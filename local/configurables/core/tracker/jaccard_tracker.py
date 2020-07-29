@@ -87,8 +87,8 @@ class Configurable(Reference_Tracker):
         
         self.validation_min_jaccard_index = \
         self.ctrl_spec.attach_slider(
-                "validation_min_jaccard_index", 
-                label = "Minimum Validation IoU", 
+                "validation_min_jaccard_index",
+                label = "Minimum Validation IoU",
                 default_value = 0.25,
                 min_value = 0.0, max_value = 1.0, step_size = 0.01,
                 zero_referenced = True,
@@ -98,8 +98,8 @@ class Configurable(Reference_Tracker):
         
         self.track_min_jaccard_index = \
         self.ctrl_spec.attach_slider(
-                "track_min_jaccard_index", 
-                label = "Minimum Tracking IoU", 
+                "track_min_jaccard_index",
+                label = "Minimum Tracking IoU",
                 default_value = 0.15,
                 min_value = 0.0, max_value = 1.0, step_size = 0.01,
                 zero_referenced = True,
@@ -109,8 +109,8 @@ class Configurable(Reference_Tracker):
         
         self.track_history_samples = \
         self.ctrl_spec.attach_slider(
-                "track_history_samples", 
-                label = "Track History", 
+                "track_history_samples",
+                label = "Track History",
                 default_value = 55000,
                 min_value = 3, max_value = Reference_Trackable_Object.max_allowable_samples,
                 zero_referenced = True,
@@ -121,8 +121,8 @@ class Configurable(Reference_Tracker):
         
         self.validation_time_ms = \
         self.ctrl_spec.attach_slider(
-                "validation_time_ms", 
-                label = "Validation Time", 
+                "validation_time_ms",
+                label = "Validation Time",
                 default_value = 750,
                 min_value = 100, max_value = 15000,
                 zero_referenced = True,
@@ -132,8 +132,8 @@ class Configurable(Reference_Tracker):
         
         self.validation_decay_timeout_ms = \
         self.ctrl_spec.attach_slider(
-                "validation_decay_timeout_ms", 
-                label = "Validation Decay Timeout", 
+                "validation_decay_timeout_ms",
+                label = "Validation Decay Timeout",
                 default_value = 500,
                 min_value = 50, max_value = 15000,
                 zero_referenced = True,
@@ -143,8 +143,8 @@ class Configurable(Reference_Tracker):
         
         self.track_decay_timeout_ms = \
         self.ctrl_spec.attach_slider(
-                "track_decay_timeout_ms", 
-                label = "Tracked Decay Timeout", 
+                "track_decay_timeout_ms",
+                label = "Tracked Decay Timeout",
                 default_value = 2500,
                 min_value = 100, max_value = 15000,
                 zero_referenced = True,
@@ -154,8 +154,8 @@ class Configurable(Reference_Tracker):
         
         self.enabled_edge_decay_zones = \
         self.ctrl_spec.attach_toggle(
-                "enabled_edge_decay_zones", 
-                label = "Enable decay zones", 
+                "enabled_edge_decay_zones",
+                label = "Enable decay zones",
                 default_value = True,
                 tooltip = ["If enabled, objects in (user drawn) decay zones will immediately decay if they",
                            "are not matched to a detection. These zones are intended to help remove objects",
@@ -215,13 +215,13 @@ class Configurable(Reference_Tracker):
     
     # .................................................................................................................
     
-    def update_tracked_object_tracking(self, 
-                                       tracked_object_dict, unmatched_tobj_ids, 
+    def update_tracked_object_tracking(self,
+                                       tracked_object_dict, unmatched_tobj_ids,
                                        detection_ref_dict, unmatched_detection_ids,
                                        current_frame_index, current_epoch_ms, current_datetime):
         
         # Match tracked objects using detections
-        return self._update_obj_tracking(tracked_object_dict, unmatched_tobj_ids, 
+        return self._update_obj_tracking(tracked_object_dict, unmatched_tobj_ids,
                                          detection_ref_dict, unmatched_detection_ids,
                                          self.track_min_jaccard_index,
                                          current_frame_index, current_epoch_ms, current_datetime)
@@ -229,13 +229,13 @@ class Configurable(Reference_Tracker):
     # .................................................................................................................
     
     def update_validation_object_tracking(self,
-                                          validation_object_dict, unmatched_vobj_ids, 
+                                          validation_object_dict, unmatched_vobj_ids,
                                           detection_ref_dict, unmatched_detection_ids,
                                           current_frame_index, current_epoch_ms, current_datetime):
         
         # Match validation objects to remaining unmatched detections
         return self._update_obj_tracking(validation_object_dict, unmatched_vobj_ids,
-                                         detection_ref_dict, unmatched_detection_ids, 
+                                         detection_ref_dict, unmatched_detection_ids,
                                          self.validation_min_jaccard_index,
                                          current_frame_index, current_epoch_ms, current_datetime)
     
@@ -270,18 +270,18 @@ class Configurable(Reference_Tracker):
     
     # .................................................................................................................
     
-    def apply_tracked_object_decay(self, tracked_object_dict, unmatched_tobj_ids_list, 
+    def apply_tracked_object_decay(self, tracked_object_dict, unmatched_tobj_ids_list,
                                    current_frame_index, current_epoch_ms, current_datetime):
         
-        return self._decay_objs(tracked_object_dict, unmatched_tobj_ids_list, 
+        return self._decay_objs(tracked_object_dict, unmatched_tobj_ids_list,
                                 self.track_decay_timeout_ms, current_epoch_ms)
     
     # .................................................................................................................
     
-    def apply_validation_object_decay(self, validation_object_dict, unmatched_vobj_ids_list, 
+    def apply_validation_object_decay(self, validation_object_dict, unmatched_vobj_ids_list,
                                       current_frame_index, current_epoch_ms, current_datetime):
         
-        return self._decay_objs(validation_object_dict, unmatched_vobj_ids_list, 
+        return self._decay_objs(validation_object_dict, unmatched_vobj_ids_list,
                                 self.validation_decay_timeout_ms, current_epoch_ms)
     
     # .................................................................................................................
@@ -308,7 +308,7 @@ class Configurable(Reference_Tracker):
     
     # .................................................................................................................
     
-    def generate_new_tracked_objects(self, tracked_object_dict, validation_object_dict, 
+    def generate_new_tracked_objects(self, tracked_object_dict, validation_object_dict,
                                      current_frame_index, current_epoch_ms, current_datetime):
         
         # Figure out which (if any) validation objects should be converted to tracked objects
@@ -334,7 +334,7 @@ class Configurable(Reference_Tracker):
     
     # .................................................................................................................
     
-    def generate_new_validation_objects(self, validation_object_dict, 
+    def generate_new_validation_objects(self, validation_object_dict,
                                         detection_ref_dict, unmatched_detection_ids_list,
                                         current_frame_index, current_epoch_ms, current_datetime):
         
@@ -349,7 +349,7 @@ class Configurable(Reference_Tracker):
             new_validation_obj = Reference_Trackable_Object(new_nice_id, new_full_id,
                                                             each_unmatched_detection,
                                                             current_frame_index,
-                                                            current_epoch_ms, 
+                                                            current_epoch_ms,
                                                             current_datetime)
             
             # Store the new validation object
@@ -408,7 +408,7 @@ def calculate_jaccard_index(tlbr_a, tlbr_b):
 
 # .....................................................................................................................
 
-def pair_objects_to_detections(object_ref_dict, pairable_obj_ids_list, 
+def pair_objects_to_detections(object_ref_dict, pairable_obj_ids_list,
                                detection_ref_dict, pairable_det_ids_list,
                                minimum_jaccard_index = 0.05):
     

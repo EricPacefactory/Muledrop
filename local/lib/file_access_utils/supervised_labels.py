@@ -114,9 +114,9 @@ def create_supervised_label_entry(object_id, topclass_label, subclass_label = ""
     if attributes_dict is None:
         attributes_dict = {}
     
-    return {"full_id": object_id, 
-            "topclass_label": topclass_label, 
-            "subclass_label": subclass_label, 
+    return {"full_id": object_id,
+            "topclass_label": topclass_label,
+            "subclass_label": subclass_label,
             "attributes_dict": attributes_dict}
 
 # .....................................................................................................................

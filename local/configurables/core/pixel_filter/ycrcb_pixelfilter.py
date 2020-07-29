@@ -96,8 +96,8 @@ class Configurable(Reference_Pixel_Filter):
         
         self.lum_lower = \
         self.ctrl_spec.attach_slider(
-                "lum_lower", 
-                label = "Lower Luma", 
+                "lum_lower",
+                label = "Lower Luma",
                 default_value = 0,
                 min_value = 0,
                 max_value = 255,
@@ -106,8 +106,8 @@ class Configurable(Reference_Pixel_Filter):
         
         self.lum_upper = \
         self.ctrl_spec.attach_slider(
-                "lum_upper", 
-                label = "Upper Luma", 
+                "lum_upper",
+                label = "Upper Luma",
                 default_value = 255,
                 min_value = 0,
                 max_value = 255,
@@ -120,8 +120,8 @@ class Configurable(Reference_Pixel_Filter):
         
         self.chr_lower = \
         self.ctrl_spec.attach_slider(
-                "chr_lower", 
-                label = "Lower Red Chroma", 
+                "chr_lower",
+                label = "Lower Red Chroma",
                 default_value = 0,
                 min_value = 0,
                 max_value = 255,
@@ -129,8 +129,8 @@ class Configurable(Reference_Pixel_Filter):
         
         self.chr_upper = \
         self.ctrl_spec.attach_slider(
-                "chr_upper", 
-                label = "Upper Red Chroma", 
+                "chr_upper",
+                label = "Upper Red Chroma",
                 default_value = 255,
                 min_value = 0,
                 max_value = 255,
@@ -142,8 +142,8 @@ class Configurable(Reference_Pixel_Filter):
         
         self.chb_lower = \
         self.ctrl_spec.attach_slider(
-                "chb_lower", 
-                label = "Lower Blue Chroma", 
+                "chb_lower",
+                label = "Lower Blue Chroma",
                 default_value = 0,
                 min_value = 0,
                 max_value = 255,
@@ -151,8 +151,8 @@ class Configurable(Reference_Pixel_Filter):
         
         self.chb_upper = \
         self.ctrl_spec.attach_slider(
-                "chb_upper", 
-                label = "Upper Blue Chroma", 
+                "chb_upper",
+                label = "Upper Blue Chroma",
                 default_value = 255,
                 min_value = 0,
                 max_value = 255,

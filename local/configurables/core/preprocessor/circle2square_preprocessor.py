@@ -77,15 +77,15 @@ class Configurable(Reference_Preprocessor):
         
         self.enable_transform = \
         self.ctrl_spec.attach_toggle(
-                "enable_transform", 
-                label = "Enable Transform", 
+                "enable_transform",
+                label = "Enable Transform",
                 default_value = True,
                 tooltip = "Enable or disable all of the transformation properties")
         
         self.x_recenter = \
         self.ctrl_spec.attach_slider(
-                "x_recenter", 
-                label = "X Center", 
+                "x_recenter",
+                label = "X Center",
                 default_value = 0.5,
                 min_value = 0.0, max_value = 1.0, step_size = 1/1000,
                 return_type = float,
@@ -94,8 +94,8 @@ class Configurable(Reference_Preprocessor):
         
         self.y_recenter = \
         self.ctrl_spec.attach_slider(
-                "y_recenter", 
-                label = "Y Center", 
+                "y_recenter",
+                label = "Y Center",
                 default_value = 0.5,
                 min_value = 0.0, max_value = 1.0, step_size = 1/1000,
                 return_type = float,
@@ -104,8 +104,8 @@ class Configurable(Reference_Preprocessor):
         
         self.rotation_deg = \
         self.ctrl_spec.attach_slider(
-                "rotation_deg", 
-                label = "Rotation", 
+                "rotation_deg",
+                label = "Rotation",
                 default_value = 0.0,
                 min_value = -180.0, max_value = 180.0, step_size = 1/10,
                 zero_referenced = False,
@@ -115,8 +115,8 @@ class Configurable(Reference_Preprocessor):
         
         self.x_circle_scale = \
         self.ctrl_spec.attach_numentry(
-                "x_circle_scale", 
-                label = "X Circle", 
+                "x_circle_scale",
+                label = "X Circle",
                 default_value = 1.0,
                 min_value = 0.01, max_value = 1.0, step_size = 1/100,
                 zero_referenced = True,
@@ -126,8 +126,8 @@ class Configurable(Reference_Preprocessor):
         
         self.y_circle_scale = \
         self.ctrl_spec.attach_numentry(
-                "y_circle_scale", 
-                label = "Y Circle", 
+                "y_circle_scale",
+                label = "Y Circle",
                 default_value = 1.0,
                 min_value = 0.01, max_value = 1.0, step_size = 1/100,
                 zero_referenced = True,
@@ -137,8 +137,8 @@ class Configurable(Reference_Preprocessor):
         
         self.x_length_scale = \
         self.ctrl_spec.attach_slider(
-                "x_length_scale", 
-                label = "X Scale", 
+                "x_length_scale",
+                label = "X Scale",
                 default_value = 1.0,
                 min_value = 0.01, max_value = 1.41, step_size = 1/100,
                 zero_referenced = True,
@@ -148,8 +148,8 @@ class Configurable(Reference_Preprocessor):
         
         self.y_length_scale = \
         self.ctrl_spec.attach_slider(
-                "y_length_scale", 
-                label = "Y Scale", 
+                "y_length_scale",
+                label = "Y Scale",
                 default_value = 1.0,
                 min_value = 0.01, max_value = 1.41, step_size = 1/100,
                 zero_referenced = True,
@@ -161,11 +161,11 @@ class Configurable(Reference_Preprocessor):
         self.ctrl_spec.attach_menu(
                 "interpolation_type",
                 label = "Interpolation",
-                default_value = "Nearest", 
+                default_value = "Nearest",
                 option_label_value_list = [("Nearest", cv2.INTER_NEAREST),
                                            ("Bilinear", cv2.INTER_LINEAR),
                                            ("Area", cv2.INTER_AREA)],
-                tooltip = "Set the interpolation style for pixels sampled at fractional indices", 
+                tooltip = "Set the interpolation style for pixels sampled at fractional indices",
                 visible = False)
         
         
@@ -175,8 +175,8 @@ class Configurable(Reference_Preprocessor):
         
         self.output_w = \
         self.ctrl_spec.attach_slider(
-                "output_w", 
-                label = "Output Width", 
+                "output_w",
+                label = "Output Width",
                 default_value = input_wh[0],
                 min_value = 50, max_value = 1280,
                 return_type = int,
@@ -186,8 +186,8 @@ class Configurable(Reference_Preprocessor):
         
         self.output_h = \
         self.ctrl_spec.attach_slider(
-                "output_h", 
-                label = "Output Height", 
+                "output_h",
+                label = "Output Height",
                 default_value = input_wh[1],
                 min_value = 50, max_value = 1280,
                 return_type = int,
@@ -265,8 +265,8 @@ class Configurable(Reference_Preprocessor):
         rot_circ_x, rot_circ_y = np.tensordot(rotation_matrix, cxy_matrix, 1)
         
         # Also rotate the recentering co-ordinates to match image rotation so that intuitive x/y axes are preserved
-        rot_x_recenter, rot_y_recenter = rotate_around_center(rotation_matrix, 
-                                                              self.x_recenter, self.y_recenter, 
+        rot_x_recenter, rot_y_recenter = rotate_around_center(rotation_matrix,
+                                                              self.x_recenter, self.y_recenter,
                                                               x_center = 0.5, y_center = 0.5)
         
         # Convert normalized circular co-ordinates back into pixel co-ords
@@ -283,8 +283,8 @@ class Configurable(Reference_Preprocessor):
 
     def unwarp_xy(self, warped_normalized_xy_npfloat32):
         # Standard unwarp implementation
-        return unwarp_from_mapping(warped_normalized_xy_npfloat32, 
-                                   self.input_wh, self.output_wh, 
+        return unwarp_from_mapping(warped_normalized_xy_npfloat32,
+                                   self.input_wh, self.output_wh,
                                    self.x_mapping, self.y_mapping)
         
     # .................................................................................................................

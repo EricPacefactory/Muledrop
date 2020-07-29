@@ -116,12 +116,12 @@ def save_config_json(save_path, json_data, create_missing_folder_path = False):
     try:
         _ = json.dumps(json_data)
     except TypeError as err:
-        print("", 
+        print("",
               "Error saving json data:",
               "@ {}".format(save_path),
               "",
               "Got invalid data?:",
-              json_data, 
+              json_data,
               "", "", sep = "\n")
         raise err
         
@@ -136,7 +136,7 @@ def save_config_json(save_path, json_data, create_missing_folder_path = False):
 
 # .....................................................................................................................
     
-def create_missing_config_json(save_path, default_json_data, creation_printout = "Creating JSON:", 
+def create_missing_config_json(save_path, default_json_data, creation_printout = "Creating JSON:",
                                create_missing_folder_path = True):
     
     '''

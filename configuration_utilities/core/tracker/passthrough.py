@@ -75,7 +75,7 @@ configurable_ref = loader.setup_all(__file__)
 # Set up object to handle all video processing
 main_process = \
 Reconfigurable_Video_Loop(loader,
-                          ordered_display_list = [Detection_Display(0, 1, 2), 
+                          ordered_display_list = [Detection_Display(0, 1, 2),
                                                   Tracked_Display(1, 1, 2),
                                                   Filtered_Binary_Display(4, 2, 3)])
 

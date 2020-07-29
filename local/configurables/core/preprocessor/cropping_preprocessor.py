@@ -79,8 +79,8 @@ class Configurable(Reference_Preprocessor):
         
         self.enable_transform = \
         self.ctrl_spec.attach_toggle(
-                "enable_transform", 
-                label = "Enable Transform", 
+                "enable_transform",
+                label = "Enable Transform",
                 default_value = True,
                 visible = True)
         
@@ -90,8 +90,8 @@ class Configurable(Reference_Preprocessor):
         
         self.left_edge_crop = \
         self.ctrl_spec.attach_slider(
-                "left_edge_crop", 
-                label = "Left Edge", 
+                "left_edge_crop",
+                label = "Left Edge",
                 default_value = 0.0,
                 min_value = 0.0, max_value = 1.0, step_size = 1/1000,
                 return_type = float,
@@ -101,8 +101,8 @@ class Configurable(Reference_Preprocessor):
         
         self.right_edge_crop = \
         self.ctrl_spec.attach_slider(
-                "right_edge_crop", 
-                label = "Right Edge", 
+                "right_edge_crop",
+                label = "Right Edge",
                 default_value = 1.0,
                 min_value = 0.0, max_value = 1.0, step_size = 1/1000,
                 return_type = float,
@@ -116,8 +116,8 @@ class Configurable(Reference_Preprocessor):
         
         self.top_edge_crop = \
         self.ctrl_spec.attach_slider(
-                "top_edge_crop", 
-                label = "Top Edge", 
+                "top_edge_crop",
+                label = "Top Edge",
                 default_value = 0.0,
                 min_value = 0.0, max_value = 1.0, step_size = 1/1000,
                 return_type = float,
@@ -127,8 +127,8 @@ class Configurable(Reference_Preprocessor):
         
         self.bot_edge_crop = \
         self.ctrl_spec.attach_slider(
-                "bot_edge_crop", 
-                label = "Bottom Edge", 
+                "bot_edge_crop",
+                label = "Bottom Edge",
                 default_value = 1.0,
                 min_value = 0.0, max_value = 1.0, step_size = 1/1000,
                 return_type = float,

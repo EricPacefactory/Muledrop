@@ -155,7 +155,7 @@ def get_animation(object_full_id, start_padded_time_ms = 3000, end_padded_time_m
         # Convert to data that the browser can render
         image_bytes = image_to_jpg_bytearray(snap_image)
         full_byte_str = b"".join((b"--frame\r\n",
-                                  b"Content-Type: image/jpeg\r\n\r\n", 
+                                  b"Content-Type: image/jpeg\r\n\r\n",
                                   image_bytes,
                                   b"\r\n"))
         
@@ -228,7 +228,7 @@ sorted_topclass_labels = sorted(list(topclass_colors_dict.keys()))
 
 # Create server so we can start adding routes
 wsgi_app = Flask(__name__,
-                 static_url_path = '', 
+                 static_url_path = '',
                  static_folder = "per_object_resources/static",
                  template_folder = "per_object_resources/templates")
 
@@ -339,8 +339,8 @@ def object_label_update():
     save_single_supervised_label(*pathing_args, new_label_data)
     
     # Some debugging feedback
-    print("", 
-          "LABELUPDATE POST - {}: {}]".format(object_id, new_label_data), 
+    print("",
+          "LABELUPDATE POST - {}: {}]".format(object_id, new_label_data),
           "", sep="\n")
     
     return ("{}", 201) # No content response

@@ -105,7 +105,7 @@ class Reference_Classifier(After_Database_Configurable_Base):
         ''' 
         Function used to get the data needed to perform classification
         The result of this function will be passed as an input to the classify_one_object() function
-        It is likely to be a dictionary, but could be override to provide something more specific, 
+        It is likely to be a dictionary, but could be override to provide something more specific,
         depending on the needs of the classifier!
         '''
         
@@ -122,7 +122,7 @@ class Reference_Classifier(After_Database_Configurable_Base):
         '''
         Function which performs actual classification given some 'object_data' 
         and access to the snapshot database, if needed.
-        Note that the object data can be in any format, 
+        Note that the object data can be in any format,
         depending on how it is output from the request_object_data() function.
         Though for most use cases, it's likely to be a reconstruction of some kind.
         

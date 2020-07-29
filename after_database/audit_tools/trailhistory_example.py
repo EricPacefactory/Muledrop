@@ -219,7 +219,7 @@ class Hover_Object(Smooth_Hover_Object_Reconstruction):
                  smoothing_factor = 0.015, timebar_row_height = 30):
         
         # Inherit from parent class
-        super().__init__(object_metadata, frame_wh, global_start_datetime_isoformat, global_end_datetime_isoformat, 
+        super().__init__(object_metadata, frame_wh, global_start_datetime_isoformat, global_end_datetime_isoformat,
                          smoothing_factor)
         
         # Store addition timebar drawing sizes & scalings
@@ -278,9 +278,9 @@ class Hover_Object(Smooth_Hover_Object_Reconstruction):
         if bar_color is None:
             bar_color = self._outline_color
         
-        cv2.rectangle(output_frame, 
+        cv2.rectangle(output_frame,
                       pt1 = self._timebar_tl,
-                      pt2 = self._timebar_br, 
+                      pt2 = self._timebar_br,
                       color = bar_color,
                       thickness = -1,
                       lineType = cv2.LINE_4)
@@ -301,7 +301,7 @@ class Hover_Object(Smooth_Hover_Object_Reconstruction):
 
 # .....................................................................................................................
 
-def create_timebar_frame_object_reconstruction(example_frame, timebar_row_height, object_by_class_dict, 
+def create_timebar_frame_object_reconstruction(example_frame, timebar_row_height, object_by_class_dict,
                                                bg_color = (40, 40, 40)):
     
     # Figure out image sizing from example frame and number of classes (rows) needed
@@ -339,7 +339,7 @@ def get_hovered_timebars(mouse_x, timebar_row_index_hover, object_reconstruction
 
 # .....................................................................................................................
 
-def show_looping_animation(snapshot_database, object_database, object_list, 
+def show_looping_animation(snapshot_database, object_database, object_list,
                            start_buffer_time_sec = 3.0, end_buffer_time_sec = 5.5):
 
     # Don't do anything if there are no objects to animate! (i.e. a blank area was clicked)
@@ -498,7 +498,7 @@ obj_metadata_generator = obj_db.load_metadata_by_time_range(user_start_dt, user_
 # Create dictionary of 'reconstructed' objects based on object metadata
 obj_dict = Hover_Object.create_reconstruction_dict(obj_metadata_generator,
                                                    frame_wh,
-                                                   user_start_dt, 
+                                                   user_start_dt,
                                                    user_end_dt,
                                                    timebar_row_height = timebar_row_height)
 

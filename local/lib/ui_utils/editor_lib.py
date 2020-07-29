@@ -219,7 +219,7 @@ def warn_for_name_taken(name_to_check, existing_names_list, quit_if_name_is_take
     # Check if the given name is taken and provide feedback if it is (and optionally quit)
     name_already_exists = check_name_is_taken(name_to_check, existing_names_list)
     if name_already_exists:
-        print("", 
+        print("",
               "Can't use name: {}".format(name_to_check),
               "  It is already taken!",
               sep = "\n")

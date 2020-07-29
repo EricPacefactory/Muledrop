@@ -272,22 +272,22 @@ class Local_Playback_Controls(Simple_Window):
     # .................................................................................................................
         
     def _draw_initial_frame(self, frame_width,
-                            bg_even_color = (47, 42, 48), 
-                            bg_odd_color = (25, 20, 27), 
+                            bg_even_color = (47, 42, 48),
+                            bg_odd_color = (25, 20, 27),
                             text_color = (200, 200, 200)):
         
         # Build messages
-        msg_strs = [("+ / -", 
+        msg_strs = [("+ / -",
                          "Skip forward/backward"),
-                    ("1 / 2", 
+                    ("1 / 2",
                          "Set looping start/end frames"),
-                    ("< / >", 
+                    ("< / >",
                          "Adjust start/end loop points"),
-                    ("[ / ]", 
+                    ("[ / ]",
                          "Decrease/increase frame delay"),
-                    ("spacebar", 
+                    ("spacebar",
                          "Pause/unpause"),
-                    ("p / o", 
+                    ("p / o",
                          "Save/reset playback settings")]
         
         # Set up text styling
@@ -363,7 +363,7 @@ class Local_Playback_Controls(Simple_Window):
             except TypeError:
                 settings_exist = False
                 print("",
-                      "ERROR loading playback settings:", 
+                      "ERROR loading playback settings:",
                       "  F: {}".format(current_frame_index),
                       "  S: {}".format(start_loop_index),
                       "  E: {}".format(end_loop_index),

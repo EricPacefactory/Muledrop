@@ -82,8 +82,8 @@ class Configurable(Reference_Snapshot_Capture):
         
         self.skip_frames = \
         self.ctrl_spec.attach_slider(
-                "skip_frames", 
-                label = "Skip Frames", 
+                "skip_frames",
+                label = "Skip Frames",
                 default_value = 30,
                 min_value = 0, max_value = 1000,
                 return_type = int,
@@ -93,8 +93,8 @@ class Configurable(Reference_Snapshot_Capture):
         
         self.max_dimension_px = \
         self.ctrl_spec.attach_slider(
-                "max_dimension_px", 
-                label = "Max Dimension", 
+                "max_dimension_px",
+                label = "Max Dimension",
                 default_value = 640,
                 min_value = 100, max_value = 1280,
                 units = "pixels",
@@ -104,8 +104,8 @@ class Configurable(Reference_Snapshot_Capture):
     
         self.jpg_quality = \
         self.ctrl_spec.attach_slider(
-                "jpg_quality", 
-                label = "Image Quality", 
+                "jpg_quality",
+                label = "Image Quality",
                 default_value = 25,
                 min_value = 0, max_value = 100,
                 return_type = int,
@@ -115,8 +115,8 @@ class Configurable(Reference_Snapshot_Capture):
     
         self.downscale_interpolation = \
         self.ctrl_spec.attach_menu(
-                "downscale_interpolation", 
-                label = "Downscaling Interpolation", 
+                "downscale_interpolation",
+                label = "Downscaling Interpolation",
                 default_value = "Area",
                 option_label_value_list = [("Nearest", cv2.INTER_NEAREST),
                                            ("Bilinear", cv2.INTER_LINEAR),

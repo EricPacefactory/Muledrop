@@ -84,14 +84,14 @@ class Configurable(Reference_Preprocessor):
         
         self.enable_resizing = \
         self.ctrl_spec.attach_toggle(
-                "enable_resizing", 
-                label = "Enable Resizing", 
+                "enable_resizing",
+                label = "Enable Resizing",
                 default_value = True)
         
         self.output_w = \
         self.ctrl_spec.attach_slider(
-                "output_w", 
-                label = "Output Width", 
+                "output_w",
+                label = "Output Width",
                 default_value = input_wh[0],
                 min_value = 50, max_value = 1280,
                 return_type = int,
@@ -101,8 +101,8 @@ class Configurable(Reference_Preprocessor):
         
         self.output_h = \
         self.ctrl_spec.attach_slider(
-                "output_h", 
-                label = "Output Height", 
+                "output_h",
+                label = "Output Height",
                 default_value = input_wh[1],
                 min_value = 50, max_value = 1280,
                 return_type = int,
@@ -112,13 +112,13 @@ class Configurable(Reference_Preprocessor):
         
         self.interpolation_type = \
         self.ctrl_spec.attach_menu(
-                "interpolation_type", 
-                label = "Interpolation", 
-                default_value = "Nearest", 
+                "interpolation_type",
+                label = "Interpolation",
+                default_value = "Nearest",
                 option_label_value_list = [("Nearest", cv2.INTER_NEAREST),
                                            ("Bilinear", cv2.INTER_LINEAR),
-                                           ("Area", cv2.INTER_AREA)], 
-                tooltip = "Set the interpolation style for pixels sampled at fractional indices", 
+                                           ("Area", cv2.INTER_AREA)],
+                tooltip = "Set the interpolation style for pixels sampled at fractional indices",
                 visible = True)
         
         # .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . Control Group 2 .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
@@ -128,14 +128,14 @@ class Configurable(Reference_Preprocessor):
         
         self.enable_scaling = \
         self.ctrl_spec.attach_toggle(
-                "enable_scaling", 
-                label = "Enable Scaling", 
+                "enable_scaling",
+                label = "Enable Scaling",
                 default_value = True)
         
         self.scale_factor_x = \
         self.ctrl_spec.attach_slider(
-                "scale_factor_x", 
-                label = "Horizontal Scaling Factor", 
+                "scale_factor_x",
+                label = "Horizontal Scaling Factor",
                 default_value = 0.0,
                 min_value = -4.0, max_value = 4.0, step_size = 1/10,
                 return_type = float,
@@ -145,8 +145,8 @@ class Configurable(Reference_Preprocessor):
         
         self.scale_factor_y = \
         self.ctrl_spec.attach_slider(
-                "scale_factor_y", 
-                label = "Vertical Scaling Factor", 
+                "scale_factor_y",
+                label = "Vertical Scaling Factor",
                 default_value = 0.0,
                 min_value = -4.0, max_value = 4.0, step_size = 1/10,
                 return_type = float,
@@ -161,14 +161,14 @@ class Configurable(Reference_Preprocessor):
         
         self.enable_rotation = \
         self.ctrl_spec.attach_toggle(
-                "enable_rotation", 
-                label = "Enable Rotation", 
+                "enable_rotation",
+                label = "Enable Rotation",
                 default_value = True)
         
         self.rotation_angle_deg = \
         self.ctrl_spec.attach_slider(
-                "rotation_angle_deg", 
-                label = "Rotation Angle", 
+                "rotation_angle_deg",
+                label = "Rotation Angle",
                 default_value = 0.0,
                 min_value = -360.0, max_value = 360.0,
                 return_type = float,
@@ -184,14 +184,14 @@ class Configurable(Reference_Preprocessor):
         
         self.enable_shearing = \
         self.ctrl_spec.attach_toggle(
-                "enable_shearing", 
-                label = "Enable Shearing", 
+                "enable_shearing",
+                label = "Enable Shearing",
                 default_value = True)
         
         self.shear_factor_x = \
         self.ctrl_spec.attach_slider(
-                "shear_factor_x", 
-                label = "Horizontal Shear Factor", 
+                "shear_factor_x",
+                label = "Horizontal Shear Factor",
                 default_value = 0.0,
                 min_value = -1.0, max_value = 1.0, step_size = 1/100,
                 return_type = float,
@@ -201,8 +201,8 @@ class Configurable(Reference_Preprocessor):
         
         self.shear_factor_y = \
         self.ctrl_spec.attach_slider(
-                "shear_factor_y", 
-                label = "Vertical Shear Factor", 
+                "shear_factor_y",
+                label = "Vertical Shear Factor",
                 default_value = 0.0,
                 min_value = -1.0, max_value = 1.0, step_size = 1/100,
                 return_type = float,
@@ -218,14 +218,14 @@ class Configurable(Reference_Preprocessor):
         
         self.enable_translation = \
         self.ctrl_spec.attach_toggle(
-                "enable_translation", 
-                label = "Enable Translation", 
+                "enable_translation",
+                label = "Enable Translation",
                 default_value = True)
         
         self.translation_factor_x = \
         self.ctrl_spec.attach_slider(
-                "translation_factor_x", 
-                label = "Horizontal Translation", 
+                "translation_factor_x",
+                label = "Horizontal Translation",
                 default_value = 0.0,
                 min_value = -1.0, max_value = 1.0, step_size = 1/100,
                 return_type = float,
@@ -235,8 +235,8 @@ class Configurable(Reference_Preprocessor):
         
         self.translation_factor_y = \
         self.ctrl_spec.attach_slider(
-                "translation_factor_y", 
-                label = "Vertical Translation", 
+                "translation_factor_y",
+                label = "Vertical Translation",
                 default_value = 0.0,
                 min_value = -1.0, max_value = 1.0, step_size = 1/100,
                 return_type = float,
@@ -364,7 +364,7 @@ class Configurable(Reference_Preprocessor):
         # Calculation shear matrix terms
         shx = 1.5 * self.shear_factor_x
         shy = 1.5 * self.shear_factor_y
-        shear_matrix = np.float32([(1,   shx, 0), 
+        shear_matrix = np.float32([(1,   shx, 0),
                                    (shy, 1,   0),
                                    (0,   0,   1)])
             
@@ -403,7 +403,7 @@ class Configurable(Reference_Preprocessor):
         # Calculation scaling matrix terms
         sx = get_scale(self.scale_factor_x)
         sy = get_scale(self.scale_factor_y)
-        scaling_matrix = np.float32([(sx, 0, 0), 
+        scaling_matrix = np.float32([(sx, 0, 0),
                                      (0, sy, 0),
                                      (0, 0, 1)])
             
@@ -419,8 +419,8 @@ class Configurable(Reference_Preprocessor):
 
     def unwarp_xy(self, warped_normalized_xy_npfloat32):
         # Standard unwarp implementation
-        return unwarp_from_mapping(warped_normalized_xy_npfloat32, 
-                                   self.input_wh, self.output_wh, 
+        return unwarp_from_mapping(warped_normalized_xy_npfloat32,
+                                   self.input_wh, self.output_wh,
                                    self._x_mapping, self._y_mapping)
         
     # .................................................................................................................

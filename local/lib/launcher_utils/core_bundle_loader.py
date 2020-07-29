@@ -93,7 +93,7 @@ class Core_Bundle:
         titleize = lambda ugly_name: ugly_name.replace("_", " ").title()
         
         # Create list of strings to print
-        repr_strs = ["Core Bundle", 
+        repr_strs = ["Core Bundle",
                      "  camera: {}".format(self.camera_select)]
         
         # List all configured data
@@ -268,7 +268,7 @@ class Core_Bundle:
                 
                 # Run each stage with timing
                 process_outputs, process_timing = \
-                self._run_one(process_outputs, each_stage_ref, 
+                self._run_one(process_outputs, each_stage_ref,
                               current_frame_index, current_epoch_ms, current_datetime)
 
                 # Store results for analysis
@@ -283,7 +283,7 @@ class Core_Bundle:
         
     # .................................................................................................................
     
-    def _run_one(self, process_inputs, stage_ref, 
+    def _run_one(self, process_inputs, stage_ref,
                  current_frame_index, current_epoch_ms, current_datetime):
         
         '''
@@ -330,7 +330,7 @@ class Core_Bundle:
         
     # .................................................................................................................
         
-    def _override_configuration(self, all_stage_config_dict, 
+    def _override_configuration(self, all_stage_config_dict,
                                 override_stage = None, override_script = None):
         
         '''

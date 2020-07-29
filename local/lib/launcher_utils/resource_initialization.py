@@ -180,7 +180,7 @@ def check_for_valid_background(location_select_folder_path, camera_select, video
     background_exists = False
     
     # See if we can just load an existing background
-    newest_background = load_newest_generated_background(location_select_folder_path, camera_select, 
+    newest_background = load_newest_generated_background(location_select_folder_path, camera_select,
                                                          error_if_no_backgrounds = False)
     if newest_background is None:
         return background_exists
@@ -224,7 +224,7 @@ def get_rtsp_framerate_estimate(video_reader_ref, minutes_to_run = 1):
     '''
     Function which estimates the 'real' framerate of a network video source.
     Although network cameras do report framerate values, they're often inaccurate!
-    Note that this function also helps delay immediate restarts of rtsp streams, 
+    Note that this function also helps delay immediate restarts of rtsp streams,
     which can otherwise cause (temporary) object ID assignment errors on saved data.
     '''
     
@@ -316,7 +316,7 @@ def _generate_initial_background_from_file(video_reader_ref, max_ram_usage_MB = 
     target_frame_index_array = np.linspace(first_frame_idx, last_frame_idx, num_frames_allowed, dtype = np.int32)
     
     # Provide some feedback, because the next step can be slow
-    print("", 
+    print("",
           "No background file found! ({}x{})".format(video_width, video_height),
           "  --> Will need to generate one from the file, which may take a moment...",
           sep = "\n")
@@ -376,7 +376,7 @@ def _generate_initial_background_from_rtsp(video_reader_ref,
     
     # If we get here, we have no background! We'll need to generate one from the stream
     approx_ram_usage_MB = int(round(num_frames_allowed * num_MB_per_frame))
-    print("", 
+    print("",
           "No background file found! ({}x{})".format(video_width, video_height),
           "  --> Will need to generate one. This will take about {:.0f} minutes...".format(minutes_to_run),
           "  --> Using {} frames (approx. {} MB of RAM)".format(num_frames_allowed, approx_ram_usage_MB),

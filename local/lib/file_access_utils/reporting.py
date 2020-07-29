@@ -107,7 +107,7 @@ class Background_Report_Data_Saver:
     
     # .................................................................................................................
     
-    def save_data(self, *, file_save_name_no_ext, image_data, metadata_dict, jpg_quality_0_to_100, 
+    def save_data(self, *, file_save_name_no_ext, image_data, metadata_dict, jpg_quality_0_to_100,
                   json_double_precision = 0):
         
         # Only save data if enabled
@@ -145,7 +145,7 @@ class Object_Report_Data_Saver:
     
     # .................................................................................................................
     
-    def __init__(self, location_select_folder_path, camera_select, 
+    def __init__(self, location_select_folder_path, camera_select,
                  saving_enabled = True, threading_enabled = True):
         
         # Store inputs
@@ -214,7 +214,7 @@ class Snapshot_Report_Data_Saver:
     
     # .................................................................................................................
     
-    def __init__(self, location_select_folder_path, camera_select, 
+    def __init__(self, location_select_folder_path, camera_select,
                  saving_enabled = True, threading_enabled = True):
         
         # Store inputs
@@ -251,7 +251,7 @@ class Snapshot_Report_Data_Saver:
     
     # .................................................................................................................
     
-    def save_data(self, *, file_save_name_no_ext, image_data, metadata_dict, jpg_quality_0_to_100, 
+    def save_data(self, *, file_save_name_no_ext, image_data, metadata_dict, jpg_quality_0_to_100,
                   json_double_precision = 0):
         
         # Only save data if enabled
@@ -312,7 +312,7 @@ class Station_Report_Data_Saver:
             # Select between different types of saving implementations
             if self.threading_enabled:
                 self._data_saver = \
-                Threaded_Compressed_JSON_Saver(thread_name = "stations", 
+                Threaded_Compressed_JSON_Saver(thread_name = "stations",
                                                jsongz_folder_path = self.metadata_save_folder_path)
             else:
                 self._data_saver = \

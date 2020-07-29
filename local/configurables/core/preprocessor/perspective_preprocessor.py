@@ -98,26 +98,26 @@ class Configurable(Reference_Preprocessor):
         
         self.enable_transform = \
         self.ctrl_spec.attach_toggle(
-                "enable_transform", 
-                label = "Enable Transform", 
+                "enable_transform",
+                label = "Enable Transform",
                 default_value = True,
                 visible = True)
         
         self.region_orientation_deg = \
         self.ctrl_spec.attach_menu(
-                "region_orientation_deg", 
-                label = "Orientation", 
-                default_value = "Default", 
+                "region_orientation_deg",
+                label = "Orientation",
+                default_value = "Default",
                 option_label_value_list = [("Default", 0),
                                            ("+90 Degrees", 90),
                                            ("+180 Degrees", 180),
-                                           ("+270 Degrees", 270),], 
+                                           ("+270 Degrees", 270),],
                 tooltip = "Alter the orientation of the perspective zone.")
         
         self.width_scale_factor = \
         self.ctrl_spec.attach_slider(
-                "width_scale_factor", 
-                label = "Width Scaling Factor", 
+                "width_scale_factor",
+                label = "Width Scaling Factor",
                 default_value = 1.0,
                 min_value = 0.05, max_value = 1.0, step_size = 1/100,
                 return_type = float,
@@ -129,8 +129,8 @@ class Configurable(Reference_Preprocessor):
         
         self.height_scale_factor = \
         self.ctrl_spec.attach_slider(
-                "height_scale_factor", 
-                label = "Height Scaling Factor", 
+                "height_scale_factor",
+                label = "Height Scaling Factor",
                 default_value = 1.0,
                 min_value = 0.05, max_value = 1.0, step_size = 1/100,
                 return_type = float,
@@ -142,13 +142,13 @@ class Configurable(Reference_Preprocessor):
         
         self.interpolation_type = \
         self.ctrl_spec.attach_menu(
-                "interpolation_type", 
-                label = "Interpolation", 
-                default_value = "Nearest", 
+                "interpolation_type",
+                label = "Interpolation",
+                default_value = "Nearest",
                 option_label_value_list = [("Nearest", cv2.INTER_NEAREST),
                                            ("Bilinear", cv2.INTER_LINEAR),
-                                           ("Area", cv2.INTER_AREA)], 
-                tooltip = "Set the interpolation style for pixels sampled at fractional indices", 
+                                           ("Area", cv2.INTER_AREA)],
+                tooltip = "Set the interpolation style for pixels sampled at fractional indices",
                 visible = True)
         
         # .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . Control Group 2 .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
@@ -157,8 +157,8 @@ class Configurable(Reference_Preprocessor):
         
         self.extend_left = \
         self.ctrl_spec.attach_slider(
-                "extend_left", 
-                label = "Extend Left", 
+                "extend_left",
+                label = "Extend Left",
                 default_value = 0.0,
                 min_value = -0.5, max_value = 2.0, step_size = 1/100,
                 return_type = float,
@@ -168,8 +168,8 @@ class Configurable(Reference_Preprocessor):
         
         self.extend_right = \
         self.ctrl_spec.attach_slider(
-                "extend_right", 
-                label = "Extend Right", 
+                "extend_right",
+                label = "Extend Right",
                 default_value = 0.0,
                 min_value = -0.5, max_value = 2.0, step_size = 1/100,
                 return_type = float,
@@ -179,8 +179,8 @@ class Configurable(Reference_Preprocessor):
         
         self.extend_top = \
         self.ctrl_spec.attach_slider(
-                "extend_top", 
-                label = "Extend Top", 
+                "extend_top",
+                label = "Extend Top",
                 default_value = 0.0,
                 min_value = -0.5, max_value = 2.0, step_size = 1/100,
                 return_type = float,
@@ -190,8 +190,8 @@ class Configurable(Reference_Preprocessor):
         
         self.extend_bottom = \
         self.ctrl_spec.attach_slider(
-                "extend_bottom", 
-                label = "Extend Bottom", 
+                "extend_bottom",
+                label = "Extend Bottom",
                 default_value = 0.0,
                 min_value = -0.5, max_value = 2.0, step_size = 1/100,
                 return_type = float,
@@ -257,8 +257,8 @@ class Configurable(Reference_Preprocessor):
         input_region = np.float32((tl,tr,br,bl))
         
         # Build a matching 'output region' that we want our input co-ords to map to
-        output_region = np.float32([(0, 0), 
-                                    (output_width - 1, 0), 
+        output_region = np.float32([(0, 0),
+                                    (output_width - 1, 0),
                                     (output_width - 1, output_height - 1),
                                     (0, output_height - 1)])
             
@@ -467,7 +467,7 @@ def draw_extended_quad(frame, configurable_ref, color = (255, 255, 0), thickness
         return frame
     
     # Don't draw anything if there is no extension
-    no_extension = all((configurable_ref.extend_top == 0, configurable_ref.extend_left == 0, 
+    no_extension = all((configurable_ref.extend_top == 0, configurable_ref.extend_left == 0,
                            configurable_ref.extend_bottom == 0, configurable_ref.extend_right == 0))
     if no_extension:
         return frame

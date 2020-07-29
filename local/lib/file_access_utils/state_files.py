@@ -122,7 +122,7 @@ def new_state_data(script_name, pid_value, in_standby = False, state_description
 
 # .....................................................................................................................
 
-def save_state_file(location_select_folder_path, camera_select, *, 
+def save_state_file(location_select_folder_path, camera_select, *,
                     script_name, pid_value, in_standby, state_description_str):
     
     ''' Function which saves a state logging file, used to keep tracking of running processes '''

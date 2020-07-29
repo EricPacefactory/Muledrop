@@ -78,8 +78,8 @@ def register_signal_quit():
         signal.signal(signal.SIGQUIT, raise_custom_exception)
         
     except AttributeError or ValueError:
-        print("", 
-              "WARNING:", 
+        print("",
+              "WARNING:",
               "  Kill signal (SIGQUIT) not registered properly!",
               "  May not be supported by the OS. If necessary, use SIGTERM instead.", sep = "\n")
     

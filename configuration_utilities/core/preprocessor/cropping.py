@@ -68,20 +68,20 @@ class Custom_Input(Display_Window_Specification):
     
     # .................................................................................................................
     
-    def __init__(self, layout_index, num_rows, num_columns, 
+    def __init__(self, layout_index, num_rows, num_columns,
                  initial_display = False,
                  window_name = "Input"):
     
         # Inherit from parent class
-        super().__init__(window_name, layout_index, num_rows, num_columns, 
-                         initial_display = initial_display, 
+        super().__init__(window_name, layout_index, num_rows, num_columns,
+                         initial_display = initial_display,
                          provide_mouse_xy = False,
                          drawing_json = None,
                          limit_wh = False)
         
     # .................................................................................................................
         
-    def display(self, stage_outputs, configurable_ref, mouse_xy, 
+    def display(self, stage_outputs, configurable_ref, mouse_xy,
                 current_frame_index, current_epoch_ms, current_datetime):
         
         # Get the cropping co-ords
@@ -110,8 +110,8 @@ class Cropping_Info(Display_Window_Specification):
     def __init__(self, layout_index, num_rows, num_columns, initial_display = False):
         
         # Inherit from parent class
-        super().__init__("Cropping Info", layout_index, num_rows, num_columns, 
-                         initial_display = initial_display, 
+        super().__init__("Cropping Info", layout_index, num_rows, num_columns,
+                         initial_display = initial_display,
                          limit_wh = False)
         
         # Allocate storage for blank image used to draw info on

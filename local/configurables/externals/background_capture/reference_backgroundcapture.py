@@ -129,7 +129,7 @@ class Reference_Background_Capture(Externals_Configurable_Base):
         
         # Make sure we a background exists on startup (another function is responsible for initial bg generation!)
         background_available = \
-        check_for_valid_background(location_select_folder_path, camera_select, *video_wh, 
+        check_for_valid_background(location_select_folder_path, camera_select, *video_wh,
                                    print_feedback_on_existing = False)
         if not background_available:
             error_msg = "Can't initialize background capture, no initial background image found!"

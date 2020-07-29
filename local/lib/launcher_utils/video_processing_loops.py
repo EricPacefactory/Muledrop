@@ -800,7 +800,7 @@ class Object_Capture_Video_Loop(Reconfigurable_Video_Loop):
                 self.display_timing_data(stage_timing)
                     
                 # Store info for debugging
-                self._save_for_debug(frame, fed_time_args, 
+                self._save_for_debug(frame, fed_time_args,
                                      stage_outputs = stage_outputs)
                 
                 # Check for keypresses
@@ -1008,7 +1008,7 @@ def arrange_display_resources(configuration_loader, ordered_display_obj_list):
             new_window_ref = Simple_Window(new_window_name, provide_mouse_xy = provide_mouse_xy)
         
         # Bundle re-usable access info
-        new_display_entry = {new_window_name: {"window_ref": new_window_ref, 
+        new_display_entry = {new_window_name: {"window_ref": new_window_ref,
                                                "display_obj": each_display_obj,
                                                "has_drawing": needs_drawing_window}}
         display_resources_dict.update(new_display_entry)
@@ -1036,7 +1036,7 @@ def create_simple_display_window(configuration_loader):
 
 # .....................................................................................................................
 
-def simple_display(window_ref, display_obj, stage_outputs, 
+def simple_display(window_ref, display_obj, stage_outputs,
                    current_frame_index, current_epoch_ms, current_datetime):
         
     # Set up some variables for cleanliness

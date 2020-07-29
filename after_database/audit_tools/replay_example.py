@@ -179,7 +179,7 @@ def get_class_count_lists(snap_db, obj_by_class_dict):
 
 # .....................................................................................................................
 
-def create_density_images(class_db, objclass_count_lists_dict, snap_width, 
+def create_density_images(class_db, objclass_count_lists_dict, snap_width,
                           density_bar_height = 16, bar_bg_color = (40, 40, 40)):
     
     # Return a blank image if no class data is available
@@ -216,9 +216,9 @@ def create_combined_density_image(density_images_dict):
     
     # Create combined image with all density plots
     image_list = [each_img for each_img in density_images_dict.values()]
-    combined_density_bars = vstack_padded(*image_list, 
-                                          pad_height = 3, 
-                                          prepend_separator = True, 
+    combined_density_bars = vstack_padded(*image_list,
+                                          pad_height = 3,
+                                          prepend_separator = True,
                                           append_separator = True)
     
     # Figure out combined bar height, for use with playback indicator
@@ -234,7 +234,7 @@ def create_combined_density_image(density_images_dict):
 
 # .....................................................................................................................
 
-def draw_timestamp(display_frame, snapshot_metadata, fg_config, bg_config, replay_start_dt, use_relative_time, 
+def draw_timestamp(display_frame, snapshot_metadata, fg_config, bg_config, replay_start_dt, use_relative_time,
                    text_position = None):
     
     # Don't draw the timestamp if there is no position data
@@ -401,7 +401,7 @@ obj_metadata_generator = obj_db.load_metadata_by_time_range(user_start_dt, user_
 # Create dictionary of 'reconstructed' objects based on object metadata
 obj_dict = Obj_Recon.create_reconstruction_dict(obj_metadata_generator,
                                                    snap_wh,
-                                                   user_start_dt, 
+                                                   user_start_dt,
                                                    user_end_dt)
 
 # Organize objects by class label -> then by object id (nested dictionaries)
@@ -506,7 +506,7 @@ while True:
     density_image = cv2.line(density_image, play_pt1, play_pt2, (255, 255, 255), 1)
     
     # Draw timestamp over replay image, if needed
-    timestamp_image = draw_timestamp(snap_image, snap_md, fg_font_config, bg_font_config, 
+    timestamp_image = draw_timestamp(snap_image, snap_md, fg_font_config, bg_font_config,
                                      user_start_dt, enable_relative_timestamp, timestamp_xy)
     
     # Display the snapshot image, but stop if the window is closed

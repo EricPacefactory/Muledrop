@@ -155,7 +155,7 @@ def unpack_config_data(config_data_dict):
         setup_data_dict = config_data_dict["setup_data"]
         
     except KeyError:
-        err_msg_list = ["", 
+        err_msg_list = ["",
                         "Error unpacking configurable config data!",
                         "Expecting keys: access_info & setup_data",
                         ""]
@@ -189,7 +189,7 @@ def unpack_access_info(access_info_dict):
         script_name_no_ext = access_info_dict["script_name"]
     
     except KeyError:
-        err_msg_list = ["", 
+        err_msg_list = ["",
                         "Error unpacking access info data!",
                         "Expecting key: script_name",
                         ""]

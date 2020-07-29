@@ -124,7 +124,7 @@ class Local_Window_Controls:
                 # Give some feedback
                 print("",
                       "Skipped setting control variable: {}".format(each_variable_name),
-                      "  (May be a drawing variable?)", 
+                      "  (May be a drawing variable?)",
                       each_map_value,
                       sep="\n")
         
@@ -166,11 +166,11 @@ class Local_Window_Controls:
             title_spacer = (" " * half_spacer_len)
             end_spacer = (" " * end_spacer_len)
             window_heading_str = "".join([title_spacer, window_name, title_spacer, end_spacer])
-            print("", 
+            print("",
                   "",
                   "",
                   Color(window_heading_str.upper()).bold.invert,
-                  window_info_str, 
+                  window_info_str,
                   "",
                   sep="\n")
            

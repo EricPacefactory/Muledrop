@@ -139,9 +139,9 @@ while True:
     # Get snapshot data
     
     # Handle snapshot capture stage
-    snapshot_frame, current_snapshot_metadata = snapcap.run(input_frame, 
-                                                            current_frame_index, 
-                                                            current_epoch_ms, 
+    snapshot_frame, current_snapshot_metadata = snapcap.run(input_frame,
+                                                            current_frame_index,
+                                                            current_epoch_ms,
                                                             current_datetime)
    
     # .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .

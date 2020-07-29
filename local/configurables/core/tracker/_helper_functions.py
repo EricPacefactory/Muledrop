@@ -221,7 +221,7 @@ def greedy_object_detection_match(obj_by_det_cost_matrix, max_allowable_cost = 1
     Assume we have objects A & B from a previous frame, and detections D1 and D2 from the current frame, shown below.
     Also assume that the cost matrix is just the distance between the object/detection.
     Since the B-to-D1 distance is the shortest pairing, it will be matched first, followed by A-to-D2.
-    This avoids duplications (both A & B would naively match to D1), 
+    This avoids duplications (both A & B would naively match to D1),
     but may not be the ideal pairing since the pairing is criss-crossed 
     (if A/B continue traveling diagonally, each iteration would tend to leapfrog them back and forth!).
     
@@ -394,7 +394,7 @@ if __name__ == "__main__":
         
         return square_distance_matrix
     
-    def draw_matches(match_name, display_frame, od_match_tuple_list, unmatched_objs, unmatched_dets, 
+    def draw_matches(match_name, display_frame, od_match_tuple_list, unmatched_objs, unmatched_dets,
                      window_pos = (200, 200),
                      is_unique = None,
                      letter_lookup = "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
@@ -466,18 +466,18 @@ if __name__ == "__main__":
         
         '''
         # Good example of differences between matching methods (try match_x_dist = match_y_dist = 0.25)
-        ro = [[0.59, 0.365], [0.7125, 0.36], [0.7475, 0.42], [0.37, 0.4975], 
+        ro = [[0.59, 0.365], [0.7125, 0.36], [0.7475, 0.42], [0.37, 0.4975],
               [0.715, 0.5225], [0.4225, 0.5575], [0.255, 0.3325]]
-        rd = [[0.3275, 0.7175], [0.5925, 0.4725], [0.59, 0.5275], [0.3825, 0.2825], 
+        rd = [[0.3275, 0.7175], [0.5925, 0.4725], [0.59, 0.5275], [0.3825, 0.2825],
               [0.29, 0.2825], [0.475, 0.6475], [0.6425, 0.7]]
         ObyD_sqdist_matrix = calculate_squared_distance_pairing_matrix(ro, rd, x_scale, y_scale)
         '''
         
         '''
         # Another good example of differences (try match_x_dist = match_y_dist = 0.25)
-        ro = [[0.3325, 0.4375], [0.605, 0.7075], [0.4625, 0.285], [0.5875, 0.4075], 
+        ro = [[0.3325, 0.4375], [0.605, 0.7075], [0.4625, 0.285], [0.5875, 0.4075],
               [0.61, 0.6625], [0.49, 0.385], [0.3375, 0.66]]
-        rd = [[0.66, 0.73], [0.62, 0.2925], [0.5275, 0.6875], [0.3075, 0.32], 
+        rd = [[0.66, 0.73], [0.62, 0.2925], [0.5275, 0.6875], [0.3075, 0.32],
               [0.6825, 0.5875], [0.735, 0.535], [0.4425, 0.38]]
         ObyD_sqdist_matrix = calculate_squared_distance_pairing_matrix(ro, rd, x_scale, y_scale)
         '''

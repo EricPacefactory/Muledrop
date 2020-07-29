@@ -82,16 +82,16 @@ class Configurable(Reference_Preprocessor):
         
         self.enable_transform = \
         self.ctrl_spec.attach_toggle(
-                "enable_transform", 
-                label = "Enable Transform", 
+                "enable_transform",
+                label = "Enable Transform",
                 default_value = True,
                 tooltip = "Enable or disable all of the transformation properties")
         
         
         self.rotation_deg = \
         self.ctrl_spec.attach_slider(
-                "rotation_deg", 
-                label = "Rotation", 
+                "rotation_deg",
+                label = "Rotation",
                 default_value = 0.0,
                 min_value = -180.0, max_value = 180.0, step_size = 1/10,
                 zero_referenced = False,
@@ -101,8 +101,8 @@ class Configurable(Reference_Preprocessor):
         
         self.fov_deg = \
         self.ctrl_spec.attach_slider(
-                "fov_deg", 
-                label = "FOV", 
+                "fov_deg",
+                label = "FOV",
                 default_value = 0.0,
                 min_value = 0.0, max_value = 180.0, step_size = 1/10,
                 return_type = float,
@@ -111,8 +111,8 @@ class Configurable(Reference_Preprocessor):
         
         self.out_apert = \
         self.ctrl_spec.attach_slider(
-                "out_apert", 
-                label = "Output Aperture", 
+                "out_apert",
+                label = "Output Aperture",
                 default_value = 1.0,
                 min_value = 0.01, max_value = 1.0, step_size = 1/100,
                 zero_referenced = True,
@@ -124,7 +124,7 @@ class Configurable(Reference_Preprocessor):
         self.ctrl_spec.attach_menu(
                 "interpolation_type",
                 label = "Interpolation",
-                default_value = "Nearest", 
+                default_value = "Nearest",
                 option_label_value_list = [("Nearest", cv2.INTER_NEAREST),
                                            ("Bilinear", cv2.INTER_LINEAR),
                                            ("Area", cv2.INTER_AREA)],
@@ -137,8 +137,8 @@ class Configurable(Reference_Preprocessor):
         
         self.in_apert = \
         self.ctrl_spec.attach_slider(
-                "in_apert", 
-                label = "Input Aperture", 
+                "in_apert",
+                label = "Input Aperture",
                 default_value = 1.0,
                 min_value = 0.5, max_value = 1.5, step_size = 1/1000,
                 return_type = float,
@@ -147,8 +147,8 @@ class Configurable(Reference_Preprocessor):
         
         self.in_ar_balance = \
         self.ctrl_spec.attach_slider(
-                "in_ar_balance", 
-                label = "Input AR Balance", 
+                "in_ar_balance",
+                label = "Input AR Balance",
                 default_value = 1.0,
                 min_value = 0.5, max_value = 1.5, step_size = 1/1000,
                 return_type = float,
@@ -157,8 +157,8 @@ class Configurable(Reference_Preprocessor):
         
         self.x_recenter = \
         self.ctrl_spec.attach_slider(
-                "x_recenter", 
-                label = "Lens x-offset", 
+                "x_recenter",
+                label = "Lens x-offset",
                 default_value = 0.0,
                 min_value = -0.25, max_value = 0.25, step_size = 1/1000,
                 return_type = float,
@@ -167,8 +167,8 @@ class Configurable(Reference_Preprocessor):
         
         self.y_recenter = \
         self.ctrl_spec.attach_slider(
-                "y_recenter", 
-                label = "Lens y-offset", 
+                "y_recenter",
+                label = "Lens y-offset",
                 default_value = 0.0,
                 min_value = -0.25, max_value = 0.25, step_size = 1/1000,
                 return_type = float,
@@ -182,8 +182,8 @@ class Configurable(Reference_Preprocessor):
         
         self.output_w = \
         self.ctrl_spec.attach_slider(
-                "output_w", 
-                label = "Output Width", 
+                "output_w",
+                label = "Output Width",
                 default_value = input_wh[0],
                 min_value = 50,
                 max_value = 1280,
@@ -194,8 +194,8 @@ class Configurable(Reference_Preprocessor):
         
         self.output_h = \
         self.ctrl_spec.attach_slider(
-                "output_h", 
-                label = "Output Height", 
+                "output_h",
+                label = "Output Height",
                 default_value = input_wh[1],
                 min_value = 50,
                 max_value = 1280,
@@ -425,8 +425,8 @@ class Configurable(Reference_Preprocessor):
 
     def unwarp_xy(self, warped_normalized_xy_npfloat32):
         # Standard unwarp implementation      
-        return unwarp_from_mapping(warped_normalized_xy_npfloat32, 
-                                   self.input_wh, self.output_wh, 
+        return unwarp_from_mapping(warped_normalized_xy_npfloat32,
+                                   self.input_wh, self.output_wh,
                                    self.x_mapping, self.y_mapping)
     
     # .................................................................................................................

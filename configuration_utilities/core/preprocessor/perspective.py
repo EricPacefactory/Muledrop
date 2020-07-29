@@ -70,8 +70,8 @@ class Custom_Input_Display(Display_Window_Specification):
                  drawing_json = None):
         
         # Inherit from parent class
-        super().__init__("Input", layout_index, num_rows, num_columns, 
-                         initial_display = initial_display, 
+        super().__init__("Input", layout_index, num_rows, num_columns,
+                         initial_display = initial_display,
                          provide_mouse_xy = False,
                          drawing_json = drawing_json,
                          limit_wh = False)

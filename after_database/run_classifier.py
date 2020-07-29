@@ -130,8 +130,8 @@ def print_classification_results(class_count_dict):
     
     # Get the longest class label, since we'll use this to align the text print out
     longest_class_name = max([len(each_label) for each_label in class_count_dict.keys()])    
-    print("", 
-          "Classification results:", 
+    print("",
+          "Classification results:",
           *["  {}: {}".format(each_label.rjust(longest_class_name), each_count) \
             for each_label, each_count in class_count_dict.items()],
           "", sep = "\n")

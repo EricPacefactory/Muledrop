@@ -82,15 +82,15 @@ class Configurable(Reference_Preprocessor):
         
         self.enable_transform = \
         self.ctrl_spec.attach_toggle(
-                "enable_transform", 
-                label = "Enable Transform", 
+                "enable_transform",
+                label = "Enable Transform",
                 default_value = True,
                 visible = True)
         
         self.max_dimension_px = \
         self.ctrl_spec.attach_slider(
-                "max_dimension_px", 
-                label = "Max Dimension", 
+                "max_dimension_px",
+                label = "Max Dimension",
                 default_value = 640,
                 min_value = 100, max_value = 1280,
                 units = "pixels",
@@ -100,8 +100,8 @@ class Configurable(Reference_Preprocessor):
         
         self.ar_adjustment_factor = \
         self.ctrl_spec.attach_slider(
-                "ar_adjustment_factor", 
-                label = "Relative Aspect Ratio", 
+                "ar_adjustment_factor",
+                label = "Relative Aspect Ratio",
                 default_value = 1.0,
                 min_value = -5.0, max_value = 5.0, step_size = 1/10,
                 return_type = float,
@@ -111,13 +111,13 @@ class Configurable(Reference_Preprocessor):
         
         self.interpolation_type = \
         self.ctrl_spec.attach_menu(
-                "interpolation_type", 
-                label = "Interpolation", 
-                default_value = "Nearest", 
+                "interpolation_type",
+                label = "Interpolation",
+                default_value = "Nearest",
                 option_label_value_list = [("Nearest", cv2.INTER_NEAREST),
                                            ("Bilinear", cv2.INTER_LINEAR),
-                                           ("Area", cv2.INTER_AREA)], 
-                tooltip = "Set the interpolation style for pixels sampled at fractional indices", 
+                                           ("Area", cv2.INTER_AREA)],
+                tooltip = "Set the interpolation style for pixels sampled at fractional indices",
                 visible = True)
         
     # .................................................................................................................

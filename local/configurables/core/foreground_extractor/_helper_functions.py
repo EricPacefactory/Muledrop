@@ -65,13 +65,13 @@ class Outlined_Input(Display_Window_Specification):
     def __init__(self, layout_index, num_rows, num_columns, initial_display = False, drawing_json = None):
         
         # Inherit from parent class
-        super().__init__("Preprocessed", layout_index, num_rows, num_columns, 
+        super().__init__("Preprocessed", layout_index, num_rows, num_columns,
                          initial_display = initial_display, drawing_json = drawing_json,
                          limit_wh = True)
         
     # .................................................................................................................
         
-    def display(self, stage_outputs, configurable_ref, mouse_xy, 
+    def display(self, stage_outputs, configurable_ref, mouse_xy,
                 current_frame_index, current_epoch_ms, current_datetime):
         
         # Get frame for display
@@ -90,13 +90,13 @@ class Masked_Differences(Display_Window_Specification):
     def __init__(self, layout_index, num_rows, num_columns, initial_display = False, drawing_json = None):
         
         # Inherit from parent class
-        super().__init__("Masked Display", layout_index, num_rows, num_columns, 
+        super().__init__("Masked Display", layout_index, num_rows, num_columns,
                          initial_display = initial_display, drawing_json = drawing_json,
                          limit_wh = True)
         
     # .................................................................................................................
         
-    def display(self, stage_outputs, configurable_ref, mouse_xy, 
+    def display(self, stage_outputs, configurable_ref, mouse_xy,
                 current_frame_index, current_epoch_ms, current_datetime):
         
         # Get frame for display

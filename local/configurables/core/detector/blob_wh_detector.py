@@ -140,8 +140,8 @@ class Configurable(Reference_Detector):
         
         self.min_width_norm = \
         self.ctrl_spec.attach_slider(
-                "min_width_norm", 
-                label = "Minimum Width", 
+                "min_width_norm",
+                label = "Minimum Width",
                 default_value = 0.10,
                 min_value = 0.0, max_value = 1.0, step_size = 1/100,
                 return_type = float,
@@ -150,8 +150,8 @@ class Configurable(Reference_Detector):
         
         self.min_height_norm = \
         self.ctrl_spec.attach_slider(
-                "min_height_norm", 
-                label = "Minimum Height", 
+                "min_height_norm",
+                label = "Minimum Height",
                 default_value = 0.10,
                 min_value = 0.0, max_value = 1.0, step_size = 1/100,
                 return_type = float,
@@ -164,8 +164,8 @@ class Configurable(Reference_Detector):
         
         self.max_width_norm = \
         self.ctrl_spec.attach_slider(
-                "max_width_norm", 
-                label = "Maximum Width", 
+                "max_width_norm",
+                label = "Maximum Width",
                 default_value = 0.95,
                 min_value = 0.0, max_value = 1.5, step_size = 1/100,
                 return_type = float,
@@ -174,8 +174,8 @@ class Configurable(Reference_Detector):
         
         self.max_height_norm = \
         self.ctrl_spec.attach_slider(
-                "max_height_norm", 
-                label = "Maximum Height", 
+                "max_height_norm",
+                label = "Maximum Height",
                 default_value = 0.95,
                 min_value = 0.0, max_value = 1.5, step_size = 1/100,
                 return_type = float,

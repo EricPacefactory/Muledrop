@@ -65,7 +65,7 @@ class Color_Filtered(Display_Window_Specification):
                  limit_wh = True):
         
         # Inherit from parent class
-        super().__init__("Color Filtered", layout_index, num_rows, num_columns, 
+        super().__init__("Color Filtered", layout_index, num_rows, num_columns,
                          initial_display = initial_display, drawing_json = drawing_json,
                          limit_wh = limit_wh)
         
@@ -111,7 +111,7 @@ def color_masked(stage_outputs, configurable_ref):
 
 # .....................................................................................................................
     
-def draw_bgr_rect_region(hsv_display_frame, top_left, bot_right, invert_region, 
+def draw_bgr_rect_region(hsv_display_frame, top_left, bot_right, invert_region,
                          conversion_code, bg_color = (0, 0, 0), fg_color = None):
     
     '''

@@ -68,7 +68,7 @@ class Display_Window_Specification:
     
     # .................................................................................................................
     
-    def __init__(self, name, layout_index, num_rows = 2, num_columns = 2, 
+    def __init__(self, name, layout_index, num_rows = 2, num_columns = 2,
                  *, initial_display = False, provide_mouse_xy = False, drawing_json = None, limit_wh = True):
         
         # Store display specification, so we can use it to build displays as needed
@@ -110,7 +110,7 @@ class Display_Window_Specification:
     
     # .................................................................................................................
     
-    def display(self, stage_outputs, configurable_ref, mouse_xy, 
+    def display(self, stage_outputs, configurable_ref, mouse_xy,
                 current_frame_index, current_epoch_ms, current_datetime):
         return stage_outputs["video_capture_input"]["video_frame"]
     
@@ -144,15 +144,15 @@ class Matched_Size_Display(Display_Window_Specification):
     # .................................................................................................................
     
     def __init__(self, window_name, display_stage, display_name, reference_stage, reference_name,
-                 layout_index, num_rows, num_columns, 
-                 initial_display = False, 
+                 layout_index, num_rows, num_columns,
+                 initial_display = False,
                  provide_mouse_xy = False,
                  drawing_json = None,
                  limit_wh = False,
                  interpolation_type = cv2.INTER_NEAREST):
         
         # Inherit from parent class
-        super().__init__(window_name, layout_index, num_rows, num_columns, 
+        super().__init__(window_name, layout_index, num_rows, num_columns,
                          initial_display = initial_display, provide_mouse_xy = provide_mouse_xy,
                          drawing_json = drawing_json, limit_wh = limit_wh)
         
@@ -165,7 +165,7 @@ class Matched_Size_Display(Display_Window_Specification):
         
     # .................................................................................................................
         
-    def display(self, stage_outputs, configurable_ref, mouse_xy, 
+    def display(self, stage_outputs, configurable_ref, mouse_xy,
                 current_frame_index, current_epoch_ms, current_datetime):
         
         # Get display & reference frames
@@ -175,7 +175,7 @@ class Matched_Size_Display(Display_Window_Specification):
         # Get the size of the reference frame, so we can match the display frame to it
         display_height, display_width = reference_sized_frame.shape[0:2]
         
-        return cv2.resize(display_frame, dsize = (display_width, display_height), 
+        return cv2.resize(display_frame, dsize = (display_width, display_height),
                           interpolation = self.interpolation_type)
         
     # .................................................................................................................
@@ -191,20 +191,20 @@ class Input_Display(Display_Window_Specification):
     
     # .................................................................................................................
     
-    def __init__(self, layout_index, num_rows, num_columns, 
+    def __init__(self, layout_index, num_rows, num_columns,
                  initial_display = False, provide_mouse_xy = False, drawing_json = None, limit_wh = False,
                  window_name = "Input"):
         
         # Inherit from parent class
-        super().__init__(window_name, layout_index, num_rows, num_columns, 
-                         initial_display = initial_display, 
+        super().__init__(window_name, layout_index, num_rows, num_columns,
+                         initial_display = initial_display,
                          provide_mouse_xy = provide_mouse_xy,
                          drawing_json = drawing_json,
                          limit_wh = limit_wh)
         
     # .................................................................................................................
         
-    def display(self, stage_outputs, configurable_ref, mouse_xy, 
+    def display(self, stage_outputs, configurable_ref, mouse_xy,
                 current_frame_index, current_epoch_ms, current_datetime):
         return stage_outputs["video_capture_input"]["video_frame"]
         
@@ -218,20 +218,20 @@ class Background_Display(Display_Window_Specification):
     
     # .................................................................................................................
     
-    def __init__(self, layout_index, num_rows, num_columns, 
+    def __init__(self, layout_index, num_rows, num_columns,
                  initial_display = False, provide_mouse_xy = False, drawing_json = None, limit_wh = True,
                  window_name = "Background"):
         
         # Inherit from parent class
-        super().__init__(window_name, layout_index, num_rows, num_columns, 
-                         initial_display = initial_display, 
+        super().__init__(window_name, layout_index, num_rows, num_columns,
+                         initial_display = initial_display,
                          provide_mouse_xy = provide_mouse_xy,
                          drawing_json = drawing_json,
                          limit_wh = limit_wh)
         
     # .................................................................................................................
         
-    def display(self, stage_outputs, configurable_ref, mouse_xy, 
+    def display(self, stage_outputs, configurable_ref, mouse_xy,
                 current_frame_index, current_epoch_ms, current_datetime):
         return stage_outputs["video_capture_input"]["bg_frame"]
         
@@ -248,20 +248,20 @@ class Preprocessed_Display(Display_Window_Specification):
     
     # .................................................................................................................
     
-    def __init__(self, layout_index, num_rows, num_columns, 
+    def __init__(self, layout_index, num_rows, num_columns,
                  initial_display = False, provide_mouse_xy = False, drawing_json = None, limit_wh = True,
                  window_name = "Preprocessed"):
         
         # Inherit from parent class
-        super().__init__(window_name, layout_index, num_rows, num_columns, 
-                         initial_display = initial_display, 
+        super().__init__(window_name, layout_index, num_rows, num_columns,
+                         initial_display = initial_display,
                          provide_mouse_xy = provide_mouse_xy,
                          drawing_json = drawing_json,
                          limit_wh = limit_wh)
         
     # .................................................................................................................
         
-    def display(self, stage_outputs, configurable_ref, mouse_xy, 
+    def display(self, stage_outputs, configurable_ref, mouse_xy,
                 current_frame_index, current_epoch_ms, current_datetime):
         return stage_outputs["preprocessor"]["preprocessed_frame"]
         
@@ -275,20 +275,20 @@ class Preprocessed_BG_Display(Display_Window_Specification):
     
     # .................................................................................................................
     
-    def __init__(self, layout_index, num_rows, num_columns, 
+    def __init__(self, layout_index, num_rows, num_columns,
                  initial_display = False, provide_mouse_xy = False, drawing_json = None, limit_wh = True,
                  window_name = "Preprocessed Background"):
         
         # Inherit from parent class
-        super().__init__(window_name, layout_index, num_rows, num_columns, 
-                         initial_display = initial_display, 
+        super().__init__(window_name, layout_index, num_rows, num_columns,
+                         initial_display = initial_display,
                          provide_mouse_xy = provide_mouse_xy,
                          drawing_json = drawing_json,
                          limit_wh = limit_wh)
         
     # .................................................................................................................
         
-    def display(self, stage_outputs, configurable_ref, mouse_xy, 
+    def display(self, stage_outputs, configurable_ref, mouse_xy,
                 current_frame_index, current_epoch_ms, current_datetime):
         return stage_outputs["preprocessor"]["preprocessed_bg_frame"]
         
@@ -305,14 +305,14 @@ class Binary_Display(Matched_Size_Display):
     
     # .................................................................................................................
     
-    def __init__(self, layout_index, num_rows, num_columns, 
+    def __init__(self, layout_index, num_rows, num_columns,
                  initial_display = False, provide_mouse_xy = False, drawing_json = None, limit_wh = True):
         
         # Inherit from parent class
-        super().__init__("Binary Output", 
-                         "foreground_extractor", "binary_frame_1ch", 
+        super().__init__("Binary Output",
+                         "foreground_extractor", "binary_frame_1ch",
                          "preprocessor", "preprocessed_frame",
-                         layout_index, num_rows, num_columns, 
+                         layout_index, num_rows, num_columns,
                          initial_display = initial_display,
                          provide_mouse_xy = provide_mouse_xy,
                          drawing_json = drawing_json,
@@ -328,14 +328,14 @@ class Filtered_Binary_Display(Matched_Size_Display):
     
     # .................................................................................................................
     
-    def __init__(self, layout_index, num_rows, num_columns, 
+    def __init__(self, layout_index, num_rows, num_columns,
                  initial_display = False, provide_mouse_xy = False, drawing_json = None, limit_wh = True):
         
         # Inherit from parent class
-        super().__init__("Filtered Binary Output", 
-                         "pixel_filter", "filtered_binary_frame_1ch", 
+        super().__init__("Filtered Binary Output",
+                         "pixel_filter", "filtered_binary_frame_1ch",
                          "preprocessor", "preprocessed_frame",
-                         layout_index, num_rows, num_columns, 
+                         layout_index, num_rows, num_columns,
                          initial_display = initial_display,
                          provide_mouse_xy = provide_mouse_xy,
                          drawing_json = drawing_json,
@@ -354,7 +354,7 @@ class Detection_Display(Display_Window_Specification):
     
     # .................................................................................................................
     
-    def __init__(self, layout_index, num_rows, num_columns, 
+    def __init__(self, layout_index, num_rows, num_columns,
                  initial_display = False, provide_mouse_xy = False, drawing_json = None, limit_wh = True,
                  window_name = "Detection",
                  show_outlines = True,
@@ -362,8 +362,8 @@ class Detection_Display(Display_Window_Specification):
                  line_color = (255, 255, 0)):
         
         # Inherit from parent class
-        super().__init__(window_name, layout_index, num_rows, num_columns, 
-                         initial_display = initial_display, 
+        super().__init__(window_name, layout_index, num_rows, num_columns,
+                         initial_display = initial_display,
                          provide_mouse_xy = provide_mouse_xy,
                          drawing_json = drawing_json,
                          limit_wh = limit_wh)
@@ -375,7 +375,7 @@ class Detection_Display(Display_Window_Specification):
         
     # .................................................................................................................
         
-    def display(self, stage_outputs, configurable_ref, mouse_xy, 
+    def display(self, stage_outputs, configurable_ref, mouse_xy,
                 current_frame_index, current_epoch_ms, current_datetime):
         
         # Grab a copy of the color image that we can draw on
@@ -417,7 +417,7 @@ class Tracked_Display(Display_Window_Specification):
     
     # .................................................................................................................
     
-    def __init__(self, layout_index, num_rows, num_columns, 
+    def __init__(self, layout_index, num_rows, num_columns,
                  initial_display = False, provide_mouse_xy = False, drawing_json = None, limit_wh = True,
                  window_name = "Tracked",
                  show_ids = False,
@@ -428,10 +428,10 @@ class Tracked_Display(Display_Window_Specification):
                  line_color = (0, 255, 0)):
         
         # Inherit from parent class
-        super().__init__(window_name, layout_index, num_rows, num_columns, 
-                         initial_display = initial_display, 
+        super().__init__(window_name, layout_index, num_rows, num_columns,
+                         initial_display = initial_display,
                          provide_mouse_xy = provide_mouse_xy,
-                         drawing_json = drawing_json, 
+                         drawing_json = drawing_json,
                          limit_wh = limit_wh)
         
         # Store display configuration details
@@ -444,7 +444,7 @@ class Tracked_Display(Display_Window_Specification):
         
     # .................................................................................................................
         
-    def display(self, stage_outputs, configurable_ref, mouse_xy, 
+    def display(self, stage_outputs, configurable_ref, mouse_xy,
                 current_frame_index, current_epoch_ms, current_datetime):
         
         # Grab a of the preprocessed image that we can draw on it
@@ -454,14 +454,14 @@ class Tracked_Display(Display_Window_Specification):
         # Grab dictionary of tracked objects so we can draw them
         tracked_object_dict = stage_outputs["tracker"]["tracked_object_dict"]
         
-        return draw_objects_on_frame(tracked_frame, tracked_object_dict, 
-                                     self._show_ids, 
-                                     self._show_outlines, 
+        return draw_objects_on_frame(tracked_frame, tracked_object_dict,
+                                     self._show_ids,
+                                     self._show_outlines,
                                      self._show_bounding_boxes,
                                      self._show_trails,
                                      self._show_decay,
                                      current_epoch_ms,
-                                     outline_color = self._line_color, 
+                                     outline_color = self._line_color,
                                      box_color = self._line_color)
         
     # .................................................................................................................
@@ -478,7 +478,7 @@ class Validation_Display(Display_Window_Specification):
     
     # .................................................................................................................
     
-    def __init__(self, layout_index, num_rows, num_columns, 
+    def __init__(self, layout_index, num_rows, num_columns,
                  initial_display = False, provide_mouse_xy = False, drawing_json = None, limit_wh = True,
                  window_name = "Validation",
                  show_ids = False,
@@ -489,10 +489,10 @@ class Validation_Display(Display_Window_Specification):
                  line_color = (255, 0, 255)):
         
         # Inherit from parent class
-        super().__init__(window_name, layout_index, num_rows, num_columns, 
+        super().__init__(window_name, layout_index, num_rows, num_columns,
                          initial_display = initial_display,
                          provide_mouse_xy = provide_mouse_xy,
-                         drawing_json = drawing_json, 
+                         drawing_json = drawing_json,
                          limit_wh = limit_wh)
         
         # Store display configuration details
@@ -505,7 +505,7 @@ class Validation_Display(Display_Window_Specification):
     
     # .................................................................................................................
     
-    def display(self, stage_outputs, configurable_ref, mouse_xy, 
+    def display(self, stage_outputs, configurable_ref, mouse_xy,
                 current_frame_index, current_epoch_ms, current_datetime):
         
         # Grab a of the preprocessed image that we can draw on it
@@ -515,14 +515,14 @@ class Validation_Display(Display_Window_Specification):
         # Grab dictionary of validation objects so we can draw them
         validation_object_dict = stage_outputs["tracker"]["validation_object_dict"]
         
-        return draw_objects_on_frame(validations_frame, validation_object_dict, 
-                                     self._show_ids, 
-                                     self._show_outlines, 
+        return draw_objects_on_frame(validations_frame, validation_object_dict,
+                                     self._show_ids,
+                                     self._show_outlines,
                                      self._show_bounding_boxes,
                                      self._show_trails,
                                      self._show_decay,
                                      current_epoch_ms,
-                                     outline_color = self._line_color, 
+                                     outline_color = self._line_color,
                                      box_color = self._line_color)
         
     # .................................................................................................................
@@ -534,7 +534,7 @@ class Validation_Display(Display_Window_Specification):
 
 # .....................................................................................................................
     
-def draw_objects_on_frame(display_frame, object_dict, 
+def draw_objects_on_frame(display_frame, object_dict,
                           show_ids, show_outlines, show_bounding_boxes, show_trails, show_decay,
                           current_epoch_ms, outline_color, box_color):
     
@@ -619,8 +619,8 @@ def draw_mouse_centered_ellipse(display_frame, mouse_xy_array, ellipse_wh_px,
     
     # Get ellipse half-sizing in both dimensions to draw sizing properly
     elip_half_wh_px = np.int32(np.round(ellipse_wh_px / 2))
-    cv2.ellipse(display_frame, tuple(mouse_xy_array), tuple(elip_half_wh_px), 
-                angle_deg, start_angle_deg, end_angle_deg, 
+    cv2.ellipse(display_frame, tuple(mouse_xy_array), tuple(elip_half_wh_px),
+                angle_deg, start_angle_deg, end_angle_deg,
                 line_color, line_thickness, line_type)
     
     return display_frame
@@ -637,11 +637,11 @@ def draw_mouse_centered_circle(display_frame, mouse_xy_array, circle_radius_px,
 
 # .....................................................................................................................
 
-def mouse_follower_spec(shape, 
+def mouse_follower_spec(shape,
                         width_variable_name,
                         height_variable_name,
                         show_hide_variable_name = None,
-                        line_color = (255, 255, 0), 
+                        line_color = (255, 255, 0),
                         line_thickness = 1):
     
     ''' 

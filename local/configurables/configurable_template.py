@@ -435,7 +435,7 @@ class Core_Configurable_Base(Configurable_Base):
     
     # .................................................................................................................
     
-    def __init__(self, configurable_instance_type, location_select_folder_path, camera_select, 
+    def __init__(self, configurable_instance_type, location_select_folder_path, camera_select,
                  input_wh, *, file_dunder):
         
         '''

@@ -216,7 +216,7 @@ class Reference_Snapshot_Capture(Externals_Configurable_Base):
         
         '''
         Function used to trigger snapshots! Must return only a boolean.
-        This function is not responsible for saving/capturing the actual snapshot data, 
+        This function is not responsible for saving/capturing the actual snapshot data,
         it is only used to signal that the current frame should be saved.
         
         Returns:

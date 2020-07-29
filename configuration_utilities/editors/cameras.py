@@ -131,8 +131,8 @@ if selected_new:
     safe_camera_name = url_safe_name(user_response)
     
     # Make sure the given name isn't already taken
-    camera_name_list, _ = build_camera_list(all_locations_folder_path, 
-                                            show_hidden_cameras = True, 
+    camera_name_list, _ = build_camera_list(all_locations_folder_path,
+                                            show_hidden_cameras = True,
                                             must_have_rtsp = False)
     warn_for_name_taken(safe_camera_name, camera_name_list, quit_if_name_is_taken = True)
     

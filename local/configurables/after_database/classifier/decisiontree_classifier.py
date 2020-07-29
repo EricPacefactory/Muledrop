@@ -214,13 +214,13 @@ class Configurable(Reference_Classifier):
         t_start = perf_counter()
         if print_feedback:
             num_data_rows, num_data_cols = input_data_array.shape
-            print("", 
+            print("",
                   "Training classifier",
                   "Using {} rows, {} columns of data".format(num_data_rows, num_data_cols),
                   sep = "\n")
         
         # Train the classifier!
-        self._dtree = DecisionTreeClassifier(max_depth = self.max_tree_depth, 
+        self._dtree = DecisionTreeClassifier(max_depth = self.max_tree_depth,
                                              min_samples_split = self.min_samples_per_node,
                                              min_samples_leaf = self.min_samples_per_leaf)
         self._dtree.fit(input_data_array, target_output_array)
@@ -408,7 +408,7 @@ def save_classifier_resources(configurable_ref):
 
 # .....................................................................................................................
 
-def load_classifier_resources(location_select_folder_path, camera_select, 
+def load_classifier_resources(location_select_folder_path, camera_select,
                               error_if_missing = True):
     
     # Initialize outputs
@@ -441,8 +441,8 @@ def load_classifier_resources(location_select_folder_path, camera_select,
     newest_date_folder = date_folders_list[-1]
     multiple_date_folders = (len(date_folders_list) > 1)
     if multiple_date_folders:
-        print("", 
-              "WARNING:", 
+        print("",
+              "WARNING:",
               "  Multiple decision tree models detected!",
               ""
               "Only the newest model ({}) will be loaded.".format(newest_date_folder),
@@ -501,16 +501,16 @@ def sample_data_from_object(object_reconstruction, num_subsamples = 10, start_in
 def get_data_list(object_reconstruction, frame_idx_list, use_raw_trail_data = True):
     
     # For clarity, should match bundled output!
-    data_order = ["x", "y", 
-                  "dx", "dy", "vv", 
-                  "width", "height", 
+    data_order = ["x", "y",
+                  "dx", "dy", "vv",
+                  "width", "height",
                   "area", "aspectratio",
                   "x_width", "y_width", "xy_width",
                   "x_height", "y_height", "xy_height",
                   "x_area", "y_area", "xy_area"]
     
-    data_order = ["dx", "dy", "vv", 
-                  "width", "height", 
+    data_order = ["dx", "dy", "vv",
+                  "width", "height",
                   "area", "aspectratio",
                   "x_width", "y_width", "xy_width",
                   "x_height", "y_height", "xy_height",
@@ -564,7 +564,7 @@ def get_data_list(object_reconstruction, frame_idx_list, use_raw_trail_data = Tr
         
         # Bundle for clarity
         '''
-        output_entries = (x_cen, y_cen, 
+        output_entries = (x_cen, y_cen,
                           dx_norm, dy_norm, vv_norm,
                           width_norm, height_norm,
                           area_norm, aspect_ratio,

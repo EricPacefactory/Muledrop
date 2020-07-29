@@ -124,7 +124,7 @@ class Zoomed_Station_Display(Display_Window_Specification):
     
     # .................................................................................................................
         
-    def display(self, stage_outputs, configurable_ref, mouse_xy, 
+    def display(self, stage_outputs, configurable_ref, mouse_xy,
                 current_frame_index, current_epoch_ms, current_datetime):
         
         # Get frame for display
@@ -276,7 +276,7 @@ class Data_Display_3ch(Display_Window_Specification):
     
     # .................................................................................................................
     
-    def display(self, stage_outputs, configurable_ref, mouse_xy, 
+    def display(self, stage_outputs, configurable_ref, mouse_xy,
                 current_frame_index, current_epoch_ms, current_datetime):
         
         # Update the internal copy of the dataset
@@ -439,7 +439,7 @@ class Leveled_Data_Display(Data_Display_1ch):
                  display_height = 256):
         
         # Inherit from parent class
-        super().__init__(layout_index, num_rows, num_columns, initial_display, 
+        super().__init__(layout_index, num_rows, num_columns, initial_display,
                          window_name, ch1_color, minimum_value, maximum_value, display_width, display_height)
         
         # Store varibles unique to this class
@@ -484,7 +484,7 @@ def inmask_pixels_1ch(frame_1ch, mask_logical_1ch):
     This is useful when doing stats-based calculations on the pixels,
     since it avoids including the masked off values in the calculation.
     
-    Note however that because the masked-off pixels are removed, 
+    Note however that because the masked-off pixels are removed,
     the output is not suitable for any processing requiring spatial information!
     
     Inputs:
@@ -517,7 +517,7 @@ def inmask_pixels_3ch(frame_3ch, mask_logical_1ch):
     This is useful when doing stats-based calculations on the pixels,
     since it avoids including the masked off values in the calculation.
     
-    Note however that because the masked-off pixels are removed, 
+    Note however that because the masked-off pixels are removed,
     the output is not suitable for any processing requiring spatial information!
     
     Inputs:

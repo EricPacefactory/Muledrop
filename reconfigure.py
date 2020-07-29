@@ -169,7 +169,7 @@ def run_config_utility(config_utility_path):
         print("",
               "ERROR running configuration utility!",
               "@ {}".format(config_utility_path),
-              "", 
+              "",
               "Args: {}".format(" ".join(script_arg_list)),
               "",
               "Subprocess:",

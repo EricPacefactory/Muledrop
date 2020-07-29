@@ -105,8 +105,8 @@ def check_for_existing_resources(location_select_folder_path, camera_select):
 
 # .....................................................................................................................
 
-def generate_training_data(object_list, supervised_obj_labels_dict, 
-                           num_subsamples = 10, 
+def generate_training_data(object_list, supervised_obj_labels_dict,
+                           num_subsamples = 10,
                            start_inset = 0.02,
                            end_inset = 0.02,
                            print_feedback = True):
@@ -244,8 +244,8 @@ if resources_already_exist:
     use_existing_prompt = "Use existing classifier"
     train_new_prompt = "Train new classifier"
     selection_list = [use_existing_prompt, train_new_prompt]
-    selected_idx, selected_entry = cli_select_from_list(selection_list, 
-                                                        "What would you like to do?", 
+    selected_idx, selected_entry = cli_select_from_list(selection_list,
+                                                        "What would you like to do?",
                                                         default_selection = use_existing_prompt)
     
     # If use existing was chosen, prompt to save classifier 'config' and then we're done!
@@ -263,7 +263,7 @@ if resources_already_exist:
 
 sv_labels_exist = check_supervised_labels_exist(*pathing_args)
 if not sv_labels_exist:
-    print("", 
+    print("",
           "No supervised labels were found for:",
           "  camera: {}".format(camera_select),
           "",

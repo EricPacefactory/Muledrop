@@ -159,7 +159,7 @@ class Reference_Rule(After_Database_Configurable_Base):
         '''
         Function which performs actual rule evaluation, given some 'object_data' 
         and access to the snapshot database, if needed.
-        Note that the object data can be in any format, 
+        Note that the object data can be in any format,
         depending on how it is output from the process_object_metadata() function.
         
         Must return:

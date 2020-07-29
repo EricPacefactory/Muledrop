@@ -114,7 +114,7 @@ class Reference_FG_Extractor(Core_Configurable_Base):
         # Make sure binary frame data is returned (i.e. only has a single channel)
         binary_frame_1ch = self._apply_fg_extraction(preprocessed_frame)
         
-        return {"binary_frame_1ch": binary_frame_1ch, 
+        return {"binary_frame_1ch": binary_frame_1ch,
                 "preprocessed_frame": preprocessed_frame,
                 "preprocessed_bg_frame": preprocessed_bg_frame,
                 "bg_update": bg_update}

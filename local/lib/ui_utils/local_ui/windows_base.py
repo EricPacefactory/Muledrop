@@ -66,7 +66,7 @@ class Simple_Window:
     
     # ................................................................................................................. 
     
-    def __init__(self, window_name, 
+    def __init__(self, window_name,
                  frame_wh = None,
                  provide_mouse_xy = False,
                  create_on_startup = True):
@@ -562,25 +562,25 @@ class Control_Window(Simple_Window):
         '''
         variable_name,
         label,
-        default_value, 
-        min_value, 
-        max_value, 
-        step_size = 1, 
-        units = None, 
-        return_type = float, 
+        default_value,
+        min_value,
+        max_value,
+        step_size = 1,
+        units = None,
+        return_type = float,
         zero_referenced = False,
-        force_min = True, 
-        force_max = True, 
-        force_step = True, 
-        tooltip = "", 
+        force_min = True,
+        force_max = True,
+        force_step = True,
+        tooltip = "",
         visible = True
         '''
         
         # Pull outdata that allows us to createa regular slider 
         # (numerical entry doesn't behave differently from a slider when using the local ui!)
-        grab_slider_keys = ["variable_name", "label", "default_value", 
-                            "min_value", "max_value", "step_size", 
-                            "units", "return_type", "zero_referenced", 
+        grab_slider_keys = ["variable_name", "label", "default_value",
+                            "min_value", "max_value", "step_size",
+                            "units", "return_type", "zero_referenced",
                             "tooltip", "visible"]
         slider_config_data = {each_key: config_data[each_key] for each_key in grab_slider_keys}
         
@@ -592,11 +592,11 @@ class Control_Window(Simple_Window):
         
         # Expects
         '''
-        variable_name, 
+        variable_name,
         label,
         default_value,
         option_label_value_dict,
-        tooltip = "", 
+        tooltip = "",
         visible = True
         '''
         
@@ -628,11 +628,11 @@ class Control_Window(Simple_Window):
         
         # Expects
         '''
-        variable_name, 
-        label, 
-        default_value, 
+        variable_name,
+        label,
+        default_value,
         return_type = bool,
-        tooltip = "", 
+        tooltip = "",
         visible = True
         '''
         
@@ -668,7 +668,7 @@ class Slideshow_Window(Simple_Window):
     
     # .................................................................................................................
     
-    def __init__(self, window_name, 
+    def __init__(self, window_name,
                  frame_wh = None,
                  missing_image_test = "No image...",
                  max_storage = 10):
@@ -704,7 +704,7 @@ class Slideshow_Window(Simple_Window):
         
         # Draw an empty frame with some text indicating that no image is available
         blank_frame = np.zeros((frame_height, frame_width, 3), dtype=np.uint8)
-        cv2.putText(blank_frame, missing_image_test, 
+        cv2.putText(blank_frame, missing_image_test,
                     (10, 35), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 1, cv2.LINE_AA)
         
         # Fill in frame deque with blank frames
@@ -768,7 +768,7 @@ class Max_WH_Window(Simple_Window):
     
     # .................................................................................................................
     
-    def __init__(self, window_name, 
+    def __init__(self, window_name,
                  frame_wh = None,
                  max_wh = None,
                  interpolation_type = cv2.INTER_NEAREST,
@@ -825,7 +825,7 @@ class Max_WH_Window(Simple_Window):
         # Figure out scaled width/height values and apply resizing!
         scaled_width = int(display_width / max_scale)
         scaled_height = int(display_height / max_scale)
-        return cv2.resize(display_frame, dsize = (scaled_width, scaled_height), 
+        return cv2.resize(display_frame, dsize = (scaled_width, scaled_height),
                           interpolation = self.interpolation_type)
         
     # .................................................................................................................
@@ -902,7 +902,7 @@ class Drawing_Window(Simple_Window):
         key_text = lambda key_code, info: "  [{}] {}".format(keycolor(key_code), info)
         
         # Big printout to explain how to do drawing stuff
-        print("", 
+        print("",
               "",
               "",
               Color(full_heading_str.upper()).bold.invert,
@@ -1039,8 +1039,8 @@ class Mouse_Follower:
         
         drawn_frame = display_frame.copy()
         cv2.circle(drawn_frame, xy_tuple, point_radius, point_color, -1, cv2.LINE_AA)
-        cv2.putText(drawn_frame, 
-                    "({:.0f}, {:.0f})".format(*xy_tuple), 
+        cv2.putText(drawn_frame,
+                    "({:.0f}, {:.0f})".format(*xy_tuple),
                     text_xy,
                     cv2.FONT_HERSHEY_SIMPLEX,
                     0.5,
@@ -1119,7 +1119,7 @@ def minceil_affine(min_value, max_value, step_size = 1, return_type = None):
 def value_list_lookup(value_list):
     
     def raw_to_map_func(raw_value):
-        # For menus, the raw value is the trackbar location, 
+        # For menus, the raw value is the trackbar location,
         # which selects a value from the value list as a simple (list) index
         return value_list[raw_value]
     

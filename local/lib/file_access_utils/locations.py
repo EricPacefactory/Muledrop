@@ -136,10 +136,10 @@ def build_location_info_dict(host_ip, ssh_username, ssh_password, dbserver_port,
     
     ''' Helper function used to create consistently formatted location info data '''
     
-    location_info_dict = {"host": host_ip, 
-                          "ssh_username": ssh_username, 
+    location_info_dict = {"host": host_ip,
+                          "ssh_username": ssh_username,
                           "ssh_password": ssh_password,
-                          "dbserver_port": dbserver_port, 
+                          "dbserver_port": dbserver_port,
                           "ctrlserver_port": ctrlserver_port}
     
     return location_info_dict

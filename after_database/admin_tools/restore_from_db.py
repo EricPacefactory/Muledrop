@@ -214,7 +214,7 @@ def request_bounding_times(server_url, camera_select):
 def request_camerainfo_metadata(server_url, camera_select, start_epoch_ms, end_epoch_ms):
     
     # Build route for requesting all camera info metadata
-    request_url = build_request_url(server_url, camera_select, "camerainfo", 
+    request_url = build_request_url(server_url, camera_select, "camerainfo",
                                     "get-many-metadata", "by-time-range",
                                     start_epoch_ms, end_epoch_ms)
     
@@ -326,7 +326,7 @@ def request_background_metadata(server_url, camera_select, start_epoch_ms, end_e
     
     # Build route for requesting all metadata between a start/end time
     request_url = build_request_url(server_url, camera_select, "backgrounds",
-                                    "get-many-metadata", "by-time-range", 
+                                    "get-many-metadata", "by-time-range",
                                     start_epoch_ms, end_epoch_ms)
     
     many_background_metadata_list = get_json(request_url)
@@ -504,7 +504,7 @@ def request_snapshot_metadata(server_url, camera_select, start_epoch_ms, end_epo
     
     # Build route for requesting all metadata between a start/end time
     request_url = build_request_url(server_url, camera_select, "snapshots",
-                                    "get-many-metadata", "by-time-range", 
+                                    "get-many-metadata", "by-time-range",
                                     start_epoch_ms, end_epoch_ms)
     
     # If we're skipping snapshots, use a diferent request route
@@ -552,7 +552,7 @@ def save_snapshot_images(server_url, location_select_folder_path, camera_select,
         save_path = os.path.join(base_save_folder, file_name)
         
         # Build route for requesting one image using an epoch_ms value
-        image_request_url = build_request_url(server_url, camera_select, "snapshots", 
+        image_request_url = build_request_url(server_url, camera_select, "snapshots",
                                               "get-one-image", "by-ems", snap_epoch_ms)
         
         # Request image data and save to disk
@@ -657,7 +657,7 @@ if use_downsampling:
 # Provide feedback, in case user doesn't want to download the data
 start_dt_str = user_start_dt.strftime(DTIP.datetime_format)
 end_dt_str = user_end_dt.strftime(DTIP.datetime_format)
-print("","", 
+print("","",
       "--- DATA TO DOWNLOAD ---",
       "",
       "  {} (start)".format(start_dt_str),
@@ -685,8 +685,8 @@ location_select_folder_path = selector.get_location_select_folder_path(location_
 selector.create_empty_camera_folder(location_select, camera_select)
 
 # Remove existing data, if needed
-delete_existing_report_data(location_select_folder_path, camera_select, 
-                            enable_deletion = True, 
+delete_existing_report_data(location_select_folder_path, camera_select,
+                            enable_deletion = True,
                             enable_deletion_prompt = True)
 
 # Get camera info
@@ -730,7 +730,7 @@ if station_count > 0:
 if snapshot_count > 0:
 
     # Request all snapshot metadata
-    many_snapshot_metadata_list = request_snapshot_metadata(server_url, camera_select, 
+    many_snapshot_metadata_list = request_snapshot_metadata(server_url, camera_select,
                                                             start_epoch_ms, end_epoch_ms,
                                                             skip_n_snapshots)
     

@@ -74,7 +74,7 @@ class Station_Display(Zoomed_Station_Display):
         
     # .................................................................................................................
         
-    def display(self, stage_outputs, configurable_ref, mouse_xy, 
+    def display(self, stage_outputs, configurable_ref, mouse_xy,
                 current_frame_index, current_epoch_ms, current_datetime):
         
         # Apply colormapping then zoom & add a border to the final display frame

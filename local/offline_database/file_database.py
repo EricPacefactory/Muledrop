@@ -636,7 +636,7 @@ class Rule_Info_DB(File_DB):
         rule_info_result_dict = {}
         for each_rule_name, each_rule_type, each_configuration_json in rule_info_list:
             configuration_dict = fast_json_to_dict(each_configuration_json)            
-            rule_info_result_dict[each_rule_name] = {"rule_type": each_rule_type, 
+            rule_info_result_dict[each_rule_name] = {"rule_type": each_rule_type,
                                                      "configuration": configuration_dict}
         
         return rule_info_result_dict
@@ -688,7 +688,7 @@ class Snap_DB(File_DB):
                          db_path, check_same_thread, debug_connect)
         
         # Set up pathing to load image data
-        self.snap_images_folder_path = build_snapshot_image_report_path(location_select_folder_path, 
+        self.snap_images_folder_path = build_snapshot_image_report_path(location_select_folder_path,
                                                                         camera_select)
             
         # Check that the snapshot path is valid before continuing
@@ -752,7 +752,7 @@ class Snap_DB(File_DB):
         end_epoch_ms = any_time_type_to_epoch_ms(end_time)
         
         # Build command string for getting all snapshot times between start/end
-        select_cmd = "SELECT epoch_ms FROM {} WHERE epoch_ms BETWEEN {} and {}".format(self._table_name, 
+        select_cmd = "SELECT epoch_ms FROM {} WHERE epoch_ms BETWEEN {} and {}".format(self._table_name,
                                                                                        start_epoch_ms,
                                                                                        end_epoch_ms)
         
@@ -855,8 +855,8 @@ class Snap_DB(File_DB):
         
         
         # Build selection commands
-        select_cmd = "SELECT {} FROM {} WHERE epoch_ms = {}".format(self._metadata_key, 
-                                                                    self._table_name, 
+        select_cmd = "SELECT {} FROM {} WHERE epoch_ms = {}".format(self._metadata_key,
+                                                                    self._table_name,
                                                                     target_epoch_ms)
         
         # Get data from database!
@@ -1364,10 +1364,10 @@ class Rule_DB(File_DB):
         rule_report_folder_path = build_rule_adb_metadata_report_path(location_select_folder_path, camera_select)
         
         # Get all reporting folders
-        rule_report_folders_list = get_folder_list(rule_report_folder_path, 
-                                                   show_hidden_folders = False, 
-                                                   create_missing_folder = False, 
-                                                   return_full_path = False, 
+        rule_report_folders_list = get_folder_list(rule_report_folder_path,
+                                                   show_hidden_folders = False,
+                                                   create_missing_folder = False,
+                                                   return_full_path = False,
                                                    sort_list = False)
         
         # Build a set containing all rule names (based on folder names)
@@ -1461,7 +1461,7 @@ def post_config_info_report_metadata(location_select_folder_path, camera_select,
 def post_snapshot_report_metadata(location_select_folder_path, camera_select, database):
     
     # Build pathing to snapshot report data
-    snapshot_metadata_folder_path = build_snapshot_metadata_report_path(location_select_folder_path, 
+    snapshot_metadata_folder_path = build_snapshot_metadata_report_path(location_select_folder_path,
                                                                         camera_select)
     
     time_taken_sec = post_from_folder_path(snapshot_metadata_folder_path, database)
@@ -1473,7 +1473,7 @@ def post_snapshot_report_metadata(location_select_folder_path, camera_select, da
 def post_object_report_metadata(location_select_folder_path, camera_select, database):
     
     # Build pathing to object report data
-    object_metadata_folder_path = build_object_metadata_report_path(location_select_folder_path, 
+    object_metadata_folder_path = build_object_metadata_report_path(location_select_folder_path,
                                                                     camera_select)
     
     time_taken_sec = post_from_folder_path(object_metadata_folder_path, database)
@@ -1497,7 +1497,7 @@ def post_stations_report_data(location_select_folder_path, camera_select, databa
 def post_classifier_report_data(location_select_folder_path, camera_select, database):
     
     # Build pathing to object classification report data
-    classifier_adb_metadata_folder_path = build_classifier_adb_metadata_report_path(location_select_folder_path, 
+    classifier_adb_metadata_folder_path = build_classifier_adb_metadata_report_path(location_select_folder_path,
                                                                                     camera_select)
     
     time_taken_sec = post_from_folder_path(classifier_adb_metadata_folder_path, database)
@@ -1535,7 +1535,7 @@ def post_rule_report_data(location_select_folder_path, camera_select, rule_name,
 def post_rule_info_report_metadata(location_select_folder_path, camera_select, database):
     
     # Build pathing to object report data
-    rule_info_metadata_folder_path = build_rule_adb_info_report_path(location_select_folder_path, 
+    rule_info_metadata_folder_path = build_rule_adb_info_report_path(location_select_folder_path,
                                                                      camera_select)
     
     time_taken_sec = post_from_folder_path(rule_info_metadata_folder_path, database)
@@ -1681,7 +1681,7 @@ def launch_rule_dbs(location_select_folder_path, camera_select,
 
 # .....................................................................................................................
 
-def close_dbs_if_missing_data(*database_refs, 
+def close_dbs_if_missing_data(*database_refs,
                               error_message_if_missing = "Missing data in database"):
     
     ''' 

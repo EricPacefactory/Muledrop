@@ -67,8 +67,8 @@ class Dying_Display(Display_Window_Specification):
                  window_name = "Dying Objects"):
         
         # Inherit from parent class
-        super().__init__(window_name, layout_index, num_rows, num_columns, 
-                         initial_display = initial_display, 
+        super().__init__(window_name, layout_index, num_rows, num_columns,
+                         initial_display = initial_display,
                          limit_wh = False)
         
         

@@ -107,7 +107,7 @@ def build_camera_list(location_select_folder_path, show_hidden_cameras = False, 
     # Find all the camera folders within the 'cameras' folder
     camera_path_list = get_folder_list(location_select_folder_path,
                                        show_hidden_folders = show_hidden_cameras,
-                                       create_missing_folder = False, 
+                                       create_missing_folder = False,
                                        return_full_path = True)
     camera_name_list = [os.path.basename(each_path) for each_path in camera_path_list]
     

@@ -72,8 +72,8 @@ class Color_Map(Display_Window_Specification):
     def __init__(self, layout_index, num_rows, num_columns, initial_display = False):
         
         # Inherit from parent class
-        super().__init__("Color Map", layout_index, num_rows, num_columns, 
-                         initial_display = initial_display, 
+        super().__init__("Color Map", layout_index, num_rows, num_columns,
+                         initial_display = initial_display,
                          limit_wh = False)
         
         # Create circular hsv image
@@ -134,7 +134,7 @@ class Color_Map(Display_Window_Specification):
 def create_square_hsv_image(image_size_px, value = 255):
     
     # Create circular hsv image
-    mesh_x, mesh_y = np.meshgrid(np.linspace(0, 255, image_size_px, dtype=np.uint8), 
+    mesh_x, mesh_y = np.meshgrid(np.linspace(0, 255, image_size_px, dtype=np.uint8),
                                  np.linspace(0, 255, image_size_px, dtype=np.uint8))
     
     # Assign hsv channels
@@ -153,7 +153,7 @@ def create_square_hsv_image(image_size_px, value = 255):
 def create_circular_hsv_image(image_size_px):
     
     # Create circular hsv image
-    radial_mesh_x, radial_mesh_y = np.meshgrid(np.linspace(-1.0, 1.0, image_size_px), 
+    radial_mesh_x, radial_mesh_y = np.meshgrid(np.linspace(-1.0, 1.0, image_size_px),
                                                np.linspace(-1.0, 1.0, image_size_px))
     hue_frame = 255.0 * (0.5 + (np.arctan2(radial_mesh_y, radial_mesh_x) / (2*np.pi)))
     sat_frame = 255.0 * np.sqrt(np.square(radial_mesh_x) + np.square(radial_mesh_y))

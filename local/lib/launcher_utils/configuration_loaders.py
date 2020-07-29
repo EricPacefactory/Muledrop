@@ -412,7 +412,7 @@ class File_Configuration_Loader:
         shared_config = self._get_shared_config()
         
         # Retreive unwarping settings
-        unwarp_config = {"enable_preprocessor_unwarp": self.enable_unwarp, 
+        unwarp_config = {"enable_preprocessor_unwarp": self.enable_unwarp,
                          "unwarp_function": self.unwarp_function}
         
         # Load & configure the object capturer
@@ -1105,7 +1105,7 @@ class Reconfigurable_Background_Capture_Loader(Reconfigurable_Loader):
         new_bgcap.toggle_threaded_saving(self.threading_enabled)
         
         # Give user warning about file i/o usage
-        print("", 
+        print("",
               "",
               "WARNING:",
               "  Data saving (background capture & generated images) will be enabled for configuration purposes!",
@@ -1168,7 +1168,7 @@ class Reconfigurable_Object_Capture_Loader(Reconfigurable_Loader):
         shared_config = self._get_shared_config()
         
         # Retreive unwarping settings
-        unwarp_config = {"enable_preprocessor_unwarp": self.enable_unwarp, 
+        unwarp_config = {"enable_preprocessor_unwarp": self.enable_unwarp,
                          "unwarp_function": self.unwarp_function}
         
         # Load & configure the object capturer

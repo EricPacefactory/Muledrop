@@ -220,7 +220,7 @@ class Hover_Object(Smooth_Hover_Object_Reconstruction):
                  smoothing_factor = 0.015):
         
         # Inherit from parent class
-        super().__init__(object_metadata, frame_wh, global_start_datetime_isoformat, global_end_datetime_isoformat, 
+        super().__init__(object_metadata, frame_wh, global_start_datetime_isoformat, global_end_datetime_isoformat,
                          smoothing_factor)
         
         # Calculate the object velocity plot on setup, so we can easily re-use it
@@ -235,7 +235,7 @@ class Hover_Object(Smooth_Hover_Object_Reconstruction):
         
     # .................................................................................................................
     
-    def draw_speed_plot(self, median_max_velo, 
+    def draw_speed_plot(self, median_max_velo,
                         frame_index = None, frame_width = 640, frame_height = 360, bg_color = (40,40,40)):
         
         # Create a frame to draw in, which matches the 'empty' frame size
@@ -288,7 +288,7 @@ class Hover_Object(Smooth_Hover_Object_Reconstruction):
         med_color = (75, 0, 210)
         median_velo_y = int(y2 - plot_height * (median_max_velo / y_max))
         cv2.line(speed_frame, (x1, median_velo_y), (x2, median_velo_y), med_color, 1)
-        simple_text(speed_frame, "(Median of max velocities)", (x1 + 2, median_velo_y - 2), 
+        simple_text(speed_frame, "(Median of max velocities)", (x1 + 2, median_velo_y - 2),
                     scale = 0.35, color = med_color)
         
         # Draw speed plot
@@ -318,7 +318,7 @@ class Hover_Object(Smooth_Hover_Object_Reconstruction):
 
 # .....................................................................................................................
 
-def show_looping_animation(snapshot_database, object_database, object_to_animate, 
+def show_looping_animation(snapshot_database, object_database, object_to_animate,
                            speed_plot_window_ref, median_max_velo, window_x = 50, window_y = 50,
                            start_buffer_time_sec = 3.0, end_buffer_time_sec = 5.5):
     
@@ -470,7 +470,7 @@ obj_metadata_generator = obj_db.load_metadata_by_time_range(user_start_dt, user_
 # Create dictionary of 'reconstructed' objects based on object metadata
 obj_dict = Hover_Object.create_reconstruction_dict(obj_metadata_generator,
                                                    frame_wh,
-                                                   user_start_dt, 
+                                                   user_start_dt,
                                                    user_end_dt,
                                                    smoothing_factor = 0.015)
 

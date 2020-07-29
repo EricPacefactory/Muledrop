@@ -65,7 +65,7 @@ class Base_Video_Reader:
     
     # .................................................................................................................
     
-    def __init__(self, video_source, video_type, 
+    def __init__(self, video_source, video_type,
                  start_datetime_isoformat = None, timelapse_factor = None):
         
         # Store video access info
@@ -138,7 +138,7 @@ class Base_Video_Reader:
         
         '''
         Function used to return the decoded result after calling no_decode_read()
-        Calling no_decode_read() followed by decode_read() is equivalent to read(), 
+        Calling no_decode_read() followed by decode_read() is equivalent to read(),
         but if frames are being skipped, skipping the decode_read() call can speed things up considerably!
         '''
         
@@ -246,7 +246,7 @@ class Threaded_File_Video_Reader(Base_Video_Reader):
         self._sync_frame_index = 0
         
         # Inherit from parent
-        super().__init__(video_source, 
+        super().__init__(video_source,
                          video_type = "file",
                          start_datetime_isoformat = start_datetime_isoformat,
                          timelapse_factor = timelapse_factor)
@@ -341,7 +341,7 @@ class Threaded_File_Video_Reader(Base_Video_Reader):
             video_frame_index = -1
         
         # Figure out shared timing parameters
-        current_frame_index, current_epoch_ms, current_datetime = self.timekeeper.get_file_timing(video_time_ms, 
+        current_frame_index, current_epoch_ms, current_datetime = self.timekeeper.get_file_timing(video_time_ms,
                                                                                                   video_frame_index)
 
         return current_frame_index, current_epoch_ms, current_datetime
@@ -443,7 +443,7 @@ class File_Video_Reader(Base_Video_Reader):
                                                                                         video_select)
         
         # Inherit from parent
-        super().__init__(video_source, 
+        super().__init__(video_source,
                          video_type = "file",
                          start_datetime_isoformat = start_datetime_isoformat,
                          timelapse_factor = timelapse_factor)
@@ -463,7 +463,7 @@ class File_Video_Reader(Base_Video_Reader):
             video_frame_index = -1
         
         # Figure out shared timing parameters
-        current_frame_index, current_epoch_ms, current_datetime = self.timekeeper.get_file_timing(video_time_ms, 
+        current_frame_index, current_epoch_ms, current_datetime = self.timekeeper.get_file_timing(video_time_ms,
                                                                                                   video_frame_index)
 
         return current_frame_index, current_epoch_ms, current_datetime
@@ -577,7 +577,7 @@ class RTSP_Video_Reader(Base_Video_Reader):
     
     def set_current_frame(self, frame_index):
         
-        print("", 
+        print("",
               "WARNING",
               "  Trying to set the video frame index ({})".format(frame_index),
               "  But this isn't possible on RTSP video streams!",

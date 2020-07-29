@@ -23,8 +23,8 @@
   --accent_3: rgb(143, 192, 62);
 
   --page_accent: rgb(83, 83, 83);
-  --page_background: linear-gradient(180deg, 
-                                     var(--page_accent) 5%, 
+  --page_background: linear-gradient(180deg,
+                                     var(--page_accent) 5%,
                                      var(--dark_background) 100%);
 }
 
@@ -73,7 +73,7 @@ header {
   font-size: 2.5em;
   font-variant: small-caps;
   color: var(--bright_text);
-  text-shadow: -2px -2px 0 #000, 2px -2px 0 #000, 
+  text-shadow: -2px -2px 0 #000, 2px -2px 0 #000,
                -2px  2px 0 #000, 2px  2px 0 #000;
 
   align-self: end;

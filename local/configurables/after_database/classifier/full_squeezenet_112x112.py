@@ -109,8 +109,8 @@ class Configurable(Reference_Classifier):
         
         self.number_frames_to_classify = \
         self.ctrl_spec.attach_slider(
-                "number_frames_to_classify", 
-                label = "Frames for classification", 
+                "number_frames_to_classify",
+                label = "Frames for classification",
                 default_value = 3,
                 min_value = 1,
                 max_value = 9,
@@ -124,8 +124,8 @@ class Configurable(Reference_Classifier):
         
         self.model_file_name_no_ext = \
         self.ctrl_spec.attach_menu(
-                "model_file_name_no_ext", 
-                label = "Model File Name", 
+                "model_file_name_no_ext",
+                label = "Model File Name",
                 default_value = default_control_value,
                 option_label_value_list = control_label_value_list,
                 tooltip = "Set the model file name to load in (with no extension)",
@@ -156,7 +156,7 @@ class Configurable(Reference_Classifier):
     def setup(self, variables_changed_dict):
         
         # Load model using the (configured) model file
-        self.classifier_model = Full_SqueezeNet_112x112.load_model_from_path(self.path_to_model_folder, 
+        self.classifier_model = Full_SqueezeNet_112x112.load_model_from_path(self.path_to_model_folder,
                                                                              self.model_file_name_no_ext)
         
     # .................................................................................................................

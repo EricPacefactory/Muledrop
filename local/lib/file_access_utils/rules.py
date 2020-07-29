@@ -141,7 +141,7 @@ def get_rule_type(access_info_dict):
 
 # .....................................................................................................................
 
-def save_rule_report_data(location_select_folder_path, camera_select, rule_name, 
+def save_rule_report_data(location_select_folder_path, camera_select, rule_name,
                           rule_type, object_full_id, rule_results_dict, rule_results_list):
     
     ''' Function which saves rule reporting data (as opposed to config data!) '''
@@ -160,8 +160,8 @@ def new_rule_report_entry(object_full_id, rule_type, rule_results_dict, rule_res
     ''' Helper function for creating properly formatted evalutaed rule entries '''
     rule_break_timing_ems = None
     return {"_id": object_full_id,
-            "full_id": object_full_id, 
-            "rule_type": rule_type, 
+            "full_id": object_full_id,
+            "rule_type": rule_type,
             "num_violations": len(rule_results_list),
             "rule_results_dict": rule_results_dict,
             "rule_results_list": rule_results_list}
@@ -178,7 +178,7 @@ def new_rule_report_entry(object_full_id, rule_type, rule_results_dict, rule_res
 def path_to_configuration_file(rule_name, configurable_ref):
     
     ''' 
-    Function which generates the path to a configuration path, 
+    Function which generates the path to a configuration path,
     given a rule name and configurable object as an input 
     '''
     
@@ -194,11 +194,11 @@ def load_all_rule_configs(location_select_folder_path, camera_select, target_rul
     
     # First get pathing to config folder, where all rule configs live
     rule_config_folder_path = build_rule_config_folder_path(location_select_folder_path, camera_select)
-    all_rule_config_file_names = get_file_list(rule_config_folder_path, 
-                                               show_hidden_files = False, 
-                                               create_missing_folder = True, 
-                                               return_full_path = False, 
-                                               sort_list = False, 
+    all_rule_config_file_names = get_file_list(rule_config_folder_path,
+                                               show_hidden_files = False,
+                                               create_missing_folder = True,
+                                               return_full_path = False,
+                                               sort_list = False,
                                                allowable_exts_list=[".json"])
     
     # Load each config
@@ -277,8 +277,8 @@ def select_rule_to_load(rule_ref):
     # Provide prompt to load existing rule, or create a new one
     creation_option = "Create new rule"
     rule_load_list = [creation_option, *all_rule_configs.keys()]
-    select_idx, loaded_rule_name = cli_select_from_list(rule_load_list, 
-                                                        "Select rule to load:", 
+    select_idx, loaded_rule_name = cli_select_from_list(rule_load_list,
+                                                        "Select rule to load:",
                                                         default_selection = creation_option,
                                                         zero_indexed = True)
     
@@ -297,7 +297,7 @@ def prompt_for_rule_name(load_from_existing, loaded_rule_name):
     
     ''' 
     Function which provides a cli prompt to have a user enter a rule name for a new rule.
-    The prompt will only occur if a new rule is being created, 
+    The prompt will only occur if a new rule is being created,
     as opposed to loading a rule which already has a name
     '''
     

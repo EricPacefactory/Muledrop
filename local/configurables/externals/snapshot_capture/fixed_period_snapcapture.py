@@ -82,8 +82,8 @@ class Configurable(Reference_Snapshot_Capture):
         
         self.snapshot_period_hr = \
         self.ctrl_spec.attach_slider(
-                "snapshot_period_hr", 
-                label = "Snapshot Period (H)", 
+                "snapshot_period_hr",
+                label = "Snapshot Period (H)",
                 default_value = 0,
                 min_value = 0, max_value = 24, step_size = 1,
                 return_type = int,
@@ -93,8 +93,8 @@ class Configurable(Reference_Snapshot_Capture):
         
         self.snapshot_period_min = \
         self.ctrl_spec.attach_slider(
-                "snapshot_period_min", 
-                label = "Snapshot Period (M)", 
+                "snapshot_period_min",
+                label = "Snapshot Period (M)",
                 default_value = 0,
                 min_value = 0, max_value = 60, step_size = 1,
                 return_type = int,
@@ -104,8 +104,8 @@ class Configurable(Reference_Snapshot_Capture):
         
         self.snapshot_period_sec = \
         self.ctrl_spec.attach_slider(
-                "snapshot_period_sec", 
-                label = "Snapshot Period (S)", 
+                "snapshot_period_sec",
+                label = "Snapshot Period (S)",
                 default_value = 1.0,
                 min_value = 0.0, max_value = 60.0, step_size = 1/1000,
                 return_type = float,
@@ -115,8 +115,8 @@ class Configurable(Reference_Snapshot_Capture):
         
         self.max_dimension_px = \
         self.ctrl_spec.attach_slider(
-                "max_dimension_px", 
-                label = "Max Dimension", 
+                "max_dimension_px",
+                label = "Max Dimension",
                 default_value = 640,
                 min_value = 100, max_value = 1280,
                 units = "pixels",
@@ -138,8 +138,8 @@ class Configurable(Reference_Snapshot_Capture):
     
         self.downscale_interpolation = \
         self.ctrl_spec.attach_menu(
-                "downscale_interpolation", 
-                label = "Downscaling Interpolation", 
+                "downscale_interpolation",
+                label = "Downscaling Interpolation",
                 default_value = "Area",
                 option_label_value_list = [("Nearest", cv2.INTER_NEAREST),
                                            ("Bilinear", cv2.INTER_LINEAR),

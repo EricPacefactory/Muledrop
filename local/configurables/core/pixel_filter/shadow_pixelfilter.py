@@ -94,8 +94,8 @@ class Configurable(Reference_Pixel_Filter):
         
         self.blur_size = \
         self.ctrl_spec.attach_slider(
-                "blur_size", 
-                label = "Blurriness", 
+                "blur_size",
+                label = "Blurriness",
                 default_value = 0,
                 min_value = 0,
                 max_value = 15,
@@ -104,8 +104,8 @@ class Configurable(Reference_Pixel_Filter):
         
         self.lower_shadow_threshold = \
         self.ctrl_spec.attach_slider(
-                "lower_shadow_threshold", 
-                label = "Lower Shadow Threshold", 
+                "lower_shadow_threshold",
+                label = "Lower Shadow Threshold",
                 default_value = 0,
                 min_value = 0,
                 max_value = 255,
@@ -113,8 +113,8 @@ class Configurable(Reference_Pixel_Filter):
         
         self.upper_shadow_threshold = \
         self.ctrl_spec.attach_slider(
-                "upper_shadow_threshold", 
-                label = "Upper Shadow Threshold", 
+                "upper_shadow_threshold",
+                label = "Upper Shadow Threshold",
                 default_value = 10,
                 min_value = 0,
                 max_value = 255,

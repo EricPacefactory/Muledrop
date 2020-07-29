@@ -97,8 +97,8 @@ class Configurable(Reference_FG_Extractor):
         
         self.downscale_factor = \
         self.ctrl_spec.attach_slider(
-                "downscale_factor", 
-                label = "Downscaling", 
+                "downscale_factor",
+                label = "Downscaling",
                 default_value = 0.50,
                 min_value = 0.1, max_value = 1.0, step_size = 1/100,
                 return_type = float,
@@ -106,8 +106,8 @@ class Configurable(Reference_FG_Extractor):
         
         self.downscale_interpolation = \
         self.ctrl_spec.attach_menu(
-                "downscale_interpolation", 
-                label = "Downscaling Interpolation", 
+                "downscale_interpolation",
+                label = "Downscaling Interpolation",
                 default_value = "Nearest",
                 option_label_value_list = [("Nearest", cv2.INTER_NEAREST),
                                            ("Bilinear", cv2.INTER_LINEAR),
@@ -116,8 +116,8 @@ class Configurable(Reference_FG_Extractor):
         
         self.threshold = \
         self.ctrl_spec.attach_slider(
-                "threshold", 
-                label = "Threshold", 
+                "threshold",
+                label = "Threshold",
                 default_value = 0,
                 min_value = 0,
                 max_value = 255,
@@ -125,8 +125,8 @@ class Configurable(Reference_FG_Extractor):
         
         self.blur_size = \
         self.ctrl_spec.attach_slider(
-                "blur_size", 
-                label = "Blurriness", 
+                "blur_size",
+                label = "Blurriness",
                 default_value = 1,
                 min_value = 0,
                 max_value = self._max_kernel_size,
@@ -134,8 +134,8 @@ class Configurable(Reference_FG_Extractor):
         
         self.flow_depth = \
         self.ctrl_spec.attach_slider(
-                "flow_depth", 
-                label = "Flow Depth", 
+                "flow_depth",
+                label = "Flow Depth",
                 default_value = 1,
                 min_value = 0,
                 max_value = self._max_deck_length,
@@ -147,8 +147,8 @@ class Configurable(Reference_FG_Extractor):
         
         self.of_pyr_scale = \
         self.ctrl_spec.attach_slider(
-                "of_pyr_scale", 
-                label = "Pyramid Scaling", 
+                "of_pyr_scale",
+                label = "Pyramid Scaling",
                 default_value = 0.5,
                 min_value = 0.01, max_value = 0.95, step_size = 1/100,
                 zero_referenced = True,
@@ -156,8 +156,8 @@ class Configurable(Reference_FG_Extractor):
         
         self.of_levels = \
         self.ctrl_spec.attach_slider(
-                "of_levels", 
-                label = "Pyramid Layers", 
+                "of_levels",
+                label = "Pyramid Layers",
                 default_value = 3,
                 min_value = 1,
                 max_value = 10,
@@ -166,8 +166,8 @@ class Configurable(Reference_FG_Extractor):
         
         self.of_winsize = \
         self.ctrl_spec.attach_slider(
-                "of_winsize", 
-                label = "Window Size", 
+                "of_winsize",
+                label = "Window Size",
                 default_value = 5,
                 min_value = 1,
                 max_value = 50,
@@ -176,8 +176,8 @@ class Configurable(Reference_FG_Extractor):
         
         self.of_iterations = \
         self.ctrl_spec.attach_slider(
-                "of_iterations", 
-                label = "Iterations", 
+                "of_iterations",
+                label = "Iterations",
                 default_value = 8,
                 min_value = 1,
                 max_value = 25,
@@ -186,8 +186,8 @@ class Configurable(Reference_FG_Extractor):
         
         self.of_poly_n = \
         self.ctrl_spec.attach_slider(
-                "of_poly_n", 
-                label = "Pixel Neighborhood", 
+                "of_poly_n",
+                label = "Pixel Neighborhood",
                 default_value = 5,
                 min_value = 1,
                 max_value = 25,
@@ -196,8 +196,8 @@ class Configurable(Reference_FG_Extractor):
 
         self.of_poly_sigma = \
         self.ctrl_spec.attach_slider(
-                "of_poly_sigma", 
-                label = "Gaussian StDev", 
+                "of_poly_sigma",
+                label = "Gaussian StDev",
                 default_value = 1.2,
                 min_value = 0.5, max_value = 1.5, step_size = 1/100,
                 zero_referenced = True,
@@ -207,7 +207,7 @@ class Configurable(Reference_FG_Extractor):
         self.ctrl_spec.attach_menu(
                 "of_flags",
                 label = "Flags",
-                default_value = "None", 
+                default_value = "None",
                 option_label_value_list = [("None", 0),
                                            ("Gaussian Window", cv2.OPTFLOW_FARNEBACK_GAUSSIAN)],
                 tooltip = "")
@@ -215,7 +215,7 @@ class Configurable(Reference_FG_Extractor):
         self.of_output_scale = \
         self.ctrl_spec.attach_slider(
                 "of_output_scale",
-                label = "Output Scale", 
+                label = "Output Scale",
                 default_value = 500,
                 min_value = 0, max_value = 50000, step_size = 1,
                 zero_referenced = True,
@@ -304,12 +304,12 @@ class Configurable(Reference_FG_Extractor):
         
         # Apply optical flow
         frame = apply_optical_flow(frame, prev_frame, self.of_output_scale,
-                                   self.of_pyr_scale, 
-                                   self.of_levels, 
-                                   self.of_winsize, 
-                                   self.of_iterations, 
-                                   self.of_poly_n, 
-                                   self.of_poly_sigma, 
+                                   self.of_pyr_scale,
+                                   self.of_levels,
+                                   self.of_winsize,
+                                   self.of_iterations,
+                                   self.of_poly_n,
+                                   self.of_poly_sigma,
                                    self.of_flags)
         
         # Apply thresholding

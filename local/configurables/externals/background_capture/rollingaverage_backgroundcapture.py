@@ -79,8 +79,8 @@ class Configurable(Reference_Background_Capture):
         
         self.capture_period_hr = \
         self.ctrl_spec.attach_slider(
-                "capture_period_hr", 
-                label = "Capture Period (H)", 
+                "capture_period_hr",
+                label = "Capture Period (H)",
                 default_value = 0,
                 min_value = 0, max_value = 24,
                 return_type = int,
@@ -90,8 +90,8 @@ class Configurable(Reference_Background_Capture):
         
         self.capture_period_min = \
         self.ctrl_spec.attach_slider(
-                "capture_period_min", 
-                label = "Capture Period (M)", 
+                "capture_period_min",
+                label = "Capture Period (M)",
                 default_value = 10,
                 min_value = 0, max_value = 60,
                 return_type = int,

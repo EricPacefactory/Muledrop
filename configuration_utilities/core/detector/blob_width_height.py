@@ -71,8 +71,8 @@ class Custom_Detections_Display(Display_Window_Specification):
     def __init__(self, layout_index, num_rows, num_columns, initial_display = False, limit_wh = True):
         
         # Inherit from parent class
-        super().__init__("Detections", layout_index, num_rows, num_columns, 
-                         initial_display = initial_display, 
+        super().__init__("Detections", layout_index, num_rows, num_columns,
+                         initial_display = initial_display,
                          provide_mouse_xy = True,
                          drawing_json = None,
                          limit_wh = limit_wh)
@@ -133,7 +133,7 @@ ignore_drawing_spec = configurable_ref.get_drawing_spec("ignore_zones_list")
 # Set up object to handle all video processing
 main_process = \
 Reconfigurable_Video_Loop(loader,
-                          ordered_display_list = [Detection_Display(3, 2, 2, 
+                          ordered_display_list = [Detection_Display(3, 2, 2,
                                                                     window_name = "Draw Ignore Zones",
                                                                     drawing_json = ignore_drawing_spec),
                                                   Custom_Detections_Display(0, 2, 2),

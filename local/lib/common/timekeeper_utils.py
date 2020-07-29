@@ -782,7 +782,7 @@ def convert_to_milliseconds(hours = 0, minutes = 0, seconds = 0, milliseconds = 
 
 # .....................................................................................................................
 
-def fake_datetime_like(reference_datetime, 
+def fake_datetime_like(reference_datetime,
                        fake_year = None, fake_month = None, fake_day = None,
                        fake_hour = 0, fake_minute = 0, fake_second = 0, fake_tzinfo = None):
     

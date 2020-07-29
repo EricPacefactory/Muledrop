@@ -67,7 +67,7 @@ class Resource_Selector:
     
     # .................................................................................................................
     
-    def __init__(self, 
+    def __init__(self,
                  load_selection_history = True,
                  save_selection_history = True,
                  show_hidden_resources = False,
@@ -192,12 +192,12 @@ class Resource_Selector:
         
         # Get list of available camera names & corresponding paths
         location_select_folder_path = self.get_location_select_folder_path(location_select)
-        camera_names_list, camera_paths_list = build_camera_list(location_select_folder_path, 
+        camera_names_list, camera_paths_list = build_camera_list(location_select_folder_path,
                                                                  self._show_hidden_resources,
                                                                  must_have_rtsp)
         
         # Select from the camera names
-        camera_select, path_select = self._make_selection("camera", camera_select, 
+        camera_select, path_select = self._make_selection("camera", camera_select,
                                                           (camera_names_list, camera_paths_list),
                                                           skip_menu = debug_mode)
         
@@ -214,12 +214,12 @@ class Resource_Selector:
         
         # Get list of available video names & corresponding paths
         location_select_folder_path = self.get_location_select_folder_path(location_select)
-        video_names_list, video_paths_list = get_video_names_and_paths_lists(location_select_folder_path, 
+        video_names_list, video_paths_list = get_video_names_and_paths_lists(location_select_folder_path,
                                                                              camera_select,
                                                                              error_if_no_videos = True)
         
         # Select from the video names
-        video_select, path_select = self._make_selection("video", video_select, 
+        video_select, path_select = self._make_selection("video", video_select,
                                                          (video_names_list, video_paths_list),
                                                          zero_indexed = False,
                                                          skip_menu = debug_mode)
@@ -324,8 +324,8 @@ class Resource_Selector:
         entry_select = default_select
         need_to_prompt = (default_select is None)
         if need_to_prompt:
-            _, entry_select = cli_select_from_list(entry_name_list, 
-                                                   prompt_heading = "Select a {}:".format(entry_type), 
+            _, entry_select = cli_select_from_list(entry_name_list,
+                                                   prompt_heading = "Select a {}:".format(entry_type),
                                                    default_selection = self.selection_history.get(select_type),
                                                    zero_indexed = zero_indexed,
                                                    debug_mode = skip_menu)

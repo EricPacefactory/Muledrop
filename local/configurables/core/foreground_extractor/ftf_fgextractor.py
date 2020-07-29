@@ -124,8 +124,8 @@ class Configurable(Reference_FG_Extractor):
         
         self.downscale_factor = \
         self.ctrl_spec.attach_slider(
-                "downscale_factor", 
-                label = "Downscaling", 
+                "downscale_factor",
+                label = "Downscaling",
                 default_value = 0.50,
                 min_value = 0.1,
                 max_value = 1.0,
@@ -136,8 +136,8 @@ class Configurable(Reference_FG_Extractor):
             
         self.downscale_interpolation = \
         self.ctrl_spec.attach_menu(
-                "downscale_interpolation", 
-                label = "Downscaling Interpolation", 
+                "downscale_interpolation",
+                label = "Downscaling Interpolation",
                 default_value = "Nearest",
                 option_label_value_list = [("Nearest", cv2.INTER_NEAREST),
                                            ("Bilinear", cv2.INTER_LINEAR),
@@ -146,8 +146,8 @@ class Configurable(Reference_FG_Extractor):
         
         self.threshold = \
         self.ctrl_spec.attach_slider(
-                "threshold", 
-                label = "Threshold", 
+                "threshold",
+                label = "Threshold",
                 default_value = 0,
                 min_value = 0,
                 max_value = 255,
@@ -160,8 +160,8 @@ class Configurable(Reference_FG_Extractor):
         
         self.use_max_diff = \
         self.ctrl_spec.attach_toggle(
-                "use_max_diff", 
-                label = "Use Maximum Difference", 
+                "use_max_diff",
+                label = "Use Maximum Difference",
                 default_value = False,
                 tooltip = ["Enabling this setting means that the output of the frame difference ",
                            "calculation will be the maximum difference among the RGB channels. When",
@@ -171,8 +171,8 @@ class Configurable(Reference_FG_Extractor):
         
         self.enable_masking = \
         self.ctrl_spec.attach_toggle(
-                "enable_masking", 
-                label = "Enable Masking", 
+                "enable_masking",
+                label = "Enable Masking",
                 default_value = True,
                 tooltip = "Enable or disable masking")
         
@@ -183,8 +183,8 @@ class Configurable(Reference_FG_Extractor):
         
         self.blur_size = \
         self.ctrl_spec.attach_slider(
-                "blur_size", 
-                label = "Blurriness", 
+                "blur_size",
+                label = "Blurriness",
                 default_value = 0,
                 min_value = 0,
                 max_value = self._max_kernel_size,
@@ -195,8 +195,8 @@ class Configurable(Reference_FG_Extractor):
         
         self.difference_depth = \
         self.ctrl_spec.attach_slider(
-                "difference_depth", 
-                label = "Difference Depth", 
+                "difference_depth",
+                label = "Difference Depth",
                 default_value = 0,
                 min_value = 0,
                 max_value = self._max_deck_length,
@@ -209,8 +209,8 @@ class Configurable(Reference_FG_Extractor):
         
         self.pre_morph_size = \
         self.ctrl_spec.attach_slider(
-                "pre_morph_size", 
-                label = "(Gray) Shapeshift Region Size", 
+                "pre_morph_size",
+                label = "(Gray) Shapeshift Region Size",
                 default_value = 0,
                 min_value = 0,
                 max_value = self._max_kernel_size,
@@ -221,7 +221,7 @@ class Configurable(Reference_FG_Extractor):
         
         self.pre_morph_op = \
         self.ctrl_spec.attach_menu(
-                "pre_morph_op", 
+                "pre_morph_op",
                 label = "(Gray) Shapeshift Operation",
                 default_value = "Fill Dark",
                 option_label_value_list = [("Fill Dark", cv2.MORPH_CLOSE),
@@ -236,7 +236,7 @@ class Configurable(Reference_FG_Extractor):
         
         self.pre_morph_shape = \
         self.ctrl_spec.attach_menu(
-                "pre_morph_shape", 
+                "pre_morph_shape",
                 label = "(Gray) Shapeshift Region Shape",
                 default_value = "Square",
                 option_label_value_list = [("Square", cv2.MORPH_RECT),
@@ -247,8 +247,8 @@ class Configurable(Reference_FG_Extractor):
         
         self.summation_depth = \
         self.ctrl_spec.attach_slider(
-                "summation_depth", 
-                label = "Summation Depth", 
+                "summation_depth",
+                label = "Summation Depth",
                 default_value = 0,
                 min_value = 0,
                 max_value = self._max_deck_length,
@@ -265,8 +265,8 @@ class Configurable(Reference_FG_Extractor):
         
         self.post_morph_size = \
         self.ctrl_spec.attach_slider(
-                "post_morph_size", 
-                label = "(Binary) Shapeshift Region Size", 
+                "post_morph_size",
+                label = "(Binary) Shapeshift Region Size",
                 default_value = 0,
                 min_value = 0,
                 max_value = self._max_kernel_size,
@@ -275,8 +275,8 @@ class Configurable(Reference_FG_Extractor):
         
         self.post_morph_op = \
         self.ctrl_spec.attach_menu(
-                "post_morph_op", 
-                label = "(Binary) Shapeshift Operation", 
+                "post_morph_op",
+                label = "(Binary) Shapeshift Operation",
                 default_value = "Expand Bright",
                 option_label_value_list = [("Fill Dark", cv2.MORPH_CLOSE),
                                            ("Expand Bright", cv2.MORPH_DILATE),
@@ -291,8 +291,8 @@ class Configurable(Reference_FG_Extractor):
         
         self.post_morph_shape = \
         self.ctrl_spec.attach_menu(
-                "post_morph_shape", 
-                label = "(Binary) Shapeshift Region Shape", 
+                "post_morph_shape",
+                label = "(Binary) Shapeshift Region Shape",
                 default_value = "Square",
                 option_label_value_list = [("Square", cv2.MORPH_RECT),
                                            ("Circle", cv2.MORPH_ELLIPSE),

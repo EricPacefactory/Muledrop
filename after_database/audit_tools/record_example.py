@@ -208,7 +208,7 @@ def get_recording_times(snapshot_times_ms_list, effective_timelapse_factor):
 
 # .....................................................................................................................
 
-def draw_timestamp(display_frame, snapshot_metadata, fg_config, bg_config, replay_start_dt, use_relative_time, 
+def draw_timestamp(display_frame, snapshot_metadata, fg_config, bg_config, replay_start_dt, use_relative_time,
                    text_position = None):
     
     # Don't draw the timestamp if there is no position data
@@ -308,7 +308,7 @@ obj_metadata_generator = obj_db.load_metadata_by_time_range(user_start_dt, user_
 # Create dictionary of 'reconstructed' objects based on object metadata
 obj_dict = Obj_Recon.create_reconstruction_dict(obj_metadata_generator,
                                                 snap_wh,
-                                                user_start_dt, 
+                                                user_start_dt,
                                                 user_end_dt)
 
 # Organize objects by class label -> then by object id (nested dictionaries)
@@ -334,8 +334,8 @@ target_minimum_fps = 15.0
 default_tl_factor = round(target_minimum_fps / snapshot_fps)
 
 # Have user enter a timelapse factor for the recording
-user_tl_factor = cli_prompt_with_defaults("Enter timelapse factor:", 
-                                          default_value = default_tl_factor, 
+user_tl_factor = cli_prompt_with_defaults("Enter timelapse factor:",
+                                          default_value = default_tl_factor,
                                           return_type = float)
 
 # Calculate the recording fps based on user specified timelapse factor. Try to timelapse using higher framerate
@@ -379,9 +379,9 @@ bg_font_config = font_config(scale = 0.35, color = (0, 0, 0), thickness = 2)
 timestamp_xy = get_timestamp_location(timestamp_pos_arg, snap_shape, fg_font_config)
 
 # Some feedback about recording
-print("", 
+print("",
       "Recording...",
-      "@ {}".format(recording_file_path), 
+      "@ {}".format(recording_file_path),
       "",
       sep = "\n")
 
@@ -405,7 +405,7 @@ try:
             each_obj.draw_outline(snap_image, snap_frame_idx, each_snap_time_ms)
         
         # Draw timestamp over displayed image, if needed
-        timestamp_image = draw_timestamp(snap_image, snap_md, fg_font_config, bg_font_config, 
+        timestamp_image = draw_timestamp(snap_image, snap_md, fg_font_config, bg_font_config,
                                          user_start_dt, enable_relative_timestamp, timestamp_xy)
         
         # Record frames

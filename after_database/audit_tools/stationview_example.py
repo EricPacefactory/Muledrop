@@ -322,7 +322,7 @@ def get_corrected_time_range(snapshot_db, station_db, user_start_dt, user_end_dt
 
 # .....................................................................................................................
 
-def draw_timestamp(display_frame, snapshot_metadata, fg_config, bg_config, replay_start_dt, use_relative_time, 
+def draw_timestamp(display_frame, snapshot_metadata, fg_config, bg_config, replay_start_dt, use_relative_time,
                    text_position = None):
     
     # Don't draw the timestamp if there is no position data
@@ -702,7 +702,7 @@ while True:
     stations_image = cv2.line(stations_image, play_pt1, play_pt2, (255, 255, 255), 1)
     
     # Draw timestamp over replay image, if needed
-    timestamp_image = draw_timestamp(snap_image, snap_md, fg_font_config, bg_font_config, 
+    timestamp_image = draw_timestamp(snap_image, snap_md, fg_font_config, bg_font_config,
                                      user_start_dt, enable_relative_timestamp, timestamp_xy)
     
     # Display the snapshot image, but stop if the window is closed

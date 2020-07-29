@@ -83,7 +83,7 @@ class _Fire(nn.Module):
 
     def forward(self, x):
         x = self.squeeze_activation(self.squeeze(x))
-        return torch.cat([self.expand1x1_activation(self.expand1x1(x)), 
+        return torch.cat([self.expand1x1_activation(self.expand1x1(x)),
                           self.expand3x3_activation(self.expand3x3(x))], 1)
     
     # .................................................................................................................

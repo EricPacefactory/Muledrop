@@ -274,7 +274,7 @@ for each_obj_id in obj_id_list:
         
         # Save results if needed
         if saving_enabled:
-            save_rule_report_data(*pathing_args, each_rule_name, each_rule_ref.get_rule_type(), 
+            save_rule_report_data(*pathing_args, each_rule_name, each_rule_ref.get_rule_type(),
                                   each_obj_id, rule_results_dict, rule_results_list)
     
     # Provide some progress feedback (based on objects, not rules!)

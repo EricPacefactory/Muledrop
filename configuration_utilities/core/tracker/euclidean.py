@@ -65,16 +65,16 @@ class Custom_Tracking_Display(Display_Window_Specification):
     
     # .................................................................................................................
     
-    def __init__(self, layout_index, num_rows, num_columns, 
+    def __init__(self, layout_index, num_rows, num_columns,
                  initial_display = False, limit_wh = True,
                  window_name = "Tracking",
                  line_color = (255, 0, 255)):
         
         # Inherit from parent class
-        super().__init__(window_name, layout_index, num_rows, num_columns, 
+        super().__init__(window_name, layout_index, num_rows, num_columns,
                          initial_display = initial_display,
                          provide_mouse_xy = True,
-                         drawing_json = None, 
+                         drawing_json = None,
                          limit_wh = limit_wh)
         
         # Store variables controlling drawing behaviour
@@ -83,7 +83,7 @@ class Custom_Tracking_Display(Display_Window_Specification):
     
     # .................................................................................................................
     
-    def display(self, stage_outputs, configurable_ref, mouse_xy, 
+    def display(self, stage_outputs, configurable_ref, mouse_xy,
                 current_frame_index, current_epoch_ms, current_datetime):
         
         # Grab a of the preprocessed image that we can draw on it
@@ -95,9 +95,9 @@ class Custom_Tracking_Display(Display_Window_Specification):
         tracked_object_dict = stage_outputs["tracker"]["tracked_object_dict"]
         
         # Draw validation tracking visuals onto the frame
-        tracking_frame = draw_objects_on_frame(tracking_frame, validation_object_dict, 
-                                               configurable_ref._show_obj_ids, 
-                                               configurable_ref._show_outlines, 
+        tracking_frame = draw_objects_on_frame(tracking_frame, validation_object_dict,
+                                               configurable_ref._show_obj_ids,
+                                               configurable_ref._show_outlines,
                                                configurable_ref._show_bounding_boxes,
                                                configurable_ref._show_trails,
                                                configurable_ref._show_decay,
@@ -106,14 +106,14 @@ class Custom_Tracking_Display(Display_Window_Specification):
                                                box_color = self._validation_color)
         
         # Draw tracking visuals onto the frame
-        tracking_frame = draw_objects_on_frame(tracking_frame, tracked_object_dict, 
-                                               configurable_ref._show_obj_ids, 
-                                               configurable_ref._show_outlines, 
+        tracking_frame = draw_objects_on_frame(tracking_frame, tracked_object_dict,
+                                               configurable_ref._show_obj_ids,
+                                               configurable_ref._show_outlines,
                                                configurable_ref._show_bounding_boxes,
                                                configurable_ref._show_trails,
                                                configurable_ref._show_decay,
                                                current_epoch_ms,
-                                               outline_color = self._tracked_color, 
+                                               outline_color = self._tracked_color,
                                                box_color = self._tracked_color)
         
         # Draw mouse following indicator over top of everything else
@@ -167,7 +167,7 @@ edge_drawing_spec = configurable_ref.get_drawing_spec("edge_zones_list")
 # Set up object to handle all video processing
 main_process = \
 Reconfigurable_Video_Loop(loader,
-                          ordered_display_list = [Detection_Display(1, 4, 1, 
+                          ordered_display_list = [Detection_Display(1, 4, 1,
                                                                     window_name = "Detections & Edge Decay Zones",
                                                                     drawing_json = edge_drawing_spec),
                                                   Custom_Tracking_Display(1, 2, 2),

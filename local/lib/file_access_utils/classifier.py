@@ -257,7 +257,7 @@ def save_classifier_report_data(save_folder_path, report_data_dict):
 
 # .....................................................................................................................
     
-def new_classifier_report_entry(object_full_id, 
+def new_classifier_report_entry(object_full_id,
                                 topclass_dict = None,
                                 subclass_dict = None,
                                 attributes_dict = None):
@@ -283,7 +283,7 @@ def new_classifier_report_entry(object_full_id,
                            
     Outputs:
         classification entry (dict)
-        (contains keys: 'full_id', 'topclass_label', 'subclass_label', 
+        (contains keys: 'full_id', 'topclass_label', 'subclass_label',
                         'topclass_dict', 'subclass_dict', 'attributes_dict')
         
     Note: The '..._label' entries are automatically derived from the inputs

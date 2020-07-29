@@ -103,7 +103,7 @@ class Reference_Pixel_Filter(Core_Configurable_Base):
         # Make sure binary frame data is returned (i.e. only has a single channel)
         filtered_binary_frame_1ch = self.apply_pixel_filtering(binary_frame_1ch, preprocessed_frame)
         
-        return {"filtered_binary_frame_1ch": filtered_binary_frame_1ch, 
+        return {"filtered_binary_frame_1ch": filtered_binary_frame_1ch,
                 "preprocessed_frame": preprocessed_frame}
             
     # .................................................................................................................

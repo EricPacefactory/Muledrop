@@ -228,7 +228,7 @@ obj_metadata_generator = obj_db.load_metadata_by_time_range(user_start_dt, user_
 # Create dictionary of 'reconstructed' objects based on object metadata
 obj_dict = Obj_Recon.create_reconstruction_dict(obj_metadata_generator,
                                                 frame_wh,
-                                                user_start_dt, 
+                                                user_start_dt,
                                                 user_end_dt)
 
 # Organize objects by class label -> then by object id (nested dictionaries)

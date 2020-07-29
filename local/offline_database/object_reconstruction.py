@@ -305,9 +305,9 @@ class Object_Reconstruction:
             line_color = self._outline_color
         
         # If we get here, draw the hull
-        cv2.polylines(output_frame, 
-                      pts = [hull_array], 
-                      isClosed = True, 
+        cv2.polylines(output_frame,
+                      pts = [hull_array],
+                      isClosed = True,
                       color = line_color,
                       thickness = line_thickness,
                       lineType = cv2.LINE_AA)       
@@ -317,7 +317,7 @@ class Object_Reconstruction:
     # .................................................................................................................
     
     def draw_trail(self, output_frame, frame_index = None, snapshot_epoch_ms = None,
-                   line_color = None, line_thickness = 1, 
+                   line_color = None, line_thickness = 1,
                    use_outline_color = False):
         
         # If a snapshot time is provided, make sure the object existed during the given time!
@@ -349,9 +349,9 @@ class Object_Reconstruction:
         
         # Convert trail data to pixel units and draw as an open polygon
         trail_xy_px = np.int32(np.round(plot_trail_xy * self.frame_scaling_array))
-        cv2.polylines(output_frame, 
+        cv2.polylines(output_frame,
                       pts = [trail_xy_px],
-                      isClosed = False, 
+                      isClosed = False,
                       color = line_color,
                       thickness = line_thickness,
                       lineType = cv2.LINE_AA)
@@ -391,9 +391,9 @@ class Object_Reconstruction:
         
         # Convert trail data to pixel units and draw as an open polygon
         trail_xy_px = np.int32(np.round(plot_trail_xy * self.frame_scaling_array))
-        cv2.polylines(output_frame, 
+        cv2.polylines(output_frame,
                       pts = [trail_xy_px],
-                      isClosed = False, 
+                      isClosed = False,
                       color = line_color,
                       thickness = line_thickness,
                       lineType = cv2.LINE_AA)
@@ -420,11 +420,11 @@ class Object_Reconstruction:
         sample_idx = self.frame_index_to_sample_index(frame_index)
         obj_full_id = self.full_id
         xy_cen_px  = np.int32(np.round(self.trail_xy[sample_idx] * self.frame_scaling_array))
-        cv2.putText(output_frame, str(obj_full_id), tuple(xy_cen_px), 
+        cv2.putText(output_frame, str(obj_full_id), tuple(xy_cen_px),
                     cv2.FONT_HERSHEY_SIMPLEX,
                     1.0,
                     (255, 255, 255),
-                    1, 
+                    1,
                     cv2.LINE_AA)
         
         return output_frame
@@ -560,11 +560,11 @@ class Smoothed_Object_Reconstruction(Object_Reconstruction):
 
 class Smooth_Hover_Object_Reconstruction(Smoothed_Object_Reconstruction):
     
-    def __init__(self, object_metadata, frame_wh, global_start_time, global_end_time, 
+    def __init__(self, object_metadata, frame_wh, global_start_time, global_end_time,
                  smoothing_factor = 0.015):
         
         # Inherit from parent class
-        super().__init__(object_metadata, frame_wh, global_start_time, global_end_time, 
+        super().__init__(object_metadata, frame_wh, global_start_time, global_end_time,
                          smoothing_factor)
     
     # .................................................................................................................

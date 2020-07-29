@@ -89,15 +89,15 @@ class Configurable(Reference_Rule):
         
         self.flip_line_orientation = \
         self.ctrl_spec.attach_toggle(
-                "flip_line_orientation", 
-                label = "Flip Orientation", 
+                "flip_line_orientation",
+                label = "Flip Orientation",
                 default_value = False,
                 tooltip = "Flips the orientation of the line. Equivalent to swapping the end points of the line.")
         
         self.trail_smoothing_factor = \
         self.ctrl_spec.attach_slider(
-                "trail_smoothing_factor", 
-                label = "Trail Smoothing Factor", 
+                "trail_smoothing_factor",
+                label = "Trail Smoothing Factor",
                 default_value = 0.015,
                 min_value = 0.000, max_value = 0.100, step_size = 0.005,
                 return_type = float,
@@ -113,8 +113,8 @@ class Configurable(Reference_Rule):
         line_pt1, line_pt2 = line_entity
         
         # Rebuild the fixed-line object, in case the start/end points of the line have changed
-        self.fixed_line = Fixed_Line_Cross(line_pt1, line_pt2, 
-                                           flip_orientation = self.flip_line_orientation, 
+        self.fixed_line = Fixed_Line_Cross(line_pt1, line_pt2,
+                                           flip_orientation = self.flip_line_orientation,
                                            is_normalized = True)
     
     # .................................................................................................................

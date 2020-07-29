@@ -96,8 +96,8 @@ class Configurable(Reference_Pixel_Filter):
         
         self.hue_lower = \
         self.ctrl_spec.attach_slider(
-                "hue_lower", 
-                label = "Lower Hue", 
+                "hue_lower",
+                label = "Lower Hue",
                 default_value = 0,
                 min_value = 0,
                 max_value = 255,
@@ -105,8 +105,8 @@ class Configurable(Reference_Pixel_Filter):
         
         self.hue_upper = \
         self.ctrl_spec.attach_slider(
-                "hue_upper", 
-                label = "Upper Hue", 
+                "hue_upper",
+                label = "Upper Hue",
                 default_value = 255,
                 min_value = 0,
                 max_value = 255,
@@ -118,8 +118,8 @@ class Configurable(Reference_Pixel_Filter):
         
         self.sat_lower = \
         self.ctrl_spec.attach_slider(
-                "sat_lower", 
-                label = "Lower Saturation", 
+                "sat_lower",
+                label = "Lower Saturation",
                 default_value = 0,
                 min_value = 0,
                 max_value = 255,
@@ -127,8 +127,8 @@ class Configurable(Reference_Pixel_Filter):
         
         self.sat_upper = \
         self.ctrl_spec.attach_slider(
-                "sat_upper", 
-                label = "Upper Saturation", 
+                "sat_upper",
+                label = "Upper Saturation",
                 default_value = 255,
                 min_value = 0,
                 max_value = 255,
@@ -140,8 +140,8 @@ class Configurable(Reference_Pixel_Filter):
         
         self.val_lower = \
         self.ctrl_spec.attach_slider(
-                "val_lower", 
-                label = "Lower Brightness", 
+                "val_lower",
+                label = "Lower Brightness",
                 default_value = 0,
                 min_value = 0,
                 max_value = 255,
@@ -149,8 +149,8 @@ class Configurable(Reference_Pixel_Filter):
         
         self.val_upper = \
         self.ctrl_spec.attach_slider(
-                "val_upper", 
-                label = "Upper Brightness", 
+                "val_upper",
+                label = "Upper Brightness",
                 default_value = 255,
                 min_value = 0,
                 max_value = 255,

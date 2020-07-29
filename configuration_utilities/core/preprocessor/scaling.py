@@ -71,8 +71,8 @@ class Scaling_Info(Display_Window_Specification):
     def __init__(self, layout_index, num_rows, num_columns, initial_display = False):
         
         # Inherit from parent class
-        super().__init__("Scaling Info", layout_index, num_rows, num_columns, 
-                         initial_display = initial_display, 
+        super().__init__("Scaling Info", layout_index, num_rows, num_columns,
+                         initial_display = initial_display,
                          limit_wh = False)
         
         # Allocate storage for blank image used to draw info on

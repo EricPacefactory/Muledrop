@@ -8,8 +8,8 @@
   --page_accent_hl: rgb(235, 145, 55);
   --page_accent_desat: rgb(95, 80, 65);
 
-  --page_background: linear-gradient(180deg, 
-                                     var(--page_accent_desat) 5%, 
+  --page_background: linear-gradient(180deg,
+                                     var(--page_accent_desat) 5%,
                                      var(--dark_background) 100%);
 }
 

@@ -23,7 +23,7 @@ function create_all_camera_uis() {
     const container_ref = getelem_main_container();
 
     // Use the variable provided by flask to generate the UI
-    // Data is stored as a dictionary (js object), 
+    // Data is stored as a dictionary (js object),
     //   - where keys are cameras names
     //   - entries are lists of file paths that were changed
     const file_change_items = Object.entries(files_changed_json);

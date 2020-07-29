@@ -197,7 +197,7 @@ def prompt_for_modify_info(all_locations_folder_path, location_select):
     user_confirm_save = confirm("Save new IP address?", default_response = False)
     if user_confirm_save:
         save_location_info_dict(all_locations_folder_path, location_select, new_location_info_dict)
-        print("", 
+        print("",
               "Done! Updated location info ({})".format(location_select),
               "",
               *get_printable_location_info(new_location_info_dict),
@@ -236,7 +236,7 @@ update_option = "Update"
 delete_option = "Delete"
 view_option = "View"
 options_menu_list = [new_option, update_option, delete_option, view_option]
-select_idx, select_entry = select_from_list(options_menu_list, 
+select_idx, select_entry = select_from_list(options_menu_list,
                                             prompt_heading = "Select an option ({})".format(this_file_name),
                                             default_selection = None)
 

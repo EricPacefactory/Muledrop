@@ -171,7 +171,7 @@ class Reference_Object_Capture(Externals_Configurable_Base):
         
         Inputs:
             stage_outputs -> Dictionary. Each key represents a core-processing stage name (e.g. preprocessor).
-                             The values are themselves dictionaries, 
+                             The values are themselves dictionaries,
                              with labels/data based on the outputs of each stage
                              
             current_frame_index -> Integer. Current frame of the video

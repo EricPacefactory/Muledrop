@@ -86,7 +86,7 @@ class Local_Timing_Window(Simple_Window):
                        "total_text": (255, 255, 255)}
         
         # Set up sizing
-        self.sizes = {"screen_hborder": 100, 
+        self.sizes = {"screen_hborder": 100,
                       "frame_width": frame_width,
                       "plot_wborder": 20,
                       "plot_hborder": 20,
@@ -405,9 +405,9 @@ class Local_Timing_Window(Simple_Window):
         
         # Get some general sizing info
         x_padding, y_padding = self.screen_info.feedback("x_padding", "y_padding")
-        screen_width, screen_height, x_offset, y_offset = self.screen_info.screen("width", 
-                                                                                  "height", 
-                                                                                  "x_offset", 
+        screen_width, screen_height, x_offset, y_offset = self.screen_info.screen("width",
+                                                                                  "height",
+                                                                                  "x_offset",
                                                                                   "y_offset")
         
         # Position the window!

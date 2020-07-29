@@ -109,7 +109,7 @@ class Reference_Preprocessor(Core_Configurable_Base):
         preprocessed_bg_frame = self.preprocess_background(bg_frame, bg_update)
         preprocessed_frame = self.apply_transformation(video_frame)
         
-        return {"preprocessed_frame": preprocessed_frame, 
+        return {"preprocessed_frame": preprocessed_frame,
                 "preprocessed_bg_frame": preprocessed_bg_frame,
                 "bg_update": bg_update}
     

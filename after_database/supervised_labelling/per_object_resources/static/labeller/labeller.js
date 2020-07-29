@@ -263,15 +263,15 @@ function update_object_label_callback(new_label){
 
         // Get current object id & construct label update data
         const current_object_id = get_current_object_id();
-        const label_update_data = {object_id: current_object_id, 
+        const label_update_data = {object_id: current_object_id,
                                    new_label_string: new_label};
 
         // Some debugging feedback
         console.log(`label update -> ${current_object_id} : ${new_label}`);
         
         // Build full POST data
-        const post_data_json = {method: fetch_method, 
-                                headers: fetch_headers, 
+        const post_data_json = {method: fetch_method,
+                                headers: fetch_headers,
                                 body: JSON.stringify(label_update_data)}
 
         // Post data to server for update, delay for label update feedback, then cycle to the next object

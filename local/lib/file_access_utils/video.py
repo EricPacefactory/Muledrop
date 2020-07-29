@@ -282,7 +282,7 @@ def add_video_to_files_dict(location_select_folder_path, camera_select, new_vide
         
         new_video_path -> (String) Pathing to the video file that should be added to the listing
         
-        new_video_name -> (String or None) Name of video entry. If set to None, 
+        new_video_name -> (String or None) Name of video entry. If set to None,
                           the name will be taken as the file name from the provided video pathing
         
         new_start_datetime_isoformat -> (String or None) The start datetime of the video file, in isoformat.
@@ -464,11 +464,11 @@ def copy_video_file_local(location_select_folder_path, camera_select, remote_fil
     # Print out some feedback before copying, since it can take a while
     videos_folder_path = build_videos_folder_path(location_select_folder_path, camera_select)
     if print_feedback:
-        print("", 
-              "Copying...", 
-              "  {}".format(remote_file_path), 
-              "  to:", 
-              "  {}".format(videos_folder_path), 
+        print("",
+              "Copying...",
+              "  {}".format(remote_file_path),
+              "  to:",
+              "  {}".format(videos_folder_path),
               "", sep="\n")
         
     # Perform copy, which could take a while, depending on the file size
@@ -514,7 +514,7 @@ def check_entry_is_local(video_path):
 def video_info_from_name(location_select_folder_path, camera_select, video_select):
     
     ''' 
-    This function retrieves a video path given the name of the video, 
+    This function retrieves a video path given the name of the video,
     assuming the name is in the saved video listing file.
     This function does not check that the video path is valid however!
     '''
@@ -598,7 +598,7 @@ def unpack_rtsp_config(rtsp_config_dict):
 def load_rtsp_config(location_select_folder_path, camera_select, rtsp_filename = "rtsp.json"):
     
     # Create default config entries
-    default_rtsp_file = create_new_rtsp_config(ip_address = "", 
+    default_rtsp_file = create_new_rtsp_config(ip_address = "",
                                                username = "",
                                                password = "",
                                                port = 554,
@@ -650,7 +650,7 @@ def check_valid_rtsp_ip(location_select_folder_path, camera_select):
 
 # .....................................................................................................................
 
-def load_playback_settings(location_select_folder_path, camera_select, video_select, 
+def load_playback_settings(location_select_folder_path, camera_select, video_select,
                            settings_filename = "playback_settings.json"):
     
     # Make sure to use only the video name, for readability (may cause collisions?!)
@@ -685,7 +685,7 @@ def load_playback_settings(location_select_folder_path, camera_select, video_sel
 
 # .....................................................................................................................
 
-def save_playback_settings(location_select_folder_path, camera_select, video_select, 
+def save_playback_settings(location_select_folder_path, camera_select, video_select,
                            current_frame_index, start_loop_index, end_loop_index, frame_delay_ms,
                            settings_filename = "playback_settings.json"):
     

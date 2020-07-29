@@ -91,8 +91,8 @@ class Configurable(Reference_Tracker):
         
         self.match_with_speed = \
         self.ctrl_spec.attach_toggle(
-                "match_with_speed", 
-                label = "Use Speed when Matching", 
+                "match_with_speed",
+                label = "Use Speed when Matching",
                 default_value = False,
                 tooltip = "Future object positions will be predicted using previous velocity before trying to match")
         
@@ -100,7 +100,7 @@ class Configurable(Reference_Tracker):
         self.ctrl_spec.attach_toggle(
                 "use_fast_fallback_matching",
                 label = "Fast Fallback Algorithm",
-                default_value = True, 
+                default_value = True,
                 tooltip = ["When a simple unique object-to-detection pairing doesn't exist,",
                            "this value controls the fallback algorithm used to determine a unique pairing.",
                            "When enabled a 'greedy' algorithm is used, which (unlike the slower algorithm)",
@@ -109,8 +109,8 @@ class Configurable(Reference_Tracker):
         
         self.max_match_range_x = \
         self.ctrl_spec.attach_slider(
-                "max_match_range_x", 
-                label = "Maximum Match Range X", 
+                "max_match_range_x",
+                label = "Maximum Match Range X",
                 default_value = 0.10,
                 min_value = 0.0, max_value = 1.0, step_size = 1/100,
                 return_type = float,
@@ -119,8 +119,8 @@ class Configurable(Reference_Tracker):
         
         self.max_match_range_y = \
         self.ctrl_spec.attach_slider(
-                "max_match_range_y", 
-                label = "Maximum Match Range Y", 
+                "max_match_range_y",
+                label = "Maximum Match Range Y",
                 default_value = 0.10,
                 min_value = 0.0, max_value = 1.0, step_size = 1/100,
                 return_type = float,
@@ -129,8 +129,8 @@ class Configurable(Reference_Tracker):
         
         self.track_history_samples = \
         self.ctrl_spec.attach_slider(
-                "track_history_samples", 
-                label = "Track History", 
+                "track_history_samples",
+                label = "Track History",
                 default_value = 55000,
                 min_value = 3, max_value = Smoothed_Trackable_Object.max_allowable_samples,
                 zero_referenced = True,
@@ -141,8 +141,8 @@ class Configurable(Reference_Tracker):
         
         self.validation_time_ms = \
         self.ctrl_spec.attach_slider(
-                "validation_time_ms", 
-                label = "Validation Time", 
+                "validation_time_ms",
+                label = "Validation Time",
                 default_value = 750,
                 min_value = 100, max_value = 15000,
                 zero_referenced = True,
@@ -152,8 +152,8 @@ class Configurable(Reference_Tracker):
         
         self.validation_decay_timeout_ms = \
         self.ctrl_spec.attach_slider(
-                "validation_decay_timeout_ms", 
-                label = "Validation Decay Timeout", 
+                "validation_decay_timeout_ms",
+                label = "Validation Decay Timeout",
                 default_value = 500,
                 min_value = 50, max_value = 15000,
                 zero_referenced = True,
@@ -163,8 +163,8 @@ class Configurable(Reference_Tracker):
         
         self.track_decay_timeout_ms = \
         self.ctrl_spec.attach_slider(
-                "track_decay_timeout_ms", 
-                label = "Tracked Decay Timeout", 
+                "track_decay_timeout_ms",
+                label = "Tracked Decay Timeout",
                 default_value = 2500,
                 min_value = 100, max_value = 15000,
                 zero_referenced = True,
@@ -174,8 +174,8 @@ class Configurable(Reference_Tracker):
         
         self.enabled_edge_decay_zones = \
         self.ctrl_spec.attach_toggle(
-                "enabled_edge_decay_zones", 
-                label = "Enable decay zones", 
+                "enabled_edge_decay_zones",
+                label = "Enable decay zones",
                 default_value = True,
                 tooltip = ["If enabled, objects in (user drawn) decay zones will immediately decay if they",
                            "are not matched to a detection. These zones are intended to help remove objects",
@@ -185,7 +185,7 @@ class Configurable(Reference_Tracker):
         self.ctrl_spec.attach_menu(
                 "overlap_propagation_weight",
                 label = "Overlap Propagation",
-                default_value = "Off", 
+                default_value = "Off",
                 option_label_value_list = [("Off", -1),
                                            ("Light", 0.9),
                                            ("Natural", 0.99),
@@ -201,8 +201,8 @@ class Configurable(Reference_Tracker):
         
         self.smooth_x = \
         self.ctrl_spec.attach_slider(
-                "smooth_x", 
-                label = "X Position Smoothing", 
+                "smooth_x",
+                label = "X Position Smoothing",
                 default_value = 3/5,
                 min_value = 0.0, max_value = 1.0, step_size = 1/5,
                 zero_referenced = True,
@@ -214,8 +214,8 @@ class Configurable(Reference_Tracker):
         
         self.smooth_y = \
         self.ctrl_spec.attach_slider(
-                "smooth_y", 
-                label = "Y Position Smoothing", 
+                "smooth_y",
+                label = "Y Position Smoothing",
                 default_value = 3/5,
                 min_value = 0.0, max_value = 1.0, step_size = 1/5,
                 zero_referenced = True,
@@ -227,8 +227,8 @@ class Configurable(Reference_Tracker):
         
         self.smooth_speed = \
         self.ctrl_spec.attach_slider(
-                "smooth_speed", 
-                label = "Predictive Smoothing", 
+                "smooth_speed",
+                label = "Predictive Smoothing",
                 default_value = 1/10,
                 min_value = 0.0, max_value = 1.0, step_size = 1/10,
                 zero_referenced = True,
@@ -304,8 +304,8 @@ class Configurable(Reference_Tracker):
     
     # .................................................................................................................
     
-    def update_tracked_object_tracking(self, 
-                                       tracked_object_dict, unmatched_tobj_ids, 
+    def update_tracked_object_tracking(self,
+                                       tracked_object_dict, unmatched_tobj_ids,
                                        detection_ref_dict, unmatched_detection_ids,
                                        current_frame_index, current_epoch_ms, current_datetime):
         
@@ -324,7 +324,7 @@ class Configurable(Reference_Tracker):
     # .................................................................................................................
     
     def update_validation_object_tracking(self,
-                                          validation_object_dict, unmatched_vobj_ids, 
+                                          validation_object_dict, unmatched_vobj_ids,
                                           detection_ref_dict, unmatched_detection_ids,
                                           current_frame_index, current_epoch_ms, current_datetime):
         
@@ -335,8 +335,8 @@ class Configurable(Reference_Tracker):
 
     # .................................................................................................................
     
-    def _tobj_overlaps(self, 
-                       tracked_object_dict, unmatched_tobj_ids, 
+    def _tobj_overlaps(self,
+                       tracked_object_dict, unmatched_tobj_ids,
                        detection_ref_dict, unmatched_detection_ids):
         
         ''' 
@@ -422,18 +422,18 @@ class Configurable(Reference_Tracker):
     
     # .................................................................................................................
     
-    def apply_tracked_object_decay(self, tracked_object_dict, unmatched_tobj_ids_list, 
+    def apply_tracked_object_decay(self, tracked_object_dict, unmatched_tobj_ids_list,
                                    current_frame_index, current_epoch_ms, current_datetime):
         
-        return self._decay_objs(tracked_object_dict, unmatched_tobj_ids_list, 
+        return self._decay_objs(tracked_object_dict, unmatched_tobj_ids_list,
                                 self.track_decay_timeout_ms, current_epoch_ms)
     
     # .................................................................................................................
     
-    def apply_validation_object_decay(self, validation_object_dict, unmatched_vobj_ids_list, 
+    def apply_validation_object_decay(self, validation_object_dict, unmatched_vobj_ids_list,
                                       current_frame_index, current_epoch_ms, current_datetime):
         
-        return self._decay_objs(validation_object_dict, unmatched_vobj_ids_list, 
+        return self._decay_objs(validation_object_dict, unmatched_vobj_ids_list,
                                 self.validation_decay_timeout_ms, current_epoch_ms)
     
     # .................................................................................................................
@@ -462,7 +462,7 @@ class Configurable(Reference_Tracker):
     
     # .................................................................................................................
     
-    def generate_new_tracked_objects(self, tracked_object_dict, validation_object_dict, 
+    def generate_new_tracked_objects(self, tracked_object_dict, validation_object_dict,
                                      current_frame_index, current_epoch_ms, current_datetime):
         
         # Figure out which (if any) validation objects should be converted to tracked objects
@@ -488,7 +488,7 @@ class Configurable(Reference_Tracker):
     
     # .................................................................................................................
     
-    def generate_new_validation_objects(self, validation_object_dict, 
+    def generate_new_validation_objects(self, validation_object_dict,
                                         detection_ref_dict, unmatched_detection_ids_list,
                                         current_frame_index, current_epoch_ms, current_datetime):
         
@@ -503,7 +503,7 @@ class Configurable(Reference_Tracker):
             new_validation_obj = Smoothed_Trackable_Object(new_nice_id, new_full_id,
                                                            each_unmatched_detection,
                                                            current_frame_index,
-                                                           current_epoch_ms, 
+                                                           current_epoch_ms,
                                                            current_datetime)
             
             # Store the new validation object
@@ -583,7 +583,7 @@ def calculate_squared_distance_pairing_matrix(row_entry_xy_tuple_list, col_entry
 # .....................................................................................................................
 
 def pair_objects_to_detections(object_ref_dict, pairable_obj_ids_list,
-                               detection_ref_dict, pairable_det_ids_list, 
+                               detection_ref_dict, pairable_det_ids_list,
                                max_match_x_dist, max_match_y_dist,
                                use_fast_fallback):
     

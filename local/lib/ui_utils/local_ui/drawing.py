@@ -67,10 +67,10 @@ class Entity_Drawer:
     
     # .................................................................................................................
     
-    def __init__(self, 
+    def __init__(self,
                  frame_wh,
-                 minimum_entities = 0, 
-                 maximum_entities = None, 
+                 minimum_entities = 0,
+                 maximum_entities = None,
                  minimum_points = 3,
                  maximum_points = None,
                  border_size_px = 60,
@@ -209,7 +209,7 @@ class Entity_Drawer:
     
     def aesthetics(self, finished_color = (0, 255, 255), in_progress_color = (255, 255, 0),
                    finished_thickness = 1, in_progress_thickness = 1,
-                   anchor_radius = 3, line_type = cv2.LINE_AA, 
+                   anchor_radius = 3, line_type = cv2.LINE_AA,
                    show_anchors = True):
         
         ''' Function for changing default color/styling '''
@@ -253,7 +253,7 @@ class Entity_Drawer:
         
         '''
         Function for updating the known frame size.
-        Only use this if the image size is changing over time, 
+        Only use this if the image size is changing over time,
             otherwise the frame size should be supplied on initialization
         '''
         
@@ -327,7 +327,7 @@ class Entity_Drawer:
         Inputs must be functions with arguments in the form:
             draw_func(frame, points_npint32_array)
         
-        Where frame will be the frame data passed in to draw onto, 
+        Where frame will be the frame data passed in to draw onto,
         and points_npint32_array will be the entity points that need to be drawn
         
         Any styling/controls should be built into the function itself (it cannot take additional arguments)
@@ -335,7 +335,7 @@ class Entity_Drawer:
         Inputs left as 'None' will keep existing drawing style.
         '''
         
-        self.entity_collection.replace_drawing_functions(new_completed_drawing_function, 
+        self.entity_collection.replace_drawing_functions(new_completed_drawing_function,
                                                          new_inprogress_drawing_function)
         
         return
@@ -843,9 +843,9 @@ class Entity_Collection:
     
     # .................................................................................................................
     
-    def __init__(self, 
+    def __init__(self,
                  initial_entity_list,
-                 minimum_entities = 0, 
+                 minimum_entities = 0,
                  maximum_entities = None,
                  minimum_points_per_entity = 2,
                  maximum_points_per_entity = None,
@@ -953,9 +953,9 @@ class Entity_Collection:
     
     # .................................................................................................................
     
-    def aesthetics(self, finished_color = (0, 255, 255), in_progress_color = (255, 255, 0), 
-                   finished_thickness = 1, in_progress_thickness = 1, 
-                   anchor_radius = 3, line_type = cv2.LINE_AA, 
+    def aesthetics(self, finished_color = (0, 255, 255), in_progress_color = (255, 255, 0),
+                   finished_thickness = 1, in_progress_thickness = 1,
+                   anchor_radius = 3, line_type = cv2.LINE_AA,
                    show_anchors = True):
         
         # Update internal records
@@ -1226,7 +1226,7 @@ class Entity_Collection:
     
     # .................................................................................................................
     
-    def snap_to(self, min_x, max_x, min_y, max_y, max_snap_distance = 25, 
+    def snap_to(self, min_x, max_x, min_y, max_y, max_snap_distance = 25,
                 entity_index = None, point_index = None, record_history = False):
         
         ''' Function for snapping to nearby x/y points '''
@@ -1436,7 +1436,7 @@ class Interactive_Entity:
         # Only update the points array if we have a valid number of points
         if not update_success:
             if self.debug_mode:
-                print("", 
+                print("",
                       "Can't update entity points! Not within min/max point limits",
                       "  Minimum points: {}".format(self.min_points),
                       "  Maximum points: {}".format(self.max_points),
@@ -1464,7 +1464,7 @@ class Interactive_Entity:
     
     # .................................................................................................................
     
-    def aesthetics(self, color = (0, 255, 255), thickness = 1, anchor_radius = 3, line_type = cv2.LINE_AA, 
+    def aesthetics(self, color = (0, 255, 255), thickness = 1, anchor_radius = 3, line_type = cv2.LINE_AA,
                    show_anchors = True):
         
         ''' Function used to set the visual appearance of an entity '''

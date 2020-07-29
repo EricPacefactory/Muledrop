@@ -95,8 +95,8 @@ class Configurable(Reference_Pixel_Filter):
         
         self.red_lower = \
         self.ctrl_spec.attach_slider(
-                "red_lower", 
-                label = "Lower Red", 
+                "red_lower",
+                label = "Lower Red",
                 default_value = 0,
                 min_value = 0,
                 max_value = 255,
@@ -104,8 +104,8 @@ class Configurable(Reference_Pixel_Filter):
         
         self.red_upper = \
         self.ctrl_spec.attach_slider(
-                "red_upper", 
-                label = "Upper Red", 
+                "red_upper",
+                label = "Upper Red",
                 default_value = 255,
                 min_value = 0,
                 max_value = 255,
@@ -117,8 +117,8 @@ class Configurable(Reference_Pixel_Filter):
         
         self.green_lower = \
         self.ctrl_spec.attach_slider(
-                "green_lower", 
-                label = "Lower Green", 
+                "green_lower",
+                label = "Lower Green",
                 default_value = 0,
                 min_value = 0,
                 max_value = 255,
@@ -126,8 +126,8 @@ class Configurable(Reference_Pixel_Filter):
         
         self.green_upper = \
         self.ctrl_spec.attach_slider(
-                "green_upper", 
-                label = "Upper Green", 
+                "green_upper",
+                label = "Upper Green",
                 default_value = 255,
                 min_value = 0,
                 max_value = 255,
@@ -139,8 +139,8 @@ class Configurable(Reference_Pixel_Filter):
         
         self.blue_lower = \
         self.ctrl_spec.attach_slider(
-                "blue_lower", 
-                label = "Lower Blue", 
+                "blue_lower",
+                label = "Lower Blue",
                 default_value = 0,
                 min_value = 0,
                 max_value = 255,
@@ -148,8 +148,8 @@ class Configurable(Reference_Pixel_Filter):
         
         self.blue_upper = \
         self.ctrl_spec.attach_slider(
-                "blue_upper", 
-                label = "Upper Blue", 
+                "blue_upper",
+                label = "Upper Blue",
                 default_value = 255,
                 min_value = 0,
                 max_value = 255,

@@ -93,16 +93,16 @@ class Configurable(Reference_Rule):
         
         self.invert_zones = \
         self.ctrl_spec.attach_toggle(
-                "invert_zones", 
-                label = "Invert Zones", 
+                "invert_zones",
+                label = "Invert Zones",
                 default_value = False,
                 tooltip = ["Flips the interpretation of the zones, so that objects falling inside drawn regions",
                            "register as being 'outside' the zone."])
     
         self.trail_smoothing_factor = \
         self.ctrl_spec.attach_slider(
-                "trail_smoothing_factor", 
-                label = "Trail Smoothing Factor", 
+                "trail_smoothing_factor",
+                label = "Trail Smoothing Factor",
                 default_value = 0.115,
                 min_value = 0.000, max_value = 0.100, step_size = 0.005,
                 return_type = float,
