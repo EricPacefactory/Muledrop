@@ -143,7 +143,7 @@ class Reference_Tracker(Core_Configurable_Base):
         dead_vobj_id_list = self._dead_validation_id_list
         
         # Clear dead objects (from the previous iteration)
-        tobj_dict, vobj_dict = self.clear_dead_ids(tobj_dict, vobj_dict, 
+        tobj_dict, vobj_dict = self.clear_dead_ids(tobj_dict, vobj_dict,
                                                    dead_tobj_id_list, dead_vobj_id_list)
         
         # Get lists of unmatched objects & detections
@@ -153,13 +153,13 @@ class Reference_Tracker(Core_Configurable_Base):
         
         # Update tracked objects first
         tobj_dict, still_unmatched_tobj_ids, still_unmatched_det_ids = \
-        self.update_tracked_object_tracking(tobj_dict, unmatched_tobj_ids, 
+        self.update_tracked_object_tracking(tobj_dict, unmatched_tobj_ids,
                                             detection_ref_dict, unmatched_det_ids,
                                             *fed_time_args)
         
         # Then update validation objects with leftover detections
         vobj_dict, still_unmatched_vobj_ids, still_unmatched_det_ids = \
-        self.update_validation_object_tracking(vobj_dict, unmatched_vobj_ids, 
+        self.update_validation_object_tracking(vobj_dict, unmatched_vobj_ids,
                                                detection_ref_dict, still_unmatched_det_ids,
                                                *fed_time_args)
         
@@ -177,7 +177,7 @@ class Reference_Tracker(Core_Configurable_Base):
         
         # If needed, generate new tracked/validation objects
         tobj_dict, vobj_dict = self.generate_new_tracked_objects(tobj_dict, vobj_dict, *fed_time_args)
-        vobj_dict = self.generate_new_validation_objects(vobj_dict, 
+        vobj_dict = self.generate_new_validation_objects(vobj_dict,
                                                          detection_ref_dict, still_unmatched_det_ids,
                                                          *fed_time_args)
         
@@ -187,14 +187,14 @@ class Reference_Tracker(Core_Configurable_Base):
         self._dead_tracked_id_list = dead_tobj_id_list
         self._dead_validation_id_list = dead_vobj_id_list
         
-        return {"tracked_object_dict": self._tracked_object_dict, 
+        return {"tracked_object_dict": self._tracked_object_dict,
                 "validation_object_dict": self._validation_object_dict,
                 "dead_id_list": self._dead_tracked_id_list}
     
     # .................................................................................................................
     
     # MAY OVERRIDE. Maintain i/o structure
-    def clear_dead_ids(self, tracked_object_dict, validation_object_dict, 
+    def clear_dead_ids(self, tracked_object_dict, validation_object_dict,
                        dead_tracked_id_list, dead_validation_id_list):
         
         ''' 
@@ -216,8 +216,8 @@ class Reference_Tracker(Core_Configurable_Base):
     # .................................................................................................................
     
     # SHOULD OVERRIDE. Maintain i/o structure
-    def update_tracked_object_tracking(self, 
-                                       tracked_object_dict, unmatched_tobj_ids, 
+    def update_tracked_object_tracking(self,
+                                       tracked_object_dict, unmatched_tobj_ids,
                                        detection_ref_dict, unmatched_detection_ids,
                                        current_frame_index, current_epoch_ms, current_datetime):
         
@@ -238,7 +238,7 @@ class Reference_Tracker(Core_Configurable_Base):
     
     # SHOULD OVERRIDE. Maintain i/o structure
     def update_validation_object_tracking(self,
-                              validation_object_dict, unmatched_vobj_ids, 
+                              validation_object_dict, unmatched_vobj_ids,
                               detection_ref_dict, unmatched_detection_ids,
                               current_frame_index, current_epoch_ms, current_datetime):
         
@@ -258,7 +258,7 @@ class Reference_Tracker(Core_Configurable_Base):
     # .................................................................................................................
     
     # SHOULD OVERRIDE. Maintain i/o structure
-    def apply_tracked_object_decay(self, tracked_object_dict, unmatched_tobj_id_list, 
+    def apply_tracked_object_decay(self, tracked_object_dict, unmatched_tobj_id_list,
                                    current_frame_index, current_epoch_ms, current_datetime):
         
         ''' 
@@ -275,7 +275,7 @@ class Reference_Tracker(Core_Configurable_Base):
     # .................................................................................................................
     
     # SHOULD OVERRIDE. Maintain i/o structure
-    def apply_validation_object_decay(self, validation_object_dict, unmatched_vobj_id_list, 
+    def apply_validation_object_decay(self, validation_object_dict, unmatched_vobj_id_list,
                                       current_frame_index, current_epoch_ms, current_datetime):
         
         ''' 
@@ -292,8 +292,8 @@ class Reference_Tracker(Core_Configurable_Base):
     # .................................................................................................................
     
     # MAY OVERRIDE. Maintain i/o structure
-    def generate_new_descendant_objects(self, tracked_object_dict, dead_tracked_id_list, 
-                                       current_frame_index, current_epoch_ms, current_datetime):
+    def generate_new_descendant_objects(self, tracked_object_dict, dead_tracked_id_list,
+                                        current_frame_index, current_epoch_ms, current_datetime):
         
         '''
         Function for creating new objects from long-lived tracked objects
@@ -315,21 +315,25 @@ class Reference_Tracker(Core_Configurable_Base):
             if not needs_descendant:
                 continue
             
-            # If we get here, we're creating a descendant object, so record the id
-            ancestor_id_list.append(each_tobj_id)
+            # Make sure the object isn't marked for deletion on this frame
+            in_dead_list = (each_tobj_id in dead_tracked_id_list)
+            if in_dead_list:
+                continue
             
-            # Get new tracked id for each descendant object
+            # Create a new 'descendant' object to replace the long-lasting tracked object we're replacing
             new_nice_id, new_full_id = self.tobj_id_manager.new_id(current_datetime)
-            new_descendant = each_tobj.create_descendant(new_nice_id, new_full_id, 
-                                                        current_frame_index, current_epoch_ms, current_datetime)
+            new_descendant = each_tobj.create_descendant(new_nice_id, new_full_id,
+                                                         current_frame_index, current_epoch_ms, current_datetime)
             
-            # Move descendant into the tracked object dictionary
+            # Record the current id as an ancestor, since we'll be getting rid of it, and also
+            # store the new descendant object to merge into the tracked object dict
+            ancestor_id_list.append(each_tobj_id)
             descendant_object_dict[new_full_id] = new_descendant
         
         # Add new descendants to the tracked object dictionary
         tracked_object_dict.update(descendant_object_dict)
         
-        # Add ancestor ids to the existing dead list so they are remove on the next iteration
+        # Add ancestor ids to the existing dead list so they are removed on the next iteration
         updated_dead_tracked_id_list = dead_tracked_id_list + ancestor_id_list
         
         return tracked_object_dict, updated_dead_tracked_id_list
@@ -337,7 +341,7 @@ class Reference_Tracker(Core_Configurable_Base):
     # .................................................................................................................
     
     # SHOULD OVERRIDE. Maintain i/o structure
-    def generate_new_tracked_objects(self, tracked_object_dict, validation_object_dict, 
+    def generate_new_tracked_objects(self, tracked_object_dict, validation_object_dict,
                                      current_frame_index, current_epoch_ms, current_datetime):
         
         '''
@@ -353,7 +357,7 @@ class Reference_Tracker(Core_Configurable_Base):
     # .................................................................................................................
     
     # SHOULD OVERRIDE. Maintain i/o structure
-    def generate_new_validation_objects(self, validation_object_dict, 
+    def generate_new_validation_objects(self, validation_object_dict,
                                         detection_ref_dict, unmatched_detection_id_list,
                                         current_frame_index, current_epoch_ms, current_datetime):
         
@@ -491,8 +495,8 @@ class Reference_Trackable_Object:
     
     # .................................................................................................................
     
-    def create_descendant(self, new_nice_id, new_full_id, 
-                         current_frame_index, current_epoch_ms, current_datetime):
+    def create_descendant(self, new_nice_id, new_full_id,
+                          current_frame_index, current_epoch_ms, current_datetime):
         
         ''' 
         Function for creating new objects to carry on existing objects 
@@ -933,8 +937,8 @@ class ID_Manager:
         IDs have the format:
             yyyydddhhmm***
             
-        Where *** is the ID, 
-              yyyy is the current year, 
+        Where *** is the ID,
+              yyyy is the current year,
               ddd is the current day-of-the-year,
               hh is the current hour,
               mm is the current minute
