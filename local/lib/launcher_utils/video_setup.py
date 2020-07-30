@@ -55,8 +55,10 @@ import cv2
 
 from time import sleep, perf_counter
 
-from local.lib.file_access_utils.video import video_info_from_name, load_rtsp_config, check_valid_rtsp_ip
+from local.lib.file_access_utils.video import video_info_from_name
+from local.lib.file_access_utils.rtsp import load_rtsp_config, check_valid_rtsp_ip
 from local.lib.common.timekeeper_utils import Timekeeper, get_human_readable_timestamp
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes

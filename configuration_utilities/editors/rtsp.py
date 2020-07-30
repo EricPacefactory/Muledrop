@@ -54,8 +54,8 @@ import cv2
 from local.lib.ui_utils.cli_selections import Resource_Selector
 from local.lib.ui_utils.editor_lib import select_from_list, prompt_with_defaults, confirm
 
-from local.lib.file_access_utils.video import create_new_rtsp_config, unpack_rtsp_config
-from local.lib.file_access_utils.video import load_rtsp_config, save_rtsp_config
+from local.lib.file_access_utils.rtsp import create_new_rtsp_config, unpack_rtsp_config
+from local.lib.file_access_utils.rtsp import load_rtsp_config, save_rtsp_config
 
 from local.eolib.utils.network import build_rtsp_string, check_connection
 from local.eolib.utils.cli_tools import Color

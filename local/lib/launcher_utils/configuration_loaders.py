@@ -71,7 +71,8 @@ from local.lib.file_access_utils.externals import build_externals_folder_path
 from local.lib.file_access_utils.reporting import build_camera_info_metadata_report_path
 from local.lib.file_access_utils.reporting import build_config_info_metadata_report_path
 from local.lib.file_access_utils.resources import reset_capture_folder, reset_generate_folder
-from local.lib.file_access_utils.video import Playback_Access, load_rtsp_config
+from local.lib.file_access_utils.video import Playback_Access
+from local.lib.file_access_utils.rtsp import load_rtsp_config
 from local.lib.file_access_utils.stations import build_station_config_file_path
 from local.lib.file_access_utils.state_files import shutdown_running_camera, save_state_file, delete_state_file
 from local.lib.file_access_utils.json_read_write import load_config_json, save_config_json

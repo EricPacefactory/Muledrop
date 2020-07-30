@@ -154,11 +154,6 @@ def build_video_files_dict_path(location_select_folder_path, camera_select):
     return build_videos_folder_path(location_select_folder_path, camera_select, "video_files_record.json")
 
 # .....................................................................................................................
-
-def build_rtsp_file_path(location_select_folder_path, camera_select):
-    return build_videos_folder_path(location_select_folder_path, camera_select, "rtsp.json")
-
-# .....................................................................................................................
 # .....................................................................................................................
 
 
@@ -544,103 +539,6 @@ def video_info_from_name(location_select_folder_path, camera_select, video_selec
     
     return expanded_path, start_datetime_isoformat, timelapse_factor
     
-# .....................................................................................................................
-# .....................................................................................................................
-
-
-# ---------------------------------------------------------------------------------------------------------------------
-#%% RTSP functions
-
-# .....................................................................................................................
-
-def create_new_rtsp_config(ip_address, username, password, port = 554, route = ""):
-    
-    ''' Helper function which bundles rtsp info in a consistent format '''
-    
-    # Fix prefixed slashes on route input
-    if len(route) > 0:
-        if route[0] == "/":
-            route = route[1:]
-        
-    return {"ip_address": ip_address,
-            "username": username,
-            "password": password,
-            "port": port,
-            "route": route}
-
-# .....................................................................................................................
-
-def unpack_rtsp_config(rtsp_config_dict):
-    
-    '''
-    Helper function which retrieves rtsp configuration info in a consistent order.
-    Used to avoid requiring knowledge of keyname/lookups
-    
-    Inputs:
-        rtsp_config_dict -> (Dictionary) An RTSP configuration that should be unpacked
-    
-    Outputs:
-        ip_address, username, password, port, route
-    
-    Note: The port will be an integer value, all others are strings!
-    '''
-    
-    ip_address = rtsp_config_dict["ip_address"]
-    username = rtsp_config_dict["username"]
-    password = rtsp_config_dict["password"]
-    port = int(rtsp_config_dict.get("port", 554))
-    route = rtsp_config_dict["route"]
-    
-    return ip_address, username, password, port, route
-
-# .....................................................................................................................
-
-def load_rtsp_config(location_select_folder_path, camera_select, rtsp_filename = "rtsp.json"):
-    
-    # Create default config entries
-    default_rtsp_file = create_new_rtsp_config(ip_address = "",
-                                               username = "",
-                                               password = "",
-                                               port = 554,
-                                               route = "")
-    
-    # Build pathing to the rtsp file, then load it
-    rtsp_file_path = build_videos_folder_path(location_select_folder_path, camera_select, rtsp_filename)
-    rtsp_config = load_or_create_config_json(rtsp_file_path, default_rtsp_file,
-                                             creation_printout = "Creating rtsp file:")
-    
-    # Create rtsp string for convenience
-    rtsp_string = build_rtsp_string(**rtsp_config)
-    
-    return rtsp_config, rtsp_string
-
-# .....................................................................................................................
-    
-def save_rtsp_config(location_select_folder_path, camera_select, new_rtsp_config, rtsp_filename = "rtsp.json"):
-    
-    # Replace the existing rtsp file with the new config and re-save
-    rtsp_file_path = build_videos_folder_path(location_select_folder_path, camera_select, rtsp_filename)
-    return update_config_json(rtsp_file_path, new_rtsp_config)
-
-# .....................................................................................................................
-
-def check_valid_rtsp_ip(location_select_folder_path, camera_select):
-    
-    ''' 
-    Function for (roughly) determining if the rtsp configuration of a camera is valid 
-    Only checks if the ip address is valid
-    
-    Returns:
-        has_valid_rtsp (boolean)
-    '''
-    
-    # Check for missing rtsp configuration
-    rtsp_config_dict, _ = load_rtsp_config(location_select_folder_path, camera_select)
-    rtsp_ip_address = rtsp_config_dict.get("ip_address", "")
-    has_valid_rtsp = check_valid_ip(rtsp_ip_address)
-    
-    return has_valid_rtsp
-
 # .....................................................................................................................
 # .....................................................................................................................
 

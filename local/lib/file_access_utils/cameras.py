@@ -50,7 +50,7 @@ find_path_to_local()
 #%% Imports
 
 from local.lib.file_access_utils.shared import build_camera_path, copy_from_defaults
-from local.lib.file_access_utils.video import check_valid_rtsp_ip
+from local.lib.file_access_utils.rtsp import check_valid_rtsp_ip
 
 from local.eolib.utils.files import create_folder_structure_from_dictionary, get_folder_list
 
