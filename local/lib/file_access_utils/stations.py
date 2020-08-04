@@ -87,6 +87,16 @@ def build_stations_logging_folder_path(location_select_folder_path, camera_selec
 
 # .....................................................................................................................
 
+def create_new_station_prompt_entry():
+    
+    '''
+    Dummy function used to standardize the appearance of the 'create new'
+    option when selecting stations from a menu'''
+    
+    return "Create new station"
+
+# .....................................................................................................................
+
 def get_station_config_paths(station_config_folder_path):
     
     '''

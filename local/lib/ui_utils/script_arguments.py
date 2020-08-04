@@ -168,6 +168,7 @@ def _script_arg_function_lut(key_name):
                 "location": _location_arg,
                 "camera": _camera_arg,
                 "video": _video_arg,
+                "station": _station_arg,
                 "display": _display_arg,
                 "threaded_video": _threaded_video_arg,
                 "unthreaded_video": _unthreaded_video_arg,
@@ -216,6 +217,11 @@ def _camera_arg(default = None, help_text = "Camera select"):
 
 def _video_arg(default = None, help_text = "Video select"):
     return ("-v", "--video"), {"default": default, "type": str, "help": help_text}
+
+# .....................................................................................................................
+
+def _station_arg(default = None, help_text = "Station select"):
+    return ("-s", "--station"), {"default": default, "type": str, "help": help_text}
 
 # .....................................................................................................................
 

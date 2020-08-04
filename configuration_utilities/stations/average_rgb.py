@@ -71,7 +71,6 @@ target_script_name = "average_rgb_station"
 loader = Reconfigurable_Single_Station_Loader(target_script_name)
 arg_selections = loader.parse_standard_args()
 loader.selections(*arg_selections)
-loader.select_station()
 
 # Set up video capture, processing stages & playback control
 configurable_ref = loader.setup_all(__file__)

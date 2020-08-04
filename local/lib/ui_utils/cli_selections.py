@@ -56,6 +56,7 @@ from local.lib.file_access_utils.cameras import create_camera_folder_structure, 
 from local.lib.file_access_utils.cameras import check_for_existing_camera_name
 from local.lib.file_access_utils.video import get_video_names_and_paths_lists
 from local.lib.file_access_utils.stations import get_target_station_names_and_paths_lists
+from local.lib.file_access_utils.stations import create_new_station_prompt_entry
 
 from local.eolib.utils.cli_tools import cli_select_from_list, keyboard_quit, clean_error_quit
 
@@ -242,7 +243,7 @@ class Resource_Selector:
                                                                                           station_script_name)
         
         # Add entry for creating a new station as the first entry
-        create_station_name_entry = "Create new station"
+        create_station_name_entry = create_new_station_prompt_entry()
         create_station_path_entry = None
         station_names_list.insert(0, create_station_name_entry)
         station_paths_list.insert(0, create_station_path_entry)

@@ -711,7 +711,7 @@ class Reconfigurable_Loader(File_Configuration_Loader):
         
         # Provide some extra information when accessing help text
         script_description_list = ["System configuration utility",
-                                   "Can provide camera & video selection arguments to avoid menu prompts"]
+                                   "Can provide location, camera & video selection arguments to avoid menu prompts"]
         script_description_str = "\n".join(script_description_list)
         
         # Build & evaluate script arguments!
@@ -963,13 +963,50 @@ class Reconfigurable_Single_Station_Loader(Reconfigurable_Loader):
     
     # .................................................................................................................
     
-    def select_station(self):
+    def parse_standard_args(self, debug_print = False):
         
-        # Create selector so we can make station selection
+        # Set script arguments for reconfigurable scripts
+        args_list = ["location", "camera",  "video", "station"]
+        
+        # Provide some extra information when accessing help text
+        script_description_list = ["System configuration utility",
+                                   "Can provide location, camera & video selection arguments to avoid menu prompts"]
+        script_description_str = "\n".join(script_description_list)
+        
+        # Build & evaluate script arguments!
+        ap_result = script_arg_builder(args_list,
+                                       description = script_description_str,
+                                       parse_on_call = True,
+                                       debug_print = debug_print)
+        
+        # Split into location-select, camera_select, video_select on return to match selectons input args
+        location_select, camera_select, video_select = get_selections_from_script_args(ap_result)
+        station_select = ap_result.get("station", None)
+        
+        return location_select, camera_select, video_select, station_select
+    
+    # .................................................................................................................
+    
+    def selections(self,
+                   arg_location_select = None,
+                   arg_camera_select = None,
+                   arg_video_select = None,
+                   arg_station_select = None):
+        
+        # Create selector so we can make camera/video selections
         selector = Resource_Selector()
         
-        # Select shared components
-        self.station_select, _ = selector.station(self.location_select, self.camera_select, self.override_script)
+        # Get important pathing
+        self.project_root_path, self.all_locations_folder_path = selector.get_shared_pathing()
+        
+        # Select data to run
+        self.location_select, self.location_select_folder_path = selector.location(arg_location_select)
+        self.camera_select, _ = selector.camera(self.location_select, arg_camera_select)
+        self.video_select, _ = selector.video(self.location_select, self.camera_select, arg_video_select)
+        
+        # Select station as well, unique to station loader
+        self.station_select, _ = selector.station(self.location_select, self.camera_select, self.override_script,
+                                                  arg_station_select)
         
         return self
     

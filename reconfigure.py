@@ -59,7 +59,7 @@ from local.lib.ui_utils.script_arguments import script_arg_builder, get_selectio
 from local.lib.file_access_utils.configurables import unpack_config_data, unpack_access_info
 from local.lib.file_access_utils.core import get_ordered_core_sequence, build_core_folder_path
 from local.lib.file_access_utils.externals import build_externals_folder_path
-from local.lib.file_access_utils.stations import build_station_config_folder_path
+from local.lib.file_access_utils.stations import build_station_config_folder_path, create_new_station_prompt_entry
 from local.lib.file_access_utils.json_read_write import load_config_json
 
 from local.eolib.utils.files import get_file_list, get_folder_list
@@ -131,7 +131,8 @@ def clear_with_status(first_select = None):
 # .....................................................................................................................
 
 def pretty_menu_name(menu_name):
-    return menu_name.replace("_", " ").replace(".py", "").title()
+    menu_name_no_ext, _ = os.path.splitext(menu_name)
+    return menu_name_no_ext.replace("_", " ").title()
 
 # .....................................................................................................................
 
@@ -151,16 +152,18 @@ def set_passthru_ordering(entry_list, passthrough_label = "passthrough.py"):
 
 # .....................................................................................................................
 
-def run_config_utility(config_utility_path):
+def run_config_utility(config_utility_path, station_select = None):
     
     # Build arguments to pass to each config utility
     script_arg_list = ["-l", LOCATION_SELECT, "-c", CAMERA_SELECT, "-v", VIDEO_SELECT]
+    if station_select is not None:
+        script_arg_list += ["-s", station_select]
     
     # Get python interpretter path, so we call subprocess using the same environment
     python_interpretter = sys.executable
     
     # Launch selected configuration utility using direct path to the script
-    run_command_list = [python_interpretter, config_utility_path] + script_arg_list    
+    run_command_list = [python_interpretter, config_utility_path] + script_arg_list
     subproc = subprocess.run(run_command_list)
     
     # Present errors to user
@@ -245,13 +248,20 @@ def load_stations_menu_info(project_root_path, location_select_folder_path):
     # Get pathing to the configuration utilites
     utility_parent_folder = build_path_to_config_utils(project_root_path, "stations")
     
-    # Figure out ordering for presenting the station options
-    option_ordering = get_file_list(utility_parent_folder, sort_list = True)
+    # Figure out ordering for presenting the station configuration utility options
+    util_option_ordering = get_file_list(utility_parent_folder, sort_list = True)
     
     # Get pathing to the corresponding config files for the selected camera
     configs_folder_path = build_station_config_folder_path(location_select_folder_path, CAMERA_SELECT)
     
-    return utility_parent_folder, option_ordering, configs_folder_path
+    # Get config file ordering for presenting in a menu as well
+    existing_configs_ordering_list = get_file_list(configs_folder_path, sort_list = True)
+    
+    # Add 'create new' option to configs
+    create_new_option_entry = create_new_station_prompt_entry()
+    existing_configs_ordering_list.insert(0, create_new_option_entry)
+    
+    return utility_parent_folder, util_option_ordering, configs_folder_path, existing_configs_ordering_list
 
 # .....................................................................................................................
 
@@ -277,7 +287,7 @@ def load_externals_menu_info(project_root_path, location_select_folder_path):
 
 # .....................................................................................................................
 
-def menu_select(prompt_msg, entry_list, default_selection = None):
+def menu_select(prompt_msg, entry_list, default_selection = None, zero_indexed = False):
     
     ''' Helper function which wraps the cli menu selection to provide better error handling '''
     
@@ -293,7 +303,7 @@ def menu_select(prompt_msg, entry_list, default_selection = None):
     
     try:
         # Get user to select entry from the menu, then convert back to original input name
-        select_idx, _ = cli_select_from_list(pretty_entry_list, prompt_msg, pretty_default)
+        select_idx, _ = cli_select_from_list(pretty_entry_list, prompt_msg, pretty_default, zero_indexed = zero_indexed)
         selected_name = entry_list[select_idx]
         
     except KeyboardInterrupt:
@@ -315,7 +325,8 @@ def menu_select(prompt_msg, entry_list, default_selection = None):
 
 # .....................................................................................................................
     
-def menu_select_loop_on_error(prompt_msg, entry_list, default_selection = None, clear_text = True):
+def menu_select_loop_on_error(prompt_msg, entry_list, default_selection = None, clear_text = True,
+                              zero_indexed = False):
     
     ''' Helper function which continues providing menu selection on input errors '''
     
@@ -332,7 +343,7 @@ def menu_select_loop_on_error(prompt_msg, entry_list, default_selection = None, 
             print("", "Input error! Must enter a number matching an entry in the list", sep = "\n")
         
         # Prompt with menu selection
-        s_err, s_cancel, s_empty, selected_name = menu_select(prompt_msg, entry_list, default_selection)
+        s_err, s_cancel, s_empty, selected_name = menu_select(prompt_msg, entry_list, default_selection, zero_indexed)
         keep_looping = s_err
     
     return s_cancel, s_empty, selected_name
@@ -351,7 +362,7 @@ def ask_to_quit_menu(clear_terminal_if_no_quit = True):
 
 # .....................................................................................................................
 
-def get_script_name_from_config_file(configs_folder_path, parent_select):
+def get_config_util_from_config_file(configs_folder_path, parent_select):
 
     ''' Function used to get the default script selection '''
     
@@ -397,7 +408,7 @@ VIDEO_SELECT, video_path = selector.video(LOCATION_SELECT, CAMERA_SELECT, arg_vi
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-#%% Prompt to select configurable type
+#%% *** CATEGORY MENU ***
 
 # Build menu for which type of configurable we want to reconfigure
 core_option = "Core"
@@ -440,7 +451,7 @@ while selected_core:
         else:            continue
     
     # Figure out which option should be default (if any)
-    core_stage_default = get_script_name_from_config_file(core_configs_folder_path, select_stage_name)
+    core_stage_default = get_config_util_from_config_file(core_configs_folder_path, select_stage_name)
     
     # Select which option from the selected stage to load
     script_options_list = get_util_scripts_list(core_util_parent_folder, select_stage_name)
@@ -466,13 +477,13 @@ while selected_core:
 # Handle stations menus
 while selected_stations:
         
-    # Load data for handle stations menu option
-    stn_util_parent_folder, stn_option_ordering, stn_configs_folder_path = \
+    # Load data for handling stations menu option
+    stn_util_parent_folder, stn_util_option_ordering, stn_configs_folder_path, stn_config_option_ordering = \
     load_stations_menu_info(project_root_path, location_select_folder_path)
     
     # Select which type of station to re-configure
-    s_cancel, s_empty, select_script_name = \
-    menu_select_loop_on_error("Select station:", stn_option_ordering)
+    s_cancel, s_empty, select_config_file_name = \
+    menu_select_loop_on_error("Select station:", stn_config_option_ordering, zero_indexed = True)
     
     # Handle quitting
     if s_cancel:
@@ -484,9 +495,36 @@ while selected_stations:
         if confirm_quit: break
         else:            continue
     
+    # Try to load the configuration utility used to create the selected station
+    config_no_ext, _ = os.path.splitext(select_config_file_name)
+    station_config_util_script = get_config_util_from_config_file(stn_configs_folder_path, config_no_ext)
+    station_config_util_script = "{}.py".format(station_config_util_script)
+    
+    # If 'create new' is selected, we need to provide a menu to select the station type
+    # This will also override the normal attempt to figure out the config util from the config file
+    create_new_option = create_new_station_prompt_entry()
+    selected_create_new = (select_config_file_name == create_new_option)
+    if selected_create_new:
+        
+        # Select which type of station to re-configure
+        s_cancel, s_empty, station_config_util_script = \
+        menu_select_loop_on_error("Select station type:", stn_util_option_ordering)
+        
+        # Handle quitting
+        if s_cancel:
+            break
+        
+        # Handle empty selection (ask to quit or reset to stations menu)
+        if s_empty:
+            confirm_quit = ask_to_quit_menu()
+            if confirm_quit: break
+            else:            continue
+        
+        pass
+    
     # If we get this far, run whatever config utility was selected
-    selected_script_path = os.path.join(stn_util_parent_folder, select_script_name)
-    req_break, return_code = run_config_utility(selected_script_path)  # Blocking
+    selected_script_path = os.path.join(stn_util_parent_folder, station_config_util_script)
+    req_break, return_code = run_config_utility(selected_script_path, config_no_ext)  # Blocking
     if req_break:
         break
     sleep(0.15)
@@ -517,7 +555,7 @@ while selected_externals:
         else:            continue
     
     # Figure out which option should be default (if any)
-    external_type_default = get_script_name_from_config_file(ext_configs_folder_path, select_type_name)
+    external_type_default = get_config_util_from_config_file(ext_configs_folder_path, select_type_name)
     
     # Select which option from the selected stage to load
     script_options_list = get_util_scripts_list(ext_util_parent_folder, select_type_name)
@@ -548,6 +586,5 @@ print("", "{} closed...".format(os.path.basename(__file__)), "", sep = "\n")
 #%% Scrap
 
 # TODO
-# - re-arrange station menus, so that existing configs + 'create new' menu appears first?
-#   - if existing config chosen, immediately load corresponding script
-#   - if 'create new' is chosen, then prompt with another menu for station type
+# - major clean-up needed to get station selections implemented 'cleanly' with the rest of the system... super hacky
+
