@@ -54,6 +54,9 @@ import numpy as np
 
 from local.lib.ui_utils.cli_selections import Resource_Selector
 
+from local.lib.audit_tools.mouse_interaction import Hover_Callback
+from local.lib.audit_tools.playback import Snapshot_Playback, Corner_Timestamp
+
 from local.offline_database.file_database import launch_dbs, close_dbs_if_missing_data
 from local.offline_database.object_reconstruction import Smooth_Hover_Object_Reconstruction, Hover_Mapping
 from local.offline_database.object_reconstruction import create_trail_frame_from_object_reconstruction
@@ -64,55 +67,9 @@ from local.lib.ui_utils.local_ui.windows_base import Simple_Window
 
 from local.eolib.utils.cli_tools import Datetime_Input_Parser as DTIP
 
+
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
-
-class Hover_Callback:
-    
-    # .................................................................................................................
-    
-    def __init__(self, frame_wh):
-        
-        self._mouse_moved = False
-        self._mouse_clicked = False
-        self._mouse_xy = np.array((-10000,-10000))
-        
-        frame_width, frame_height = frame_wh
-        self.frame_scaling = np.float32((frame_width - 1, frame_height - 1))
-        self.frame_wh = frame_wh
-    
-    # .................................................................................................................
-    
-    def __call__(self, *args, **kwargs):        
-        self.mouse_callback(*args, **kwargs)
-    
-    # .................................................................................................................
-    
-    def mouse_callback(self, event, mx, my, flags, param):
-        self._mouse_xy = np.int32((mx, my))
-        self._mouse_moved = (event == cv2.EVENT_MOUSEMOVE)
-        self._mouse_clicked = (event == cv2.EVENT_LBUTTONDOWN)
-    
-    # .................................................................................................................
-    
-    def mouse_xy(self, normalized = True):
-        
-        if normalized:
-            return self._mouse_xy / self.frame_scaling
-        
-        return self._mouse_xy
-    
-    # .................................................................................................................
-    
-    def clicked(self):
-        return self._mouse_clicked
-    
-    # .................................................................................................................
-    # .................................................................................................................
-
-
-# =====================================================================================================================
-# =====================================================================================================================
 
 class Callback_Sequencer:
     
@@ -347,20 +304,22 @@ def show_looping_animation(snapshot_database, object_database, object_list,
         return
     
     # Figure out the time range to animate over
-    earliest_time = np.min([each_obj.start_ems for each_obj in object_list])
-    latest_time = np.max([each_obj.end_ems for each_obj in object_list])
+    earliest_time_ems = np.min([each_obj.start_ems for each_obj in object_list])
+    latest_time_ems = np.max([each_obj.end_ems for each_obj in object_list])
     
     # Set up buffer times (used to extend animation range to include time before/after object existence)
     start_buffer_time_ms = int(start_buffer_time_sec * 1000.0)
     end_buffer_time_ms = int(end_buffer_time_sec * 1000.0)
     
     # Make sure we don't reach for snapshots out of the snapshot time range
-    earliest_snap, latest_snap = snapshot_database.get_bounding_epoch_ms()
-    earliest_time = max(earliest_snap, earliest_time - start_buffer_time_ms)
-    latest_time = min(latest_snap, latest_time + end_buffer_time_ms)
+    earliest_snap_ems, latest_snap_ems = snapshot_database.get_bounding_epoch_ms()
+    earliest_time_ems = max(earliest_snap_ems, earliest_time_ems - start_buffer_time_ms)
+    latest_time_ems = min(latest_snap_ems, latest_time_ems + end_buffer_time_ms)
     
     # Get all the snapshot times we'll need for animation
-    anim_snapshot_times = snapshot_database.get_all_snapshot_times_by_time_range(earliest_time, latest_time)
+    anim_snapshot_times_ms = snapshot_database.get_all_snapshot_times_by_time_range(earliest_time_ems, latest_time_ems)
+    num_snaps = len(anim_snapshot_times_ms)
+    avg_snap_period_ms = np.median(np.diff(anim_snapshot_times_ms))
     
     # Set up the display window
     only_one_obj = (len(object_list) == 1)
@@ -371,64 +330,43 @@ def show_looping_animation(snapshot_database, object_database, object_list,
     anim_window = Simple_Window(window_title)
     anim_window.move_corner_pixels(x_pixels = 400, y_pixels = 200)
     
-    # Hard-code key codes
-    esc_key = 27
-    spacebar = 32
-    left_arrow_keys = {81, 97}   # Left or 'a' key
-    right_arrow_keys = {83, 100} # Right or "d' key
+    # Set up object to handle drawing playback timestamps
+    example_snap, _ = snapshot_database.load_snapshot_image(earliest_snap_ems)
+    cnr_timestamp = Corner_Timestamp(example_snap.shape, "br", None)
     
-    # Set up frame delay settings
-    playback_frame_delay_ms = 150
-    pause_frame_delay_ms = 0
-    pause_mode = False    
+    # Set up object to handle playback/keypresses
+    playback_ctrl = Snapshot_Playback(num_snaps, avg_snap_period_ms, default_playback_timelapse_factor = 8)
     
     # Loop over snapshots to animate infinitely
-    snap_idx = 0
-    start_idx = 0
-    end_idx = len(anim_snapshot_times)
     while True:
         
+        # Get snapshot indexing from playback
+        snap_idx = playback_ctrl.get_snapshot_index()
+        start_snap_loop_idx, end_snap_loop_idx = playback_ctrl.get_loop_indices()
+        
         # Get current snap time
-        curr_snap_time = anim_snapshot_times[snap_idx]
+        current_snap_time_ms = anim_snapshot_times_ms[snap_idx]
         
         # Get each snapshot and draw all outlines/trails for all objects in the frame
-        snap_image, snap_frame_idx = snapshot_database.load_snapshot_image(curr_snap_time)
+        snap_md = snap_db.load_snapshot_metadata_by_ems(current_snap_time_ms)
+        snap_image, snap_frame_idx = snapshot_database.load_snapshot_image(current_snap_time_ms)
         for each_obj in object_list:
-            each_obj.draw_trail(snap_image, snap_frame_idx, curr_snap_time)
-            each_obj.draw_outline(snap_image, snap_frame_idx, curr_snap_time)
+            each_obj.draw_trail(snap_image, snap_frame_idx, current_snap_time_ms)
+            each_obj.draw_outline(snap_image, snap_frame_idx, current_snap_time_ms)
+        
+        # Draw timestamp to indicate help playback position
+        cnr_timestamp.draw_timestamp(snap_image, snap_md)
         
         # Display the snapshot image, but stop if the window is closed
         winexists = anim_window.imshow(snap_image)
         if not winexists:
             break
         
-        # Wait a bit, and stop if esc key is pressed
-        frame_delay_ms = (pause_frame_delay_ms if pause_mode else playback_frame_delay_ms)
-        keypress = cv2.waitKey(frame_delay_ms)
-        if keypress == esc_key:
+        # Handle keypresses
+        keypress = cv2.waitKey(playback_ctrl.frame_delay_ms)
+        req_break = playback_ctrl.update_playback(keypress)
+        if req_break:
             break
-        
-        # Toggle pausing/unpausing with spacebar
-        elif keypress == spacebar:
-            pause_mode = not pause_mode
-            
-        # Step back one frame with left key
-        elif keypress in left_arrow_keys:
-            pause_mode = True
-            snap_idx = snap_idx - 1
-            
-        # Step forward one frame with right key
-        elif keypress in right_arrow_keys:
-            pause_mode = True
-            snap_idx = snap_idx + 1
-            
-        # Update the snapshot index with looping
-        if not pause_mode:
-            snap_idx += 1
-        if snap_idx >= end_idx:
-            snap_idx = start_idx
-        elif snap_idx < start_idx:
-            snap_idx = end_idx - 1
     
     # Get rid of animation widow before leaving
     anim_window.close()
@@ -437,6 +375,7 @@ def show_looping_animation(snapshot_database, object_database, object_list,
 
 # .....................................................................................................................
 # .....................................................................................................................
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Make selections
@@ -567,7 +506,7 @@ while True:
             obj_ref.hover_highlight(display_frame, timebar_frame)
             
             # Play an animation if the user clicks on the highlighted trail
-            if trail_hover_callback.clicked():
+            if trail_hover_callback.left_clicked():
                 objs_to_animate_list = [obj_ref]
                 show_looping_animation(snap_db, obj_db, objs_to_animate_list)
     
@@ -584,7 +523,7 @@ while True:
             ordered_obj_list[each_idx].hover_highlight(display_frame, timebar_frame)
     
         # Play an animation if the user clicks on the highlighted timebar section
-        if bar_hover_callback.clicked():            
+        if bar_hover_callback.left_clicked():            
             objs_to_animate_list = [ordered_obj_list[each_idx] for each_idx in hovered_obj_idxs]
             show_looping_animation(snap_db, obj_db, objs_to_animate_list)
     
@@ -599,21 +538,16 @@ while True:
     if keypress == 27:
         break
 
-
 # Some clean up
 cv2.destroyAllWindows()
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Scrap
 
 # TODO/IDEAs
+# - display time bars on staggered rows, so each object has a distinct bar to click on
 # - add fading to trails that don't start or end near the mouses current location
 # - add better control over smoothing
 # - add mouse scroll wheel control (on trail hover) that selects between second,third,fourth etc. closest trails
-# - add lasso drawing capability to trail hover (i.e. exclude trails outside of lasso region)
-# - add input for controling the time bar scale (zooming in/out over time)
-# - add playback on spacebar keypress
-# - add 1/2 playback boundary controls. Should also adjust to only show trails in boundary! Reset bounds with 0 key
-# - would be nice to show time bars separately, with each obj having it's own (thin) bar i.e. no overlapping
-
 

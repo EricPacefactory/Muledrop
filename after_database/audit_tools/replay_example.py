@@ -54,19 +54,21 @@ import cv2
 import numpy as np
 
 from local.lib.ui_utils.cli_selections import Resource_Selector
-
 from local.lib.ui_utils.local_ui.windows_base import Simple_Window
+from local.lib.ui_utils.screen_info import Screen_Info
 
-from local.lib.common.timekeeper_utils import isoformat_to_datetime, fake_datetime_like
+from local.lib.audit_tools.playback import Snapshot_Playback, Corner_Timestamp, get_playback_line_coords
+from local.lib.audit_tools.mouse_interaction import Drag_Callback, Row_Based_Footer_Interactions
+from local.lib.audit_tools.mouse_interaction import Reference_Image_Mouse_Interactions
 
 from local.offline_database.file_database import launch_dbs, close_dbs_if_missing_data
 from local.offline_database.object_reconstruction import Smoothed_Object_Reconstruction as Obj_Recon
+from local.offline_database.object_reconstruction import Object_Density_Bars_Display, get_object_density_by_class
 from local.offline_database.classification_reconstruction import create_objects_by_class_dict, get_ordered_object_list
 
 from local.eolib.utils.cli_tools import Datetime_Input_Parser as DTIP
 from local.eolib.utils.colormaps import create_interpolated_colormap
 from local.eolib.video.imaging import image_1ch_to_3ch, color_list_to_image, vstack_padded
-from local.eolib.video.text_rendering import position_frame_relative, font_config, simple_text
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -74,48 +76,42 @@ from local.eolib.video.text_rendering import position_frame_relative, font_confi
 
 # .....................................................................................................................
 
-class Hover_Callback:
+class Object_Density_Reference_Mouse_Interactions(Reference_Image_Mouse_Interactions):
+    
+    '''
+    Custom class used to bundle logic/state associated with mouse interactions involving the
+    'large' station data reference image, which itself is used to set playback looping start/end points
+    '''
     
     # .................................................................................................................
     
-    def __init__(self, frame_wh):
+    def __init__(self, drag_callback_reference, minimum_drag_length_norm = 0.002):
         
-        self._mouse_moved = False
-        self._mouse_clicked = False
-        self._mouse_xy = np.array((-10000,-10000))
+        # Inherit from parent
+        super().__init__(drag_callback_reference, minimum_drag_length_norm)
+    
+    # .................................................................................................................
+    
+    def redraw_images(self, reference_bars_base_img, density_data_display_ref,
+                      draw_subset_lines, subset_start_norm, subset_end_norm, subset_bar_wh):
         
-        frame_width, frame_height = frame_wh
-        self.frame_scaling = np.float32((frame_width - 1, frame_height - 1))
-        self.frame_wh = frame_wh
-    
-    # .................................................................................................................
-    
-    def __call__(self, *args, **kwargs):
-        self.mouse_callback(*args, **kwargs)
-    
-    # .................................................................................................................
-    
-    def mouse_callback(self, event, mx, my, flags, param):
-        self._mouse_xy = np.int32((mx, my))
-        self._mouse_moved = (event == cv2.EVENT_MOUSEMOVE)
-        self._mouse_clicked = (event == cv2.EVENT_LBUTTONDOWN)
-    
-    # .................................................................................................................
-    
-    def mouse_xy(self, normalized = True):
+        # Draw/clear subset indicator lines on reference image
+        ref_bars_img = reference_bars_base_img.copy()
+        if draw_subset_lines:
+            self.draw_reference_subset_lines(ref_bars_img, subset_start_norm, subset_end_norm)
         
-        if normalized:
-            return self._mouse_xy / self.frame_scaling
+        # Re-draw the subset image
+        subset_bars_base_img, _ = density_data_display_ref.create_combined_bar_subset_image(subset_start_norm,
+                                                                                            subset_end_norm,
+                                                                                            *subset_bar_wh)
         
-        return self._mouse_xy
-    
-    # .................................................................................................................
-    
-    def clicked(self):
-        return self._mouse_clicked
+        return ref_bars_img, subset_bars_base_img
     
     # .................................................................................................................
     # .................................................................................................................
+
+# .....................................................................................................................
+# .....................................................................................................................
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -222,85 +218,32 @@ def create_combined_density_image(density_images_dict):
                                           append_separator = True)
     
     # Figure out combined bar height, for use with playback indicator
-    combined_bar_height = combined_density_bars.shape[0]
+    subset_img_height = combined_density_bars.shape[0]
     
-    return combined_density_bars, combined_bar_height
+    return combined_density_bars, subset_img_height
 
 # .....................................................................................................................
 # .....................................................................................................................
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Playback helper functions
 
 # .....................................................................................................................
 
-def draw_timestamp(display_frame, snapshot_metadata, fg_config, bg_config, replay_start_dt, use_relative_time,
-                   text_position = None):
+def alt_redraw(original_density_image, start_norm, end_norm):
     
-    # Don't draw the timestamp if there is no position data
-    if text_position is None:
-        return display_frame
+    # Get frame sizing so we know where to draw everything
+    frame_height, frame_width = original_density_image.shape[0:2]
+    width_scale = frame_width - 1
     
-    # For clarity
-    centered = False
+    # Calculate starting/ending points of the highlighted playback region
+    x_start_px = int(round(width_scale * start_norm))
+    x_end_px = int(round(width_scale * end_norm))
     
-    # Get snapshot timing info
-    datetime_isoformat = snapshot_metadata["datetime_isoformat"]
-    snap_dt = isoformat_to_datetime(datetime_isoformat)
+    subset_img = original_density_image[:, x_start_px:x_end_px, :]
     
-    # Convert timing to 'relative' time, if needed
-    if use_relative_time:
-        snap_dt = (snap_dt - replay_start_dt) + fake_datetime_like(snap_dt)
-    
-    # Draw timestamp with background/foreground to help separate from video background
-    snap_dt_str = snap_dt.strftime("%H:%M:%S")
-    simple_text(display_frame, snap_dt_str, text_position, centered, **bg_config)
-    simple_text(display_frame, snap_dt_str, text_position, centered, **fg_config)
-    
-    return display_frame
-
-# .....................................................................................................................
-    
-def get_timestamp_location(timestamp_position_arg, snap_shape, fg_font_config):
-    
-    # Use simple lookup to get the timestamp positioning
-    position_lut = {"tl": (3, 3), "tr": (-3, 3),
-                    "bl": (3, -1), "br": (-3, -1),
-                    "None": None, "none": None}
-    
-    # If we can't get the position (either wasn't provided, or incorrectly specified), then we won't return anything
-    relative_position = position_lut.get(timestamp_position_arg, None)
-    if relative_position is None:
-        return None
-    
-    return position_frame_relative(snap_shape, "00:00:00", relative_position, **fg_font_config)
-
-# .....................................................................................................................
-
-def get_playback_pixel_location(start_time, end_time, current_time, frame_width, total_time = None):
-    
-    ''' Helper function for converting time into horizontal pixel location (for drawing timing onto playback bar) '''
-    
-    if total_time is None:
-        total_time = end_time - start_time
-    playback_progress = (current_time - start_time) / total_time
-    
-    playback_position_px = int(round(playback_progress * (frame_width - 1)))
-    
-    return playback_position_px
-
-# .....................................................................................................................
-
-def get_playback_line_coords(playback_position_px, playback_bar_height):
-    
-    ''' Helper function for generating the two points needed to indicate the playback position '''
-    
-    pt1 = (playback_position_px, -5)
-    pt2 = (playback_position_px, playback_bar_height + 5)
-    
-    return pt1, pt2
-
-# .....................................................................................................................
+    return cv2.resize(subset_img, dsize = (frame_width, frame_height))
 
 def redraw_density_base(original_density_image, start_idx, end_idx, max_idx, knock_out_color = (20,20,20)):
     
@@ -350,10 +293,22 @@ enable_debug_mode = False
 
 # Create selector so we can access existing report data
 selector = Resource_Selector()
+project_root_path = selector.get_project_root_pathing()
 
 # Select data to run
 location_select, location_select_folder_path = selector.location(debug_mode = enable_debug_mode)
 camera_select, _ = selector.camera(location_select, debug_mode = enable_debug_mode)
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Get screen sizing
+
+# Get screen sizing so we can set up 'big' displays
+screen_width, screen_height = Screen_Info(project_root_path).screen("width", "height")
+
+# Hard-code a padding to use for avoiding display elements being location right up against screen boundaries
+screen_pad_x = 80
+screen_pad_y = 100
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -369,6 +324,7 @@ close_dbs_if_missing_data(snap_db, error_message_if_missing = "No snapshot data 
 earliest_datetime, latest_datetime = snap_db.get_bounding_datetimes()
 snap_wh = caminfo_db.get_snap_frame_wh()
 snap_width, snap_height = snap_wh
+snap_shape = (snap_height, snap_width, 3)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -385,6 +341,7 @@ DTIP.print_start_end_time_range(user_start_dt, user_end_dt)
 # Get all the snapshot times we'll need for animation
 snap_times_ms_list = snap_db.get_all_snapshot_times_by_time_range(user_start_dt, user_end_dt)
 num_snaps = len(snap_times_ms_list)
+avg_snap_period_ms = np.median(np.diff(snap_times_ms_list))
 
 # Get playback timing information
 start_snap_time_ms = snap_times_ms_list[0]
@@ -406,6 +363,8 @@ obj_dict = Obj_Recon.create_reconstruction_dict(obj_metadata_generator,
 
 # Organize objects by class label -> then by object id (nested dictionaries)
 obj_id_list, obj_by_class_dict, obj_id_to_class_dict = create_objects_by_class_dict(class_db, obj_dict)
+ordered_class_names_list = sorted(obj_by_class_dict.keys())
+num_classes = len(ordered_class_names_list)
 
 # Get an ordered list of the objects for drawing
 ordered_obj_list = get_ordered_object_list(obj_id_list, obj_by_class_dict, obj_id_to_class_dict)
@@ -414,82 +373,122 @@ ordered_obj_list = get_ordered_object_list(obj_id_list, obj_by_class_dict, obj_i
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Generate density data
 
-# Get counts of each class label over time and generate an image representing the count by color intensity
-objclass_count_lists_dict = get_class_count_lists(snap_db, obj_by_class_dict)
-density_images_dict = create_density_images(class_db, objclass_count_lists_dict, snap_width)
+# Get counts of each class label over time, their colors & create an object to handle density display creation
+object_density_by_class_dict = get_object_density_by_class(snap_db, snap_times_ms_list, obj_by_class_dict)
+_, _, all_label_colors_dict = class_db.get_label_color_luts()
+objdensity_data_display = Object_Density_Bars_Display(object_density_by_class_dict, all_label_colors_dict)
+
+# Construct large 'reference' bar image (used to show data over full time range)
+ref_bar_wh = ((screen_width -  2 * screen_pad_x), 25)
+ref_bars_base_img, ref_img_height = objdensity_data_display.create_combined_bar_image(*ref_bar_wh)
+ref_frame_wh = (ref_bar_wh[0], ref_img_height)
+
+# Create initial station base image, which may be re-drawn for reduced subset playback
+subset_bar_wh = (snap_width, 21)
+subset_bars_base_img, subset_img_height = \
+objdensity_data_display.create_combined_bar_subset_image(0, 1, *subset_bar_wh)
+
+
+'''
+# Generate density images for each class
+density_images_dict = create_density_images(class_db, object_density_by_class_dict, snap_width)
 
 # Create a combined image from all the class density images
-combined_density_bars, combined_bar_height = create_combined_density_image(density_images_dict)
+combined_density_bars, subset_img_height = create_combined_density_image(density_images_dict)
+'''
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-#%% Data playback
+#%% Set up displays
 
-# Set up timestamp text config, in case it's needed
-snap_shape = (snap_height, snap_width, 3)
-fg_font_config = font_config(scale = 0.35, color = (255, 255, 255))
-bg_font_config = font_config(scale = 0.35, color = (0, 0, 0), thickness = 2)
-timestamp_xy = get_timestamp_location(timestamp_pos_arg, snap_shape, fg_font_config)
+# Figure out sizing & location of reference display
+ref_window_x = screen_pad_x
+ref_window_y = screen_height - ref_img_height - screen_pad_y
 
-# Get full frame sizing
-full_frame_height = snap_height + combined_bar_height
-full_frame_wh = (snap_width, full_frame_height)
+# Create a window for displaying station data as a reference
+ref_drag_callback = Drag_Callback(ref_frame_wh)
+ref_window_title = "Reference Object Activity"
+ref_window = Simple_Window(ref_window_title, provide_mouse_xy = True)
+ref_window.attach_callback(ref_drag_callback)
+ref_window.move_corner_pixels(ref_window_x, ref_window_y)
+ref_window.imshow(ref_bars_base_img)
+
+# Get full frame sizing of the animated window
+anim_total_frame_height = snap_height + subset_img_height
+anim_frame_wh = (snap_width, anim_total_frame_height)
+
+# Figure out where to place the animation display
+anim_window_x = int(round((screen_width - snap_width) / 2))
+anim_window_y = screen_pad_y
 
 # Create window for display
-hover_callback = Hover_Callback(full_frame_wh)
-window_title = "Replay"
-disp_window = Simple_Window(window_title)
-disp_window.attach_callback(hover_callback)
+anim_drag_callback = Drag_Callback(anim_frame_wh)
+anim_window_title = "Replay"
+disp_window = Simple_Window(anim_window_title)
+disp_window.attach_callback(anim_drag_callback)
+disp_window.move_corner_pixels(anim_window_x, anim_window_y)
 
-# Some control feedback (hacky/hard-coded for now)
+
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Print controls
+
+# Some control feedback
 print("",
-      "Controls:",
-      "  Press 1 to set video looping start point",
-      "  Press 2 to set video looping end point",
-      "  Press 0 to reset start/end looping points",
+      "  Click & drag on the large reference image to set a time range",
+      "  Right click the image to reset time range settings",
       "",
       "  Press spacebar to pause/unpause",
       "  Use left/right arrow keys to step forward backward",
       "  Use up/down arrow keys to change playback speed",
-      "  (can alternatively use 'WASD' keys)",
+      "  (can alternatively use 'wasd' keys)",
       "",
       "  While playing, click on the timebar to change playback position",
       "",
       "Press Esc to close", "", sep="\n")
 
-# Label keycodes for convenience
-esc_key = 27
-spacebar = 32
-up_arrow_keys = {82, 119}    # Up or 'w' key
-left_arrow_keys = {81, 97}   # Left or 'a' key
-down_arrow_keys = {84, 115}  # Down or 's' key
-right_arrow_keys = {83, 100} # Right or "d' key
-zero_key, one_key, two_key = 48, 49, 50
 
-# Set up simple playback controls
-pause_mode = False
-pause_frame_delay = 150
-play_frame_delay = 50
-use_frame_delay_ms = lambda pause_frame_delay, pause_mode: pause_frame_delay if pause_mode else play_frame_delay
-start_idx = 0
-end_idx = num_snaps
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Data playback
+
+# Set up object to handle drawing playback timestamps
+cnr_timestamp = Corner_Timestamp(snap_shape, timestamp_pos_arg, user_start_dt, enable_relative_timestamp)
+
+# Set up object to handle basic footer interactions for the animated display
+anim_footer_helper = Row_Based_Footer_Interactions(snap_height, subset_img_height, num_footer_rows = num_classes)
+
+# Set up object to handle reference image interactions, which can alter playback looping points
+ref_img_interact = Object_Density_Reference_Mouse_Interactions(ref_drag_callback)
+
+# Set up object to handle playback/keypresses
+playback_ctrl = Snapshot_Playback(num_snaps, avg_snap_period_ms)
+start_snap_loop_idx, end_snap_loop_idx = playback_ctrl.get_loop_indices()
 
 # Create initial density base image, which may be re-drawn for reduced subset playback
-density_base = redraw_density_base(combined_density_bars, start_idx, end_idx, num_snaps)
+#density_base = redraw_density_base(combined_density_bars, start_snap_loop_idx, end_snap_loop_idx, num_snaps)
+anim_density_base = subset_bars_base_img.copy()
 
 # Loop over snapshot times to generate the playback video
-snap_idx = 0
 while True:
+    
+    # Get snapshot indexing from playback
+    snap_idx = playback_ctrl.get_snapshot_index()
+    start_snap_loop_idx, end_snap_loop_idx = playback_ctrl.get_loop_indices()
     
     # Get the next snap time
     current_snap_time_ms = snap_times_ms_list[snap_idx]
     
     # Check for mouse clicks to update timebar position
-    if hover_callback.clicked():
-        mouse_x, mouse_y = hover_callback.mouse_xy(normalized=True)
-        clicked_in_timebar = (mouse_y > (snap_height / full_frame_height))
-        if clicked_in_timebar:
-            snap_idx = int(round(mouse_x * num_snaps))
+    anim_mx, anim_my = anim_drag_callback.mouse_xy(normalized = True)
+    mouse_is_over_anim_bars = anim_footer_helper.mouse_over_footer(anim_my)
+    if mouse_is_over_anim_bars:
+        
+        # Adjust playback position with left click/drag
+        if anim_drag_callback.left_down():
+            snap_idx = playback_ctrl.adjust_snapshot_index_from_mouse(anim_mx)
+        
+        # Reset playback to beginning with right click
+        if anim_drag_callback.right_clicked():
+            snap_idx = start_snap_loop_idx
     
     # Load each snapshot image & draw object annoations over top
     snap_md = snap_db.load_snapshot_metadata_by_ems(current_snap_time_ms)
@@ -497,64 +496,53 @@ while True:
     for each_obj in ordered_obj_list:
         each_obj.draw_trail(snap_image, snap_frame_idx, current_snap_time_ms)
         each_obj.draw_outline(snap_image, snap_frame_idx, current_snap_time_ms)
-        
-    # Draw the timebar image with playback indicator
-    playback_px = get_playback_pixel_location(start_snap_time_ms, end_snap_time_ms, current_snap_time_ms,
-                                              snap_width, total_time = total_ms_duration)
-    play_pt1, play_pt2 = get_playback_line_coords(playback_px, combined_bar_height)
-    density_image = density_base.copy()
-    density_image = cv2.line(density_image, play_pt1, play_pt2, (255, 255, 255), 1)
     
-    # Draw timestamp over replay image, if needed
-    timestamp_image = draw_timestamp(snap_image, snap_md, fg_font_config, bg_font_config,
-                                     user_start_dt, enable_relative_timestamp, timestamp_xy)
+    # Draw playback line indicator onto the station bars image
+    playback_px = playback_ctrl.playback_as_pixel_location(snap_width, snap_idx, start_snap_loop_idx, end_snap_loop_idx)
+    play_pt1, play_pt2 = get_playback_line_coords(playback_px, subset_img_height)
+    anim_bars_image = subset_bars_base_img.copy()
+    anim_bars_image = cv2.line(anim_bars_image, play_pt1, play_pt2, (255, 255, 255), 1)
+    
+    # Draw timestamp to indicate help playback position
+    cnr_timestamp.draw_timestamp(snap_image, snap_md)
     
     # Display the snapshot image, but stop if the window is closed
-    combined_image = np.vstack((snap_image, density_image))
+    combined_image = np.vstack((snap_image, anim_bars_image))
     winexists = disp_window.imshow(combined_image)
     if not winexists:
         break
     
-    # Awkwardly handle keypresses
-    keypress = cv2.waitKey(use_frame_delay_ms(play_frame_delay, pause_mode))
-    if keypress == esc_key:
+    # Handle mouse interactions with the (larger) reference image
+    need_to_update_base_images, draw_subset_lines, subset_start_norm, subset_end_norm = ref_img_interact.update()
+    if need_to_update_base_images:
+        
+        # Update playback looping indices, based on reference image interactions
+        start_snap_loop_idx = int(round(num_snaps * subset_start_norm))
+        end_snap_loop_idx = int(round(num_snaps * subset_end_norm))
+        snap_idx = start_snap_loop_idx
+        
+        # Force faster playback updates to avoid inconsistent feeling when adjusting subset changes
+        playback_ctrl.force_fast_frame()
+
+        # Re-draw both the reference image (with subset line indicators) and
+        # the 'base' density bars subset image which is shown as part of the animated display
+        ref_bars_img, subset_bars_base_img = \
+        ref_img_interact.redraw_images(ref_bars_base_img, objdensity_data_display,
+                                       draw_subset_lines, subset_start_norm, subset_end_norm, subset_bar_wh)
+        
+        # Force a window display update here, so we don't continuously have to do this otherwise
+        ref_window.imshow(ref_bars_img)
+    
+    # Update playback control variables, which may have been modified elsewhere
+    playback_ctrl.set_snapshot_index(snap_idx)
+    playback_ctrl.set_loop_indices(start_snap_loop_idx, end_snap_loop_idx)
+    
+    # Handle keypresses
+    keypress = cv2.waitKey(playback_ctrl.frame_delay_ms)
+    req_break = playback_ctrl.update_playback(keypress)
+    if req_break:
         break
     
-    elif keypress == spacebar:
-        pause_mode = not pause_mode
-        
-    elif keypress in left_arrow_keys:
-        pause_mode = True
-        snap_idx = snap_idx - 1
-    elif keypress in right_arrow_keys:
-        pause_mode = True
-        snap_idx = snap_idx + 1
-        
-    elif keypress in up_arrow_keys:
-        play_frame_delay = max(1, play_frame_delay - 5)
-        snap_idx = snap_idx - 1
-    elif keypress in down_arrow_keys:
-        play_frame_delay = min(1000, play_frame_delay + 5)
-        snap_idx = snap_idx - 1
-        
-    elif keypress == one_key:
-        start_idx = snap_idx
-        density_base = redraw_density_base(combined_density_bars, start_idx, end_idx, num_snaps)
-    elif keypress == two_key:
-        end_idx = snap_idx
-        density_base = redraw_density_base(combined_density_bars, start_idx, end_idx, num_snaps)
-    elif keypress == zero_key:
-        start_idx = 0
-        end_idx = num_snaps
-        density_base = redraw_density_base(combined_density_bars, start_idx, end_idx, num_snaps)
-    
-    # Update the snapshot index with looping
-    if not pause_mode:
-        snap_idx += 1
-    if snap_idx >= end_idx:
-        snap_idx = start_idx
-    elif snap_idx < start_idx:
-        snap_idx = end_idx - 1
 
 # Clean up
 cv2.destroyAllWindows()

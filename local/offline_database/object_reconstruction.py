@@ -60,7 +60,11 @@ from scipy.spatial import cKDTree
 from local.lib.common.feedback import print_time_taken_ms
 from local.lib.common.timekeeper_utils import any_time_type_to_epoch_ms
 
+from local.lib.audit_tools.imaging import create_single_bar_image, create_single_bar_subset_image, draw_bar_label
+from local.lib.audit_tools.imaging import create_combined_bars_image
+
 from local.eolib.utils.read_write import save_csv_dict
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
@@ -685,9 +689,140 @@ class Hover_Mapping:
     # .................................................................................................................
     # .................................................................................................................
 
+# /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+# /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+class Object_Density_Bars_Display:
     
+    # .................................................................................................................
+    
+    def __init__(self, object_density_by_class_dict, class_colors_dict):
+        
+        # Store inputs
+        self.num_classes = len(object_density_by_class_dict)
+        self.density_data_dict = object_density_by_class_dict
+        self.ordered_names_list = sorted(object_density_by_class_dict.keys())
+        self.class_colors_dict = class_colors_dict
+    
+    # .................................................................................................................
+    
+    def set_ordered_class_names_list(self, ordered_class_names_list):
+        self.ordered_names_list = ordered_class_names_list
+    
+    # .................................................................................................................
+    
+    def get_ordered_class_names_list(self, pretty_names = False):
+        
+        ordered_class_names_list = self.ordered_names_list
+        if pretty_names:
+            prettify = lambda name: str(name).replace("_", " ").title()
+            ordered_class_names_list = [prettify(each_name) for each_name in ordered_class_names_list]
+        
+        return ordered_class_names_list
+    
+    # .................................................................................................................
+    
+    def create_combined_bar_image(self, bar_width,
+                                  bar_height = 21,
+                                  bar_bg_color = (40,40,40)):
+        
+        # Draw a single bar image for each class. We'll eventually stack everything together vertically
+        density_bar_imgs_list = []
+        for each_class_label in self.ordered_names_list:
+            
+            # Get class color and data to plot
+            class_color = self.class_colors_dict[each_class_label]
+            each_data_list = self.density_data_dict[each_class_label]
+            
+            # Generate a bar image based on station data & add to storage
+            density_bar_img = create_single_bar_image(each_data_list,
+                                                      bar_width,
+                                                      class_color,
+                                                      bar_bg_color,
+                                                      bar_height)
+            
+            # Add the class label to the bar image and store for combining
+            density_bar_img = draw_bar_label(density_bar_img, each_class_label)
+            density_bar_imgs_list.append(density_bar_img)
+        
+        # Combine all density images together
+        combined_bars_image, combined_bars_height = \
+        create_combined_bars_image(density_bar_imgs_list)
+        
+        return combined_bars_image, combined_bars_height
+    
+    # .................................................................................................................
+    
+    def create_combined_bar_subset_image(self, start_pt_norm, end_pt_norm, bar_width,
+                                         bar_height = 21,
+                                         bar_bg_color = (40, 40, 40)):
+        
+        # Draw a single subset bar image for each class. We'll eventually stack everything together vertically
+        subset_bar_imgs_list = []
+        for each_class_label in self.ordered_names_list:
+            
+            # Get class color and data to plot
+            class_color = self.class_colors_dict[each_class_label]
+            each_data_list = self.density_data_dict[each_class_label]
+            
+            # Generate a bar image based on density data & add to storage
+            subset_bar_img = create_single_bar_subset_image(each_data_list,
+                                                            start_pt_norm,
+                                                            end_pt_norm,
+                                                            bar_width,
+                                                            class_color,
+                                                            bar_bg_color,
+                                                            bar_height)
+            
+            # Add the class label to the subset bar image and store for combining
+            subset_bar_img = draw_bar_label(subset_bar_img, each_class_label)
+            subset_bar_imgs_list.append(subset_bar_img)
+        
+        # Combine all bar images together
+        subset_combined_bars_image, subset_combined_bars_height = \
+        create_combined_bars_image(subset_bar_imgs_list)
+        
+        return subset_combined_bars_image, subset_combined_bars_height
+
+    # .................................................................................................................
+    # .................................................................................................................
+
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define functions
+
+# .....................................................................................................................
+
+def get_object_density_by_class(snap_db, snap_times_ms_list, obj_by_class_dict):
+    
+    '''
+    Function which counts the number of objects on each snapshot, organzied by class
+    Returns a dictionary containing lists of counts for each snapshot
+    
+    HACKY IMPLEMENTATION... SHOULD PROBABLY USE FRAME INDEXING + ITERATE OVER EACH OBJECT
+    AND USE FIRST/FINAL FRAME INDEXING TO SET UP COUNTS MORE DIRECTLY!
+    '''
+
+    # Get counts for each class separately
+    class_density_lists_dict = {each_class_label: [] for each_class_label in obj_by_class_dict.keys()}
+    for each_snap_time_ms in snap_times_ms_list:
+        
+        # Get snapshot timing info
+        snap_md = snap_db.load_snapshot_metadata_by_ems(each_snap_time_ms)
+        snap_epoch_ms = snap_md["epoch_ms"]
+        
+        # Count up all the objects on each frame, for each class label
+        for each_class_label, each_obj_dict in obj_by_class_dict.items():
+            objclass_count = 0
+            for each_obj_id, each_obj_ref in each_obj_dict.items():
+                is_on_snap = each_obj_ref.exists_at_target_time(snap_epoch_ms)
+                if is_on_snap:
+                    objclass_count += 1
+            
+            # Record the total count for each class label separately
+            class_density_lists_dict[each_class_label].append(objclass_count)
+    
+    return class_density_lists_dict
 
 # .....................................................................................................................
 
