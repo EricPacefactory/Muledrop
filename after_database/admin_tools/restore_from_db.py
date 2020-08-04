@@ -89,6 +89,7 @@ from local.eolib.utils.files import create_missing_folder_path
 # .....................................................................................................................
 # .....................................................................................................................
 
+
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define shared functions
 
@@ -114,13 +115,14 @@ def parse_restore_args(debug_print = False):
                                    parse_on_call = False,
                                    debug_print = debug_print)
     
-    # Add argument for controlling snapshot downsampling
-    default_skip_n = 0
-    ap_obj.add_argument("-n", "--skip_n", default = default_skip_n, type = int,
-                        help = "\n".join(["Number of snapshots to skip when downloading data.",
-                                          "Allows image data to be 'downsampled'",
-                                          "at the expense of a coarser resolution in time.",
-                                          "(Default: {})".format(default_skip_n)]))
+    # Add argument for controlling snapshot sampling
+    default_n_snapshots = -1
+    ap_obj.add_argument("-n", "--n_snapshots", default = default_n_snapshots, type = int,
+                        help = "\n".join(["Number of snapshots to download",
+                                          "By default, all snapshots in the selected",
+                                          "time range will be downloaded. However, this",
+                                          "value can be set to download fewer snapshots",
+                                          "at the expense of a coarser resolution in time."]))
     
     # Evaluate args now
     ap_result = vars(ap_obj.parse_args())
@@ -500,19 +502,19 @@ def count_snapshots(server_url, camera_select, start_epoch_ms, end_epoch_ms):
 
 # .....................................................................................................................
     
-def request_snapshot_metadata(server_url, camera_select, start_epoch_ms, end_epoch_ms, skip_n = 0):
+def request_snapshot_metadata(server_url, camera_select, start_epoch_ms, end_epoch_ms, n_snapshots = -1):
     
     # Build route for requesting all metadata between a start/end time
     request_url = build_request_url(server_url, camera_select, "snapshots",
                                     "get-many-metadata", "by-time-range",
                                     start_epoch_ms, end_epoch_ms)
     
-    # If we're skipping snapshots, use a diferent request route
-    if skip_n > 0:
+    # If we're sub-sampling snapshots, use a diferent request route
+    if n_snapshots > 0:
         request_url = build_request_url(server_url, camera_select, "snapshots",
                                         "get-many-metadata", "by-time-range",
-                                        "skip-n",
-                                        start_epoch_ms, end_epoch_ms, skip_n)
+                                        "n-samples",
+                                        start_epoch_ms, end_epoch_ms, n_snapshots)
     
     # Grab snapshot data
     many_snapshot_metadata_list = get_json(request_url)
@@ -570,7 +572,7 @@ def save_snapshot_images(server_url, location_select_folder_path, camera_select,
 
 # Get script arguments
 ap_result = parse_restore_args()
-skip_n_snapshots = ap_result["skip_n"]
+n_snapshots = ap_result["n_snapshots"]
 dbserver_protocol = ap_result["protocol"]
 
 
@@ -649,10 +651,9 @@ station_count = count_station_data(server_url, camera_select, start_epoch_ms, en
 
 # Calculate the number of snapshots if we're downsampling
 downsample_str = ""
-use_downsampling = (skip_n_snapshots > 0)
+use_downsampling = (0 < n_snapshots < snapshot_count)
 if use_downsampling:
     downsample_str = " (downsampled from {})".format(snapshot_count)
-    downsampled_snapshot_count = 1 + ((snapshot_count - 1) // (skip_n_snapshots + 1))
 
 # Provide feedback, in case user doesn't want to download the data
 start_dt_str = user_start_dt.strftime(DTIP.datetime_format)
@@ -668,7 +669,7 @@ print("","",
       "  {} backgrounds".format(background_count),
       "  {} objects".format(object_count),
       "  {} station datasets".format(station_count),
-      "  {} snapshots{}".format(downsampled_snapshot_count if use_downsampling else snapshot_count, downsample_str),
+      "  {} snapshots{}".format(n_snapshots if use_downsampling else snapshot_count, downsample_str),
       sep = "\n")
 
 # Give the user a chance to cancel the download, if they don't like the dataset numbers
@@ -683,6 +684,10 @@ if not user_confirm_download:
 # Create the camera folder, if needed
 location_select_folder_path = selector.get_location_select_folder_path(location_select)
 selector.create_empty_camera_folder(location_select, camera_select)
+
+# Save selections for convenience
+selector.save_location_select(location_select)
+selector.save_camera_select(camera_select)
 
 # Remove existing data, if needed
 delete_existing_report_data(location_select_folder_path, camera_select,
@@ -732,7 +737,7 @@ if snapshot_count > 0:
     # Request all snapshot metadata
     many_snapshot_metadata_list = request_snapshot_metadata(server_url, camera_select,
                                                             start_epoch_ms, end_epoch_ms,
-                                                            skip_n_snapshots)
+                                                            n_snapshots)
     
     # Save snapshot metadata & request corresponding image data
     save_snapshot_metadata(location_select_folder_path, camera_select, many_snapshot_metadata_list)
@@ -744,6 +749,7 @@ if snapshot_count > 0:
     
 # Add a blank space at the end for aesthetics
 print("")
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Scrap
