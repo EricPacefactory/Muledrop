@@ -67,8 +67,6 @@ from local.offline_database.object_reconstruction import Object_Density_Bars_Dis
 from local.offline_database.classification_reconstruction import create_objects_by_class_dict, get_ordered_object_list
 
 from local.eolib.utils.cli_tools import Datetime_Input_Parser as DTIP
-from local.eolib.utils.colormaps import create_interpolated_colormap
-from local.eolib.video.imaging import image_1ch_to_3ch, color_list_to_image, vstack_padded
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -149,137 +147,8 @@ def parse_replay_args():
     return arg_timestamp_position, arg_relative_timestamp
 
 # .....................................................................................................................
-
-def get_class_count_lists(snap_db, obj_by_class_dict):
-
-    # Get counts for each class separately
-    objclass_count_lists_dict = {each_class_label: [] for each_class_label in obj_by_class_dict.keys()}
-    for each_snap_time_ms in snap_times_ms_list:
-        
-        # Get snapshot timing info
-        snap_md = snap_db.load_snapshot_metadata_by_ems(each_snap_time_ms)
-        snap_epoch_ms = snap_md["epoch_ms"]
-        
-        # Count up all the objects on each frame, for each class label
-        for each_class_label, each_obj_dict in obj_by_class_dict.items():
-            objclass_count = 0
-            for each_obj_id, each_obj_ref in each_obj_dict.items():
-                is_on_snap = each_obj_ref.exists_at_target_time(snap_epoch_ms)
-                if is_on_snap:
-                    objclass_count += 1
-            
-            # Record the total count for each class label separately
-            objclass_count_lists_dict[each_class_label].append(objclass_count)
-    
-    return objclass_count_lists_dict
-
 # .....................................................................................................................
 
-def create_density_images(class_db, objclass_count_lists_dict, snap_width,
-                          density_bar_height = 16, bar_bg_color = (40, 40, 40)):
-    
-    # Return a blank image if no class data is available
-    density_images_dict = {each_class_label: None for each_class_label in obj_by_class_dict.keys()}
-    if not objclass_count_lists_dict:
-        blank_bar = np.full((density_bar_height, snap_width, 3), bar_bg_color, dtype = np.uint8)
-        density_images_dict["unclassified"] = blank_bar
-
-    # Create images to be appended to display, per class label
-    _, _, all_label_colors_dict = class_db.get_label_color_luts()
-    
-    # Create a single row density image, for each class label separately
-    for each_class_label, each_count_list in objclass_count_lists_dict.items():
-        
-        # Create scaled color map for each class label, with max count corresponding to full class color
-        max_count = max(each_count_list)
-        max_count = max(1, max_count)
-        count_bgr_dict = {0: bar_bg_color, max_count: all_label_colors_dict[each_class_label]}
-        count_cmap = create_interpolated_colormap(count_bgr_dict)
-        
-        # Convert count list to an image
-        count_gray_img = image_1ch_to_3ch(color_list_to_image(each_count_list))
-        count_image_bar = cv2.LUT(count_gray_img, count_cmap)
-        
-        # Resize the count image to match the snapshots (for stacking) and apply color map
-        resized_density_image_bar = cv2.resize(count_image_bar, dsize = (snap_width, density_bar_height))
-        density_images_dict[each_class_label] = resized_density_image_bar
-
-    return density_images_dict
-
-# .....................................................................................................................
-
-def create_combined_density_image(density_images_dict):
-    
-    # Create combined image with all density plots
-    image_list = [each_img for each_img in density_images_dict.values()]
-    combined_density_bars = vstack_padded(*image_list,
-                                          pad_height = 3,
-                                          prepend_separator = True,
-                                          append_separator = True)
-    
-    # Figure out combined bar height, for use with playback indicator
-    subset_img_height = combined_density_bars.shape[0]
-    
-    return combined_density_bars, subset_img_height
-
-# .....................................................................................................................
-# .....................................................................................................................
-
-
-# ---------------------------------------------------------------------------------------------------------------------
-#%% Playback helper functions
-
-# .....................................................................................................................
-
-def alt_redraw(original_density_image, start_norm, end_norm):
-    
-    # Get frame sizing so we know where to draw everything
-    frame_height, frame_width = original_density_image.shape[0:2]
-    width_scale = frame_width - 1
-    
-    # Calculate starting/ending points of the highlighted playback region
-    x_start_px = int(round(width_scale * start_norm))
-    x_end_px = int(round(width_scale * end_norm))
-    
-    subset_img = original_density_image[:, x_start_px:x_end_px, :]
-    
-    return cv2.resize(subset_img, dsize = (frame_width, frame_height))
-
-def redraw_density_base(original_density_image, start_idx, end_idx, max_idx, knock_out_color = (20,20,20)):
-    
-    ''' Helper function for blanking out regions of the playback back, when looping over shorter sections '''
-    
-    # Don't do anything if a subset of the timeline hasn't been selected
-    if start_idx == 0 and end_idx == max_idx:
-        return original_density_image
-    
-    # Create a copy so we don't ruin the original
-    return_image = original_density_image.copy()
-    
-    # Get frame sizing so we know where to draw everything
-    frame_height, frame_width = original_density_image.shape[0:2]
-    width_scale = frame_width - 1
-    
-    # Calculate starting/ending points of the highlighted playback region
-    x_start_px = int(round(width_scale * start_idx / max_idx))
-    x_end_px = int(round(width_scale * end_idx / max_idx))
-    
-    # Draw starting knockout (if needed)
-    if start_idx > 0:
-        pt_s1 = (0, 0)
-        pt_s2 = (x_start_px, frame_height + 10)
-        cv2.rectangle(return_image, pt_s1, pt_s2, knock_out_color, -1)
-    
-    # Draw ending knockout (if needed)
-    if end_idx < max_idx:
-        pt_e1 = (x_end_px, 0)
-        pt_e2 = (frame_width, frame_height + 10)
-        cv2.rectangle(return_image, pt_e1, pt_e2, knock_out_color, -1)
-    
-    return return_image
-
-# .....................................................................................................................
-# .....................................................................................................................
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Get script arguments
@@ -389,15 +258,6 @@ subset_bars_base_img, subset_img_height = \
 objdensity_data_display.create_combined_bar_subset_image(0, 1, *subset_bar_wh)
 
 
-'''
-# Generate density images for each class
-density_images_dict = create_density_images(class_db, object_density_by_class_dict, snap_width)
-
-# Create a combined image from all the class density images
-combined_density_bars, subset_img_height = create_combined_density_image(density_images_dict)
-'''
-
-
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Set up displays
 
@@ -434,6 +294,7 @@ disp_window.move_corner_pixels(anim_window_x, anim_window_y)
 
 # Some control feedback
 print("",
+      "Controls:",
       "  Click & drag on the large reference image to set a time range",
       "  Right click the image to reset time range settings",
       "",
@@ -464,7 +325,6 @@ playback_ctrl = Snapshot_Playback(num_snaps, avg_snap_period_ms)
 start_snap_loop_idx, end_snap_loop_idx = playback_ctrl.get_loop_indices()
 
 # Create initial density base image, which may be re-drawn for reduced subset playback
-#density_base = redraw_density_base(combined_density_bars, start_snap_loop_idx, end_snap_loop_idx, num_snaps)
 anim_density_base = subset_bars_base_img.copy()
 
 # Loop over snapshot times to generate the playback video

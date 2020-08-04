@@ -203,15 +203,21 @@ class Snapshot_Playback:
     
     # .................................................................................................................
     
-    def adjust_snapshot_index_from_mouse(self, mouse_position_normalized):
+    def adjust_snapshot_index_from_mouse(self, mouse_position_normalized, force_fast_frame = True):
         
         ''' Helper function used to update playback position based on a normalized mouse co-ordinate '''
         
+        # Convert the normalized mouse position to an index value
         start_end_diff = (self._end_loop_idx - self._start_loop_idx - 1)
-        relative_mouse_index = self._start_loop_idx + (mouse_position_normalized * start_end_diff)
+        raw_index_from_mouse = self._start_loop_idx + (mouse_position_normalized * start_end_diff)
         
-        new_snapshot_idx = int(round(relative_mouse_index))
+        # Make sure the index value is an integer and update our internal records
+        new_snapshot_idx = int(round(raw_index_from_mouse))
         self._snapshot_idx = new_snapshot_idx
+        
+        # Speed up next frame delay for better responsiveness when adjusting via mouse interactions
+        if force_fast_frame:
+            self.force_fast_frame()
         
         return self._snapshot_idx
     
