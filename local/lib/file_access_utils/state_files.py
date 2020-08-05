@@ -51,7 +51,7 @@ find_path_to_local()
 
 import subprocess
 
-from signal import SIGTERM, SIGKILL
+from signal import SIGTERM
 
 from time import sleep
 
@@ -249,7 +249,7 @@ def kill_running_pid(pid_value, script_name, max_wait_sec = 30.0, force_kill_on_
             
             # If we get here and the process is still running, try the nuclear option
             if pid_is_running and force_kill_on_timeout:
-                os.kill(pid_value, SIGKILL)
+                os.kill(pid_value, SIGTERM)
                 sleep(sleep_time_sec)
                 pid_is_running = check_running_pid(pid_value, script_name)
             

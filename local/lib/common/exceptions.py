@@ -74,14 +74,6 @@ def register_signal_quit():
     # Register signal handlers. This causes a special exception (OS_Close) to be raised
     # if the script recieves a SIGTERM or SIGQUIT from the operating system
     signal.signal(signal.SIGTERM, raise_custom_exception)
-    try:
-        signal.signal(signal.SIGQUIT, raise_custom_exception)
-        
-    except AttributeError or ValueError:
-        print("",
-              "WARNING:",
-              "  Kill signal (SIGQUIT) not registered properly!",
-              "  May not be supported by the OS. If necessary, use SIGTERM instead.", sep = "\n")
     
     return
 
