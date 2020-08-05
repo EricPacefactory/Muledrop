@@ -324,6 +324,7 @@ disp_window.move_corner_pixels(anim_window_x, anim_window_y)
 
 # Some control feedback
 print("",
+      "Controls:",
       "  Click & drag on the large reference image to set a time range",
       "  Right click the image to reset time range settings",
       "",
