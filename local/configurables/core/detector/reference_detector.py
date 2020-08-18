@@ -244,7 +244,7 @@ class Unclassified_Detection_Object(Reference_Detection_Object):
     
     def __init__(self, contour):
         
-        # Very simple varianet of the reference detection object. Simply hard-codes an empty classification dictionary
+        # Very simple variant of the reference detection object. Simply hard-codes an empty classification dictionary
         # (normally, the format should be: {"class_label_1": score_1, "class_label_2": score_2, etc.})
         no_classification_dict = {}
         super().__init__(contour, no_classification_dict)
@@ -252,8 +252,25 @@ class Unclassified_Detection_Object(Reference_Detection_Object):
     # .................................................................................................................
     # .................................................................................................................
 
+
 # /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 # /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+class Pedestrian_Detection_Object(Reference_Detection_Object):
+    
+    # .................................................................................................................
+    
+    def __init__(self, contour):
+        
+        # Very simple varianet of the reference detection object. Simply hard-codes an empty classification dictionary
+        # (normally, the format should be: {"class_label_1": score_1, "class_label_2": score_2, etc.})
+        ped_classification_dict = {"predestrian": 1.0}
+        super().__init__(contour, ped_classification_dict)
+    
+    # .................................................................................................................
+    # .................................................................................................................
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define functions
