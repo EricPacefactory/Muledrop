@@ -822,6 +822,10 @@ def get_object_density_by_class(snap_db, snap_times_ms_list, obj_by_class_dict):
             # Record the total count for each class label separately
             class_density_lists_dict[each_class_label].append(objclass_count)
     
+    # Handle special case where there is no data!
+    if not class_density_lists_dict:
+        class_density_lists_dict["unclassified"] = [0]
+    
     return class_density_lists_dict
 
 # .....................................................................................................................

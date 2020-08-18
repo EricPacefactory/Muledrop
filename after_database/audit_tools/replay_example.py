@@ -58,6 +58,7 @@ from local.lib.ui_utils.local_ui.windows_base import Simple_Window
 from local.lib.ui_utils.screen_info import Screen_Info
 
 from local.lib.audit_tools.playback import Snapshot_Playback, Corner_Timestamp, get_playback_line_coords
+from local.lib.audit_tools.playback import Timestamp_Row, get_start_end_timestamp_strs
 from local.lib.audit_tools.mouse_interaction import Drag_Callback, Row_Based_Footer_Interactions
 from local.lib.audit_tools.mouse_interaction import Reference_Image_Mouse_Interactions
 
@@ -90,13 +91,16 @@ class Object_Density_Reference_Mouse_Interactions(Reference_Image_Mouse_Interact
     
     # .................................................................................................................
     
-    def redraw_images(self, reference_bars_base_img, density_data_display_ref,
+    def redraw_images(self, reference_bars_base_img, timerow_image, density_data_display_ref,
                       draw_subset_lines, subset_start_norm, subset_end_norm, subset_bar_wh):
         
         # Draw/clear subset indicator lines on reference image
         ref_bars_img = reference_bars_base_img.copy()
         if draw_subset_lines:
             self.draw_reference_subset_lines(ref_bars_img, subset_start_norm, subset_end_norm)
+        
+        # Add timerow image
+        ref_bars_img = np.vstack((ref_bars_img, timerow_image))
         
         # Re-draw the subset image
         subset_bars_base_img, _ = density_data_display_ref.create_combined_bar_subset_image(subset_start_norm,
@@ -217,6 +221,10 @@ start_snap_time_ms = snap_times_ms_list[0]
 end_snap_time_ms = snap_times_ms_list[-1]
 total_ms_duration = end_snap_time_ms - start_snap_time_ms
 
+# Get bounding timestamps
+first_timestamp, final_timestamp, start_end_duration_sec = \
+get_start_end_timestamp_strs(snap_db, snap_times_ms_list, 0, num_snaps - 1)
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Load object data
@@ -247,13 +255,20 @@ object_density_by_class_dict = get_object_density_by_class(snap_db, snap_times_m
 _, _, all_label_colors_dict = class_db.get_label_color_luts()
 objdensity_data_display = Object_Density_Bars_Display(object_density_by_class_dict, all_label_colors_dict)
 
-# Construct large 'reference' bar image (used to show data over full time range)
+# Set up bar sizing
 ref_bar_wh = ((screen_width -  2 * screen_pad_x), 25)
+subset_bar_wh = (snap_width, 21)
+
+# Construct large 'reference' bar image (used to show data over full time range)
 ref_bars_base_img, ref_img_height = objdensity_data_display.create_combined_bar_image(*ref_bar_wh)
-ref_frame_wh = (ref_bar_wh[0], ref_img_height)
+ref_frame_wh = (ref_bars_base_img.shape[1], ref_bars_base_img.shape[0] + ref_bar_wh[1])
+
+# Create object + initial image for displaying time stamp info on reference image
+timerow = Timestamp_Row(ref_bar_wh)
+timerow_img = timerow.draw_bar_image(0, 1, first_timestamp, final_timestamp, start_end_duration_sec)
+initial_ref_bars_img = np.vstack((ref_bars_base_img, timerow_img))
 
 # Create initial station base image, which may be re-drawn for reduced subset playback
-subset_bar_wh = (snap_width, 21)
 subset_bars_base_img, subset_img_height = \
 objdensity_data_display.create_combined_bar_subset_image(0, 1, *subset_bar_wh)
 
@@ -271,7 +286,7 @@ ref_window_title = "Reference Object Activity"
 ref_window = Simple_Window(ref_window_title, provide_mouse_xy = True)
 ref_window.attach_callback(ref_drag_callback)
 ref_window.move_corner_pixels(ref_window_x, ref_window_y)
-ref_window.imshow(ref_bars_base_img)
+ref_window.imshow(initial_ref_bars_img)
 
 # Get full frame sizing of the animated window
 anim_total_frame_height = snap_height + subset_img_height
@@ -373,25 +388,36 @@ while True:
         break
     
     # Handle mouse interactions with the (larger) reference image
-    need_to_update_base_images, draw_subset_lines, subset_start_norm, subset_end_norm = ref_img_interact.update()
-    if need_to_update_base_images:
+    need_to_update_display_images, draw_subset_lines, *subset_start_end_norm = ref_img_interact.subset_update()
+    if need_to_update_display_images:
+        
+        # Unpack for convenience
+        subset_start_norm, subset_end_norm = subset_start_end_norm
         
         # Update playback looping indices, based on reference image interactions
-        start_snap_loop_idx = int(round(num_snaps * subset_start_norm))
-        end_snap_loop_idx = int(round(num_snaps * subset_end_norm))
+        start_snap_loop_idx = int(round((num_snaps - 1) * subset_start_norm))
+        end_snap_loop_idx = int(round((num_snaps - 1) * subset_end_norm))
         snap_idx = start_snap_loop_idx
         
-        # Force faster playback updates to avoid inconsistent feeling when adjusting subset changes
-        playback_ctrl.force_fast_frame()
+        # Get the start/end timestamps for timebar indicator
+        first_timestamp, final_timestamp, start_end_duration_sec = \
+        get_start_end_timestamp_strs(snap_db, snap_times_ms_list, start_snap_loop_idx, end_snap_loop_idx)
+        
+        # Update timestamp row
+        timerow_img = timerow.draw_bar_image(subset_start_norm, subset_end_norm,
+                                             first_timestamp, final_timestamp, start_end_duration_sec)
 
         # Re-draw both the reference image (with subset line indicators) and
         # the 'base' density bars subset image which is shown as part of the animated display
         ref_bars_img, subset_bars_base_img = \
-        ref_img_interact.redraw_images(ref_bars_base_img, objdensity_data_display,
+        ref_img_interact.redraw_images(ref_bars_base_img, timerow_img, objdensity_data_display,
                                        draw_subset_lines, subset_start_norm, subset_end_norm, subset_bar_wh)
         
         # Force a window display update here, so we don't continuously have to do this otherwise
         ref_window.imshow(ref_bars_img)
+        
+        # Force faster playback updates to avoid inconsistent feeling when adjusting subset changes
+        playback_ctrl.force_fast_frame()
     
     # Update playback control variables, which may have been modified elsewhere
     playback_ctrl.set_snapshot_index(snap_idx)

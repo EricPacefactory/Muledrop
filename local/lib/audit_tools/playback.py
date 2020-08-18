@@ -49,9 +49,12 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
+import numpy as np
+
 from local.lib.common.timekeeper_utils import isoformat_to_datetime, fake_datetime_like
 
-from local.eolib.video.text_rendering import font_config, simple_text, position_frame_relative
+from local.eolib.video.text_rendering import font_config, simple_text, position_frame_relative, get_text_size
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
@@ -475,6 +478,154 @@ class Corner_Timestamp:
     # .................................................................................................................
     # .................................................................................................................
 
+
+# =====================================================================================================================
+# =====================================================================================================================
+
+
+class Timestamp_Row:
+    
+    # .................................................................................................................
+    
+    def __init__(self, bar_wh, font_scale = 0.45, font_color = (255, 255, 255)):
+        
+        # Create base image
+        #bar_wh = (bar_wh[0], 100)#bar_wh[1])
+        self.base_img = np.zeros((bar_wh[1], bar_wh[0], 3), dtype = np.uint8)
+        self.bar_width, self.bar_height = bar_wh
+        
+        # Pre-calculate scaling factors
+        self.width_scale = (self.bar_width - 1)
+        self.height_scale = (self.bar_height - 1)
+        
+        # Set up initial font config
+        self.text_pad = 5
+        self.x_mid_point = int(self.width_scale / 2)
+        self.y_mid_point = int(self.height_scale / 2)
+        self.font_config_dict = font_config(scale = font_scale, color = font_color)
+        self.duration_font_config_dict = font_config(scale = font_scale, color = (255, 0, 255))
+        
+        # Get text sizing
+        text_wh, self.text_baseline = get_text_size("00:00:00", **self.font_config_dict)
+        self.text_width, self.text_height = text_wh
+        self.text_half_width = int(self.text_width / 2)
+        
+        # Set up text y-positioning
+        y_align_cen = int(self.y_mid_point + self.text_baseline - 1)
+        self.text_y = y_align_cen
+        
+        # Set up helper co-ords
+        self.min_x = (self.text_pad)
+        self.max_x = (self.width_scale - self.text_pad - self.text_width)
+    
+    # .................................................................................................................
+    
+    def draw_bar_image(self, start_point_norm, end_point_norm,
+                       first_timestamp_str, final_timestamp_str,
+                       start_end_duration_sec):
+        
+        # Make a copy of the blank timestamp, so we don't mess up the original
+        bar_image = self.base_img.copy()
+            
+        # Find start/end timestamp positions and draw onto the bar
+        start_text_x, end_text_x = self._position_start_end(start_point_norm, end_point_norm)
+        
+        # Figure out what to write for duration
+        duration_text, duration_text_width = self._create_duration_string(start_end_duration_sec)
+        
+        # Figure out where to draw duration text
+        duration_text_x = self._position_duration(start_text_x, end_text_x, duration_text_width)
+        
+        # Finally, write all the text
+        simple_text(bar_image, first_timestamp_str, (start_text_x, self.text_y), **self.font_config_dict)
+        simple_text(bar_image, final_timestamp_str, (end_text_x, self.text_y), **self.font_config_dict)
+        simple_text(bar_image, duration_text, (duration_text_x, self.text_y), **self.duration_font_config_dict)
+        
+        return bar_image
+    
+    # .................................................................................................................
+    
+    def _position_start_end(self, start_point_norm, end_point_norm):
+        
+        # Draw starting timestamp to the left of the start point, if possible
+        start_line_x = (self.width_scale * start_point_norm)
+        start_text_x = int(round(start_line_x - self.text_width))
+        
+        # Draw the ending timestamp to the right of the end point, if possible
+        end_line_x = (self.width_scale * end_point_norm)
+        end_text_x = int(round(end_line_x))
+        
+        # Re-space things as needed
+        start_text_x = max(self.min_x, start_text_x)
+        end_text_x = min(self.max_x, end_text_x)
+        text_overlap = (start_text_x + self.text_width + self.text_pad >= end_text_x)
+        if text_overlap:
+            shift_x = (self.text_width + self.text_pad + 1)
+            on_right = (end_text_x > self.x_mid_point)
+            if on_right:
+                start_text_x = end_text_x - shift_x
+            else:
+                end_text_x = start_text_x + shift_x
+        
+        return start_text_x, end_text_x
+    
+    # .................................................................................................................
+    
+    def _create_duration_string(self, start_end_duration_sec):
+        
+        # Figure out what to write for duration
+        num_minutes_float = (start_end_duration_sec / 60.0)
+        num_minutes_int = int(num_minutes_float)
+        num_seconds_int = int(round(start_end_duration_sec - num_minutes_int * 60.0))
+        
+        # Handle funny rounding
+        if num_seconds_int == 60:
+            num_minutes_int += 1
+            num_seconds_int = 0
+        
+        # Build different output if the duration is at least 1 minute
+        if num_minutes_int > 0: 
+            duration_text = "({}m{:0>2}s)".format(num_minutes_int, num_seconds_int)
+        else:
+            duration_text = "({}s)".format(num_seconds_int)
+        
+        # Get the sizing of trhe duration text, size it will vary depending on user selection
+        (duration_text_width, _), _ = get_text_size(duration_text, **self.font_config_dict)
+        
+        return duration_text, duration_text_width
+    
+    # .................................................................................................................
+    
+    def _position_duration(self, start_text_x, end_text_x, duration_text_width):
+        
+        # Figure out how much space we need for the duration text & how much is available mid/right
+        need_space = (duration_text_width + 4 * self.text_pad)
+        mid_space = (end_text_x - (start_text_x + self.text_width))
+        right_space = (self.bar_width - end_text_x - self.text_width)
+        
+        # Decide where to place text based on whether there is enough space
+        # (with preference: right, middle, left)
+        enough_right_space = (right_space > need_space)
+        enough_mid_space = (mid_space > need_space)
+        if enough_right_space:
+            # Right-aligned
+            duration_text_x = (self.width_scale - self.text_pad - duration_text_width)
+            
+        elif enough_mid_space:
+            # Middle-aligned
+            mid_text_x = int((end_text_x + start_text_x + self.text_width) / 2)
+            duration_half_width = int(duration_text_width / 2)
+            duration_text_x = (mid_text_x - duration_half_width)
+            
+        else:
+            # Left-aligned
+            duration_text_x = self.text_pad
+        
+        return duration_text_x
+    
+    # .................................................................................................................
+    # .................................................................................................................
+
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Helper functions
 
@@ -507,6 +658,27 @@ def get_timestamp_location(timestamp_position_arg, snap_shape, fg_font_config):
         return None
     
     return position_frame_relative(snap_shape, "00:00:00", relative_position, **fg_font_config)
+
+# .....................................................................................................................
+    
+def get_start_end_timestamp_strs(snap_db, snap_times_ms_list, start_list_dx, end_list_idx,
+                                 timestamp_string_format = "%H:%M:%S"):
+    
+    ''' Helper function used to get start/end timestamp strings based on snapshot ems list indexing '''
+    
+    # Get first/last timing to index into the database
+    first_time_ms = snap_times_ms_list[start_list_dx]
+    final_time_ms = snap_times_ms_list[end_list_idx]
+    
+    # Calculate the duration between the start/end times
+    start_end_duration_sec = ((final_time_ms - first_time_ms) / 1000.0)
+    
+    # Get the start/end timestamps for filenaming
+    return_as_string = True
+    first_timestamp = snap_db.get_datetime_by_ems(first_time_ms, return_as_string, timestamp_string_format)
+    final_timestamp = snap_db.get_datetime_by_ems(final_time_ms, return_as_string, timestamp_string_format)
+    
+    return first_timestamp, final_timestamp, start_end_duration_sec
 
 # .....................................................................................................................
 # .....................................................................................................................
