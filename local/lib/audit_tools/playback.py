@@ -418,14 +418,7 @@ class Corner_Timestamp:
     
     # .................................................................................................................
     
-    def draw_timestamp(self, display_frame, snapshot_metadata):
-        
-        # Don't draw anything if we're not enabled
-        if not self._enable:
-            return display_frame
-        
-        # For clarity
-        centered = False
+    def timestamp_from_snapshot_metadata(self, snapshot_metadata, timestamp_format = "%H:%M:%S"):
         
         # Get snapshot timing info
         datetime_isoformat = snapshot_metadata["datetime_isoformat"]
@@ -435,8 +428,24 @@ class Corner_Timestamp:
         if self.use_relative_time:
             snap_dt = snap_dt - self.start_offset_dt
         
+        # Get timestamp string based on snapshot datetime information
+        timestamp_str = snap_dt.strftime(timestamp_format)
+        
+        return timestamp_str
+    
+    # .................................................................................................................
+    
+    def draw_timestamp(self, display_frame, snapshot_metadata):
+        
+        # Don't draw anything if we're not enabled
+        if not self._enable:
+            return display_frame
+        
+        # For clarity
+        centered = False
+        
         # Draw timestamp with background/foreground to help separate from video background
-        snap_dt_str = snap_dt.strftime("%H:%M:%S")
+        snap_dt_str = self.timestamp_from_snapshot_metadata(snapshot_metadata)
         simple_text(display_frame, snap_dt_str, self.text_position, centered, **self.bg_font_Config)
         simple_text(display_frame, snap_dt_str, self.text_position, centered, **self.fg_font_config)
         

@@ -305,7 +305,7 @@ print("",
       "",
       "  While playing, click on the timebar to change playback position",
       "",
-      "Press Esc to close", "", sep="\n")
+      "Press Esc to close", "", sep="\n", flush = True)
 
 
 # ---------------------------------------------------------------------------------------------------------------------

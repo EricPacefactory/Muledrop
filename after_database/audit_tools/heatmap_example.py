@@ -307,7 +307,7 @@ bg_window.attach_callback(mouse_hover)
 heatmap_window_dict = create_heatmap_windows_dict(screen_wh, frame_wh, obj_by_class_dict, mouse_hover)
 
 # Some control feedback (hacky/hard-coded for now)
-print("", "Press Esc to close", "", sep="\n")
+print("", "Press Esc to close", "", sep="\n", flush = True)
 
 # For convenience
 frame_delay_ms = 60

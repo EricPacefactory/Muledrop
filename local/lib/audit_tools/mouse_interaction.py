@@ -415,40 +415,6 @@ class Reference_Image_Mouse_Interactions:
     
     # .................................................................................................................
     
-    def set_subset_line_colors(self, *, fg_line_color = None, bg_line_color = None):
-        
-        if fg_line_color is not None:
-            self._subset_fg_line_color = fg_line_color
-        
-        if bg_line_color is not None:
-            self._subset_bg_line_color = bg_line_color
-        
-        return self._subset_fg_line_color, self._subset_bg_line_color
-    
-    # .................................................................................................................
-    
-    def update(self):
-        
-        # Initialize outputs
-        need_to_update_images = False
-        need_to_draw_subset_indicator_lines = False
-        start_pt_norm = None
-        end_pt_norm = None
-        
-        # Handle dragging events, which are used to select a subset of the data for animation display
-        if self.callback_ref.left_dragged():            
-            need_to_update_images, start_pt_norm, end_pt_norm = self._left_drag_event()
-            need_to_draw_subset_indicator_lines = True
-        
-        # Handle clearing on right click
-        if self.callback_ref.right_clicked():
-            need_to_update_images, start_pt_norm, end_pt_norm = self._right_clear_event()
-            need_to_draw_subset_indicator_lines = False
-        
-        return need_to_update_images, need_to_draw_subset_indicator_lines, start_pt_norm, end_pt_norm
-    
-    # .................................................................................................................
-    
     def _left_drag_event(self):
         
         # Get the clicked/current drag points
@@ -474,6 +440,45 @@ class Reference_Image_Mouse_Interactions:
         end_pt_norm = 1
         
         return need_to_update_images, start_pt_norm, end_pt_norm
+    
+    # .................................................................................................................
+    
+    def set_subset_line_colors(self, *, fg_line_color = None, bg_line_color = None):
+        
+        if fg_line_color is not None:
+            self._subset_fg_line_color = fg_line_color
+        
+        if bg_line_color is not None:
+            self._subset_bg_line_color = bg_line_color
+        
+        return self._subset_fg_line_color, self._subset_bg_line_color
+    
+    # .................................................................................................................
+    
+    def subset_update(self, force_normalized_range = True):
+        
+        # Initialize outputs
+        need_to_update_images = False
+        need_to_draw_subset_indicator_lines = False
+        start_pt_norm = None
+        end_pt_norm = None
+        
+        # Handle dragging events, which are used to select a subset of the data for animation display
+        if self.callback_ref.left_dragged():            
+            need_to_update_images, start_pt_norm, end_pt_norm = self._left_drag_event()
+            need_to_draw_subset_indicator_lines = True
+        
+        # Handle clearing on right click
+        if self.callback_ref.right_clicked():
+            need_to_update_images, start_pt_norm, end_pt_norm = self._right_clear_event()
+            need_to_draw_subset_indicator_lines = False
+        
+        # Force start/end values to 0.0<->1.0 range if needed
+        if force_normalized_range:
+            start_pt_norm = max(0, start_pt_norm) if start_pt_norm is not None else None
+            end_pt_norm = min(1, end_pt_norm) if end_pt_norm is not None else None
+        
+        return need_to_update_images, need_to_draw_subset_indicator_lines, start_pt_norm, end_pt_norm
     
     # .................................................................................................................
     

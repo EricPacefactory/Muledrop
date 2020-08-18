@@ -53,9 +53,13 @@ import argparse
 import cv2
 import numpy as np
 
+from tqdm import tqdm
+
 from local.lib.ui_utils.cli_selections import Resource_Selector
 from local.lib.ui_utils.local_ui.windows_base import Simple_Window
 from local.lib.ui_utils.screen_info import Screen_Info
+
+from local.lib.file_access_utils.settings import load_recording_info
 
 from local.lib.audit_tools.playback import Snapshot_Playback, Corner_Timestamp, get_playback_line_coords
 from local.lib.audit_tools.mouse_interaction import Drag_Callback, Row_Based_Footer_Interactions
@@ -66,6 +70,10 @@ from local.offline_database.station_reconstruction import Station_Raw_Bars_Displ
 from local.offline_database.station_reconstruction import create_reconstruction_dict, load_station_configs
 
 from local.eolib.utils.cli_tools import Datetime_Input_Parser as DTIP
+from local.eolib.utils.cli_tools import cli_confirm
+from local.eolib.video.read_write import Video_Recorder
+
+from local.eolib.video.text_rendering import simple_text, font_config, get_text_size
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -87,7 +95,7 @@ class Station_Reference_Mouse_Interactions(Reference_Image_Mouse_Interactions):
     
     # .................................................................................................................
     
-    def redraw_images(self, reference_bars_base_img, station_data_display_ref,
+    def redraw_images(self, reference_bars_base_img, timerow_image, station_data_display_ref,
                       draw_subset_lines, subset_start_norm, subset_end_norm, subset_bar_wh):
         
         # Draw/clear subset indicator lines on reference image
@@ -95,12 +103,162 @@ class Station_Reference_Mouse_Interactions(Reference_Image_Mouse_Interactions):
         if draw_subset_lines:
             self.draw_reference_subset_lines(ref_bars_img, subset_start_norm, subset_end_norm)
         
+        # Add timerow image
+        ref_bars_img = np.vstack((ref_bars_img, timerow_image))
+        
         # Re-draw the subset image
-        subset_bars_base_img, _ = station_data_display_ref.create_combined_bar_subset_image(subset_start_norm,
-                                                                                            subset_end_norm,
-                                                                                            *subset_bar_wh)
+        subset_bars_base_img, _ = \
+        station_data_display_ref.create_combined_bar_subset_image(subset_start_norm, subset_end_norm, *subset_bar_wh)
         
         return ref_bars_img, subset_bars_base_img
+    
+    # .................................................................................................................
+    # .................................................................................................................
+
+
+# =====================================================================================================================
+# =====================================================================================================================
+
+
+class Timestamp_Row:
+    
+    # .................................................................................................................
+    
+    def __init__(self, bar_wh, font_scale = 0.45, font_color = (255, 255, 255)):
+        
+        # Create base image
+        #bar_wh = (bar_wh[0], 100)#bar_wh[1])
+        self.base_img = np.zeros((bar_wh[1], bar_wh[0], 3), dtype = np.uint8)
+        self.bar_width, self.bar_height = bar_wh
+        
+        # Pre-calculate scaling factors
+        self.width_scale = (self.bar_width - 1)
+        self.height_scale = (self.bar_height - 1)
+        
+        # Set up initial font config
+        self.text_pad = 5
+        self.x_mid_point = int(self.width_scale / 2)
+        self.y_mid_point = int(self.height_scale / 2)
+        self.font_config_dict = font_config(scale = font_scale, color = font_color)
+        self.duration_font_config_dict = font_config(scale = font_scale, color = (255, 0, 255))
+        
+        # Get text sizing
+        text_wh, self.text_baseline = get_text_size("00:00:00", **self.font_config_dict)
+        self.text_width, self.text_height = text_wh
+        self.text_half_width = int(self.text_width / 2)
+        
+        # Set up text y-positioning
+        y_align_cen = int(self.y_mid_point + self.text_baseline - 1)
+        self.text_y = y_align_cen
+        
+        # Set up helper co-ords
+        self.min_x = (self.text_pad)
+        self.max_x = (self.width_scale - self.text_pad - self.text_width)
+    
+    # .................................................................................................................
+    
+    def draw_bar_image(self, start_point_norm, end_point_norm,
+                       first_timestamp_str, final_timestamp_str,
+                       start_end_duration_sec):
+        
+        # Make a copy of the blank timestamp, so we don't mess up the original
+        bar_image = self.base_img.copy()
+            
+        # Find start/end timestamp positions and draw onto the bar
+        start_text_x, end_text_x = self._position_start_end(start_point_norm, end_point_norm)
+        
+        # Figure out what to write for duration
+        duration_text, duration_text_width = self._create_duration_string(start_end_duration_sec)
+        
+        # Figure out where to draw duration text
+        duration_text_x = self._position_duration(start_text_x, end_text_x, duration_text_width)
+        
+        # Finally, write all the text
+        simple_text(bar_image, first_timestamp_str, (start_text_x, self.text_y), **self.font_config_dict)
+        simple_text(bar_image, final_timestamp_str, (end_text_x, self.text_y), **self.font_config_dict)
+        simple_text(bar_image, duration_text, (duration_text_x, self.text_y), **self.duration_font_config_dict)
+        
+        return bar_image
+    
+    # .................................................................................................................
+    
+    def _position_start_end(self, start_point_norm, end_point_norm):
+        
+        # Draw starting timestamp to the left of the start point, if possible
+        start_line_x = (self.width_scale * start_point_norm)
+        start_text_x = int(round(start_line_x - self.text_width))
+        
+        # Draw the ending timestamp to the right of the end point, if possible
+        end_line_x = (self.width_scale * end_point_norm)
+        end_text_x = int(round(end_line_x))
+        
+        # Re-space things as needed
+        start_text_x = max(self.min_x, start_text_x)
+        end_text_x = min(self.max_x, end_text_x)
+        text_overlap = (start_text_x + self.text_width + self.text_pad >= end_text_x)
+        if text_overlap:
+            shift_x = (self.text_width + self.text_pad + 1)
+            on_right = (end_text_x > self.x_mid_point)
+            if on_right:
+                start_text_x = end_text_x - shift_x
+            else:
+                end_text_x = start_text_x + shift_x
+        
+        return start_text_x, end_text_x
+    
+    # .................................................................................................................
+    
+    def _create_duration_string(self, start_end_duration_sec):
+        
+        # Figure out what to write for duration
+        num_minutes_float = (start_end_duration_sec / 60.0)
+        num_minutes_int = int(num_minutes_float)
+        num_seconds_int = int(round(start_end_duration_sec - num_minutes_int * 60.0))
+        
+        # Handle funny rounding
+        if num_seconds_int == 60:
+            num_minutes_int += 1
+            num_seconds_int = 0
+        
+        # Build different output if the duration is at least 1 minute
+        if num_minutes_int > 0: 
+            duration_text = "({}m{:0>2}s)".format(num_minutes_int, num_seconds_int)
+        else:
+            duration_text = "({}s)".format(num_seconds_int)
+        
+        # Get the sizing of trhe duration text, size it will vary depending on user selection
+        (duration_text_width, _), _ = get_text_size(duration_text, **self.font_config_dict)
+        
+        return duration_text, duration_text_width
+    
+    # .................................................................................................................
+    
+    def _position_duration(self, start_text_x, end_text_x, duration_text_width):
+        
+        # Figure out how much space we need for the duration text & how much is available mid/right
+        need_space = (duration_text_width + 4 * self.text_pad)
+        mid_space = (end_text_x - (start_text_x + self.text_width))
+        right_space = (self.bar_width - end_text_x - self.text_width)
+        
+        # Decide where to place text based on whether there is enough space
+        # (with preference: right, middle, left)
+        enough_right_space = (right_space > need_space)
+        enough_mid_space = (mid_space > need_space)
+        if enough_right_space:
+            # Right-aligned
+            duration_text_x = (self.width_scale - self.text_pad - duration_text_width)
+            
+        elif enough_mid_space:
+            # Middle-aligned
+            mid_text_x = int((end_text_x + start_text_x + self.text_width) / 2)
+            duration_half_width = int(duration_text_width / 2)
+            duration_text_x = (mid_text_x - duration_half_width)
+            
+        else:
+            # Left-aligned
+            duration_text_x = self.text_pad
+        
+        return duration_text_x
     
     # .................................................................................................................
     # .................................................................................................................
@@ -165,6 +323,60 @@ def get_corrected_time_range(snapshot_db, station_db, user_start_dt, user_end_dt
     shared_end_time_ms = min(end_snap_time_ms, end_stn_time_ms)
     
     return shared_start_time_ms, shared_end_time_ms
+
+# .....................................................................................................................
+    
+def get_start_end_timestamp_strs(snap_db, snap_times_ms_list, start_list_dx, end_list_idx,
+                                 timestamp_string_format = "%H:%M:%S"):
+    
+    ''' Helper function used to get start/end timestamp strings based on snapshot ems list indexing '''
+    
+    # Get first/last timing to index into the database
+    first_time_ms = snap_times_ms_list[start_list_dx]
+    final_time_ms = snap_times_ms_list[end_list_idx]
+    
+    # Calculate the duration between the start/end times
+    start_end_duration_sec = ((final_time_ms - first_time_ms) / 1000.0)
+    
+    # Get the start/end timestamps for filenaming
+    return_as_string = True
+    first_timestamp = snap_db.get_datetime_by_ems(first_time_ms, return_as_string, timestamp_string_format)
+    final_timestamp = snap_db.get_datetime_by_ems(final_time_ms, return_as_string, timestamp_string_format)
+    
+    return first_timestamp, final_timestamp, start_end_duration_sec
+
+# .....................................................................................................................
+
+def create_video_recorder(project_root_path, location_select, camera_select,
+                          first_timestamp, final_timestamp, 
+                          recording_fps, recording_frame_wh):
+    
+    # Load codec/file extension settings
+    recording_info_dict = load_recording_info(project_root_path)
+    recording_file_ext = recording_info_dict["file_extension"]
+    recording_codec = recording_info_dict["codec"]
+    
+    # Make sure we add a leading dot to the file extension
+    recording_file_ext = "".join([".", recording_file_ext]).replace("..", ".")
+    
+    # Make sure to remove colons from timestamps
+    first_ts_str = first_timestamp.replace(":", "")
+    final_ts_str = final_timestamp.replace(":", "")
+    
+    # Build save pathing
+    recording_filename = "stations-{}-({}_{}){}".format(camera_select, first_ts_str, final_ts_str, recording_file_ext)
+    desktop_path = os.path.expanduser(os.path.join("~", "Desktop"))
+    recording_folder = os.path.join(desktop_path, "safety-cv-exports", "recordings", location_select)
+    save_path = os.path.join(recording_folder, recording_filename)
+    os.makedirs(recording_folder, exist_ok = True)
+    
+    # Create video writer object
+    vwriter = Video_Recorder(save_path,
+                             recording_FPS = recording_fps,
+                             recording_WH = recording_frame_wh,
+                             codec = recording_codec)
+    
+    return save_path, vwriter
 
 # .....................................................................................................................
 # .....................................................................................................................
@@ -261,6 +473,10 @@ global_first_frame_index = first_snap_md["frame_index"]
 global_final_frame_index = final_snap_md["frame_index"]
 global_total_frames = (1 + global_final_frame_index - global_first_frame_index)
 
+# Get bounding timestamps
+first_timestamp, final_timestamp, start_end_duration_sec = \
+get_start_end_timestamp_strs(snap_db, snap_times_ms_list, 0, num_snaps - 1)
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Load station data & generate plots
@@ -274,13 +490,20 @@ stn_data_display = Station_Raw_Bars_Display(all_station_data_dict)
 ordered_station_names_list = stn_data_display.get_ordered_station_names_list()
 num_stations = len(ordered_station_names_list)
 
-# Construct large 'reference' bar image (used to show data over full time range)
+# Set up bar sizing
 ref_bar_wh = ((screen_width -  2 * screen_pad_x), 25)
+subset_bar_wh = (snap_width, 21)
+
+# Construct large 'reference' bar image (used to show data over full time range)
 ref_bars_base_img, ref_img_height = stn_data_display.create_combined_bar_image(*ref_bar_wh)
-ref_frame_wh = (ref_bar_wh[0], ref_img_height)
+ref_frame_wh = (ref_bars_base_img.shape[1], ref_bars_base_img.shape[0] + ref_bar_wh[1])
+
+# Create object + initial image for displaying time stamp info on reference image
+timerow = Timestamp_Row(ref_bar_wh)
+timerow_img = timerow.draw_bar_image(0, 1, first_timestamp, final_timestamp, start_end_duration_sec)
+initial_ref_bars_img = np.vstack((ref_bars_base_img, timerow_img))
 
 # Create initial station base image, which may be re-drawn for reduced subset playback
-subset_bar_wh = (snap_width, 21)
 subset_bars_base_img, subset_img_height = stn_data_display.create_combined_bar_subset_image(0, 1, *subset_bar_wh)
 
 # Load & setup zone data for display
@@ -301,7 +524,7 @@ ref_window_title = "Reference Station Data"
 ref_window = Simple_Window(ref_window_title, provide_mouse_xy = True)
 ref_window.attach_callback(ref_drag_callback)
 ref_window.move_corner_pixels(ref_window_x, ref_window_y)
-ref_window.imshow(ref_bars_base_img)
+ref_window.imshow(initial_ref_bars_img)
 
 # Get full frame sizing of the animated window
 anim_total_frame_height = snap_height + subset_img_height
@@ -335,11 +558,18 @@ print("",
       "",
       "  While playing, click on the timebar to change playback position",
       "",
-      "Press Esc to close", "", sep="\n")
+      "  Press 'r' to record the current video",
+      "  -> A prompt will appear in the terminal to confirm recording",
+      "",
+      "Press Esc to close", "", sep="\n", flush = True)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Data playback
+
+# Set up recording key press
+record_keypress = ord("r")
+user_confirm_record = False
 
 # Set up object to handle drawing playback timestamps
 cnr_timestamp = Corner_Timestamp(snap_shape, timestamp_pos_arg, user_start_dt, enable_relative_timestamp)
@@ -349,7 +579,6 @@ anim_footer_helper = Row_Based_Footer_Interactions(snap_height, subset_img_heigh
 
 # Set up object to handle reference image interactions, which can alter playback looping points
 ref_img_interact = Station_Reference_Mouse_Interactions(ref_drag_callback)
-ref_img_interact.set_subset_line_colors(fg_line_color = (0, 255, 255))
 
 # Set up object to handle playback/keypresses
 playback_ctrl = Snapshot_Playback(num_snaps, avg_snap_period_ms)
@@ -401,26 +630,37 @@ while True:
     if not winexists:
         break
     
-    # Handle mouse interactions with the (larger) reference image
-    need_to_update_base_images, draw_subset_lines, subset_start_norm, subset_end_norm = ref_img_interact.update()
-    if need_to_update_base_images:
+    # Handle mouse interactions that affect the displayed subset (on the reference image)
+    need_to_update_display_images, draw_subset_lines, *subset_start_end_norm = ref_img_interact.subset_update()
+    if need_to_update_display_images:
+        
+        # Unpack for convenience
+        subset_start_norm, subset_end_norm = subset_start_end_norm
         
         # Update playback looping indices, based on reference image interactions
-        start_snap_loop_idx = int(round(num_snaps * subset_start_norm))
-        end_snap_loop_idx = int(round(num_snaps * subset_end_norm))
+        start_snap_loop_idx = int(round((num_snaps - 1) * subset_start_norm))
+        end_snap_loop_idx = int(round((num_snaps - 1) * subset_end_norm))
         snap_idx = start_snap_loop_idx
         
-        # Force faster playback updates to avoid inconsistent feeling when adjusting subset changes
-        playback_ctrl.force_fast_frame()
+         # Get the start/end timestamps for timebar indicator
+        first_timestamp, final_timestamp, start_end_duration_sec = \
+        get_start_end_timestamp_strs(snap_db, snap_times_ms_list, start_snap_loop_idx, end_snap_loop_idx)
+        
+        # Update timestamp row
+        timerow_img = timerow.draw_bar_image(subset_start_norm, subset_end_norm,
+                                             first_timestamp, final_timestamp, start_end_duration_sec)
         
         # Re-draw both the reference image (with subset line indicators) and
         # the 'base' station bar subset image which is shown as part of the animated display
         ref_bars_img, subset_bars_base_img = \
-        ref_img_interact.redraw_images(ref_bars_base_img, stn_data_display,
+        ref_img_interact.redraw_images(ref_bars_base_img, timerow_img, stn_data_display,
                                        draw_subset_lines, subset_start_norm, subset_end_norm, subset_bar_wh)
         
         # Force a window display update here, so we don't continuously have to do this otherwise
         ref_window.imshow(ref_bars_img)
+        
+        # Force faster playback updates to avoid inconsistent feeling when adjusting subset changes
+        playback_ctrl.force_fast_frame()
     
     # Update playback control variables, which may have been modified elsewhere
     playback_ctrl.set_snapshot_index(snap_idx)
@@ -431,15 +671,88 @@ while True:
     req_break = playback_ctrl.update_playback(keypress)
     if req_break:
         break
+    
+    # Check for recording trigger
+    if keypress == record_keypress:
+        user_confirm_record = cli_confirm("Record video?", default_response = False)
+        if user_confirm_record:
+            break
 
 # Clean up
 cv2.destroyAllWindows()
 
 
 # ---------------------------------------------------------------------------------------------------------------------
+#%% Handle Recording
+
+# Only record if the user confirms it
+if user_confirm_record:
+    
+    # Get snapshot indexing from playback controller
+    start_snap_loop_idx, end_snap_loop_idx = playback_ctrl.get_loop_indices()
+    loop_start_end_idxs = (start_snap_loop_idx, end_snap_loop_idx)
+    
+    # Get the start/end timestamps for filenaming
+    first_timestamp, final_timestamp, start_end_duration_sec = \
+    get_start_end_timestamp_strs(snap_db, snap_times_ms_list, start_snap_loop_idx, end_snap_loop_idx)
+    
+    # Figure out recording framerate
+    recording_frame_delay_ms = playback_ctrl.frame_delay_ms
+    exact_fps = (1000.0 / recording_frame_delay_ms)
+    rounded_fps = (5.0 * np.round(exact_fps / 5.0))
+    recording_fps = min(60.0, rounded_fps)
+    recording_frame_wh = anim_frame_wh
+    
+    # Create video writer
+    save_path, vwriter = create_video_recorder(project_root_path, location_select, camera_select, 
+                                               first_timestamp, final_timestamp,
+                                               recording_fps, recording_frame_wh)
+    
+    try:
+        # Record all frames in the playback looping range
+        print("", 
+              "Recording video!",
+              "@ {}".format(save_path), 
+              "", sep = "\n")
+        for snap_idx in tqdm(range(start_snap_loop_idx, end_snap_loop_idx)):
+            
+            # Get the next snap time
+            current_snap_time_ms = snap_times_ms_list[snap_idx]
+            
+            # Load each snapshot metadata & image 
+            snap_md = snap_db.load_snapshot_metadata_by_ems(current_snap_time_ms)
+            snap_image, snap_frame_idx = snap_db.load_snapshot_image(current_snap_time_ms)
+            
+            # Draw playback line indicator onto the station bars image
+            playback_px = playback_ctrl.playback_as_pixel_location(snap_width, snap_idx, *loop_start_end_idxs)
+            play_pt1, play_pt2 = get_playback_line_coords(playback_px, subset_img_height)
+            anim_bars_image = subset_bars_base_img.copy()
+            anim_bars_image = cv2.line(anim_bars_image, play_pt1, play_pt2, (255, 255, 255), 1)
+            
+            # Draw timestamp to indicate help playback position
+            cnr_timestamp.draw_timestamp(snap_image, snap_md)
+            
+            # Display the snapshot image, but stop if the window is closed
+            combined_image = np.vstack((snap_image, anim_bars_image))
+            
+            # Record frame!
+            vwriter.write(combined_image)
+        
+    except KeyboardInterrupt:
+        print("Keyboard interrupt! Closing...")
+
+    # Clean up
+    vwriter.release()
+    print("")
+
+
+# ---------------------------------------------------------------------------------------------------------------------
 #%% Scrap
 
 # TODO:
+# - add ability to re-arrange rows with middle click & drag on reference image?
+# - return to ui after recording instead of closing tool (also hide displays on record prompt?)
+# - add color selection using 'c' key? Pop-up image to re-assign colors for rows?
 # - get camera info segments working (i.e. don't allow data loaded over multi-reset events!)
 # - clean up time range matching (snapshots with station data)
 # - add ability to switch between full-scale color mapping vs. relative (i.e. min/max) mapping?

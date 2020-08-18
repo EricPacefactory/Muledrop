@@ -92,7 +92,8 @@ class Station_Raw_Bars_Display:
     def set_color_list(self, bgr_color_list):
         
         # Repeat colors so that we have enough to color all stations
-        self.color_list = repeat_color_sequence_to_target_length(bgr_color_list, self.num_stations)
+        full_color_list = repeat_color_sequence_to_target_length(bgr_color_list, self.num_stations)
+        self.color_list = full_color_list
     
     # .................................................................................................................
     
@@ -109,10 +110,12 @@ class Station_Raw_Bars_Display:
     
     def create_combined_bar_image(self, bar_width,
                                   bar_height = 21,
-                                  bar_bg_color = (40,40,40)):
+                                  bar_bg_color = (40,40,40),
+                                  prepend_row_image = None,
+                                  append_row_image = None):
         
         # Draw a single bar image for each station. We'll eventually stack everything together vertically
-        station_bar_imgs_list = []
+        station_bar_imgs_list = [] if prepend_row_image is None else [prepend_row_image]
         for each_stn_idx, each_station_name in enumerate(self.ordered_names_list):
             
             # Get station color and data to plot
@@ -128,6 +131,10 @@ class Station_Raw_Bars_Display:
                                                               bar_height)
             station_bar_imgs_list.append(station_bar_img)
         
+        # Include additional row image if needed
+        if append_row_image is not None:
+            station_bar_imgs_list.append(append_row_image)
+        
         # Combine all station images together
         combined_bars_image, combined_bars_height = \
         create_combined_bars_image(station_bar_imgs_list)
@@ -138,10 +145,12 @@ class Station_Raw_Bars_Display:
     
     def create_combined_bar_subset_image(self, start_pt_norm, end_pt_norm, bar_width,
                                          bar_height = 21,
-                                         bar_bg_color = (40, 40, 40)):
+                                         bar_bg_color = (40, 40, 40),
+                                         prepend_row_image = None,
+                                         append_row_image = None):
         
         # Draw a single subset bar image for each station. We'll eventually stack everything together vertically
-        subset_bar_imgs_list = []
+        subset_bar_imgs_list = [] if prepend_row_image is None else [prepend_row_image]
         for each_stn_idx, each_station_name in enumerate(self.ordered_names_list):
             
             # Get station color and data to plot
@@ -158,6 +167,10 @@ class Station_Raw_Bars_Display:
                                                                     bar_bg_color,
                                                                     bar_height)
             subset_bar_imgs_list.append(subset_bar_img)
+        
+        # Include additional row image if needed
+        if append_row_image is not None:
+            subset_bar_imgs_list.append(append_row_image)
         
         # Combine all bar images together
         subset_combined_bars_image, subset_combined_bars_height = \
@@ -191,21 +204,6 @@ class Station_Zone_Display:
         # Calculate initial zone data based on provided display sizing
         self.update_display_wh(display_wh)
     
-    # .................................................................................................................
-    
-    def update_display_wh(self, new_display_wh):
-        
-        self.display_wh = new_display_wh
-        
-        # Get normalized & pixelized zone data for each station
-        zones_norm_dict, zones_px_dict = self._get_station_zone_data()
-        
-        # Store zone data for re-use
-        self.zones_norm_dict = zones_norm_dict
-        self.zones_px_dict = zones_px_dict
-        
-        return        
-
     # .................................................................................................................
     
     def _get_station_zone_data(self):
@@ -243,6 +241,21 @@ class Station_Zone_Display:
             zones_px_dict[each_station_name] = each_zone_px_array
         
         return zones_norm_dict, zones_px_dict
+    
+    # .................................................................................................................
+    
+    def update_display_wh(self, new_display_wh):
+        
+        self.display_wh = new_display_wh
+        
+        # Get normalized & pixelized zone data for each station
+        zones_norm_dict, zones_px_dict = self._get_station_zone_data()
+        
+        # Store zone data for re-use
+        self.zones_norm_dict = zones_norm_dict
+        self.zones_px_dict = zones_px_dict
+        
+        return
 
     # .................................................................................................................
 
@@ -272,6 +285,7 @@ class Station_Zone_Display:
     
     # .................................................................................................................
     # .................................................................................................................
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Bar imaging functions

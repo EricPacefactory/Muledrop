@@ -763,6 +763,26 @@ class Snap_DB(File_DB):
     
     # .................................................................................................................
     
+    def get_datetime_by_ems(self, target_ems, return_as_string = False, string_format = "%H:%M:%S"):
+        
+        # Build command string for getting snapshot datetime based on ems value
+        select_cmd = "SELECT datetime_isoformat FROM {} WHERE epoch_ms = {}".format(self._table_name,
+                                                                                    target_ems)
+        
+        # Get data from database!
+        target_dt_isoformat = self._fetchone_item(select_cmd, return_if_missing = None)
+        if target_dt_isoformat is None:
+            return None
+        
+        # Convert to a datetime object or a string if needed
+        target_dt = isoformat_to_datetime(target_dt_isoformat)
+        if return_as_string:
+            return target_dt.strftime(string_format)
+        
+        return target_dt
+    
+    # .................................................................................................................
+    
     def get_n_snapshot_times(self, start_time, end_time, n = 10):
         
         # Get all snapshot data first
@@ -838,6 +858,35 @@ class Snap_DB(File_DB):
                        "upper_epoch_ms": ceil_snapshot_epoch_ms}
         
         return return_dict
+    
+    # .................................................................................................................
+    
+    def load_snapshot_metadata_by_frame_index(self, target_frame_index):
+        
+        '''
+        Function which returns snapshot metadata for a given epoch timing
+        
+        Inputs:
+            target snapshot epoch_ms time (must be a valid time!)
+        
+        Outputs:
+            metadata_dictionary
+        '''
+        
+        # Build selection commands
+        select_cmd = "SELECT {} FROM {} WHERE frame_index = {}".format(self._metadata_key,
+                                                                       self._table_name,
+                                                                       target_frame_index)
+        
+        # Get data from database!
+        metadata_json = self._fetchone_item(select_cmd, return_if_missing = None)
+        if metadata_json is None:
+            metadata_json = "{}"
+        
+        # Convert to python dictionary so we can actually interact with it!
+        metadata_dict = fast_json_to_dict(metadata_json)
+        
+        return metadata_dict
     
     # .................................................................................................................
     

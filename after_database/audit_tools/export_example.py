@@ -597,7 +597,7 @@ print("",
       "Click on a trail to view an animation of the object,",
       "then press 'Enter' on the animation to export to csv!",
       "",
-      "Press Esc to close", "", sep="\n")
+      "Press Esc to close", "", sep="\n", flush = True)
 
 while True:
     
