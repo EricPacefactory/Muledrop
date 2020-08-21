@@ -74,7 +74,7 @@ class Base_Video_Reader:
         self.video_source = video_source
         self.video_type = video_type
         self.vcap = None
-        self._start_videocapture()
+        self._start_videocapture(crash_on_fail = True)
 
         # Create object for keeping track of time
         self.timekeeper = Timekeeper(start_datetime_isoformat, timelapse_factor)
@@ -193,7 +193,7 @@ class Base_Video_Reader:
     def reset_videocapture(self, delay_sec = 0):
         self.vcap.release()
         sleep(delay_sec)
-        self._start_videocapture()
+        self._start_videocapture(crash_on_fail = False)
     
     # .................................................................................................................
     
@@ -216,8 +216,8 @@ class Base_Video_Reader:
         
     # .................................................................................................................
     
-    def _start_videocapture(self):
-        self.vcap = safe_VideoCapture(self.video_source)
+    def _start_videocapture(self, crash_on_fail = False):
+        self.vcap = safe_VideoCapture(self.video_source, crash_on_fail)
     
     # .................................................................................................................
     # .................................................................................................................
@@ -369,7 +369,7 @@ class Threaded_File_Video_Reader(Base_Video_Reader):
         sleep(delay_sec)
         
         # Re-launch the threaded reader!
-        self._start_videocapture()
+        self._start_videocapture(crash_on_fail = False)
         
     # .................................................................................................................
     
@@ -394,10 +394,10 @@ class Threaded_File_Video_Reader(Base_Video_Reader):
     
     # .................................................................................................................
 
-    def _start_videocapture(self):
+    def _start_videocapture(self, crash_on_fail = False):
         
         # Create initial capture object
-        self.vcap = safe_VideoCapture(self.video_source)
+        self.vcap = safe_VideoCapture(self.video_source, crash_on_fail)
         
         # Storage for threading resources
         self._thread_on = True
@@ -643,13 +643,26 @@ def create_video_reader(location_select_folder_path, camera_select, video_select
 
 # .....................................................................................................................
 
-def safe_VideoCapture(video_source):
+def safe_VideoCapture(video_source, crash_on_fail = False):
     
     ''' Helper function which adds very basic error handling to cv2.VideoCapture functionality '''
     
-    vcap = cv2.VideoCapture(video_source)
-    if not vcap.isOpened():
-        raise IOError("\nCouldn't open video:\n{}\n".format(video_source))
+    while True:
+        
+        # Try to connect to the video source
+        vcap = cv2.VideoCapture(video_source)
+        if vcap.isOpened():
+            break
+        
+        # If needed, force a crash if the connection attempt failed
+        if crash_on_fail:
+            raise IOError("\nCouldn't open video:\n{}\n".format(video_source))
+        
+        # If we get here, we're not crashing, but shouldn't immediately try to re-connect, so wait a bit...
+        print("",
+              "Error connecting to RTSP source... {}".format(get_human_readable_timestamp()),
+              sep = "\n")
+        sleep(60.0)
     
     return vcap
 
