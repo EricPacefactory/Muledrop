@@ -164,6 +164,7 @@ class Snapshot_Playback:
         # Store inputs
         self.num_snapshots = num_snapshots
         self._avg_snapshot_period_ms = average_snapshot_period_ms
+        self._target_avg_snapshot_period_ms = min(average_snapshot_period_ms, 8000)
         
         # Allocate storage for current snapshot to display & range to loop over
         self._snapshot_idx = 0
@@ -284,7 +285,7 @@ class Snapshot_Playback:
     def set_playback_speed(self, playback_timelapse_factor):
         
         # Set frame delay based on a target timelapse factor, instead of using ms timig directly
-        self._frame_delay_ms = int(round(self._avg_snapshot_period_ms / playback_timelapse_factor))
+        self._frame_delay_ms = int(round(self._target_avg_snapshot_period_ms / playback_timelapse_factor))
         self._frame_delay_ms = max(1, self._frame_delay_ms)
         
         # Store playback factor with limits based on maximum frame delay
