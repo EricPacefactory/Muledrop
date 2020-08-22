@@ -50,6 +50,7 @@ find_path_to_local()
 #%% Imports
 
 import cv2
+import numpy as np
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -57,7 +58,7 @@ import cv2
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-#%% Define encoding functions
+#%% Define encode/decode functions
 
 # .....................................................................................................................
 
@@ -78,6 +79,14 @@ def encode_jpg_data(image_data, jpg_quality_0_to_100):
     _, encoded_jpg_data = cv2.imencode(".jpg", image_data, jpg_params)
     
     return encoded_jpg_data
+
+# .....................................................................................................................
+
+def decode_image_data(encoded_image_data):
+    
+    ''' Simple helper function which wraps around cv2.imdecode. Assuming color image data. Works for jpg or png '''
+    
+    return cv2.imdecode(encoded_image_data, cv2.IMREAD_COLOR)
 
 # .....................................................................................................................
 # .....................................................................................................................
@@ -111,6 +120,46 @@ def write_encoded_png(save_folder_path, save_name_no_ext, encoded_png_data):
 
 # .....................................................................................................................
 # .....................................................................................................................
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Define reading functions
+
+# .....................................................................................................................
+
+def _read_encoded_image_data(load_folder_path, load_name_no_ext, file_extension):
+    
+    ''' Generic function used to read encoded image data from disk '''
+    
+    # Build load path and get the image data
+    load_name = "{}{}".format(load_name_no_ext, file_extension)
+    load_path = os.path.join(load_folder_path, load_name)
+    with open(load_path, "rb") as in_file:
+        encoded_image_bytes = in_file.read()
+    
+    # Convert to numpy array so we can manipulate the data using opencv
+    encoded_image_data = np.frombuffer(encoded_image_bytes, dtype = np.uint8)
+    
+    # Note:
+    # This approach of using 'with open(...)' followed by numpy conversion is
+    # (surprisingly) faster than using the more direct: np.fromfile(...)
+    # not sure why?
+    
+    return encoded_image_data
+
+# .....................................................................................................................
+
+def read_encoded_jpg(load_folder_path, load_name_no_ext):
+    return _read_encoded_image_data(load_folder_path, load_name_no_ext, ".jpg")
+
+# .....................................................................................................................
+
+def read_encoded_png(load_folder_path, load_name_no_ext):
+    return _read_encoded_image_data(load_folder_path, load_name_no_ext, ".png")
+
+# .....................................................................................................................
+# .....................................................................................................................
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define composite functions
@@ -146,6 +195,36 @@ def save_jpg_image(save_folder_path, save_name_no_ext, image_data, jpg_quality_0
     return save_path
 
 # .....................................................................................................................
+
+def load_png_image(load_folder_path, load_name_no_ext):
+    
+    '''
+    Helper function which combines reading/decoding of image data in png format
+    Acts the same as cv2.imread(...), but makes use of separate read/decode steps,
+    so that there is some consistency with (threaded) systems that may perform these steps at different times
+    '''
+    
+    encoded_data = read_encoded_png(load_folder_path, load_name_no_ext)
+    png_image = decode_image_data(encoded_data)
+    
+    return png_image
+
+# .....................................................................................................................
+
+def load_jpg_image(load_folder_path, load_name_no_ext):
+    
+    '''
+    Helper function which combines reading/decoding of image data in jpg format
+    Acts the same as cv2.imread(...), but makes use of separate read/decode steps,
+    so that there is some consistency with (threaded) systems that may perform these steps at different times
+    '''
+    
+    encoded_data = read_encoded_jpg(load_folder_path, load_name_no_ext)
+    jpg_image = decode_image_data(encoded_data)
+    
+    return jpg_image
+
+# .....................................................................................................................
 # .....................................................................................................................
         
 
@@ -158,4 +237,5 @@ if __name__ == "__main__":
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Scrap
+
 

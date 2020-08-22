@@ -50,7 +50,6 @@ find_path_to_local()
 #%% Imports
 
 import sqlite3
-import cv2
 import numpy as np
 
 from time import perf_counter
@@ -77,8 +76,10 @@ from local.lib.file_access_utils.rules import build_rule_adb_info_report_path
 from local.lib.file_access_utils.rules import new_rule_report_entry
 
 from local.lib.file_access_utils.metadata_read_write import fast_dict_to_json, fast_json_to_dict, load_metadata
+from local.lib.file_access_utils.image_read_write import read_encoded_jpg, decode_image_data
 
-from local.eolib.utils.files import get_file_list, get_folder_list
+from local.eolib.utils.files import get_file_list, get_folder_list, get_total_folder_size
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
@@ -695,6 +696,11 @@ class Snap_DB(File_DB):
         snapshot_image_folder_exists = os.path.exists(self.snap_images_folder_path)
         if not snapshot_image_folder_exists:
             raise FileNotFoundError("Couldn't find snapshot image folder:\n{}".format(self.snap_images_folder_path))
+        
+        # Check how big the image folder is, to see if it makes sense to try to cache jpg data
+        _, _, snap_image_folder_size_mb, _ = get_total_folder_size(self.snap_images_folder_path)
+        self._enable_jpg_cache = (snap_image_folder_size_mb < 800)
+        self._snap_jpg_cache = {}
     
     # .................................................................................................................
     
@@ -937,16 +943,20 @@ class Snap_DB(File_DB):
         snap_epoch_ms = snap_md["epoch_ms"]
         snap_frame_index = snap_md["frame_index"]
         
-        # Build pathing to the corresponding image
-        snap_image_name = "{}.jpg".format(snap_epoch_ms)
-        snap_image_path = os.path.join(self.snap_images_folder_path, snap_image_name)
+        # If caching is enabled, first check if we already have the image data
+        have_target_jpg = (target_epoch_ms in self._snap_jpg_cache)
+        if self._enable_jpg_cache and have_target_jpg:
+            jpg_data_array = self._snap_jpg_cache[target_epoch_ms]
+            image_data = decode_image_data(jpg_data_array)
+            return image_data, snap_frame_index
         
-        # Crash if we can't find the image, since that shouldn't happen offline...
-        image_not_found = (not os.path.exists(snap_image_path))
-        if image_not_found:
-            raise FileNotFoundError("Couldn't find snapshot image! ({})".format(snap_image_path))
+        # Read the jpg data and store it if we're caching jpgs
+        jpg_data_array = read_encoded_jpg(self.snap_images_folder_path, snap_epoch_ms)
+        image_data = decode_image_data(jpg_data_array)
+        if self._enable_jpg_cache:
+            self._snap_jpg_cache[target_epoch_ms] = jpg_data_array
         
-        return cv2.imread(snap_image_path), snap_frame_index
+        return image_data, snap_frame_index
     
     # .................................................................................................................
     # .................................................................................................................

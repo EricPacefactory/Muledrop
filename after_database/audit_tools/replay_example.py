@@ -367,7 +367,7 @@ while True:
     
     # Load each snapshot image & draw object annoations over top
     snap_md = snap_db.load_snapshot_metadata_by_ems(current_snap_time_ms)
-    snap_image, snap_frame_idx = snap_db.load_snapshot_image(current_snap_time_ms)    
+    snap_image, snap_frame_idx = snap_db.load_snapshot_image(current_snap_time_ms)
     for each_obj in ordered_obj_list:
         each_obj.draw_trail(snap_image, snap_frame_idx, current_snap_time_ms)
         each_obj.draw_outline(snap_image, snap_frame_idx, current_snap_time_ms)
