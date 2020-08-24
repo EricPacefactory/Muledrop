@@ -1,7 +1,7 @@
 
 # CV & Math libraries
 numpy==1.*
-opencv-python==4.*
+opencv-python-headless==4.*
 scipy==1.*
 
 # Machine learning library (for classifiers)
