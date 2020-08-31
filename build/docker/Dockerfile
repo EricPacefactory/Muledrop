@@ -41,6 +41,7 @@ ENV DBSERVER_PORT               8050
 # Set variables for launching the control server
 ENV CTRLSERVER_HOST             0.0.0.0
 ENV CTRLSERVER_PORT             8181
+ENV AUTOLAUNCH_BY_DEFAULT       True
 
 # Set variables to control auto-posting
 ENV AUTOPOST_ON_STARTUP         1

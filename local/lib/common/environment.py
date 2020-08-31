@@ -90,7 +90,12 @@ def get_env(environment_variable_name, default_value_if_missing = None, return_t
         env_value = None if replace_with_none else env_value
     
     # Apply type casting if needed
-    if return_type is not None:
+    if return_type is bool:
+        # Special case for booleans, since bool("0") or bool("False") both evaluate to True!
+        env_value_str = str(env_value)
+        env_value = (env_value_str.lower() in {"true", "1"})
+        
+    elif return_type is not None:
         env_value = return_type(env_value)
     
     return env_value
@@ -156,7 +161,7 @@ def get_dbserver_port():
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-#%% Upload server functions
+#%% Control server functions
 
 # .....................................................................................................................
 
@@ -172,6 +177,11 @@ def get_ctrlserver_host():
 
 def get_ctrlserver_port():
     return get_env("CTRLSERVER_PORT", 8181, int)
+
+# .....................................................................................................................
+
+def get_default_autolaunch():
+    return get_env("AUTOLAUNCH_BY_DEFAULT", True, bool)
 
 # .....................................................................................................................
 # .....................................................................................................................

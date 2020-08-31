@@ -54,6 +54,8 @@ import numpy as np
 
 from time import perf_counter
 
+from random import random as unit_random
+
 from local.lib.common.timekeeper_utils import Periodic_Polled_Timer
 
 from local.lib.file_access_utils.resources import load_newest_generated_background
@@ -231,6 +233,7 @@ def get_rtsp_framerate_estimate(video_reader_ref, minutes_to_run = 1):
     # Make sure we run for at least 1 minute
     minutes_to_run = max(1, minutes_to_run)
     seconds_to_run = (60.0 * minutes_to_run)
+    random_seconds_to_run = seconds_to_run + (20.0 * unit_random())
     
     # Provide some feedback, since the estimation takes some time
     reported_framerate = video_reader_ref.video_fps
@@ -253,10 +256,10 @@ def get_rtsp_framerate_estimate(video_reader_ref, minutes_to_run = 1):
     # Read frames as fast as possible, with timing & counts
     frame_count = 0
     t_start = perf_counter()
-    target_end_time = (t_start + seconds_to_run)
-    while True:        
+    target_end_time = (t_start + random_seconds_to_run)
+    while True:
         video_reader_ref.no_decode_read()
-        frame_count += 1        
+        frame_count += 1
         t_end = perf_counter()
         if t_end > target_end_time:
             break

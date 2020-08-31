@@ -61,7 +61,7 @@ from time import sleep
 from waitress import serve as wsgi_serve
 
 from local.lib.common.timekeeper_utils import get_utc_epoch_ms, get_human_readable_timestamp
-from local.lib.common.environment import get_env_location_select
+from local.lib.common.environment import get_env_location_select, get_default_autolaunch
 from local.lib.common.environment import get_ctrlserver_protocol, get_ctrlserver_host, get_ctrlserver_port
 
 from local.lib.ui_utils.cli_selections import Resource_Selector
@@ -493,6 +493,14 @@ LOCATION_SELECT, LOCATION_SELECT_FOLDER_PATH = SELECTOR.location(arg_location_se
 
 # Allocate storage for keeping track of subprocess calls
 PROCESS_REF_DICT = {}
+
+# Autolaunch all known cameras on startup, if needed
+arg_autolaunch_cameras = get_default_autolaunch()
+if arg_autolaunch_cameras:
+    print("", "Autolaunching cameras...", sep = "\n")
+    for each_camera_name in get_existing_camera_names_list():
+        print("  Launching: {}".format(each_camera_name))
+        launch_rtsp_collect(each_camera_name)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
