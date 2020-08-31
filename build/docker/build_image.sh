@@ -8,6 +8,19 @@ image_name="realtime_image"
 
 
 # -------------------------------------------------------------------------
+# Prompt to run git pull
+
+# Assume we always restart containers, but allow disabling
+container_restart="always"
+echo ""
+read -p "Run git pull before build? (y/[n]) " user_response
+case "$user_response" in
+  y|Y ) git pull;;
+  * ) ;;
+esac
+
+
+# -------------------------------------------------------------------------
 # Automated commands
 
 # Get shared pathing info

@@ -35,6 +35,19 @@ fi
 
 
 # -------------------------------------------------------------------------
+# Prompt to force container to always restart
+
+# Assume we always restart containers, but allow disabling
+container_restart="always"
+echo ""
+read -p "Enable container auto-restart? ([y]/n) " user_response
+case "$user_response" in
+  n|N ) echo "  --> Auto-restart disabled!"; echo ""; container_restart="no";;
+  * ) echo "  --> Enabling auto-restart!";;
+esac
+
+
+# -------------------------------------------------------------------------
 # Automated commands
 
 # Some feedback while stopping the container
@@ -57,6 +70,7 @@ docker run -d \
            --network=$network_setting \
            -v $host_volume_path:$container_volume_path \
            --name $container_name \
+           --restart $container_restart \
            $image_name \
            > /dev/null
 echo "  --> Success!"
