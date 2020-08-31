@@ -233,7 +233,7 @@ def get_rtsp_framerate_estimate(video_reader_ref, minutes_to_run = 1):
     # Make sure we run for at least 1 minute
     minutes_to_run = max(1, minutes_to_run)
     seconds_to_run = (60.0 * minutes_to_run)
-    random_seconds_to_run = seconds_to_run + (20.0 * unit_random())
+    random_seconds_to_run = seconds_to_run + (30.0 * unit_random())
     
     # Provide some feedback, since the estimation takes some time
     reported_framerate = video_reader_ref.video_fps

@@ -501,6 +501,7 @@ if arg_autolaunch_cameras:
     for each_camera_name in get_existing_camera_names_list():
         print("  Launching: {}".format(each_camera_name))
         launch_rtsp_collect(each_camera_name)
+        sleep(0.5)
 
 
 # ---------------------------------------------------------------------------------------------------------------------

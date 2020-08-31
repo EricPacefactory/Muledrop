@@ -176,7 +176,8 @@ class Base_Video_Reader:
         
         try:
             cv2.destroyAllWindows()
-        except (AttributeError, TypeError):
+        except (cv2.error, AttributeError, TypeError):
+            # Fails in headless setups!
             pass
     
     # .................................................................................................................
