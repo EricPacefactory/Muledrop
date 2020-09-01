@@ -113,6 +113,32 @@ def create_new_location_folder(all_locations_folder_path, location_name,
     
     ''' Function which manages creation of new location folders & initializes location info '''
     
+    # Create a (default) location info file
+    create_location_info_file(all_locations_folder_path,
+                              location_name,
+                              ip_address,
+                              ssh_username,
+                              ssh_password,
+                              dbserver_port,
+                              ctrlserver_port)
+    
+    # Create default gitignore & readme files, in case the created location is tracked with git
+    create_location_gitignore(all_locations_folder_path, location_name)
+    create_location_readme(all_locations_folder_path, location_name)
+    
+    return
+
+# .....................................................................................................................
+
+def create_location_info_file(all_locations_folder_path, location_name,
+                              ip_address, ssh_username, ssh_password,
+                              dbserver_port = None, ctrlserver_port = None):
+    
+    '''
+    Helper function used to create a location info file, used to store
+    location-specific information within a given location folder
+    '''
+    
     # Get default server ports on creation in case ports aren't provided
     default_dbserver_port = get_dbserver_port()
     default_ctrlserver_port = get_ctrlserver_port()
@@ -129,6 +155,61 @@ def create_new_location_folder(all_locations_folder_path, location_name,
     new_location_path = save_location_info_dict(all_locations_folder_path, safe_location_name, location_info_dict)
     
     return new_location_path
+
+# .....................................................................................................................
+
+def create_location_gitignore(all_locations_folder_path, location_name):
+    
+    ''' Helper function used to create default gitignore files for new locations '''
+    
+    # Create default gitignore file contents
+    gitignore_str_list = ["# Authentication/Access info",
+                          "location_info.json",
+                          "",
+                          "# Local data folders",
+                          "*/logs/",
+                          "*/report/",
+                          "*/resources/videos/",
+                          "*/resources/backgrounds/",
+                          "", ""]
+    
+    # Build pathing to gitignore file
+    location_gitignore_path = build_location_path(all_locations_folder_path, location_name, ".gitignore")
+    
+    # Write the contents directly into a file
+    gitignore_str_to_write = "\n".join(gitignore_str_list)
+    with open(location_gitignore_path, "w") as out_file:
+        out_file.write(gitignore_str_to_write)
+    
+    return location_gitignore_path
+
+# .....................................................................................................................
+
+def create_location_readme(all_locations_folder_path, location_name):
+    
+    ''' Helper function used to create default readme markdown file for new locations '''
+    
+    # Create default readme file contents
+    readme_str_list = ["# Location: {}".format(location_name),
+                       "",
+                       "This repo contains all camera configuration files for this location.",
+                       "",
+                       "---",
+                       "",
+                       "#### Notes:",
+                       "",
+                       "- None so far! Please don't store username/passwords here!",
+                       "", ""]
+    
+    # Build pathing to readme file
+    location_readme_path = build_location_path(all_locations_folder_path, location_name, "README.md")
+    
+    # Write the contents directly into a file
+    readme_str_to_write = "\n".join(readme_str_list)
+    with open(location_readme_path, "w") as out_file:
+        out_file.write(readme_str_to_write)
+    
+    return location_readme_path
 
 # .....................................................................................................................
 

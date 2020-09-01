@@ -508,7 +508,13 @@ if arg_autolaunch_cameras:
 #%% Create routes
 
 # Create wsgi app so we can start adding routes
-wsgi_app = Flask(__name__, static_url_path = '', static_folder = "web/static", template_folder = "web/templates")
+ctrlserver_resources_folder_path = os.path.join("local", "control_server")
+static_folder_path = os.path.join(ctrlserver_resources_folder_path, "static")
+template_folder_path = os.path.join(ctrlserver_resources_folder_path, "templates")
+wsgi_app = Flask(__name__,
+                 static_url_path = '',
+                 static_folder = static_folder_path,
+                 template_folder = ctrlserver_resources_folder_path)
 CORS(wsgi_app)
 
 # .....................................................................................................................
