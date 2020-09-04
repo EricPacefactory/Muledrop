@@ -49,31 +49,31 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
-from tempfile import TemporaryDirectory
-
 import zipfile
 import shutil
 import subprocess
 import signal
+import threading
 
 from time import sleep
+from random import random as unit_random
+from tempfile import TemporaryDirectory
 
 from waitress import serve as wsgi_serve
 
-from local.lib.common.timekeeper_utils import get_utc_epoch_ms, get_human_readable_timestamp
-from local.lib.common.environment import get_env_location_select, get_default_autolaunch
+from local.lib.common.timekeeper_utils import get_human_readable_timestamp
+from local.lib.common.environment import get_env_location_select
 from local.lib.common.environment import get_ctrlserver_protocol, get_ctrlserver_host, get_ctrlserver_port
 
 from local.lib.ui_utils.cli_selections import Resource_Selector
 from local.lib.ui_utils.script_arguments import script_arg_builder
 
 from local.lib.file_access_utils.shared import build_camera_path, build_logging_folder_path, url_safe_name
-from local.lib.file_access_utils.cameras import build_camera_list
 from local.lib.file_access_utils.reporting import build_base_report_path
-from local.lib.file_access_utils.logging import make_log_folder
 from local.lib.file_access_utils.logging import build_stdout_log_file_path, build_stderr_log_file_path
-from local.lib.file_access_utils.logging import build_upload_new_log_file_path, build_upload_update_log_file_path
-from local.lib.file_access_utils.state_files import check_running_camera, shutdown_running_camera
+from local.lib.file_access_utils.state_files import load_state_file
+
+from local.lib.file_access_utils.control_server import Autolaunch_Settings, get_existing_camera_names_list
 
 from flask import Flask, jsonify, redirect, render_template
 from flask import request as flask_request
@@ -84,7 +84,385 @@ from local.eolib.utils.files import create_missing_folder_path, create_missing_f
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-#%% Define functions
+#%% Define classes
+
+class RTSP_Processes:
+    
+    # .................................................................................................................
+    
+    def __init__(self, project_root_path, location_select_folder_path, location_select):
+        
+        # Store inputs
+        self.project_root_path = project_root_path
+        self.location_select_folder_path = location_select_folder_path
+        self.location_select = location_select
+        
+        # Set up threading lock, which prevents access errors from occuring due to background autolauncher
+        self._thread_lock = threading.Lock()
+        self._thread_shutdown_event = threading.Event()
+        
+        # Allocate storage for holding references to running camera processes
+        self._proc_dict = {}
+        
+        # Load existing autolaunch settings to start
+        self._autolaunch_settings = Autolaunch_Settings(location_select_folder_path)
+        self._autolaunch_on_startup()
+        
+        # Start background autolauncher
+        self._thread_ref = self.create_autolauncher_thread()
+        
+    # .................................................................................................................
+    
+    def _autolaunch_on_startup(self):
+        
+        ''' Function which handles autolaunching cameras on startup, if they have autolaunch enabled '''
+        
+        # Clear out any missing cameras from the autolaunch settings
+        self._autolaunch_settings.prune()
+        
+        # Get a list of all available cameras and decide if we need to launch them
+        all_cameras_list = get_existing_camera_names_list(self.location_select_folder_path)
+        for each_camera in all_cameras_list:
+            need_to_autolaunch = self._autolaunch_settings.get_autolaunch(each_camera)
+            if need_to_autolaunch:
+                print("Launching: {}".format(each_camera))
+                self.start_camera(each_camera, post_launch_delay_sec = 0)
+        
+        return
+    
+    # .................................................................................................................
+    
+    def _build_log_file_pathing(self, camera_select):
+        
+        ''' Function which builds paths to camera-specific log files (which capture stdout & stderr streams) '''
+        
+        # Build pathing to store stdout/stderr logs
+        stdout_log_file_path = build_stdout_log_file_path(self.location_select_folder_path, camera_select)
+        stderr_log_file_path = build_stderr_log_file_path(self.location_select_folder_path, camera_select)
+        
+        # Make sure the log folders exist so we can save the log files!
+        create_missing_folders_from_file(stdout_log_file_path)
+        create_missing_folders_from_file(stderr_log_file_path)
+        
+        return stdout_log_file_path, stderr_log_file_path
+    
+    # .................................................................................................................
+    
+    def _build_rtsp_launch_args(self, camera_select):
+        
+        ''' Function which builds a subprocess.run(...) string with arguments, for launching rtsp data collection '''
+        
+        # Get the python interpreter used to launch this server, which we'll use to run the scripts
+        python_interpretter = sys.executable
+        
+        # Build script arguments
+        location_arg = ["-l", self.location_select]
+        camera_arg = ["-c", camera_select]
+        
+        # Build pathing to the launch script
+        launch_script_name = "run_rtsp_collect.py"
+        launch_script_path = os.path.join(self.project_root_path, launch_script_name)
+        launch_args = [python_interpretter, "-u", launch_script_path] + camera_arg + location_arg
+        
+        return launch_args
+    
+    # .................................................................................................................
+    
+    def _start_camera_no_lock(self, camera_select, post_launch_delay_sec = 2.5):
+        
+        # Make sure the target camera isn't already running
+        self._stop_camera_no_lock(camera_select)
+        
+        # Set up launch command & arguments
+        launch_args = self._build_rtsp_launch_args(camera_select)
+        
+        # Set up log file pathing
+        stdout_file_path, stderr_file_path = self._build_log_file_pathing(camera_select)
+        
+        # Launch script as a sub-process (with logging)
+        with open(stdout_file_path, "w") as stdout_file:
+            with open(stderr_file_path, "w") as stderr_file:
+                
+                # Launch (non-blocking) call to open a collection script
+                new_process_ref = subprocess.Popen(launch_args,
+                                                   stdin = None,
+                                                   stdout = stdout_file,
+                                                   stderr = stderr_file)
+                
+                # Store reference to the process, in case we want to check on it later
+                self._proc_dict[camera_select] = new_process_ref
+        
+        # If needed, add a delay
+        if post_launch_delay_sec > 0:
+            sleep(post_launch_delay_sec)
+        
+        return
+    
+    # .................................................................................................................
+    
+    def _stop_camera_no_lock(self, camera_select):
+        
+        # Don't do anything if the camera isn't already listed
+        if camera_select not in self._proc_dict:
+            return
+        
+        # Remove the camera entry from the process dictionary & try to stop it
+        proc_ref = self._proc_dict.pop(camera_select)
+        try:
+            proc_ref.terminate()
+            proc_ref.wait(timeout = 20)
+            
+        except subprocess.TimeoutExpired:
+            print("",
+                  "Error stopping camera: {}".format(camera_select),
+                  "Will attempt forced shutdown...",
+                  "",
+                  "This may leave an orphaned posting process!",
+                  sep = "\n")
+            proc_ref.kill()
+        
+        return
+    
+    # .................................................................................................................
+    
+    def _check_camera_is_running_no_lock(self, camera_select):
+        
+        # Initialize outputs
+        camera_is_running = False
+        
+        # Check if the camera is in the process dictionary, and if so, check that it's running
+        camera_in_process_dict = (camera_select in self._proc_dict)
+        if camera_in_process_dict:
+            return_code = self._proc_dict[camera_select].poll()
+            camera_is_running = (return_code is None)
+        
+        return camera_is_running
+    
+    # .................................................................................................................
+    
+    def _clean_processes_no_lock(self):
+        
+        # Check on all known processes and tag the ones that have stopped for clean up
+        cameras_to_delete_list = []
+        for each_camera_name in self._proc_dict.keys():
+            camera_is_running = self._check_camera_is_running_no_lock(each_camera_name)
+            if not camera_is_running:
+                cameras_to_delete_list.append(each_camera_name)
+        
+        # Loop over all stopped cameras for clean-up
+        for each_camera_name in cameras_to_delete_list:
+            self._stop_camera_no_lock(each_camera_name)
+        
+        return
+    
+    # .................................................................................................................
+    
+    def _set_camera_autolaunch_no_lock(self, camera_select, enable_autolaunch):
+        
+        # Initialize default output
+        launching_camera = False
+        
+        # Check if the new setting is different from the old one
+        old_setting = self._autolaunch_settings.get_autolaunch(camera_select)
+        setting_changed = (old_setting != enable_autolaunch)
+        if setting_changed:
+            self._autolaunch_settings.set_autolaunch(camera_select, enable_autolaunch)
+        
+        # If we're enabling autolaunch and the camera isn't already running, then we should start it
+        if enable_autolaunch and not self._check_camera_is_running_no_lock(camera_select):
+            self._start_camera_no_lock(camera_select)
+            launching_camera = True
+        
+        return launching_camera
+    
+    # .................................................................................................................
+    
+    def _get_camera_autolaunch_no_lock(self, camera_select):
+        return self._autolaunch_settings.get_autolaunch(camera_select)
+    
+    # .................................................................................................................
+    
+    def get_running_camera_names(self):
+        
+        ''' Function which lists the names of all known cameras based on the internal process dictionary '''
+        
+        # Grab list of process keys, with a lock in case the autolaunch modifies anything!
+        camera_names_list = []
+        with self._thread_lock:
+            camera_names_list = list(self._proc_dict.keys())
+        
+        return camera_names_list
+    
+    # .................................................................................................................
+    
+    def start_camera(self, camera_select, post_launch_delay_sec = 2.5):
+        
+        return_value = None
+        with self._thread_lock:
+            return_value = self._start_camera_no_lock(camera_select, post_launch_delay_sec)
+            
+        return return_value
+    
+    # .................................................................................................................
+    
+    def stop_camera(self, camera_select):      
+        
+        return_value = None
+        with self._thread_lock:
+            return_value = self._stop_camera_no_lock(camera_select)
+        
+        return return_value
+    
+    # .................................................................................................................
+    
+    def stop_all_cameras(self, wait_after_shutdown_sec = 4):
+        
+        # Go through all known cameras and shut them down (with a lock, so autolauncher can't interfere)
+        with self._thread_lock:
+            for each_camera_name in self._proc_dict.keys():
+                self._stop_camera_no_lock(each_camera_name)
+        
+        # Optional delay to allow all cameras to finish shutting down properly before we move on
+        if wait_after_shutdown_sec > 0:
+            sleep(wait_after_shutdown_sec)
+        
+        return
+    
+    # .................................................................................................................
+    
+    def set_camera_autolaunch(self, camera_select, enable_autolaunch):
+        
+        ''' Function which enables/disables autolaunch for a given camera '''
+        
+        launching_camera = False
+        with self._thread_lock:
+            launching_camera = self._set_camera_autolaunch_no_lock(camera_select, enable_autolaunch)
+        
+        return launching_camera
+    
+    # .................................................................................................................
+    
+    def get_camera_autolaunch(self, camera_select):
+        
+        ''' Function which checks if a given camera has autolaunch enabled or not '''
+        
+        return_value = None
+        with self._thread_lock:
+            return_value = self._autolaunch_settings.get_autolaunch(camera_select)
+        
+        return return_value
+    
+    # .................................................................................................................
+    
+    def check_camera_is_running(self, camera_select):
+        
+        camera_is_running = False
+        with self._thread_lock:
+            camera_is_running = self._check_camera_is_running_no_lock(camera_select)
+        
+        return camera_is_running
+    
+    # .................................................................................................................
+    
+    def clean_processes(self):
+        
+        ''' Helper function which is used to clean up global record of running processes that may have stopped '''
+        
+        return_value = None
+        with self._thread_lock:
+            return_value = self._clean_processes_no_lock()
+        
+        return return_value
+    
+    # .................................................................................................................
+    
+    def create_autolauncher_thread(self, start_thread_on_launch = True):
+        
+        ''' Function which creates (and optionally starts) a separate thread  '''
+        
+        # For clarity
+        thread_name = "autolaunch_watchdog"
+        auto_kill_when_main_thread_closes = True
+        
+        # Create a separate thread for handling autolaunching over time
+        thread_ref = threading.Thread(name = thread_name,
+                                      target = self._autolaunch_watchdog,
+                                      daemon = auto_kill_when_main_thread_closes)
+        
+        # Start the thread
+        if start_thread_on_launch:
+            thread_ref.start()
+        
+        return thread_ref
+    
+    # .................................................................................................................
+    
+    def kill_autolaucher_thread(self):
+        
+        ''' Function used to shutdown the autolaunch watchdog '''
+        
+        with self._thread_lock:
+            self._thread_shutdown_event.set()
+        
+        return
+    
+    # .................................................................................................................
+    
+    def _autolaunch_watchdog(self):
+        
+        ''' Function which handle background autolaunch checks & actual autolaunching '''
+        
+        # Hard-coded watchdog timing
+        watchdog_period_sec = 60.0
+        period_random_sec = 15.0
+        
+        # I'm gonna live forever
+        while True:
+            
+            # Generate slightly randomized wait time until next autolaunch check
+            wait_time_sec = watchdog_period_sec + (period_random_sec * unit_random())
+            shutdown_watchdog = self._thread_shutdown_event.wait(wait_time_sec)
+            if shutdown_watchdog:
+                print("",
+                      "Autolaunch watchdog received shutdown command!",
+                      "Closing...", sep = "\n")
+                break
+            
+            # Get all available cameras
+            existing_camera_names_list = get_existing_camera_names_list(self.location_select_folder_path)
+            
+            with self._thread_lock:
+                
+                # Check all cameras to see if they need to be autolaunched
+                #print("DEBUG: watchdog check")
+                for each_camera in existing_camera_names_list:
+                    
+                    # If the camera doesn't need autolaunch, skip it
+                    camera_needs_autolaunch = self._get_camera_autolaunch_no_lock(each_camera)
+                    if not camera_needs_autolaunch:
+                        #print("DEBUG: watchdog not launching {}, not enabled".format(each_camera))
+                        continue
+                    
+                    # If the camera is already running, skip it
+                    is_running = self._check_camera_is_running_no_lock(each_camera)
+                    if is_running:
+                        #print("DEBUG: watchdog not launching {}, already running".format(each_camera))
+                        continue
+                    
+                    # If we get here, the camera needs autolaunch and isn't running, so launch it!
+                    #print("DEBUG: watchdog launching: {}".format(each_camera))
+                    self._start_camera_no_lock(each_camera, post_launch_delay_sec = 5)
+            
+            pass
+        
+        return
+    
+    # .................................................................................................................
+    # .................................................................................................................
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Define control functions
 
 # .....................................................................................................................
 
@@ -121,24 +499,53 @@ def parse_control_args(debug_print = False):
 
 # .....................................................................................................................
 
-def get_existing_camera_names_list():
+def register_waitress_shutdown_command():
     
-    ''' Helper function for getting a list of available camera names '''
+    ''' Awkward hack to get waitress server to close on SIGTERM signals '''
     
-    camera_names_list, _ = build_camera_list(LOCATION_SELECT_FOLDER_PATH,
-                                             show_hidden_cameras = False,
-                                             must_have_rtsp = True)
+    def convert_sigterm_to_keyboard_interrupt(signal_number, stack_frame):
+        
+        # Some feedback about catching kill signal
+        print("", "", "*" * 48, "Kill signal received! ({})".format(signal_number), "*" * 48, "", sep = "\n")
+        
+        # Try to 'gracefully' close all open processes
+        RTSP_PROC.stop_all_cameras()
+        
+        # Raise a keyboard interrupt, which waitress will respond to! (unlike SIGTERM)
+        raise KeyboardInterrupt
     
-    return sorted(camera_names_list)
+    # Replaces SIGTERM signals with a Keyboard interrupt, which the server will handle properly
+    signal.signal(signal.SIGTERM, convert_sigterm_to_keyboard_interrupt)
+    
+    return
 
 # .....................................................................................................................
 
-def create_new_camera_status(is_online, in_standby, state_description, timestamp_str):
+def force_server_shutdown():
+    
+    ''' Function used to intentionally stop the server! Useful for restarting when used with docker containers '''
+    
+    # Try to 'gracefully' close the server
+    os.kill(os.getpid(), signal.SIGTERM)
+    
+    return
+
+# .....................................................................................................................
+# .....................................................................................................................
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Define camera status functions
+
+# .....................................................................................................................
+
+def create_new_camera_status(is_online, in_standby, autolaunch_enabled, state_description, timestamp_str):
     
     ''' Helper function for updating camera status (data is sent to web UI, so needs consistent formatting!) '''
     
     status_dict = {"is_online": is_online,
                    "in_standby": in_standby,
+                   "autolaunch_enabled": autolaunch_enabled,
                    "description": state_description,
                    "timestamp_str": timestamp_str}
     
@@ -146,13 +553,14 @@ def create_new_camera_status(is_online, in_standby, state_description, timestamp
 
 # .....................................................................................................................
 
-def create_new_camera_status_from_state_dict(camera_state_dict):
+def create_new_camera_status_from_state_dict(camera_state_dict, autolaunch_enabled):
     
     ''' Helper function which fills in the camera status info using a camera state dictionary '''
     
-    # Create an empty dictionary to read from if there is no state info, so we don't get errors
-    if camera_state_dict is None:
-        camera_state_dict = {}
+    # Return an offline status if there is no state data
+    no_state_data = (camera_state_dict == {}) or (camera_state_dict is None)
+    if no_state_data:
+        return _create_offline_status(autolaunch_enabled)
     
     # Try to grab the appropriate info for the web UI to present
     is_online = True
@@ -160,61 +568,21 @@ def create_new_camera_status_from_state_dict(camera_state_dict):
     state_description = camera_state_dict.get("state_description", "Offline")
     timestamp_str = camera_state_dict.get("timestamp_str", "unknown")
     
-    return create_new_camera_status(is_online, in_standby, state_description, timestamp_str)
+    return create_new_camera_status(is_online, in_standby, autolaunch_enabled, state_description, timestamp_str)
 
 # .....................................................................................................................
 
-def create_offline_status():
+def _create_offline_status(autolaunch_enabled):
     
     ''' Helper function which creates an 'offline' status entry for a camera '''
     
     # For clarity
     is_online = False
     in_standby = False
-    state_description = "Offline"
+    state_description = "Reconnecting" if autolaunch_enabled else "Offline"
     timestamp_str = get_human_readable_timestamp()
     
-    return create_new_camera_status(is_online, in_standby, state_description, timestamp_str)
-
-# .....................................................................................................................
-
-def save_update_log(camera_select, files_changed_list):
-    
-    # Get pathing to the log file
-    update_log_file_path = build_upload_update_log_file_path(LOCATION_SELECT_FOLDER_PATH, camera_select)
-    make_log_folder(update_log_file_path)
-    
-    # Handle 'no file' case
-    no_files = (len(files_changed_list) == 0)
-    if no_files:
-        files_changed_list = ["  No files changed!"]
-    
-    # Save data to the log file
-    with open(update_log_file_path, "a") as log_file:
-        log_file.write("\n".join(["", "", get_human_readable_timestamp(), ""]))
-        log_file.write("\n".join(files_changed_list))
-    
-    return
-
-# .....................................................................................................................
-
-def save_new_log(camera_select, files_changed_list):
-    
-    # Get pathing to the log file
-    new_log_file_path = build_upload_new_log_file_path(LOCATION_SELECT_FOLDER_PATH, camera_select)
-    make_log_folder(new_log_file_path)
-    
-    # Handle 'no file' case
-    no_files = (len(files_changed_list) == 0)
-    if no_files:
-        files_changed_list = ["  No files changed!"]
-    
-    # Save data to the log file
-    with open(new_log_file_path, "a") as log_file:
-        log_file.write("\n".join(["", "", get_human_readable_timestamp(), ""]))
-        log_file.write("\n".join(files_changed_list))
-    
-    return
+    return create_new_camera_status(is_online, in_standby, autolaunch_enabled, state_description, timestamp_str)
 
 # .....................................................................................................................
 
@@ -375,102 +743,6 @@ def new_camera_configs(unzip_folder_path):
     return files_changes_dict
 
 # .....................................................................................................................
-
-def launch_rtsp_collect(camera_select):
-    
-    # Get the python interpreter used to launch this server, which we'll use to run the scripts
-    python_interpretter = sys.executable
-    
-    # Build script arguments
-    location_arg = ["-l", LOCATION_SELECT]
-    camera_arg = ["-c", camera_select]
-    
-    # Build pathing to the launch script
-    launch_script_name = "run_rtsp_collect.py"
-    launch_script_path = os.path.join(PROJECT_ROOT_PATH, launch_script_name)
-    launch_args = [python_interpretter, "-u", launch_script_path] + camera_arg + location_arg
-    
-    # Build pathing to store stdout/stderr logs
-    camera_stdout_log = build_stdout_log_file_path(LOCATION_SELECT_FOLDER_PATH, camera_select)
-    camera_stderr_log = build_stderr_log_file_path(LOCATION_SELECT_FOLDER_PATH, camera_select)
-    create_missing_folders_from_file(camera_stdout_log)
-    create_missing_folders_from_file(camera_stderr_log)
-    
-    # Launch script as a separate/detached process (with logging), which will run & close independent of the server
-    with open(camera_stdout_log, "w") as stdout_file:
-        with open(camera_stderr_log, "w") as stderr_file:
-            
-            # Launch (non-blocking) call to open a collection script
-            new_process = subprocess.Popen(launch_args,
-                                           stdin = None,
-                                           stdout = stdout_file,
-                                           stderr = stderr_file)
-                                           #preexec_fn = os.setpgrp)
-            
-            # Store reference to the process, in case we want to check on it later
-            epoch_idx = get_utc_epoch_ms()
-            while epoch_idx in PROCESS_REF_DICT:
-                epoch_idx += 1
-            PROCESS_REF_DICT[epoch_idx] = {"camera_select": camera_select, "process": new_process}
-    
-    return
-
-# .....................................................................................................................
-
-def clean_process_dict():
-    
-    ''' Helper function which is used to clean up global record of running processes that may have stopped '''
-    
-    # Check on all known processes and tag the ones that have stopped for clean up
-    idx_to_delete_list = []    
-    for each_epoch_idx, each_proc_dict in PROCESS_REF_DICT.items():        
-        proc_ref = each_proc_dict["process"]
-        return_code = proc_ref.poll()
-        proc_is_running = (return_code is None)
-        if not proc_is_running:
-            idx_to_delete_list.append(each_epoch_idx)
-    
-    # Loop over all stopped processes for clean-up
-    for each_idx in idx_to_delete_list:
-        
-        # Remove the target process from the list and get the camera selected so we can make sure to force it to stop
-        proc_dict = PROCESS_REF_DICT.pop(each_idx)
-        camera_select = proc_dict["camera_select"]
-        shutdown_running_camera(LOCATION_SELECT_FOLDER_PATH,
-                                camera_select,
-                                max_wait_sec = 0,
-                                force_kill_on_timeout = True)
-
-    return
-
-# .....................................................................................................................
-
-def register_waitress_shutdown_command():
-    
-    ''' Awkward hack to get waitress server to close on SIGTERM signals '''
-    
-    def convert_sigterm_to_keyboard_interrupt(signal_number, stack_frame):
-        
-        # Some feedback about catching kill signal
-        print("", "", "*" * 48, "Kill signal received! ({})".format(signal_number), "*" * 48, "", sep = "\n")
-        
-        # Try to 'gracefully' close all open processes
-        for _, each_proc_dict in PROCESS_REF_DICT.items():
-            camera_select = each_proc_dict["camera_select"]
-            shutdown_running_camera(LOCATION_SELECT_FOLDER_PATH,
-                                    camera_select,
-                                    max_wait_sec = 0.5,
-                                    force_kill_on_timeout = False)
-        
-        # Raise a keyboard interrupt, which waitress will respond to! (unlike SIGTERM)
-        raise KeyboardInterrupt
-    
-    # Replaces SIGTERM signals with a Keyboard interrupt, which the server will handle properly
-    signal.signal(signal.SIGTERM, convert_sigterm_to_keyboard_interrupt)
-    
-    return
-
-# .....................................................................................................................
 # .....................................................................................................................
 
 
@@ -491,17 +763,8 @@ SELECTOR = Resource_Selector()
 PROJECT_ROOT_PATH = SELECTOR.get_project_root_pathing()
 LOCATION_SELECT, LOCATION_SELECT_FOLDER_PATH = SELECTOR.location(arg_location_select)
 
-# Allocate storage for keeping track of subprocess calls
-PROCESS_REF_DICT = {}
-
-# Autolaunch all known cameras on startup, if needed
-arg_autolaunch_cameras = get_default_autolaunch()
-if arg_autolaunch_cameras:
-    print("", "Autolaunching cameras...", sep = "\n")
-    for each_camera_name in get_existing_camera_names_list():
-        print("  Launching: {}".format(each_camera_name))
-        launch_rtsp_collect(each_camera_name)
-        sleep(0.5)
+# Set up rtsp process manager for handling running cameras
+RTSP_PROC = RTSP_Processes(PROJECT_ROOT_PATH, LOCATION_SELECT_FOLDER_PATH, LOCATION_SELECT)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -543,50 +806,109 @@ def status_route():
 
 # .....................................................................................................................
 
-@wsgi_app.route("/status/cameras")
-def status_cameras_route():
+@wsgi_app.route("/status/get-cameras-status")
+def status_get_cameras_status_route():
     
     # Run process clean up, in case any cameras crashed unexpectedly
-    clean_process_dict()
+    RTSP_PROC.clean_processes()
     
     # Get pathing to cameras and a list of available cameras
-    camera_name_list = get_existing_camera_names_list()
+    camera_name_list = get_existing_camera_names_list(LOCATION_SELECT_FOLDER_PATH)
     
     # Loop over all cameras and look for active state files to see if they're online
     camera_status_dict = {}
     for each_camera_name in camera_name_list:
         
         # Check each cameras state file data (if available)
-        is_online, state_dict = check_running_camera(LOCATION_SELECT_FOLDER_PATH, each_camera_name)
+        is_running = RTSP_PROC.check_camera_is_running(each_camera_name)
+        if is_running:
+            _, state_dict = load_state_file(LOCATION_SELECT_FOLDER_PATH, each_camera_name)
+        else:
+            state_dict = {}
         
         # Create some json-friendly state info for the web UI, for each camera
-        new_status = create_new_camera_status_from_state_dict(state_dict) if is_online else create_offline_status()
+        autolaunch_enabled = RTSP_PROC.get_camera_autolaunch(each_camera_name)
+        new_status = create_new_camera_status_from_state_dict(state_dict, autolaunch_enabled)
         camera_status_dict[each_camera_name] = new_status
     
     return jsonify(camera_status_dict)
 
 # .....................................................................................................................
 
-@wsgi_app.route("/control/restart/<string:camera_select>")
-def control_restart_camera_route(camera_select):
+@wsgi_app.route("/control/cameras/start/<string:camera_select>")
+def control_cameras_restart_route(camera_select):
     
-    launch_rtsp_collect(camera_select)
-    sleep(2.5)
+    RTSP_PROC.start_camera(camera_select, post_launch_delay_sec = 3.0)
     
     return redirect("/status")
 
 # .....................................................................................................................
 
-@wsgi_app.route("/control/stop/<string:camera_select>")
-def control_stop_camera_route(camera_select):
+@wsgi_app.route("/control/cameras/stop/<string:camera_select>")
+def control_cameras_stop_route(camera_select):
     
-    # Get pathing to cameras folder so we can clear state files for the selected camera
-    shutdown_running_camera(LOCATION_SELECT_FOLDER_PATH,
-                            camera_select,
-                            max_wait_sec = 2,
-                            force_kill_on_timeout = False)
+    RTSP_PROC.stop_camera(camera_select)
     
     return redirect("/status")
+
+# .....................................................................................................................
+
+@wsgi_app.route("/control/cameras/autolaunch/<string:camera_select>/<string:enable_autolaunch>")
+def control_cameras_autolaunch_route(camera_select, enable_autolaunch):
+    
+    # Handle enable autolaunch as a boolean
+    enable_autolaunch_bool = (enable_autolaunch.lower() in {"true", "1", "on"})
+    
+    # Set the autolaunch status and wait for a downed camera to launch before redirect, if needed
+    camera_launching = RTSP_PROC.set_camera_autolaunch(camera_select, enable_autolaunch_bool)
+    if camera_launching:
+        sleep(3.0)
+    
+    return redirect("/status")
+
+# .....................................................................................................................
+
+@wsgi_app.route("/control/system/shutdown")
+def control_system_shutdown():
+    
+    '''
+    Route which shuts down the server!
+    Note that with docker container 'always restart' enabled, the server should immediately re-launch,
+    and any changes to underlying files/scripts will take effect on the restarted system
+    (i.e. this shutdown route can be used for updating the server/system code!)
+    '''
+    
+    # Turn off autolauncher
+    RTSP_PROC.kill_autolaucher_thread()
+    
+    # Try to stop all the cameras before shutting down
+    RTSP_PROC.stop_all_cameras()    
+    force_server_shutdown()
+    
+    # Shouldn't get here? Page that forced shutdown should be responsible for refresh to catch server restarting...
+    return redirect("/server-shutdown")
+
+# .....................................................................................................................
+
+@wsgi_app.route("/control/system/load-settings")
+def control_system_load_settings():
+    
+    # Should look to load existing control server settings file
+    # - need to provide settings json data as response
+    # - intended to be used to access current settings info from web page
+    
+    return "not implemented"
+
+# .....................................................................................................................
+
+@wsgi_app.route("/control/system/save-settings", methods = ["POST"])
+def control_system_save_settings():
+    
+    # Should attempt to save settings given in post data
+    # - need to handle errors/missing data or badly formatted data? (or have web ui handle this?)
+    # - intended for use being accessed from web page
+    
+    return "not implemented"
 
 # .....................................................................................................................
 
@@ -611,10 +933,6 @@ def upload_new_file_route():
         # Unzip the uploaded data, and use it to create new cameras or fully replace existing camera configs
         unzipped_folder_path = unzip_cameras_file(temp_save_path, "new")
         files_changed_dict = new_camera_configs(unzipped_folder_path)
-        
-    # Log changes to each camera
-    for each_camera, each_file_list in files_changed_dict.items():
-        save_new_log(each_camera, each_file_list)
     
     return render_template("fileschanged/fileschanged.html", files_changed_dict = files_changed_dict)
 
@@ -641,10 +959,6 @@ def upload_update_file_route():
         # Unzip the uploaded data, and use it to update existing cameras
         unzipped_folder_path = unzip_cameras_file(temp_save_path, "update")
         files_changed_dict = update_camera_configs(unzipped_folder_path)
-        
-    # Log changes to each camera
-    for each_camera, each_file_list in files_changed_dict.items():
-        save_update_log(each_camera, each_file_list)
     
     return render_template("fileschanged/fileschanged.html", files_changed_dict = files_changed_dict)
 
@@ -707,5 +1021,19 @@ if __name__ == "__main__":
 #%% Scrap
 
 # TODO
-# - Handle Popen 'defunct' calls better (periodically clean up finished calls?)
+# - set up server settings save/load route + pages that call them
+#   - should have location name (for display on page only)
+#   - include way to provide github token (PAT)
+#   - include way to specify github repo (for eventual git-pull update system)
+# - split routes for cleanliness (may be tough due to reliance on globals... esp. rtsp procs)
 
+'''
+STOPPED HERE
+- CONTINUE CHECKING THREADING (SEEMED TO WORK ON BASIC TEST)
+    - NEED TO MAKE SURE ALL OTHER FUNCTIONS STILL WORK PROPERLY
+- NEED TO TRY WITH ACTUAL CAMERA CONNECTION (REMOTE TO COEXTEC OR USE TECHFORM?)
+- NEED TO UPDATE VIDEO/CAMERA BEHAVIOR TO SHUTDOWN ON RECONNECT ERRORS! LET AUTOLAUNCH HANDLE IT
+    - THEN RUN ON MAGNA SITES TO TEST?!
+        - DECO + TECHFORM ARE GOOD CANDIDATES
+        - coextec is only site showing forcefully-downed cameras...
+'''

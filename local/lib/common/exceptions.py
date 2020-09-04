@@ -69,11 +69,14 @@ class OS_Close(Exception):
 
 # .....................................................................................................................
 
-def register_signal_quit():
+def register_signal_quit(exception_handler_function = None):
     
-    # Register signal handlers. This causes a special exception (OS_Close) to be raised
-    # if the script recieves a SIGTERM or SIGQUIT from the operating system
-    signal.signal(signal.SIGTERM, raise_custom_exception)
+    # If no exception handler ios provided, use the 'custom' function
+    if exception_handler_function is None:
+        exception_handler_function = raise_custom_exception
+    
+    # Register signal handlers. This causes a exception to be raised when given a SIGTERM signal
+    signal.signal(signal.SIGTERM, exception_handler_function)
     
     return
 

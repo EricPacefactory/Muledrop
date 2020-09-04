@@ -52,14 +52,14 @@ find_path_to_local()
 import requests
 import ujson
 
-from multiprocessing import Process
+from multiprocessing import Process, Event
 from time import perf_counter, sleep
 from random import random as unit_random
 
 from local.lib.common.timekeeper_utils import get_human_readable_timestamp, get_local_datetime
 from local.lib.common.environment import get_dbserver_protocol, get_dbserver_host, get_dbserver_port
 from local.lib.common.environment import get_env_autopost_on_startup, get_env_autopost_period_mins
-from local.lib.common.exceptions import OS_Close, register_signal_quit
+from local.lib.common.exceptions import register_signal_quit
 
 from local.lib.ui_utils.cli_selections import Resource_Selector
 from local.lib.ui_utils.script_arguments import script_arg_builder
@@ -125,7 +125,7 @@ def parse_post_args(debug_print = False):
 
 # .....................................................................................................................
 
-def sigterm_quit(signal_number, stack_frame):
+def sigterm_to_system_exit(signal_number, stack_frame):
     
     '''
     Helper function, intended to be used if the script receives a SIGTERM command from the operating system.
@@ -807,7 +807,7 @@ def check_server_connection(server_url):
 
 # .....................................................................................................................
 
-def scheduled_post(server_url, location_select_folder_path, camera_select, log_to_file = True):
+def scheduled_post(server_url, location_select_folder_path, camera_select, shutdown_event, log_to_file = True):
     
     # Bail if we don't get a valid server url
     invalid_url = (server_url in {"", "None", "none", None})
@@ -815,20 +815,24 @@ def scheduled_post(server_url, location_select_folder_path, camera_select, log_t
         return
     
     # Register signal handler to catch termination events & exit gracefully
-    register_signal_quit()
+    register_signal_quit(sigterm_to_system_exit)
     
     # Create logger to handle saving feedback (or printing to terminal)
     logger = create_logger(location_select_folder_path, camera_select, enabled = log_to_file)
     
     # If we aren't posting on startup, we need to have an initial sleep period before posting!
     post_on_startup = get_env_autopost_on_startup()
-    if not post_on_startup:
-        sleep_time_sec = calculate_sleep_delay_sec()
-        sleep(sleep_time_sec)
     
     try:
+        
+        # If we're not posting on start-up, then wait a bit
+        loop_forever = True
+        if not post_on_startup:
+            wait_time_sec = calculate_sleep_delay_sec()
+            loop_forever = (not shutdown_event.wait(wait_time_sec))
+        
         # Post & sleep & post & sleep & ...
-        while True:
+        while loop_forever:
             
             # Post all available data
             response_list = single_post(server_url, location_select_folder_path, camera_select)
@@ -837,23 +841,26 @@ def scheduled_post(server_url, location_select_folder_path, camera_select, log_t
             logger.log_list(response_list)
             
             # Delay posting regardless of server status
-            sleep_time_sec = calculate_sleep_delay_sec()
-            sleep(sleep_time_sec)
+            wait_time_sec = calculate_sleep_delay_sec()
+            shutdown_process = shutdown_event.wait(wait_time_sec)
+            if shutdown_process:
+                response_list = build_response_string_list(server_url, "Got shutdown request! Closing...")
+                logger.log_list(response_list)
+                break
+            
+            pass
         
-    except OS_Close:
-        
+    except SystemExit:        
         # Catch SIGTERM signals, in case this is running as parallel process that may be terminated
         response_list = build_response_string_list(server_url, "Kill signal received. Posting has been halted!!")
         logger.log_list(response_list)
         
-    except KeyboardInterrupt:
-        
+    except KeyboardInterrupt:        
         # Catch keyboard cancels, in case this is running as parallel process that may be terminated
         response_list = build_response_string_list(server_url, "Keyboard cancel! Posting has been halted!!")
         logger.log_list(response_list)
         
-    except Exception as err:
-        
+    except Exception as err:        
         # Handle any unexpected errors, so that we 'gracefully' get out of this function
         response_list = build_response_string_list(server_url, "Unknown error! Closing...", str(err))
         logger.log_list(response_list)
@@ -883,10 +890,16 @@ def create_parallel_scheduled_post(server_url, location_select_folder_path, came
                                    log_to_file = True,
                                    start_on_call = True):
     
+    ''' Function which generates a separate process for handling data posting to database '''
+    
+    # Create event for closing the parallel process
+    shutdown_event = Event()
+    
     # Build configuration input for parallel process setup
     config_dict = {"server_url": server_url,
                    "location_select_folder_path": location_select_folder_path,
                    "camera_select": camera_select,
+                   "shutdown_event": shutdown_event,
                    "log_to_file": log_to_file}
     
     # Create a parallel process to run the scheduled post function and start it, if needed
@@ -895,7 +908,7 @@ def create_parallel_scheduled_post(server_url, location_select_folder_path, came
     if start_on_call:
         parallel_post_func.start()
     
-    return parallel_post_func
+    return parallel_post_func, shutdown_event
 
 # .....................................................................................................................
 # .....................................................................................................................

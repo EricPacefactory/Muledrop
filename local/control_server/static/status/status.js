@@ -8,16 +8,17 @@ const getelems_img_buttons = () => Array.from(document.getElementsByClassName("i
 const set_loading_cursor = () => document.body.style.cursor = "wait";
 
 // Route-URL builders
-const build_camera_status_request_url = () => `/status/cameras`;
-const build_camera_restart_url = camera_name => `/control/restart/${camera_name}`;
-const build_camera_stop_url = camera_name => `/control/stop/${camera_name}`;
+const build_camera_status_request_url = () => `/status/get-cameras-status`;
+const build_camera_autolaunch_url = (camera_name, enable_autolaunch) => `/control/cameras/autolaunch/${camera_name}/${enable_autolaunch}`; 
+const build_camera_start_url = camera_name => `/control/cameras/start/${camera_name}`;
+const build_camera_stop_url = camera_name => `/control/cameras/stop/${camera_name}`;
 const redirect_to_url = url => window.location.href = url;
 
 // Resource-URL builders
-const build_auto_off_icon_url = () => `/status/icons/auto_off_icon.svg`;
-const build_auto_on_icon_url = () => `/status/icons/auto_on_icon.svg`;
-const build_restart_icon_url = () => `/status/icons/restart_icon.svg`;
-const build_stop_icon_url = () => `/status/icons/stop_icon.svg`;
+const build_auto_off_icon_url = () => `/status/icons/infinite_grey_icon.svg`;
+const build_auto_on_icon_url = () => `/status/icons/infinite_gold_icon.svg`;
+const build_start_icon_url = () => `/status/icons/up_icon.svg`;
+const build_stop_icon_url = () => `/status/icons/down_icon.svg`;
 
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -35,28 +36,50 @@ update_camera_status_ui();
 
 // .....................................................................................................................
 
-function update_camera_status_ui() {
+async function update_camera_status_ui() {
 
-    // Set the repeat frequency for updating the camera status UI elements
-    const repeat_every_n_sec = 30;
+    // Get camera status data from the server
+    let status_json_data = {};
+    try {
+        const flask_data_json_str = await fetch(build_camera_status_request_url());
+        status_json_data = await flask_data_json_str.json();
 
-    // Make requests to the flask server for camera status
-    fetch(build_camera_status_request_url())
-    .then(flask_data_json_str => flask_data_json_str.json())
-    .then(debug_response)
-    .then(generate_ui)
-    .then(delay_function_call(update_camera_status_ui, repeat_every_n_sec))
-    .catch(error => console.error("Setup error:", error))
+    } catch {
+        console.log("Error! Couldn't fetch data from server, likely down?");
+        return
+    }
+
+    // Print out data in console for debugging
+    console.log("Got data:", status_json_data);
+
+    // (Re-)Build the camera status UI elements
+    generate_ui(status_json_data);
+
+    // Decide how long we should wait to re-call this function, based on whether camera status is likely to update soon
+    const reduce_update_delay = check_need_to_reduce_update_delay(status_json_data);
+    const ms_to_wait = 1000 * (reduce_update_delay ? 10 : 30);
+    window.setTimeout(update_camera_status_ui, ms_to_wait);
 }
 
 // .....................................................................................................................
 
-function debug_response(status_json_data) {
+function check_need_to_reduce_update_delay(status_json_data){
 
-    // Some feedback
-    console.log("Got data:", status_json_data);
+    // Initialize output
+    let reduce_update_delay = false;
 
-    return status_json_data
+    // We should reduce the page update delay if any camera is in standby or reconnecting
+    const camera_status_entries_array = Object.values(status_json_data);
+    for(each_camera_status of camera_status_entries_array) {
+        const camera_in_standby = (each_camera_status["in_standby"]);
+        const camera_reconnecting = (each_camera_status["autolaunch_enabled"] && !each_camera_status["is_online"]);
+        reduce_update_delay = camera_in_standby || camera_reconnecting;
+        if(reduce_update_delay){
+            break;
+        }
+    }
+
+    return reduce_update_delay
 }
 
 // .....................................................................................................................
@@ -93,7 +116,7 @@ function generate_ui(status_json_data) {
 function create_one_camera_ui(camera_name, camera_status_dict) {
 
     // Pull out camera status info (formatting is set by python code!)
-    const {is_online, in_standby, description, timestamp_str} = camera_status_dict;
+    const {is_online, in_standby, autolaunch_enabled, description, timestamp_str} = camera_status_dict;
 
     // Set up some derived values, based on status info
     const inactive_style = "camera_offline";
@@ -106,20 +129,19 @@ function create_one_camera_ui(camera_name, camera_status_dict) {
     const new_camera_container = document.createElement("div");
     new_camera_container.className = "camera_container_div";
 
-    /*
+    // .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
+
     // Create div which holds the auto-launch on/off icon
-    const new_auto_div = document.createElement("div");
-    new_auto_div.className = "camera_auto_div";
+    const auto_btn_url = build_camera_autolaunch_url(camera_name, !autolaunch_enabled);
     const new_auto_btn = document.createElement("div");
     new_auto_btn.className = "img_button";
+    new_auto_btn.addEventListener("click", callback_control_button(auto_btn_url));
     const new_auto_icon = document.createElement("img");
-    new_auto_icon.src = build_auto_on_icon_url();
+    new_auto_icon.src = autolaunch_enabled ? build_auto_on_icon_url() : build_auto_off_icon_url();
     new_auto_icon.alt = "A";
-
-    // Add the icon to the div container
     new_auto_btn.appendChild(new_auto_icon);
-    new_auto_div.appendChild(new_auto_btn);
-    */
+
+    // .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
 
     // Create div which acts as parent container for the name & time
     const new_status_div = document.createElement("div");
@@ -141,37 +163,38 @@ function create_one_camera_ui(camera_name, camera_status_dict) {
     new_status_div.appendChild(new_name_div);
     new_status_div.appendChild(new_time_div);
 
+    // .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
 
-    // Create control icons
-    const new_ctrl_div = document.createElement("div");
-    new_ctrl_div.className = "camera_ctrl_div";
+    // Figure out button resources, based on camera online status
+    let start_stop_btn_url = "";
+    let start_stop_btn_icon_url = "";
+    let start_stop_btn_alt_str = "";
+    if (is_online) {
+        start_stop_btn_url = build_camera_stop_url(camera_name);
+        start_stop_btn_icon_url = build_stop_icon_url();
+        start_stop_btn_alt_str = "off";
 
-    // Create holder for camera restart button
-    const new_restart_btn = document.createElement("div");
-    new_restart_btn.className = "img_button";
-    const new_restart_icon = document.createElement("img");
-    new_restart_icon.src = build_restart_icon_url()
-    new_restart_icon.alt = "R";
-    new_restart_btn.appendChild(new_restart_icon);
-    new_restart_btn.addEventListener("click", callback_restart_camera(camera_name));
+    } else {
+        start_stop_btn_url = build_camera_start_url(camera_name);
+        start_stop_btn_icon_url = build_start_icon_url();
+        start_stop_btn_alt_str = "on";
+    }
 
-    // Create holder for camera stop button
-    const new_stop_btn = document.createElement("div");
-    new_stop_btn.className = "img_button";
-    const new_stop_icon = document.createElement("img");
-    new_stop_icon.src = build_stop_icon_url()
-    new_stop_icon.alt = "X";
-    new_stop_btn.appendChild(new_stop_icon);
-    new_stop_btn.addEventListener("click", callback_stop_camera(camera_name));
-    
-    // Put the control elements together
-    new_ctrl_div.appendChild(new_restart_btn);
-    new_ctrl_div.appendChild(new_stop_btn);
+    // Create holder for camera start/stop button
+    const new_start_stop_btn = document.createElement("div");
+    new_start_stop_btn.className = "img_button";
+    new_start_stop_btn.addEventListener("click", callback_control_button(start_stop_btn_url));
+    const new_start_stop_icon = document.createElement("img");
+    new_start_stop_icon.src = start_stop_btn_icon_url;
+    new_start_stop_icon.alt = start_stop_btn_alt_str;
+    new_start_stop_btn.appendChild(new_start_stop_icon);
+
+    // .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
 
     // Finally, put the status & control icons together
-    //new_camera_container.appendChild(new_auto_div);
+    new_camera_container.appendChild(new_auto_btn);
     new_camera_container.appendChild(new_status_div);
-    new_camera_container.appendChild(new_ctrl_div);
+    new_camera_container.appendChild(new_start_stop_btn);
 
     return new_camera_container
 }
@@ -197,30 +220,9 @@ function create_no_cameras_ui() {
 
 // .....................................................................................................................
 
-function callback_restart_camera(camera_name) {
+function callback_control_button(button_url){
 
-    function inner_callback_restart_camera() {
-
-        // Prevent multiple control commands being queued up
-        if (GLOBAL.controls_enabled){
-
-            // Set the cursor to a loading indicator & disable the buttons while waiting
-            set_loading_cursor()
-            disable_control_buttons();
-
-            // Handle controls by sending the page to a specifc url so the server can figure out what to do
-            redirect_to_url(build_camera_restart_url(camera_name));
-        }
-    }
-
-    return inner_callback_restart_camera
-}
-
-// .....................................................................................................................
-
-function callback_stop_camera(camera_name) {
-    
-    function inner_callback_stop_camera() {
+    function inner_callback() {
 
         // Prevent multiple control commands being queued up
         if (GLOBAL.controls_enabled){
@@ -230,13 +232,12 @@ function callback_stop_camera(camera_name) {
             disable_control_buttons();
 
             // Handle controls by sending the page to a specifc url so the server can figure out what to do
-            redirect_to_url(build_camera_stop_url(camera_name));
+            redirect_to_url(button_url);
         }
     }
 
-    return inner_callback_stop_camera
+    return inner_callback
 }
-
 
 // .....................................................................................................................
 
@@ -254,27 +255,10 @@ function disable_control_buttons() {
 }
 
 // .....................................................................................................................
-
-function delay_function_call(function_to_call, seconds_to_wait) {
-
-    // This function is used to call a function after a delay
-    // Intended to be used inside fetch/.then/.then etc. sequence
-    // --> Uses timeout (instead of interval) to make sure calls are always sequential
-    const ms_to_wait = seconds_to_wait * 1000;
-    function inner_delay_function_call(status_json_data) {
-        window.setTimeout(function_to_call, ms_to_wait);
-        return status_json_data
-    }
-
-    return inner_delay_function_call
-}
-
-// .....................................................................................................................
 // .....................................................................................................................
 
 
 // ---------------------------------------------------------------------------------------------------------------------
 // Scrap
 
-// TODOs
-// - Add auto-restart controls for each camera
+

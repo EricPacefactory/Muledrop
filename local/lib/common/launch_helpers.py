@@ -147,9 +147,16 @@ def print_run_info(start_timestamp_str, saving_enabled, threaded_saving_enabled)
         threading_indicator = "threaded" if threaded_saving_enabled else "nothread"
         enable_thread_save_txt = " ({})".format(threading_indicator)
     
+    # Create final saving text
+    save_str = "Saving {}{}".format(enable_disable_txt, enable_thread_save_txt)
+    
+    # Get process id for reference
+    process_id = os.getpid()
+    pid_str = "PID: {}".format(process_id)
+    
     # Some simple feedback
     print("",
-          "{}  |  Saving {}{}".format(start_timestamp_str, enable_disable_txt, enable_thread_save_txt),
+          "{}  |  {}  |  {}".format(start_timestamp_str, save_str, pid_str),
           sep = "\n")
     
     return    

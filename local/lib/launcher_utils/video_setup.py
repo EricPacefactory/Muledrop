@@ -74,7 +74,7 @@ class Base_Video_Reader:
         self.video_source = video_source
         self.video_type = video_type
         self.vcap = None
-        self._start_videocapture(crash_on_fail = True)
+        self._start_videocapture()
 
         # Create object for keeping track of time
         self.timekeeper = Timekeeper(start_datetime_isoformat, timelapse_factor)
@@ -191,13 +191,6 @@ class Base_Video_Reader:
     
     # .................................................................................................................
     
-    def reset_videocapture(self, delay_sec = 0):
-        self.vcap.release()
-        sleep(delay_sec)
-        self._start_videocapture(crash_on_fail = False)
-    
-    # .................................................................................................................
-    
     def get_current_frame(self):
         msg = "Must inherit & implement a frame index retrival function! ({})".format(self.class_name)
         raise NotImplementedError(msg)
@@ -217,8 +210,8 @@ class Base_Video_Reader:
         
     # .................................................................................................................
     
-    def _start_videocapture(self, crash_on_fail = False):
-        self.vcap = safe_VideoCapture(self.video_source, crash_on_fail)
+    def _start_videocapture(self):
+        self.vcap = safe_VideoCapture(self.video_source)
     
     # .................................................................................................................
     # .................................................................................................................
@@ -360,20 +353,6 @@ class Threaded_File_Video_Reader(Base_Video_Reader):
         
     # .................................................................................................................
     
-    def reset_videocapture(self, delay_sec = 0):
-        
-        # Shutdown the existing reading thread and clear any queue data
-        self._close_threaded_capture()
-        self._clear_frame_queue()
-        
-        # Delay if needed
-        sleep(delay_sec)
-        
-        # Re-launch the threaded reader!
-        self._start_videocapture(crash_on_fail = False)
-        
-    # .................................................................................................................
-    
     def get_current_frame(self):
         return self._sync_frame_index
     
@@ -395,10 +374,10 @@ class Threaded_File_Video_Reader(Base_Video_Reader):
     
     # .................................................................................................................
 
-    def _start_videocapture(self, crash_on_fail = False):
+    def _start_videocapture(self):
         
         # Create initial capture object
-        self.vcap = safe_VideoCapture(self.video_source, crash_on_fail)
+        self.vcap = safe_VideoCapture(self.video_source)
         
         # Storage for threading resources
         self._thread_on = True
@@ -502,6 +481,7 @@ class RTSP_Video_Reader(Base_Video_Reader):
         is_valid_rtsp_ip = check_valid_rtsp_ip(location_select_folder_path, camera_select)
         if not is_valid_rtsp_ip:
             print("",
+                  "Invalid rtsp IP!",
                   "Use the RTSP editor utility to specify camera configuration!",
                   "",
                   sep = "\n")
@@ -513,63 +493,15 @@ class RTSP_Video_Reader(Base_Video_Reader):
         
         # Inherit from parent
         super().__init__(rtsp_string, video_type = "rtsp")
-        
-    # .................................................................................................................
-    
-    def read(self):
-        
-        ''' Re-implement normal read behaviour, but with reconnecting attempts '''
-        
-        # Get frames
-        t1 = t2 = 0.0
-        req_break = True
-        rec_frame = False
-        while req_break:
-            
-            t1 = perf_counter()
-            (rec_frame, frame) = self.vcap.read()
-            t2 = perf_counter()
-            
-            # Assume we've disconnected if we don't receive a frame and try to reconnect
-            req_break = (not rec_frame)
-            if req_break:
-                self._reconnect()
-        
-        # Get time information for the current frame data
-        curent_frame_index, current_epoch_ms, current_datetime = self._get_time()
-        
-        # Calculate video capture timing
-        read_time_sec = (t2 - t1)
-        
-        return req_break, frame, read_time_sec, curent_frame_index, current_epoch_ms, current_datetime
     
     # .................................................................................................................
     
-    def decode_read(self):
+    def _get_time(self):
         
-        ''' Re-implement decode_read behaviour, but with reconnecting attempts '''
+        # Get the current time info
+        current_frame_index, current_epoch_ms, current_datetime = self.timekeeper.get_rtsp_time()
         
-        # Get frames
-        t1 = t2 = 0.0
-        req_break = True
-        rec_frame = False
-        while req_break:
-            t1 = perf_counter()
-            rec_frame, frame = self.vcap.retrieve()
-            t2 = perf_counter()
-            
-            # Assume we've disconnected if we don't receive a frame and try to reconnect
-            req_break = (not rec_frame)
-            if req_break:
-                self._reconnect()
-        
-        # Get time information for the current frame data
-        curent_frame_index, current_epoch_ms, current_datetime = self._get_time()
-        
-        # Calculate video capture timing
-        read_time_sec = (t2 - t1)
-        
-        return req_break, frame, read_time_sec, curent_frame_index, current_epoch_ms, current_datetime
+        return current_frame_index, current_epoch_ms, current_datetime
     
     # .................................................................................................................
     
@@ -587,38 +519,6 @@ class RTSP_Video_Reader(Base_Video_Reader):
               "", sep = "\n")
         
         return None
-    
-    # .................................................................................................................
-    
-    def _reconnect(self):
-        
-        # Provide some feedback
-        print("", "Lost connection to RTSP stream!", sep = "\n")
-        
-        # Keep trying to reconnect and read frames from the video source
-        rec_frame = False
-        while (not rec_frame):
-            
-            # First, forcefully reset the connection
-            print("  Trying to reconnect... {}".format(get_human_readable_timestamp()))
-            self.reset_videocapture(delay_sec = 10)
-        
-            # Now that the capture is connected, try to get frames
-            (rec_frame, frame) = self.vcap.read()
-        
-        # Some feedback once we're successful
-        print("  --> Reconnected! ({})".format(get_human_readable_timestamp()))
-        
-        return
-    
-    # .................................................................................................................
-    
-    def _get_time(self):
-        
-        # Get the current time info
-        current_frame_index, current_epoch_ms, current_datetime = self.timekeeper.get_rtsp_time()
-        
-        return current_frame_index, current_epoch_ms, current_datetime
     
     # .................................................................................................................
     # .................................................................................................................
@@ -644,7 +544,7 @@ def create_video_reader(location_select_folder_path, camera_select, video_select
 
 # .....................................................................................................................
 
-def safe_VideoCapture(video_source, crash_on_fail = False):
+def safe_VideoCapture(video_source):
     
     ''' Helper function which adds very basic error handling to cv2.VideoCapture functionality '''
     
@@ -655,15 +555,11 @@ def safe_VideoCapture(video_source, crash_on_fail = False):
         if vcap.isOpened():
             break
         
-        # If needed, force a crash if the connection attempt failed
-        if crash_on_fail:
-            raise IOError("\nCouldn't open video:\n{}\n".format(video_source))
-        
-        # If we get here, we're not crashing, but shouldn't immediately try to re-connect, so wait a bit...
+        # Report connection error if we get here then raise an error
         print("",
               "Error connecting to RTSP source... {}".format(get_human_readable_timestamp()),
               sep = "\n")
-        sleep(60.0)
+        raise IOError("\nCouldn't open video:\n{}\n".format(video_source))
     
     return vcap
 

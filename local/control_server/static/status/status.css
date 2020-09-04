@@ -26,11 +26,6 @@
     width: 50%;
 }
 
-/* Container for camera auto-launch button */
-.camera_auto_div {
-    padding: 0.5em;
-}
-
 /* Container for camera name / start timestamp */
 .camera_status_div {
     display: flex;
@@ -46,6 +41,10 @@
     color: var(--bright_text);
 }
 
+/* Container for camera auto-launch & start/stop buttons */
+.camera_auto_div {
+    padding: 0.5em;
+}
 
 /* Container for control icons */
 .camera_ctrl_div {
@@ -53,7 +52,6 @@
     grid-template-columns: 1fr 1fr;
     grid-gap: 0.25em;
     padding: 0.5em;
-
 }
 
 /* ----------------------------------------------------------------- */
@@ -63,7 +61,6 @@
 .camera_online {
     background-color: var(--online_color);
 }
-
 
 /* Special class used to highlight cameras which are in standby (online, but not generating data) */
 .camera_standby {
@@ -98,16 +95,17 @@
     cursor: pointer;
     display: flex;
     align-items: center;
+    padding: 0.5em;
 }
 
 .img_button:hover {
-    filter: brightness(135%)
+    filter: brightness(135%);
 }
 
 /* Alternate tag used to show control buttons as 'disabled' */
 .disabled_img_button {
     cursor: inherit;
-    filter: brightness(85%);
+    filter: brightness(85%) grayscale(25%);
 }
 
 img {

@@ -168,7 +168,7 @@ start_timestamp = loader.setup_all()
 main_process = Video_Processing_Loop(loader, enable_display)
 
 # Start auto-data posting
-parallel_post = create_parallel_scheduled_post(dbserver_url, location_select_folder_path, camera_select)
+parallel_post, shutdown_post = create_parallel_scheduled_post(dbserver_url, location_select_folder_path, camera_select)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -189,7 +189,8 @@ print_time_taken(0, total_processing_time_sec)
 # Clean up parallel post, just in case
 loader.update_state_file("Shutting down")
 print("", "Closing auto-post background task...", sep = "\n")
-parallel_post.terminate()
+shutdown_post.set()
+#parallel_post.terminate()
 parallel_post.join(10)
 print("Finished!")
 

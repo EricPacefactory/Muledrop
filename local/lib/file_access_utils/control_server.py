@@ -49,6 +49,8 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
+from local.lib.common.environment import get_default_autolaunch
+
 from local.lib.file_access_utils.cameras import build_camera_list
 from local.lib.file_access_utils.json_read_write import save_config_json, load_config_json
 
@@ -60,7 +62,7 @@ class Autolaunch_Settings:
     
     # .................................................................................................................
     
-    def __init__(self, location_select_folder_path, load_on_startup = True):
+    def __init__(self, location_select_folder_path):
         
         '''
         Class used to manage camera autolaunch settings
@@ -71,12 +73,14 @@ class Autolaunch_Settings:
         # Store inputs
         self.location_select_folder_path = location_select_folder_path
         
+        # Get environment settings
+        self._default_setting = get_default_autolaunch()
+        
         # Allocate storage for holding autolaunch settings (per camera)
         self._autolaunch_dict = {}
         
-        # Load existing autolaunch settings, if possible
-        if load_on_startup:
-            self.load_settings()
+        # Load existing autolaunch settings
+        self.load_settings()
     
     # .................................................................................................................
     
@@ -116,20 +120,25 @@ class Autolaunch_Settings:
     # .................................................................................................................
     
     def get_autolaunch(self, camera_select):
-        ''' Function which gets a camera's current autolaunch setting. If none is available, defaults to False '''
-        return self._autolaunch_dict.get(camera_select, False)
+        
+        '''
+        Function which gets a camera's current autolaunch setting
+        If none is available, the default is chosen based on environment variables if possible
+        '''
+        
+        return self._autolaunch_dict.get(camera_select, self._default_setting)
     
     # .................................................................................................................
     
     def get_enabled_cameras_list(self):
         ''' Function which returns a list of cameras with autolaunch enabled '''
-        return [each_camera for each_camera, is_enabled in self._autolaunch_dict.items() if is_enabled == True]
+        return [e_camera for e_camera in self._autolaunch_dict.keys() if self.get_autolaunch(e_camera) == True]
     
     # .................................................................................................................
     
     def get_disabled_cameras_list(self):
         ''' Function which returns a list of cameras with autolaunch disabled '''
-        return [each_camera for each_camera, is_enabled in self._autolaunch_dict.items() if is_enabled == False]
+        return [e_camera for e_camera in self._autolaunch_dict.keys() if self.get_autolaunch(e_camera) == False]
     
     # .................................................................................................................
     
@@ -137,7 +146,8 @@ class Autolaunch_Settings:
         
         ''' Function which removes autolaunch camera entries no longer found on the system '''
         
-        self._autolaunch_dict = prune_autolaunch(self.location_select_folder_path, self._autolaunch_dict)
+        self._autolaunch_dict = prune_autolaunch(self.location_select_folder_path,
+                                                 self._autolaunch_dict)
         self.save_settings()
         
         return self._autolaunch_dict
@@ -152,7 +162,7 @@ class Autolaunch_Settings:
 # .....................................................................................................................
 
 def build_autolaunch_settings_file_path(location_select_folder_path):
-    return os.path.join(location_select_folder_path, ".autolaunch.json")
+    return os.path.join(location_select_folder_path, "autolaunch.json")
 
 # .....................................................................................................................
 # .....................................................................................................................
@@ -244,11 +254,10 @@ def prune_autolaunch(location_select_folder_path, autolaunch_dict):
     returns a (potentially) modified copy of the provided autolaunch_dict
     '''
     
-    # Get available cameras, so we can remove any cameras that no longer exist
+    # Compare available cameras to autolaunch entries and get rid of any cameras that are no longer available
     camera_names_list = get_existing_camera_names_list(location_select_folder_path)
-    
-    # Build a new autolaunch dictionary with only the existing camera names
-    pruned_autolaunch_dict = {each_name: autolaunch_dict.get(each_name, False) for each_name in camera_names_list}
+    cameras_to_keep_list = [each_camera for each_camera in camera_names_list if each_camera in autolaunch_dict.keys()]
+    pruned_autolaunch_dict = {each_camera: autolaunch_dict[each_camera] for each_camera in cameras_to_keep_list}
     
     return pruned_autolaunch_dict
 
