@@ -4,7 +4,7 @@
 
 // DOM access helpers
 const getelem_main_container = () => document.getElementById("main_container");
-const getelems_img_buttons = () => Array.from(document.getElementsByClassName("img_button"));
+const getelems_img_buttons = () => Array.from(document.getElementsByClassName("img_button_div"));
 const set_loading_cursor = () => document.body.style.cursor = "wait";
 
 // Route-URL builders
@@ -134,7 +134,7 @@ function create_one_camera_ui(camera_name, camera_status_dict) {
     // Create div which holds the auto-launch on/off icon
     const auto_btn_url = build_camera_autolaunch_url(camera_name, !autolaunch_enabled);
     const new_auto_btn = document.createElement("div");
-    new_auto_btn.className = "img_button";
+    new_auto_btn.className = "img_button_div";
     new_auto_btn.addEventListener("click", callback_control_button(auto_btn_url));
     const new_auto_icon = document.createElement("img");
     new_auto_icon.src = autolaunch_enabled ? build_auto_on_icon_url() : build_auto_off_icon_url();
@@ -182,7 +182,7 @@ function create_one_camera_ui(camera_name, camera_status_dict) {
 
     // Create holder for camera start/stop button
     const new_start_stop_btn = document.createElement("div");
-    new_start_stop_btn.className = "img_button";
+    new_start_stop_btn.className = "img_button_div";
     new_start_stop_btn.addEventListener("click", callback_control_button(start_stop_btn_url));
     const new_start_stop_icon = document.createElement("img");
     new_start_stop_icon.src = start_stop_btn_icon_url;
@@ -249,7 +249,7 @@ function disable_control_buttons() {
     // Change button aesthetics to show buttons are disabled
     const img_button_array = getelems_img_buttons();
     for(const each_img_btn of img_button_array){
-        each_img_btn.className = "disabled_img_button";
+        each_img_btn.className = "disabled_img_button_div";
     }
 
 }

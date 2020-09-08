@@ -41,18 +41,6 @@
     color: var(--bright_text);
 }
 
-/* Container for camera auto-launch & start/stop buttons */
-.camera_auto_div {
-    padding: 0.5em;
-}
-
-/* Container for control icons */
-.camera_ctrl_div {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    grid-gap: 0.25em;
-    padding: 0.5em;
-}
 
 /* ----------------------------------------------------------------- */
 /* Camera status (name/time) styling */
@@ -91,19 +79,19 @@
 /* Control button styling */
 
 /* Container for control img tags */
-.img_button, .disabled_img_button {
+.img_button_div, .disabled_img_button_div {
     cursor: pointer;
     display: flex;
     align-items: center;
     padding: 0.5em;
 }
 
-.img_button:hover {
+.img_button_div:hover {
     filter: brightness(135%);
 }
 
 /* Alternate tag used to show control buttons as 'disabled' */
-.disabled_img_button {
+.disabled_img_button_div {
     cursor: inherit;
     filter: brightness(85%) grayscale(25%);
 }
