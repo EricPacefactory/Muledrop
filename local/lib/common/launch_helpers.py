@@ -51,6 +51,8 @@ find_path_to_local()
 
 from shutil import rmtree
 
+from local.lib.common.timekeeper_utils import get_human_readable_timestamp
+
 from local.lib.file_access_utils.reporting import build_base_report_path
 
 from local.eolib.utils.files import get_total_folder_size, create_missing_folder_path
@@ -159,10 +161,54 @@ def print_run_info(start_timestamp_str, saving_enabled, threaded_saving_enabled)
           "{}  |  {}  |  {}".format(start_timestamp_str, save_str, pid_str),
           sep = "\n")
     
-    return    
+    return
+
+# .....................................................................................................................
+
+def print_finished_info(time_taken_sec):
+    
+    '''
+    Helper function which prints a 'finished!' feedback message
+    The message includes a human readable timestamp, and a 'ran for ...'
+    message reporting the run time in terms of seconds/minutes/hours or days, based on the magnitude
+    '''
+    
+    # For clarity
+    seconds_per_minute = 60.0
+    seconds_per_hour = (60.0 * seconds_per_minute)
+    seconds_per_day = (24.0 * seconds_per_hour)
+    
+    # Calculate the amount of time taken in suitable units
+    time_taken_days = time_taken_sec / seconds_per_day
+    time_taken_hours = time_taken_sec / seconds_per_hour
+    time_taken_minutes = time_taken_sec / seconds_per_minute
+    
+    # Figure out what unit/value to print for the time taken
+    time_taken_value = time_taken_sec
+    time_taken_units = "seconds"
+    if int(time_taken_days) > 0:
+        time_taken_value = time_taken_days
+        time_taken_units = "days"
+    elif int(time_taken_hours) > 0:
+        time_taken_value = time_taken_hours
+        time_taken_units = "hours"
+    elif int(time_taken_minutes) > 0:
+        time_taken_value = time_taken_minutes
+        time_taken_units = "minutes"
+    
+    # Get human readable timestamp to mark actual finishing time & print out some feedback
+    finished_timestamp = get_human_readable_timestamp()
+    print("",
+          finished_timestamp,
+          "Finished!",
+          "Ran for {:.2f} {}".format(time_taken_value, time_taken_units),
+          sep = "\n")
+    
+    return finished_timestamp
 
 # .....................................................................................................................
 # .....................................................................................................................
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Demo

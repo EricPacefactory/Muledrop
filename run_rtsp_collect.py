@@ -54,8 +54,7 @@ from local.lib.ui_utils.script_arguments import script_arg_builder, get_selectio
 from local.lib.common.environment import get_env_location_select
 from local.lib.common.environment import get_dbserver_protocol, get_dbserver_host, get_dbserver_port
 from local.lib.common.launch_helpers import save_data_prompt, delete_existing_report_data
-from local.lib.common.launch_helpers import check_missing_main_selections, print_run_info
-from local.lib.common.feedback import print_time_taken
+from local.lib.common.launch_helpers import check_missing_main_selections, print_run_info, print_finished_info
 
 from local.lib.launcher_utils.configuration_loaders import RTSP_Configuration_Loader
 from local.lib.launcher_utils.video_processing_loops import Video_Processing_Loop
@@ -168,7 +167,8 @@ start_timestamp = loader.setup_all()
 main_process = Video_Processing_Loop(loader, enable_display)
 
 # Start auto-data posting
-parallel_post, shutdown_post = create_parallel_scheduled_post(dbserver_url, location_select_folder_path, camera_select)
+parallel_post_ref, shutdown_post_event = \
+create_parallel_scheduled_post(dbserver_url, location_select_folder_path, camera_select)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -180,7 +180,6 @@ print_run_info(start_timestamp, enable_saving, threaded_save)
 # Most of the work is done here!
 loader.update_state_file("Online", in_standby = False)
 total_processing_time_sec = main_process.loop(enable_progress_bar = False)
-print_time_taken(0, total_processing_time_sec)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -189,10 +188,11 @@ print_time_taken(0, total_processing_time_sec)
 # Clean up parallel post, just in case
 loader.update_state_file("Shutting down")
 print("", "Closing auto-post background task...", sep = "\n")
-shutdown_post.set()
-#parallel_post.terminate()
-parallel_post.join(10)
-print("Finished!")
+shutdown_post_event.set()
+parallel_post_ref.join(10)
+
+# Finally, print ending timestamp and run time
+print_finished_info(total_processing_time_sec)
 
 # Finally, remove the state file to indicate the camera is offline
 loader.clear_state_file()
