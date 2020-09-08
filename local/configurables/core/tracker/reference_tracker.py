@@ -443,6 +443,7 @@ class Reference_Trackable_Object:
         # Allocate storage for historical variables
         self.hull_history = deque([], maxlen = self.max_samples)
         self.xy_center_history = deque([], maxlen = self.max_samples)
+        self.color_sample_history = deque([], maxlen = self.max_samples)
         self.track_status_history = deque([], maxlen = self.max_samples)
         
         # Initialize history data
@@ -563,10 +564,10 @@ class Reference_Trackable_Object:
         
         # Get detection data
         new_track_status = 1
-        new_hull_array, new_xy_cen_array = self.get_detection_parameters(detection_object)
+        new_hull_array, new_xy_cen_array, new_color_sample_list = self.get_detection_parameters(detection_object)
         
         # Copy new data into object
-        self.verbatim_update(new_hull_array, new_xy_cen_array, new_track_status)
+        self.verbatim_update(new_hull_array, new_xy_cen_array, new_color_sample_list, new_track_status)
         
     # .................................................................................................................
         
@@ -586,11 +587,11 @@ class Reference_Trackable_Object:
         See the reference_detector.py for the reference detection object and it's available properties
         '''
         
-        return detection_object.hull_array, detection_object.xy_center_array
+        return detection_object.hull_array, detection_object.xy_center_array, detection_object.color_sample_rgb
        
     # .................................................................................................................
 
-    def verbatim_update(self, new_hull_array, new_xy_center_array, new_track_status = 1):
+    def verbatim_update(self, new_hull_array, new_xy_center_array, new_color_sample_list, new_track_status = 1):
         
         '''
         Update object properties verbatim (i.e. take input data as final, no other processing)
@@ -605,6 +606,9 @@ class Reference_Trackable_Object:
         # Update centering position
         self.xy_center_history.append(new_xy_center_array)
         
+        # Update color sample listing
+        self.color_sample_history.append(new_color_sample_list)
+        
         # Update tracking status (should be True/1 if we're matched to something, otherwise False/0)
         self.track_status_history.append(new_track_status)
         
@@ -616,9 +620,10 @@ class Reference_Trackable_Object:
         new_hull_array = self.hull_array
         new_xy_cen_array = self.xy_center_array
         new_track_status = 0
+        new_color_sample_list = self.color_sample
         
         # Use existing update function to avoid duplicating tracking logic...
-        self.verbatim_update(new_hull_array, new_xy_cen_array, new_track_status)
+        self.verbatim_update(new_hull_array, new_xy_cen_array, new_color_sample_list, new_track_status)
         
     # .................................................................................................................
         
@@ -632,9 +637,10 @@ class Reference_Trackable_Object:
         # Generate 'new' update values, which are just copies of existing data, since we have no other data source
         new_hull_array = self.hull_array + vxy_array
         new_xy_cen_array = self.xy_center_array + vxy_array
+        new_color_sample_list = self.color_sample
         
         # Use existing update function to avoid duplicating tracking logic...
-        self.verbatim_update(new_hull_array, new_xy_cen_array, new_track_status)
+        self.verbatim_update(new_hull_array, new_xy_cen_array, new_color_sample_list, new_track_status)
     
     # .................................................................................................................
     
@@ -645,7 +651,7 @@ class Reference_Trackable_Object:
         is_final = (self.descendant_id == 0)
         
         # Bundle tracking data together for clarity
-        tracking_data_dict, final_num_samples = self._get_tracking_data(is_final)
+        tracking_data_dict, final_num_samples = self._get_tracking_data(lifetime_ms, is_final)
         
         # Hard-code an empty entry for 'after-database classification', which is meant to be filled in later
         # (after data has already entered the database)
@@ -675,7 +681,7 @@ class Reference_Trackable_Object:
     
     # .................................................................................................................
     
-    def _get_tracking_data(self, is_final = True):
+    def _get_tracking_data(self, lifetime_ms, is_final = True):
         
         # If we're getting final data to save, back track to find out where the data was last 'good' (i.e. tracked)
         last_good_rel_idx = -1
@@ -695,11 +701,18 @@ class Reference_Trackable_Object:
         final_num_samples = self.num_samples + last_good_rel_idx + 1
         num_decay_samples_removed = abs(last_good_rel_idx) - 1
         
+        # Calculate downsampled color data
+        num_color_samples = 1 + int(lifetime_ms / 1000)
+        idx_per_sample = (final_num_samples - 1) / (num_color_samples + 1)
+        downsample_idxs = (int(round(k * idx_per_sample)) for k in range(1, num_color_samples+1))
+        output_color_samples_list = [self.color_sample_history[k] for k in downsample_idxs]
+        
         # Bundle tracking data together for clarity
         tracking_data_dict = {"num_validation_samples": self.num_validation_samples,
                               "num_decay_samples_removed": num_decay_samples_removed,
                               "frame_width": self.frame_width,
                               "frame_height": self.frame_height,
+                              "color_samples": output_color_samples_list,
                               "track_status": list(self.track_status_history)[:final_num_samples],
                               "xy_center": self._deque_of_arrays_to_list(self.xy_center_history, final_num_samples),
                               "hull": self._deque_of_arrays_to_list(self.hull_history, final_num_samples)}
@@ -800,6 +813,12 @@ class Reference_Trackable_Object:
     # .................................................................................................................
     
     @property
+    def color_sample(self):
+        return self.color_sample_history[-1]
+    
+    # .................................................................................................................
+    
+    @property
     def track_status(self):
         return self.track_status_history[-1]
     
@@ -868,14 +887,14 @@ class Smoothed_Trackable_Object(Reference_Trackable_Object):
         self._update_final_match_data(current_frame_index, current_epoch_ms, current_datetime)
         
         # Get detection data
-        new_hull_array, new_xy_cen_array = self.get_detection_parameters(detection_object)
+        new_hull_array, new_xy_cen_array, new_color_sample_list = self.get_detection_parameters(detection_object)
         
         # Apply smooth updates
-        self.smooth_update(new_hull_array, new_xy_cen_array)
+        self.smooth_update(new_hull_array, new_xy_cen_array, new_color_sample_list)
         
     # .................................................................................................................
     
-    def smooth_update(self, new_hull_array, new_xy_cen_array):
+    def smooth_update(self, new_hull_array, new_xy_cen_array, new_color_sample_list):
         
         try:
             
@@ -892,7 +911,7 @@ class Smoothed_Trackable_Object(Reference_Trackable_Object):
         
         # Update object state using smoothed values
         new_track_status = 1
-        self.verbatim_update(new_hull_array, smooth_xy_cen_array, new_track_status)
+        self.verbatim_update(new_hull_array, smooth_xy_cen_array, new_color_sample_list, new_track_status)
     
     # .................................................................................................................
     
@@ -1028,6 +1047,3 @@ if __name__ == "__main__":
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Scrap
 
-
-
-    
