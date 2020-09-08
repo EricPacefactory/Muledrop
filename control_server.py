@@ -708,7 +708,7 @@ def update_camera_configs(unzip_folder_path):
     unzipped_names_list = os.listdir(unzip_folder_path)
     
     # Compare unzipped camera names to existing cameras. We'll only update existing camera files!
-    existing_names_list = get_existing_camera_names_list()
+    existing_names_list = get_existing_camera_names_list(LOCATION_SELECT_FOLDER_PATH)
     valid_camera_names_list = [each_name for each_name in unzipped_names_list if each_name in existing_names_list]
     
     # Update all the valid cameras and store the files that were changed
@@ -725,7 +725,7 @@ def new_camera_configs(unzip_folder_path):
     
     # Figure out which cameras are present in data & which cameras already exist
     unzipped_names_list = os.listdir(unzip_folder_path)
-    existing_names_list = get_existing_camera_names_list()
+    existing_names_list = get_existing_camera_names_list(LOCATION_SELECT_FOLDER_PATH)
     
     # Copy over all unzipped data, and clean out data for existing cameras
     files_changes_dict = {}
