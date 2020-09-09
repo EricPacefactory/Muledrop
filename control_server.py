@@ -777,7 +777,7 @@ template_folder_path = os.path.join(ctrlserver_resources_folder_path, "templates
 wsgi_app = Flask(__name__,
                  static_url_path = '',
                  static_folder = static_folder_path,
-                 template_folder = ctrlserver_resources_folder_path)
+                 template_folder = template_folder_path)
 CORS(wsgi_app)
 
 # .....................................................................................................................
