@@ -169,7 +169,7 @@ class Snapshot_Playback:
         # Allocate storage for current snapshot to display & range to loop over
         self._snapshot_idx = 0
         self._start_loop_idx = 0
-        self._end_loop_idx = num_snapshots
+        self._end_loop_idx = num_snapshots - 1
         
         # Allocate storage for playback control
         self._is_paused = False
@@ -249,13 +249,13 @@ class Snapshot_Playback:
     # .................................................................................................................
     
     def set_start_loop_index(self, start_loop_index):
-        self._start_loop_idx = start_loop_index
+        self._start_loop_idx = max(0, start_loop_index)
         return self._start_loop_idx
     
     # .................................................................................................................
     
     def set_end_loop_index(self, end_loop_index):
-        self._end_loop_idx = end_loop_index
+        self._end_loop_idx = min(self.num_snapshots - 1, end_loop_index)
         return self._end_loop_idx
     
     # .................................................................................................................
@@ -264,8 +264,8 @@ class Snapshot_Playback:
         
         ''' Helper function used to set both start/end loop indices at the same time '''
         
-        self._start_loop_idx = start_loop_index
-        self._end_loop_idx = end_loop_index
+        self.set_start_loop_index(start_loop_index)
+        self.set_end_loop_index(end_loop_index)
         
         return self._start_loop_idx, self._end_loop_idx
     

@@ -71,7 +71,7 @@ from local.offline_database.station_reconstruction import Station_Raw_Bars_Displ
 from local.offline_database.station_reconstruction import create_reconstruction_dict, load_station_configs
 
 from local.eolib.utils.cli_tools import Datetime_Input_Parser as DTIP
-from local.eolib.utils.cli_tools import cli_confirm
+from local.eolib.utils.cli_tools import cli_confirm, cli_prompt_with_defaults
 from local.eolib.video.read_write import Video_Recorder
 
 
@@ -530,7 +530,8 @@ if user_confirm_record:
     recording_frame_delay_ms = playback_ctrl.frame_delay_ms
     exact_fps = (1000.0 / recording_frame_delay_ms)
     rounded_fps = (5.0 * np.round(exact_fps / 5.0))
-    recording_fps = min(60.0, rounded_fps)
+    default_recording_fps = min(60.0, rounded_fps)
+    recording_fps = cli_prompt_with_defaults("Enter timelapse factor:", default_recording_fps, return_type = float)
     recording_frame_wh = anim_frame_wh
     
     # Create video writer
