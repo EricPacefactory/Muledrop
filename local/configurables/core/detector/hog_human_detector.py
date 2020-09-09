@@ -232,7 +232,7 @@ class Configurable(Reference_Detector):
             
             # Create a 'fake' rectangular contour so we can report it as a detected object contour
             rect_contour = np.float32([(tl_x, tl_y), (br_x, tl_y), (br_x, br_y), (tl_x, br_y)])
-            new_detection = Pedestrian_Detection_Object(preprocessed_frame, rect_contour)
+            new_detection = Pedestrian_Detection_Object(rect_contour, preprocessed_frame)
             
             # Check that the bounding box is correctly sized before adding to list
             if new_detection.in_zones(self.ignore_zones_list):

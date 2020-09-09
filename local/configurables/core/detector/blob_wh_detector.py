@@ -208,7 +208,7 @@ class Configurable(Reference_Detector):
         for each_idx, each_contour in enumerate(contour_list):
             
             # Create a blob object for each contour found
-            new_detection = Unclassified_Detection_Object(preprocessed_frame, each_contour)
+            new_detection = Unclassified_Detection_Object(each_contour, preprocessed_frame)
             
             # Check that the bounding box is correctly sized before adding to list
             no_ignore = (not new_detection.in_zones(self.ignore_zones_list))

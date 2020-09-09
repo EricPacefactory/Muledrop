@@ -701,8 +701,8 @@ class Reference_Trackable_Object:
         final_num_samples = self.num_samples + last_good_rel_idx + 1
         num_decay_samples_removed = abs(last_good_rel_idx) - 1
         
-        # Calculate downsampled color data
-        num_color_samples = 1 + int(lifetime_ms / 1000)
+        # Calculate downsampled color data (roughly two samples per second)
+        num_color_samples = 1 + int(lifetime_ms / 500)
         idx_per_sample = (final_num_samples - 1) / (num_color_samples + 1)
         downsample_idxs = (int(round(k * idx_per_sample)) for k in range(1, num_color_samples+1))
         output_color_samples_list = [self.color_sample_history[k] for k in downsample_idxs]
@@ -712,7 +712,7 @@ class Reference_Trackable_Object:
                               "num_decay_samples_removed": num_decay_samples_removed,
                               "frame_width": self.frame_width,
                               "frame_height": self.frame_height,
-                              "color_samples": output_color_samples_list,
+                              "color_samples_rgb": output_color_samples_list,
                               "track_status": list(self.track_status_history)[:final_num_samples],
                               "xy_center": self._deque_of_arrays_to_list(self.xy_center_history, final_num_samples),
                               "hull": self._deque_of_arrays_to_list(self.hull_history, final_num_samples)}

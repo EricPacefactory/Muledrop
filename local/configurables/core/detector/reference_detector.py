@@ -129,7 +129,7 @@ class Reference_Detection_Object:
     
     # .................................................................................................................
     
-    def __init__(self, frame, contour, realtime_classification_dict):
+    def __init__(self, contour, realtime_classification_dict, display_frame):
         
         # Get a simplified representation of the contour
         full_hull = cv2.convexHull(contour)
@@ -181,10 +181,11 @@ class Reference_Detection_Object:
         # Store x/y center points (careful to store them as python floats, not numpy floats)
         self.xy_center_array = ((self.top_left + self.bot_right) / 2.0)
         
-        # Extract averaged color around xy center point
-        color_x_px_idx = int((top_left_x_px + bot_right_x_px) / 2)
-        color_y_px_idx = int((top_left_y_px + bot_right_y_px) / 2)
-        color_sample_bgr = frame[color_y_px_idx, color_x_px_idx, :]
+        # Extract color from xy center point
+        frame_height, frame_width = display_frame.shape[0:2]
+        x_center_px = int(round((frame_width - 1) * self.xy_center_array[0]))
+        y_center_px = int(round((frame_height - 1) * self.xy_center_array[1]))
+        color_sample_bgr = display_frame[y_center_px, x_center_px, :]
         self.color_sample_rgb = np.flip(color_sample_bgr).tolist()
         
         # Store a property for assigning classifications during detection
@@ -248,12 +249,12 @@ class Unclassified_Detection_Object(Reference_Detection_Object):
     
     # .................................................................................................................
     
-    def __init__(self, frame, contour):
+    def __init__(self, contour, display_frame):
         
         # Very simple variant of the reference detection object. Simply hard-codes an empty classification dictionary
         # (normally, the format should be: {"class_label_1": score_1, "class_label_2": score_2, etc.})
         no_classification_dict = {}
-        super().__init__(frame, contour, no_classification_dict)
+        super().__init__(contour, no_classification_dict, display_frame)
     
     # .................................................................................................................
     # .................................................................................................................
@@ -267,12 +268,12 @@ class Pedestrian_Detection_Object(Reference_Detection_Object):
     
     # .................................................................................................................
     
-    def __init__(self, frame, contour):
+    def __init__(self, contour, display_frame):
         
-        # Very simple varianet of the reference detection object. Simply hard-codes an empty classification dictionary
+        # Very simple variant of the reference detection object. Simply hard-codes an empty classification dictionary
         # (normally, the format should be: {"class_label_1": score_1, "class_label_2": score_2, etc.})
         ped_classification_dict = {"predestrian": 1.0}
-        super().__init__(frame, contour, ped_classification_dict)
+        super().__init__(contour, ped_classification_dict, display_frame)
     
     # .................................................................................................................
     # .................................................................................................................
