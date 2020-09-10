@@ -140,24 +140,33 @@ class Reference_Detection_Object:
         # e.g. a contour of (0,0), (100,0), (100,100), (0,100) has an area of 100*100 = 10000
         hull_area_px = cv2.contourArea(hull_px)
         
+        # Store x/y center points base on hull
+        self.xy_center_array = np.mean(hull_px, axis = 0) * self._xy_loc_scaling
+        
+        # Extract color from xy center point
+        frame_height, frame_width = display_frame.shape[0:2]
+        x_center_px = int(round((frame_width - 1) * self.xy_center_array[0]))
+        y_center_px = int(round((frame_height - 1) * self.xy_center_array[1]))
+        color_sample_bgr = display_frame[y_center_px, x_center_px, :]
+        self.color_sample_rgb = np.flip(color_sample_bgr).tolist()
+        
         # Handle cases where there is no hull area (single pixels, row/column contours and tight-triangles)
         no_hull_area = (hull_area_px < 1.0)
         if no_hull_area:
             
-            # Make up a fake full area rather than re-calculating
-            hull_area_px = 1.0
-            
             # Get hull bounding box
-            min_xy = np.min(hull_px, axis = 0)
-            max_xy = np.max(hull_px, axis = 0)
+            min_x, min_y = np.min(hull_px, axis = 0)
+            max_x, max_y = np.max(hull_px, axis = 0)
             
-            # Figure out which axes have zero separation between min/max values
-            xy_diff = (max_xy - min_xy)
-            null_axes = (xy_diff == 0)
+            # Re-assign min/max values by shifting min values down 1 pixel, if needed
+            min_x = max(0, min_x - 1) if min_x == max_x else min_x
+            min_y = max(0, min_y - 1) if min_y == max_y else min_y
+            max_x = max(1, max_x)
+            max_y = max(1, max_y)
             
-            # Create a new hull out of the bounding box values, and add 1 to max values along zeroed axes
-            hull_px = np.int32([min_xy, max_xy])
-            hull_px[1, null_axes] = hull_px[1, null_axes] + 1
+            # Generate new hull as a bounding box around min/max values
+            hull_px = np.int32(((min_x, min_y), (max_x, min_y), (max_x, max_y), (min_x, max_y)))
+            hull_area_px = cv2.contourArea(hull_px)
         
         # Store hull area
         self.hull_area_px = hull_area_px
@@ -177,16 +186,6 @@ class Reference_Detection_Object:
         
         # Store width/height in format that allows reconstruction of tl/br using x/y center coords
         self.width, self.height = np.float32(self.bot_right - self.top_left)
-        
-        # Store x/y center points (careful to store them as python floats, not numpy floats)
-        self.xy_center_array = ((self.top_left + self.bot_right) / 2.0)
-        
-        # Extract color from xy center point
-        frame_height, frame_width = display_frame.shape[0:2]
-        x_center_px = int(round((frame_width - 1) * self.xy_center_array[0]))
-        y_center_px = int(round((frame_height - 1) * self.xy_center_array[1]))
-        color_sample_bgr = display_frame[y_center_px, x_center_px, :]
-        self.color_sample_rgb = np.flip(color_sample_bgr).tolist()
         
         # Store a property for assigning classifications during detection
         # (Should be of the form: {"class_label_1": score_1, "class_label_2": score_2, etc.})
