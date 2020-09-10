@@ -71,7 +71,7 @@ from local.lib.ui_utils.script_arguments import script_arg_builder
 from local.lib.file_access_utils.shared import build_camera_path, build_logging_folder_path, url_safe_name
 from local.lib.file_access_utils.reporting import build_base_report_path
 from local.lib.file_access_utils.logging import build_stdout_log_file_path, build_stderr_log_file_path
-from local.lib.file_access_utils.state_files import load_state_file
+from local.lib.file_access_utils.state_files import load_state_file, delete_state_file
 
 from local.lib.file_access_utils.control_server import Autolaunch_Settings, get_existing_camera_names_list
 
@@ -104,13 +104,31 @@ class RTSP_Processes:
         # Allocate storage for holding references to running camera processes
         self._proc_dict = {}
         
+        # Clear out any existing camera state files
+        self._clear_camera_state_files_on_startup()
+        
         # Load existing autolaunch settings to start
         self._autolaunch_settings = Autolaunch_Settings(location_select_folder_path)
         self._autolaunch_on_startup()
         
         # Start background autolauncher
         self._thread_ref = self.create_autolauncher_thread()
+    
+    # .................................................................................................................
+    
+    def _clear_camera_state_files_on_startup(self):
         
+        '''
+        Function intended to be used to clear out camera state files
+        which may be left over from previous (unclean) shutdowns
+        '''
+        
+        all_cameras_list = get_existing_camera_names_list(self.location_select_folder_path)
+        for each_camera in all_cameras_list:
+            delete_state_file(self.location_select_folder_path, each_camera)
+        
+        return
+    
     # .................................................................................................................
     
     def _autolaunch_on_startup(self):
@@ -769,7 +787,7 @@ ap_result = parse_control_args()
 arg_location_select = ap_result.get("location")
 
 # Create selector so we can access existing report data
-SELECTOR = Resource_Selector()
+SELECTOR = Resource_Selector(load_selection_history = False, save_selection_history = False)
 PROJECT_ROOT_PATH = SELECTOR.get_project_root_pathing()
 LOCATION_SELECT, LOCATION_SELECT_FOLDER_PATH = SELECTOR.location(arg_location_select)
 
