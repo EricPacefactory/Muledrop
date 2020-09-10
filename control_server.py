@@ -212,7 +212,6 @@ class RTSP_Processes:
             proc_ref.terminate()
             if wait_for_camera_to_stop:
                 proc_ref.wait(timeout = 20)
-                proc_ref.join()
             
         except subprocess.TimeoutExpired:
             print("",
