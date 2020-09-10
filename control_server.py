@@ -200,7 +200,7 @@ class RTSP_Processes:
     
     # .................................................................................................................
     
-    def _stop_camera_no_lock(self, camera_select):
+    def _stop_camera_no_lock(self, camera_select, wait_for_camera_to_stop = True):
         
         # Don't do anything if the camera isn't already listed
         if camera_select not in self._proc_dict:
@@ -210,7 +210,9 @@ class RTSP_Processes:
         proc_ref = self._proc_dict.pop(camera_select)
         try:
             proc_ref.terminate()
-            proc_ref.wait(timeout = 20)
+            if wait_for_camera_to_stop:
+                proc_ref.wait(timeout = 20)
+                proc_ref.join()
             
         except subprocess.TimeoutExpired:
             print("",
@@ -221,7 +223,7 @@ class RTSP_Processes:
                   sep = "\n")
             proc_ref.kill()
         
-        return
+        return proc_ref
     
     # .................................................................................................................
     
@@ -315,18 +317,27 @@ class RTSP_Processes:
     
     # .................................................................................................................
     
-    def stop_all_cameras(self, wait_after_shutdown_sec = 4):
+    def stop_all_cameras(self, wait_after_shutdown_sec = 8):
         
         # Go through all known cameras and shut them down (with a lock, so autolauncher can't interfere)
         with self._thread_lock:
             for each_camera_name in self._proc_dict.keys():
-                self._stop_camera_no_lock(each_camera_name)
+                self._stop_camera_no_lock(each_camera_name, wait_for_camera_to_stop = False)
         
         # Optional delay to allow all cameras to finish shutting down properly before we move on
         if wait_after_shutdown_sec > 0:
             sleep(wait_after_shutdown_sec)
         
         return
+    
+    # .................................................................................................................
+    
+    def shutdown(self):
+        
+        ''' Helper function which just stops autolauncher + stops all cameras '''
+        
+        self.kill_autolaucher_thread()
+        self.stop_all_cameras()
     
     # .................................................................................................................
     
@@ -509,7 +520,7 @@ def register_waitress_shutdown_command():
         print("", "", "*" * 48, "Kill signal received! ({})".format(signal_number), "*" * 48, "", sep = "\n")
         
         # Try to 'gracefully' close all open processes
-        RTSP_PROC.stop_all_cameras()
+        RTSP_PROC.shutdown()
         
         # Raise a keyboard interrupt, which waitress will respond to! (unlike SIGTERM)
         raise KeyboardInterrupt
@@ -878,11 +889,8 @@ def control_system_shutdown():
     (i.e. this shutdown route can be used for updating the server/system code!)
     '''
     
-    # Turn off autolauncher
-    RTSP_PROC.kill_autolaucher_thread()
-    
     # Try to stop all the cameras before shutting down
-    RTSP_PROC.stop_all_cameras()    
+    RTSP_PROC.shutdown()
     force_server_shutdown()
     
     # Shouldn't get here? Page that forced shutdown should be responsible for refresh to catch server restarting...
