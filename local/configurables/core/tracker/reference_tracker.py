@@ -443,7 +443,7 @@ class Reference_Trackable_Object:
         # Allocate storage for historical variables
         self.hull_history = deque([], maxlen = self.max_samples)
         self.xy_center_history = deque([], maxlen = self.max_samples)
-        self.color_sample_history = deque([], maxlen = self.max_samples)
+        self.color_sample_rgb_history = deque([], maxlen = self.max_samples)
         self.track_status_history = deque([], maxlen = self.max_samples)
         
         # Initialize history data
@@ -564,10 +564,10 @@ class Reference_Trackable_Object:
         
         # Get detection data
         new_track_status = 1
-        new_hull_array, new_xy_cen_array, new_color_sample_list = self.get_detection_parameters(detection_object)
+        new_hull_array, new_xy_cen_array, new_color_sample_rgb = self.get_detection_parameters(detection_object)
         
         # Copy new data into object
-        self.verbatim_update(new_hull_array, new_xy_cen_array, new_color_sample_list, new_track_status)
+        self.verbatim_update(new_hull_array, new_xy_cen_array, new_color_sample_rgb, new_track_status)
         
     # .................................................................................................................
         
@@ -591,7 +591,7 @@ class Reference_Trackable_Object:
        
     # .................................................................................................................
 
-    def verbatim_update(self, new_hull_array, new_xy_center_array, new_color_sample_list, new_track_status = 1):
+    def verbatim_update(self, new_hull_array, new_xy_center_array, new_color_sample_rgb, new_track_status = 1):
         
         '''
         Update object properties verbatim (i.e. take input data as final, no other processing)
@@ -607,7 +607,7 @@ class Reference_Trackable_Object:
         self.xy_center_history.append(new_xy_center_array)
         
         # Update color sample listing
-        self.color_sample_history.append(new_color_sample_list)
+        self.color_sample_rgb_history.append(new_color_sample_rgb)
         
         # Update tracking status (should be True/1 if we're matched to something, otherwise False/0)
         self.track_status_history.append(new_track_status)
@@ -620,10 +620,10 @@ class Reference_Trackable_Object:
         new_hull_array = self.hull_array
         new_xy_cen_array = self.xy_center_array
         new_track_status = 0
-        new_color_sample_list = self.color_sample
+        new_color_sample_rgb = self.color_sample_rgb
         
         # Use existing update function to avoid duplicating tracking logic...
-        self.verbatim_update(new_hull_array, new_xy_cen_array, new_color_sample_list, new_track_status)
+        self.verbatim_update(new_hull_array, new_xy_cen_array, new_color_sample_rgb, new_track_status)
         
     # .................................................................................................................
         
@@ -637,10 +637,10 @@ class Reference_Trackable_Object:
         # Generate 'new' update values, which are just copies of existing data, since we have no other data source
         new_hull_array = self.hull_array + vxy_array
         new_xy_cen_array = self.xy_center_array + vxy_array
-        new_color_sample_list = self.color_sample
+        new_color_sample_rgb = self.color_sample_rgb
         
         # Use existing update function to avoid duplicating tracking logic...
-        self.verbatim_update(new_hull_array, new_xy_cen_array, new_color_sample_list, new_track_status)
+        self.verbatim_update(new_hull_array, new_xy_cen_array, new_color_sample_rgb, new_track_status)
     
     # .................................................................................................................
     
@@ -705,7 +705,7 @@ class Reference_Trackable_Object:
         num_color_samples = 1 + int(lifetime_ms / 500)
         idx_per_sample = (final_num_samples - 1) / (num_color_samples + 1)
         downsample_idxs = (int(round(k * idx_per_sample)) for k in range(1, num_color_samples+1))
-        output_color_samples_list = [self.color_sample_history[k] for k in downsample_idxs]
+        output_color_samples_list = [self.color_sample_rgb_history[k] for k in downsample_idxs]
         
         # Bundle tracking data together for clarity
         tracking_data_dict = {"num_validation_samples": self.num_validation_samples,
@@ -813,8 +813,8 @@ class Reference_Trackable_Object:
     # .................................................................................................................
     
     @property
-    def color_sample(self):
-        return self.color_sample_history[-1]
+    def color_sample_rgb(self):
+        return self.color_sample_rgb_history[-1]
     
     # .................................................................................................................
     
@@ -887,14 +887,14 @@ class Smoothed_Trackable_Object(Reference_Trackable_Object):
         self._update_final_match_data(current_frame_index, current_epoch_ms, current_datetime)
         
         # Get detection data
-        new_hull_array, new_xy_cen_array, new_color_sample_list = self.get_detection_parameters(detection_object)
+        new_hull_array, new_xy_cen_array, new_color_sample_rgb = self.get_detection_parameters(detection_object)
         
         # Apply smooth updates
-        self.smooth_update(new_hull_array, new_xy_cen_array, new_color_sample_list)
+        self.smooth_update(new_hull_array, new_xy_cen_array, new_color_sample_rgb)
         
     # .................................................................................................................
     
-    def smooth_update(self, new_hull_array, new_xy_cen_array, new_color_sample_list):
+    def smooth_update(self, new_hull_array, new_xy_cen_array, new_color_sample_rgb):
         
         try:
             
@@ -911,7 +911,7 @@ class Smoothed_Trackable_Object(Reference_Trackable_Object):
         
         # Update object state using smoothed values
         new_track_status = 1
-        self.verbatim_update(new_hull_array, smooth_xy_cen_array, new_color_sample_list, new_track_status)
+        self.verbatim_update(new_hull_array, smooth_xy_cen_array, new_color_sample_rgb, new_track_status)
     
     # .................................................................................................................
     
