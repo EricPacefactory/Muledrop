@@ -63,7 +63,8 @@ from local.eolib.video.text_rendering import position_frame_relative, position_c
 # .....................................................................................................................
 
 def create_single_bar_image(data_list, bar_width, bar_fg_color,
-                            bar_bg_color = (40, 40, 40), bar_height = 21, interpolation_type = cv2.INTER_AREA):
+                            bar_bg_color = (40, 40, 40), bar_height = 21,
+                            use_log_scaling = False, interpolation_type = cv2.INTER_AREA):
     
     '''
     Function used to draw a 'bar image' based off of a list of data
@@ -86,7 +87,7 @@ def create_single_bar_image(data_list, bar_width, bar_fg_color,
     
     # Generate a bar image based on the number of channels we got
     shared_args = (data_array, bar_wh)
-    color_args = (bar_fg_color, bar_bg_color)
+    color_args = (bar_fg_color, bar_bg_color, use_log_scaling)
     if num_channels == 1:
         resized_data_img = create_1_channel_bar_image(*shared_args, *color_args, interpolation_type)
     elif num_channels == 3:
@@ -99,8 +100,9 @@ def create_single_bar_image(data_list, bar_width, bar_fg_color,
 # .....................................................................................................................
 
 def create_single_bar_subset_image(data_list, start_pt_norm, end_pt_norm,
-                                   bar_width, bar_fg_color, bar_bg_color = (40, 40, 40), 
-                                   bar_height = 21, interpolation_type = None):
+                                   bar_width, bar_fg_color,
+                                   bar_bg_color = (40, 40, 40), bar_height = 21,
+                                   use_log_scaling = False, interpolation_type = None):
     
     # Use start/end indices to truncate the data list, then create a 'normal' bar image from the reduced data set
     num_samples = len(data_list)
@@ -115,7 +117,7 @@ def create_single_bar_subset_image(data_list, start_pt_norm, end_pt_norm,
         interpolation_type = cv2.INTER_AREA if too_few_pixels else cv2.INTER_NEAREST
     
     return create_single_bar_image(data_subset_list, bar_width, bar_fg_color, bar_bg_color,
-                                   bar_height, interpolation_type)
+                                   bar_height, use_log_scaling, interpolation_type)
 
 # .....................................................................................................................
 
@@ -154,7 +156,7 @@ def draw_bar_label(bar_image, label_string, align_to_left_edge = True,
 
 # .....................................................................................................................
 
-def create_1_channel_bar_image(data_array, bar_wh, bar_fg_color, bar_bg_color,
+def create_1_channel_bar_image(data_array, bar_wh, bar_fg_color, bar_bg_color, use_log_scaling,
                                interpolation_type = cv2.INTER_NEAREST):
     
     ''' Helper function used to create bar images when the data is single-channeled (i.e. 1D) '''
@@ -170,13 +172,16 @@ def create_1_channel_bar_image(data_array, bar_wh, bar_fg_color, bar_bg_color,
         else:
             data_max = data_min + 1
     
-    # Normalize data to 0-255 range for display & create color scale
-    norm_data = np.uint8(np.round(255 * ((data_array - data_min) / (data_max - data_min))))
+    # Normalize & create color scale
+    norm_data = ((data_array - data_min) / (data_max - data_min))
+    if use_log_scaling:
+        norm_data = np.log(1.0 + 100.0 * norm_data) / np.log(101.0)
     bgr_dict = {0: bar_bg_color, 255: bar_fg_color}
     cmap = create_interpolated_colormap(bgr_dict)
     
     # Convert normalized data array to an image
-    data_gray_img = image_1ch_to_3ch(color_list_to_image(norm_data))
+    uint8_data = np.uint8(np.round(255 * norm_data))
+    data_gray_img = image_1ch_to_3ch(color_list_to_image(uint8_data))
     data_bar_img = cv2.LUT(data_gray_img, cmap)
     resized_data_img = cv2.resize(data_bar_img, dsize = bar_wh, interpolation = interpolation_type)
     
@@ -200,7 +205,7 @@ def create_3_channel_bar_image(data_array, bar_wh,
 
 # .....................................................................................................................
 
-def create_n_channel_bar_image(data_array, bar_wh, bar_fg_color, bar_bg_color,
+def create_n_channel_bar_image(data_array, bar_wh, bar_fg_color, bar_bg_color, use_log_scaling,
                                interpolation_type = cv2.INTER_NEAREST):
     
     '''

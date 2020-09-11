@@ -140,14 +140,18 @@ def parse_stationview_args():
                                       "(e.g. video time) as opposed to absolute time.",
                                       "Note, a timestamp position must be set to see the timestamp!"]))
     
+    ap.add_argument("-log", "--log_scaling", default = False, action = "store_true",
+                    help = "\n".join(["If enabled, analog data will be displayed with logarithmic scaling"]))
+    
     # Get arg inputs into a dictionary
     args = vars(ap.parse_args())
     
     # Get script arg values
     arg_timestamp_position = args["timestamp_position"]
     arg_relative_timestamp = args["relative_timestamp"]
+    arg_log_scaling = args["log_scaling"]
     
-    return arg_timestamp_position, arg_relative_timestamp
+    return arg_timestamp_position, arg_relative_timestamp, arg_log_scaling
 
 # .....................................................................................................................
 
@@ -215,7 +219,7 @@ def create_video_recorder(project_root_path, location_select, camera_select,
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Get script arguments
 
-timestamp_pos_arg, enable_relative_timestamp = parse_stationview_args()
+timestamp_pos_arg, enable_relative_timestamp, use_log_scaling = parse_stationview_args()
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -316,7 +320,7 @@ all_station_data_dict = create_reconstruction_dict(stn_db, start_snap_time_ms, e
                                                    global_first_frame_index, global_final_frame_index)
 
 # Create object for handling display bar creation & get the built-in display name order
-stn_data_display = Station_Raw_Bars_Display(all_station_data_dict)
+stn_data_display = Station_Raw_Bars_Display(all_station_data_dict, use_log_scaling)
 ordered_station_names_list = stn_data_display.get_ordered_station_names_list()
 num_stations = len(ordered_station_names_list)
 

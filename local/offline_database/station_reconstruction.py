@@ -70,11 +70,12 @@ class Station_Raw_Bars_Display:
     
     # .................................................................................................................
     
-    def __init__(self, station_data_dict):
+    def __init__(self, station_data_dict, use_log_scaling = False):
         
         # Store inputs
         self.num_stations = len(station_data_dict)
         self.station_data_dict = station_data_dict
+        self.use_log_scaling = use_log_scaling
         self.ordered_names_list = sorted(station_data_dict.keys())
         self.color_list = None
         
@@ -128,7 +129,8 @@ class Station_Raw_Bars_Display:
                                                               bar_width,
                                                               station_color,
                                                               bar_bg_color,
-                                                              bar_height)
+                                                              bar_height,
+                                                              self.use_log_scaling)
             station_bar_imgs_list.append(station_bar_img)
         
         # Include additional row image if needed
@@ -165,7 +167,8 @@ class Station_Raw_Bars_Display:
                                                                     bar_width,
                                                                     station_color,
                                                                     bar_bg_color,
-                                                                    bar_height)
+                                                                    bar_height,
+                                                                    self.use_log_scaling)
             subset_bar_imgs_list.append(subset_bar_img)
         
         # Include additional row image if needed
@@ -294,6 +297,7 @@ class Station_Zone_Display:
 
 def create_single_station_bar_image(station_name, station_data_list, bar_width, bar_fg_color,
                                     bar_bg_color = (40, 40, 40), bar_height = 21,
+                                    use_log_scaling = False,
                                     interpolation_type = cv2.INTER_AREA):
     
     ''' Helper function which draws a bar image with the station name added as a label '''
@@ -304,6 +308,7 @@ def create_single_station_bar_image(station_name, station_data_list, bar_width, 
                                                 bar_fg_color,
                                                 bar_bg_color,
                                                 bar_height,
+                                                use_log_scaling,
                                                 interpolation_type)
     
     # Add the station name as a label to the bar image
@@ -315,7 +320,8 @@ def create_single_station_bar_image(station_name, station_data_list, bar_width, 
 
 def create_single_station_bar_subset_image(station_name, station_data_list, start_pt_norm, end_pt_norm,
                                            bar_width, bar_fg_color,
-                                           bar_bg_color = (40, 40, 40), bar_height = 21):
+                                           bar_bg_color = (40, 40, 40), bar_height = 21,
+                                           use_log_scaling = False):
     
     # Draw a reduced version of the station data bar image
     station_bar_subset_image = create_single_bar_subset_image(station_data_list,
@@ -324,7 +330,8 @@ def create_single_station_bar_subset_image(station_name, station_data_list, star
                                                               bar_width, 
                                                               bar_fg_color,
                                                               bar_bg_color,
-                                                              bar_height)
+                                                              bar_height,
+                                                              use_log_scaling)
     
     # Add the station name as a label
     station_bar_subset_image = draw_bar_label(station_bar_subset_image, station_name)
