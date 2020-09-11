@@ -226,16 +226,12 @@ class Hover_Color_Object(Smooth_Hover_Object_Reconstruction):
 
 # .....................................................................................................................
 
-def show_looping_animation(snapshot_database, object_database, object_list,
+def show_looping_animation(snapshot_database, object_database, object_ref, colorbar_frame,
                            start_buffer_time_sec = 3.0, end_buffer_time_sec = 5.5):
-
-    # Don't do anything if there are no objects to animate! (i.e. a blank area was clicked)
-    if len(object_list) == 0:
-        return
     
     # Figure out the time range to animate over
-    earliest_time_ems = np.min([each_obj.start_ems for each_obj in object_list])
-    latest_time_ems = np.max([each_obj.end_ems for each_obj in object_list])
+    earliest_time_ems = object_ref.start_ems
+    latest_time_ems = object_ref.end_ems
     
     # Set up buffer times (used to extend animation range to include time before/after object existence)
     start_buffer_time_ms = int(start_buffer_time_sec * 1000.0)
@@ -252,11 +248,7 @@ def show_looping_animation(snapshot_database, object_database, object_list,
     avg_snap_period_ms = np.median(np.diff(anim_snapshot_times_ms))
     
     # Set up the display window
-    only_one_obj = (len(object_list) == 1)
-    get_id_as_str = lambda obj_ref: str(obj_ref.full_id if only_one_obj else obj_ref.nice_id)
-    object_ids_string = ", ".join([get_id_as_str(each_obj) for each_obj in object_list])
-    obj_prefix = "Object" if only_one_obj else "Objects:"
-    window_title = "{} {}".format(obj_prefix, object_ids_string)
+    window_title = "Object {}".format(object_ref.full_id)
     anim_window = Simple_Window(window_title)
     anim_window.move_corner_pixels(x_pixels = 400, y_pixels = 200)
     
@@ -280,15 +272,17 @@ def show_looping_animation(snapshot_database, object_database, object_list,
         # Get each snapshot and draw all outlines/trails for all objects in the frame
         snap_md = snap_db.load_snapshot_metadata_by_ems(current_snap_time_ms)
         snap_image, snap_frame_idx = snapshot_database.load_snapshot_image(current_snap_time_ms)
-        for each_obj in object_list:
-            each_obj.draw_trail(snap_image, snap_frame_idx, current_snap_time_ms)
-            each_obj.draw_outline(snap_image, snap_frame_idx, current_snap_time_ms)
+        
+        # Draw object trail/outline data
+        object_ref.draw_trail(snap_image, snap_frame_idx, current_snap_time_ms)
+        object_ref.draw_outline(snap_image, snap_frame_idx, current_snap_time_ms)
         
         # Draw timestamp to indicate help playback position
         cnr_timestamp.draw_timestamp(snap_image, snap_md)
         
         # Display the snapshot image, but stop if the window is closed
-        winexists = anim_window.imshow(snap_image)
+        combined_frame = np.vstack((snap_image, colorbar_frame))
+        winexists = anim_window.imshow(combined_frame)
         if not winexists:
             break
         
@@ -384,7 +378,7 @@ hover_map = Hover_Mapping(obj_by_class_dict)
 trails_background = create_trail_frame_from_object_reconstruction(bg_frame, ordered_obj_list)
 
 # Create background bar frame for drawing color sample info
-bar_height = 30
+bar_height = 22
 bar_bg_color = (40,40,40)
 bar_background = np.full((bar_height, frame_width, 3), bar_bg_color, dtype=np.uint8)
 
@@ -425,8 +419,7 @@ while True:
             
             # Play an animation if the user clicks on the highlighted trail
             if trail_hover_callback.left_clicked():
-                objs_to_animate_list = [obj_ref]
-                show_looping_animation(snap_db, obj_db, objs_to_animate_list)
+                show_looping_animation(snap_db, obj_db, obj_ref, colorbar_frame)
     
     # Show final display
     combined_frame = np.vstack((display_frame, colorbar_frame))
