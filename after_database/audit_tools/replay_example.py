@@ -53,9 +53,13 @@ import argparse
 import cv2
 import numpy as np
 
+from tqdm import tqdm
+
 from local.lib.ui_utils.cli_selections import Resource_Selector
 from local.lib.ui_utils.local_ui.windows_base import Simple_Window
 from local.lib.ui_utils.screen_info import Screen_Info
+
+from local.lib.file_access_utils.settings import load_recording_info
 
 from local.lib.audit_tools.playback import Snapshot_Playback, Corner_Timestamp, get_playback_line_coords
 from local.lib.audit_tools.playback import Timestamp_Row, get_start_end_timestamp_strs
@@ -68,6 +72,8 @@ from local.offline_database.object_reconstruction import Object_Density_Bars_Dis
 from local.offline_database.classification_reconstruction import create_objects_by_class_dict, get_ordered_object_list
 
 from local.eolib.utils.cli_tools import Datetime_Input_Parser as DTIP
+from local.eolib.utils.cli_tools import cli_confirm, cli_prompt_with_defaults
+from local.eolib.video.read_write import Video_Recorder
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -149,6 +155,39 @@ def parse_replay_args():
     arg_relative_timestamp = args["relative_timestamp"]
     
     return arg_timestamp_position, arg_relative_timestamp
+
+# .....................................................................................................................
+
+def create_video_recorder(project_root_path, location_select, camera_select,
+                          first_timestamp, final_timestamp, 
+                          recording_fps, recording_frame_wh):
+    
+    # Load codec/file extension settings
+    recording_info_dict = load_recording_info(project_root_path)
+    recording_file_ext = recording_info_dict["file_extension"]
+    recording_codec = recording_info_dict["codec"]
+    
+    # Make sure we add a leading dot to the file extension
+    recording_file_ext = "".join([".", recording_file_ext]).replace("..", ".")
+    
+    # Make sure to remove colons from timestamps
+    first_ts_str = first_timestamp.replace(":", "")
+    final_ts_str = final_timestamp.replace(":", "")
+    
+    # Build save pathing
+    recording_filename = "trails-{}-({}_{}){}".format(camera_select, first_ts_str, final_ts_str, recording_file_ext)
+    desktop_path = os.path.expanduser(os.path.join("~", "Desktop"))
+    recording_folder = os.path.join(desktop_path, "safety-cv-exports", "recordings", location_select)
+    save_path = os.path.join(recording_folder, recording_filename)
+    os.makedirs(recording_folder, exist_ok = True)
+    
+    # Create video writer object
+    vwriter = Video_Recorder(save_path,
+                             recording_FPS = recording_fps,
+                             recording_WH = recording_frame_wh,
+                             codec = recording_codec)
+    
+    return save_path, vwriter
 
 # .....................................................................................................................
 # .....................................................................................................................
@@ -320,11 +359,19 @@ print("",
       "",
       "  While playing, click on the timebar to change playback position",
       "",
+      "",
+      "  Press 'r' to record the current video",
+      "  -> A prompt will appear in the terminal to confirm recording",
+      "",
       "Press Esc to close", "", sep="\n", flush = True)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Data playback
+
+# Set up recording key press
+record_keypress = ord("r")
+user_confirm_record = False
 
 # Set up object to handle drawing playback timestamps
 cnr_timestamp = Corner_Timestamp(snap_shape, timestamp_pos_arg, user_start_dt, enable_relative_timestamp)
@@ -365,14 +412,14 @@ while True:
         if anim_drag_callback.right_clicked():
             snap_idx = start_snap_loop_idx
     
-    # Load each snapshot image & draw object annoations over top
+    # Load each snapshot image & draw object annotations over top
     snap_md = snap_db.load_snapshot_metadata_by_ems(current_snap_time_ms)
     snap_image, snap_frame_idx = snap_db.load_snapshot_image(current_snap_time_ms)
     for each_obj in ordered_obj_list:
         each_obj.draw_trail(snap_image, snap_frame_idx, current_snap_time_ms)
         each_obj.draw_outline(snap_image, snap_frame_idx, current_snap_time_ms)
     
-    # Draw playback line indicator onto the station bars image
+    # Draw playback line indicator onto the object activity bars image
     playback_px = playback_ctrl.playback_as_pixel_location(snap_width, snap_idx, start_snap_loop_idx, end_snap_loop_idx)
     play_pt1, play_pt2 = get_playback_line_coords(playback_px, subset_img_height)
     anim_bars_image = subset_bars_base_img.copy()
@@ -429,9 +476,84 @@ while True:
     if req_break:
         break
     
+    # Check for recording trigger
+    if keypress == record_keypress:
+        user_confirm_record = cli_confirm("Record video?", default_response = False)
+        if user_confirm_record:
+            break
 
 # Clean up
 cv2.destroyAllWindows()
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Handle Recording
+
+# Only record if the user confirms it
+if user_confirm_record:
+    
+    # Get snapshot indexing from playback controller
+    start_snap_loop_idx, end_snap_loop_idx = playback_ctrl.get_loop_indices()
+    loop_start_end_idxs = (start_snap_loop_idx, end_snap_loop_idx)
+    
+    # Get the start/end timestamps for filenaming
+    first_timestamp, final_timestamp, start_end_duration_sec = \
+    get_start_end_timestamp_strs(snap_db, snap_times_ms_list, start_snap_loop_idx, end_snap_loop_idx)
+    
+    # Figure out recording framerate
+    recording_frame_delay_ms = playback_ctrl.frame_delay_ms
+    exact_fps = (1000.0 / recording_frame_delay_ms)
+    rounded_fps = (5.0 * np.round(exact_fps / 5.0))
+    default_recording_fps = min(60.0, rounded_fps)
+    recording_fps = cli_prompt_with_defaults("Enter timelapse factor:", default_recording_fps, return_type = float)
+    recording_frame_wh = anim_frame_wh
+    
+    # Create video writer
+    save_path, vwriter = create_video_recorder(project_root_path, location_select, camera_select, 
+                                               first_timestamp, final_timestamp,
+                                               recording_fps, recording_frame_wh)
+    
+    try:
+        # Record all frames in the playback looping range
+        print("", 
+              "Recording video!",
+              "@ {}".format(save_path), 
+              "", sep = "\n")
+        for snap_idx in tqdm(range(start_snap_loop_idx, end_snap_loop_idx)):
+            
+            # Get the next snap time
+            current_snap_time_ms = snap_times_ms_list[snap_idx]
+            
+            # Load each snapshot metadata & image 
+            snap_md = snap_db.load_snapshot_metadata_by_ems(current_snap_time_ms)
+            snap_image, snap_frame_idx = snap_db.load_snapshot_image(current_snap_time_ms)
+            
+            # Draw object outlines & trails
+            for each_obj in ordered_obj_list:
+                each_obj.draw_trail(snap_image, snap_frame_idx, current_snap_time_ms)
+                each_obj.draw_outline(snap_image, snap_frame_idx, current_snap_time_ms)
+            
+            # Draw playback line indicator onto the station bars image
+            playback_px = playback_ctrl.playback_as_pixel_location(snap_width, snap_idx, *loop_start_end_idxs)
+            play_pt1, play_pt2 = get_playback_line_coords(playback_px, subset_img_height)
+            anim_bars_image = subset_bars_base_img.copy()
+            anim_bars_image = cv2.line(anim_bars_image, play_pt1, play_pt2, (255, 255, 255), 1)
+            
+            # Draw timestamp to indicate help playback position
+            cnr_timestamp.draw_timestamp(snap_image, snap_md)
+            
+            # Display the snapshot image, but stop if the window is closed
+            combined_image = np.vstack((snap_image, anim_bars_image))
+            
+            # Record frame!
+            vwriter.write(combined_image)
+        
+    except KeyboardInterrupt:
+        print("Keyboard interrupt! Closing...")
+
+    # Clean up
+    vwriter.release()
+    print("")
 
 
 # ---------------------------------------------------------------------------------------------------------------------
