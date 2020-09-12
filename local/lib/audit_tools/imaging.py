@@ -175,7 +175,8 @@ def create_1_channel_bar_image(data_array, bar_wh, bar_fg_color, bar_bg_color, u
     # Normalize & create color scale
     norm_data = ((data_array - data_min) / (data_max - data_min))
     if use_log_scaling:
-        norm_data = np.log(1.0 + 100.0 * norm_data) / np.log(101.0)
+        log_squash = 1000.0
+        norm_data = np.log(1.0 + log_squash * norm_data) / np.log(1.0 + log_squash)
     bgr_dict = {0: bar_bg_color, 255: bar_fg_color}
     cmap = create_interpolated_colormap(bgr_dict)
     
