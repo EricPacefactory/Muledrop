@@ -65,21 +65,12 @@ from local.online_database.request_from_dbserver import Camerainfo, Configinfo, 
 from local.online_database.request_from_dbserver import Snapshots, Objects, Stations
 
 from local.lib.file_access_utils.locations import load_location_info_dict, unpack_location_info_dict
-from local.lib.file_access_utils.reporting import build_camera_info_metadata_report_path
-from local.lib.file_access_utils.reporting import build_config_info_metadata_report_path
-from local.lib.file_access_utils.reporting import build_snapshot_metadata_report_path
-from local.lib.file_access_utils.reporting import build_object_metadata_report_path
-from local.lib.file_access_utils.reporting import build_station_metadata_report_path
-from local.lib.file_access_utils.reporting import build_background_metadata_report_path
-from local.lib.file_access_utils.reporting import build_snapshot_image_report_path
-from local.lib.file_access_utils.reporting import build_background_image_report_path
 from local.lib.file_access_utils.metadata_read_write import save_json_metadata, save_jsongz_metadata
 from local.lib.file_access_utils.image_read_write import write_encoded_jpg
 
 from local.eolib.utils.quitters import ide_quit
 from local.eolib.utils.cli_tools import Datetime_Input_Parser as DTIP
 from local.eolib.utils.cli_tools import cli_select_from_list, cli_confirm
-from local.eolib.utils.files import create_missing_folder_path
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -170,7 +161,7 @@ host_ip, _, _, dbserver_port, _ = \
 unpack_location_info_dict(location_info_dict)
 
 # Confirm that we have a connection to the server
-server_ref = Server_Access(dbserver_protocol, host_ip, dbserver_port)
+server_ref = Server_Access(host_ip, dbserver_port, is_secured = False)
 connection_is_valid = server_ref.check_server_connection()
 if not connection_is_valid:
     ide_quit("Couldn't connect to data server! ({})".format(server_ref.server_url))
@@ -278,7 +269,6 @@ delete_existing_report_data(location_select_folder_path, camera_select,
                             enable_deletion = True,
                             enable_deletion_prompt = True)
 
-
 # For convenience
 report_path_args = (location_select_folder_path, camera_select)
 
@@ -293,8 +283,7 @@ start_time_sec = perf_counter()
 if camerainfo_count > 0:
     
     # Get the save folder for camerainfo metadata
-    caminfo_save_folder = build_camera_info_metadata_report_path(*report_path_args)
-    create_missing_folder_path(caminfo_save_folder)
+    caminfo_save_folder = caminfo.build_metadata_save_path()
     
     # Download & save metadata
     print("", "Saving camera info metadata", sep = "\n", flush = True)
@@ -308,8 +297,7 @@ if camerainfo_count > 0:
 if configinfo_count > 0:
     
     # Get the save folder for configinfo metadata
-    cfginfo_save_folder = build_config_info_metadata_report_path(*report_path_args)
-    create_missing_folder_path(cfginfo_save_folder)
+    cfginfo_save_folder = cfginfo.build_metadata_save_path()
     
     # Download & save metadata
     print("", "Saving config info metadata", sep = "\n", flush = True)
@@ -323,12 +311,8 @@ if configinfo_count > 0:
 if background_count > 0:
     
     # Get save folders for background data
-    bg_md_save_folder = build_background_metadata_report_path(*report_path_args)
-    bg_img_save_folder = build_background_image_report_path(*report_path_args)
-    
-    # Make sure the save folders exist!
-    create_missing_folder_path(bg_md_save_folder)
-    create_missing_folder_path(bg_img_save_folder)
+    bg_md_save_folder = backgrounds.build_metadata_save_path()
+    bg_img_save_folder = backgrounds.build_image_save_path()
     
     # Ask server for every target ems, then download & save each metadata/image separately
     print("", "Saving background data", sep = "\n", flush = True)
@@ -350,8 +334,7 @@ if background_count > 0:
 if object_count > 0:
     
     # Get save folder for object data
-    obj_save_folder = build_object_metadata_report_path(*report_path_args)
-    create_missing_folder_path(obj_save_folder)
+    obj_save_folder = objects.build_metadata_save_path()
     
     # Ask server for every object id, then download & save each metadata entry
     print("", "Saving object data", sep = "\n", flush = True)
@@ -368,8 +351,7 @@ if object_count > 0:
 if station_count > 0:
     
     # Get save folder for station data
-    stn_save_folder = build_station_metadata_report_path(*report_path_args)
-    create_missing_folder_path(stn_save_folder)
+    stn_save_folder = stations.build_metadata_save_path()
     
     # Ask server for every station entry, then download & save each metadata entry
     print("", "Saving station data", sep = "\n", flush = True)
@@ -386,12 +368,8 @@ if station_count > 0:
 if snapshot_count > 0:
     
     # Get save folders for snapshot data
-    snap_md_save_folder = build_snapshot_metadata_report_path(*report_path_args)
-    snap_img_save_folder = build_snapshot_image_report_path(*report_path_args)
-    
-    # Make sure the save folders exist!
-    create_missing_folder_path(snap_md_save_folder)
-    create_missing_folder_path(snap_img_save_folder)
+    snap_md_save_folder = snapshots.build_metadata_save_path()
+    snap_img_save_folder = snapshots.build_image_save_path()
     
     # Some feedback about downloading/save snapshot data
     print("", "Saving snapshot data", sep = "\n", flush = True)
