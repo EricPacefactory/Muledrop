@@ -71,6 +71,7 @@ from local.lib.file_access_utils.image_read_write import write_encoded_jpg
 from local.eolib.utils.quitters import ide_quit
 from local.eolib.utils.cli_tools import Datetime_Input_Parser as DTIP
 from local.eolib.utils.cli_tools import cli_select_from_list, cli_confirm
+from local.eolib.utils.files import create_missing_folder_path
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -103,24 +104,18 @@ def parse_restore_args(debug_print = False):
     
     # Build & evaluate script arguments!
     ap_obj = script_arg_builder(args_list,
-                                   description = script_description,
-                                   parse_on_call = False,
-                                   debug_print = debug_print)
+                                description = script_description,
+                                parse_on_call = False,
+                                debug_print = debug_print)
     
     # Add argument for controlling snapshot sampling
-    default_n_snapshots = -1
+    default_n_snapshots = 0
     ap_obj.add_argument("-n", "--n_snapshots", default = default_n_snapshots, type = int,
                         help = "\n".join(["Number of snapshots to download",
                                           "By default, all snapshots in the selected",
                                           "time range will be downloaded. However, this",
                                           "value can be set to download fewer snapshots",
                                           "at the expense of a coarser resolution in time."]))
-    
-    # Add argument for enabling gzip on requests
-    ap_obj.add_argument("-z", "--gzip", default = False, action = "store_true",
-                        help = "\n".join(["Enable gzip on requests",
-                                          "Use this to reduce download time,",
-                                          "at the expense of more heavily loading the server itself."]))
     
     # Evaluate args now
     ap_result = vars(ap_obj.parse_args())
@@ -138,7 +133,6 @@ def parse_restore_args(debug_print = False):
 ap_result = parse_restore_args()
 n_snapshots = ap_result["n_snapshots"]
 dbserver_protocol = ap_result["protocol"]
-req_gzip = ap_result["gzip"]
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -269,9 +263,6 @@ delete_existing_report_data(location_select_folder_path, camera_select,
                             enable_deletion = True,
                             enable_deletion_prompt = True)
 
-# For convenience
-report_path_args = (location_select_folder_path, camera_select)
-
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Download & save data
@@ -293,6 +284,7 @@ if camerainfo_count > 0:
     
     pass
 
+
 # Get config info data
 if configinfo_count > 0:
     
@@ -309,103 +301,24 @@ if configinfo_count > 0:
 
 # Get background data
 if background_count > 0:
-    
-    # Get save folders for background data
-    bg_md_save_folder = backgrounds.build_metadata_save_path()
-    bg_img_save_folder = backgrounds.build_image_save_path()
-    
-    # Ask server for every target ems, then download & save each metadata/image separately
     print("", "Saving background data", sep = "\n", flush = True)
-    bg_ems_list = backgrounds.get_ems_list_by_time_range(*time_range_args, use_gzip = req_gzip)
-    bg_md_list = (backgrounds.get_one_metadata_by_ems(each_ems) for each_ems in bg_ems_list)
-    for each_bg_md in tqdm(bg_md_list, total = len(bg_ems_list)):
-        
-        # Download image data
-        each_bg_ems = each_bg_md["epoch_ms"]
-        one_bg_jpg = backgrounds.get_one_image_by_ems(each_bg_ems)
-        
-        # Save data
-        save_json_metadata(bg_md_save_folder, each_bg_md)
-        write_encoded_jpg(bg_img_save_folder, each_bg_ems, one_bg_jpg)
-    
-    pass
+    backgrounds.save_stream_many_metadata_by_time_range(*time_range_args)
 
-# Get object data
+# Get object data (websocket)
 if object_count > 0:
-    
-    # Get save folder for object data
-    obj_save_folder = objects.build_metadata_save_path()
-    
-    # Ask server for every object id, then download & save each metadata entry
     print("", "Saving object data", sep = "\n", flush = True)
-    obj_id_list = objects.get_ids_list_by_time_range(*time_range_args)
-    for each_obj_id in tqdm(obj_id_list):
-        
-        # Download & save data
-        one_obj_md = objects.get_one_metadata_by_id(each_obj_id, use_gzip = req_gzip)
-        save_jsongz_metadata(obj_save_folder, one_obj_md)
-    
-    pass
+    objects.save_stream_many_metadata_by_time_range(*time_range_args)
 
-# Get station info
+
+# Get station info (websocket)
 if station_count > 0:
-    
-    # Get save folder for station data
-    stn_save_folder = stations.build_metadata_save_path()
-    
-    # Ask server for every station entry, then download & save each metadata entry
     print("", "Saving station data", sep = "\n", flush = True)
-    stn_id_list = stations.get_ids_list_by_time_range(*time_range_args)
-    for each_stn_id in tqdm(stn_id_list):
-        
-        # Download & save data
-        one_stn_md = stations.get_one_metadata_by_id(each_stn_id, use_gzip = req_gzip)
-        save_jsongz_metadata(stn_save_folder, one_stn_md)
-    
-    pass
+    stations.save_stream_many_metadata_by_time_range(*time_range_args)
 
-# Get snapshot data
+# Get snapshot data (websocket)
 if snapshot_count > 0:
-    
-    # Get save folders for snapshot data
-    snap_md_save_folder = snapshots.build_metadata_save_path()
-    snap_img_save_folder = snapshots.build_image_save_path()
-    
-    # Some feedback about downloading/save snapshot data
     print("", "Saving snapshot data", sep = "\n", flush = True)
-    
-    # Decide how we'll get snap metadata listing based on the amount of data we're expecting
-    small_number_of_snapshots = (snapshot_count < 2000)
-    snap_md_list = []
-    if use_snapshot_downsampling:
-        # If downsampling, use the dedicated n-samples route
-        snap_md_list = snapshots.get_many_metadata_by_time_range_n_samples(*time_range_args, n_snapshots,
-                                                                           use_gzip = req_gzip)
-        total_snaps = len(snap_md_list)
-        
-    elif small_number_of_snapshots:
-        # If not 'too many' snapshots are requested, grab the metadata as a single bundle
-        snap_md_list = snapshots.get_many_metadata_by_time_range(*time_range_args, use_gzip = req_gzip)
-        total_snaps = len(snap_md_list)
-        
-    else:
-        # If we're not downsampling and we're getting a lot of images, pull them one-by-one
-        snap_ems_list = snapshots.get_ems_list_by_time_range(*time_range_args, use_gzip = req_gzip)
-        snap_md_list = (snapshots.get_one_metadata_by_ems(each_ems) for each_ems in snap_ems_list)
-        total_snaps = len(snap_ems_list)
-    
-    # Save each metadata entry + corresponding image data
-    for each_snap_md in tqdm(snap_md_list, total = total_snaps):
-        
-        # Download image data
-        each_snap_ems = each_snap_md["epoch_ms"]
-        one_snap_jpg = snapshots.get_one_image_by_ems(each_snap_ems)
-        
-        # Save data
-        save_json_metadata(snap_md_save_folder, each_snap_md)
-        write_encoded_jpg(snap_img_save_folder, each_snap_ems, one_snap_jpg)
-    
-    pass
+    snapshots.save_stream_many_metadata_by_time_range_n_samples(*time_range_args, n_snapshots)
 
 
 # ---------------------------------------------------------------------------------------------------------------------

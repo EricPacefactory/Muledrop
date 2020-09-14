@@ -322,10 +322,10 @@ class Camerainfo(Camera_Data_Retrieval):
     
     # .................................................................................................................
     
-    def __init__(self, server_access_ref, camera_select):
+    def __init__(self, server_access_ref, location_select_folder_path, camera_select):
         
         # Inherit from parent class
-        super().__init__(server_access_ref, camera_select)
+        super().__init__(server_access_ref, location_select_folder_path, camera_select)
     
     # .................................................................................................................
     
@@ -417,10 +417,10 @@ class Configinfo(Camera_Data_Retrieval):
     
     # .................................................................................................................
     
-    def __init__(self, server_access_ref, camera_select):
+    def __init__(self, server_access_ref, location_select_folder_path, camera_select):
         
         # Inherit from parent class
-        super().__init__(server_access_ref, camera_select)
+        super().__init__(server_access_ref, location_select_folder_path, camera_select)
     
     # .................................................................................................................
     
@@ -512,10 +512,10 @@ class Backgrounds(Camera_Data_Retrieval):
     
     # .................................................................................................................
     
-    def __init__(self, server_access_ref, camera_select):
+    def __init__(self, server_access_ref, location_select_folder_path, camera_select):
         
         # Inherit from parent class
-        super().__init__(server_access_ref, camera_select)
+        super().__init__(server_access_ref, location_select_folder_path, camera_select)
     
     # .................................................................................................................
     
@@ -949,10 +949,10 @@ class Objects(Camera_Data_Retrieval):
     
     # .................................................................................................................
     
-    def __init__(self, server_access_ref, camera_select):
+    def __init__(self, server_access_ref, location_select_folder_path, camera_select):
         
         # Inherit from parent class
-        super().__init__(server_access_ref, camera_select)
+        super().__init__(server_access_ref, location_select_folder_path, camera_select)
     
     # .................................................................................................................
     
@@ -1129,10 +1129,10 @@ class Stations(Camera_Data_Retrieval):
     
     # .................................................................................................................
     
-    def __init__(self, server_access_ref, camera_select):
+    def __init__(self, server_access_ref, location_select_folder_path, camera_select):
         
         # Inherit from parent class
-        super().__init__(server_access_ref, camera_select)
+        super().__init__(server_access_ref, location_select_folder_path, camera_select)
     
     # .................................................................................................................
     
@@ -1443,11 +1443,11 @@ async def save_stream_json_and_jpgs(request_url, json_save_folder_path, image_sa
             # Then save each of the json-jpg pairs
             for each_id in tqdm(ids_list):
                 
-                # json (metadata) data is sent first
-                metadata_str = await ws_connection.recv()
+                # json (metadata) data is sent first in binary format
+                metadata_bytes = await ws_connection.recv()
                 json_save_path = os.path.join(json_save_folder_path, "{}.json".format(each_id))
-                with open(json_save_path, "w") as json_out_file:
-                    json_out_file.write(metadata_str)
+                with open(json_save_path, "wb") as json_out_file:
+                    json_out_file.write(metadata_bytes)
                 
                 # jps (image) data is sent after
                 image_bytes = await ws_connection.recv()
