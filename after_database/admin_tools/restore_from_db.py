@@ -65,13 +65,11 @@ from local.online_database.request_from_dbserver import Camerainfo, Configinfo, 
 from local.online_database.request_from_dbserver import Snapshots, Objects, Stations
 
 from local.lib.file_access_utils.locations import load_location_info_dict, unpack_location_info_dict
-from local.lib.file_access_utils.metadata_read_write import save_json_metadata, save_jsongz_metadata
-from local.lib.file_access_utils.image_read_write import write_encoded_jpg
+from local.lib.file_access_utils.metadata_read_write import save_jsongz_metadata
 
 from local.eolib.utils.quitters import ide_quit
 from local.eolib.utils.cli_tools import Datetime_Input_Parser as DTIP
 from local.eolib.utils.cli_tools import cli_select_from_list, cli_confirm
-from local.eolib.utils.files import create_missing_folder_path
 
 
 # ---------------------------------------------------------------------------------------------------------------------

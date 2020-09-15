@@ -67,6 +67,7 @@ from local.lib.file_access_utils.reporting import build_station_metadata_report_
 from local.lib.file_access_utils.reporting import build_background_metadata_report_path
 from local.lib.file_access_utils.reporting import build_snapshot_image_report_path
 from local.lib.file_access_utils.reporting import build_background_image_report_path
+from local.lib.file_access_utils.metadata_read_write import decode_jsongz_data
 
 from local.eolib.utils.files import create_missing_folder_path
 
@@ -1379,8 +1380,8 @@ async def save_stream_json(request_url, save_folder_path):
         
         try:
             # First capture the list of IDs which will be streamed
-            ids_list_str = await ws_connection.recv()
-            ids_list = ujson.loads(ids_list_str)
+            ids_list_jsongz_bytes = await ws_connection.recv()
+            ids_list = decode_jsongz_data(ids_list_jsongz_bytes)
             
             # Then wait for each entry to be streamed
             for each_id in tqdm(ids_list):
@@ -1408,8 +1409,8 @@ async def save_stream_jsongz(request_url, save_folder_path):
         
         try:
             # First capture the list of IDs which will be streamed
-            ids_list_str = await ws_connection.recv()
-            ids_list = ujson.loads(ids_list_str)
+            ids_list_jsongz_bytes = await ws_connection.recv()
+            ids_list = decode_jsongz_data(ids_list_jsongz_bytes)
             
             # Then receive and save each of the streamed entries
             for each_id in tqdm(ids_list):
@@ -1437,8 +1438,8 @@ async def save_stream_json_and_jpgs(request_url, json_save_folder_path, image_sa
         
         try:
             # First capture the list of IDs which will be streamed
-            ids_list_str = await ws_connection.recv()
-            ids_list = ujson.loads(ids_list_str)
+            ids_list_jsongz_bytes = await ws_connection.recv()
+            ids_list = decode_jsongz_data(ids_list_jsongz_bytes)
             
             # Then save each of the json-jpg pairs
             for each_id in tqdm(ids_list):
