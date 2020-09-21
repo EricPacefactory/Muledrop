@@ -240,7 +240,7 @@ def get_rtsp_framerate_estimate(video_reader_ref, minutes_to_run = 1):
     print("",
           "Video framerate reported as {:.3f}".format(reported_framerate),
           "  --> Will now estimate actual framerate from stream",
-          "      this will take about {} minute(s)...".format(minutes_to_run),
+          "      this will take about {:.0f} seconds...".format(random_seconds_to_run),
           sep = "\n")
     
     # Burn the first few frames, in case frames were being buffered
@@ -272,6 +272,13 @@ def get_rtsp_framerate_estimate(video_reader_ref, minutes_to_run = 1):
     print("",
           "Experimentally determined framerate as {:.3f}".format(framerate_estimate),
           sep = "\n")
+    
+    # Crash the system if the framerate makes no sense
+    # (may happen if the camera isn't working properly during this connecton attempt)
+    bad_framerate = (1 < framerate_estimate < 65)
+    if bad_framerate:
+        error_message = "Bad framerate ({:.1f}), something wrong with the camera?".format(framerate_estimate)
+        raise ValueError(error_message)
     
     return framerate_estimate
 

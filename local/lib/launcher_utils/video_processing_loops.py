@@ -86,7 +86,7 @@ class Video_Processing_Loop:
     def _loop_no_display(self, enable_progress_bar = False):
         
         # Allocate storage for buffering time info, in case of sudden close/clean up
-        prev_fed_time_args = None
+        prev_fed_time_args = [None, None, None]
         
         # Set up progress bar
         if enable_progress_bar:
@@ -144,7 +144,7 @@ class Video_Processing_Loop:
     def _loop_with_display(self, enable_progress_bar = False):
         
         # Allocate storage for buffering time info, in case of sudden close/clean up
-        prev_fed_time_args = None
+        prev_fed_time_args = [None, None, None]
         
         # Set up display windows
         window_ref, display_obj = create_simple_display_window(self.loader)
@@ -413,7 +413,7 @@ class Reconfigurable_Video_Loop(Video_Processing_Loop):
         ''' Reconfigurable video loop '''
         
         # Allocate storage for buffering time info in case of sudden close/clean up
-        prev_fed_time_args = None
+        prev_fed_time_args = [None, None, None]
         
         try:
         

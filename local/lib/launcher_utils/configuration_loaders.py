@@ -499,6 +499,10 @@ class File_Configuration_Loader:
         # Clean up video capture
         self.close_video_reader()
         
+        # Handle case where final time arguments weren't set (i.e. system never properly started up)
+        if None in fed_time_args:
+            return
+        
         # Close externals
         self.snapcap.close(*fed_time_args)
         self.bgcap.close(*fed_time_args)
