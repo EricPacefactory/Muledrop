@@ -99,7 +99,7 @@ class Configurable(Reference_Object_Capture):
                              current_frame_index, current_epoch_ms, current_datetime):
         
         # Only save objects that have existed for 'long enough'
-        # -> Also save objects with ancestors, evne if the object is short-lived
+        # -> Also save objects with ancestors, even if the object is short-lived
         has_ancestor = (object_metadata["ancestor_id"] != 0)
         object_lifetime_ms = object_metadata["lifetime_ms"]
         save_object_data = has_ancestor or (object_lifetime_ms > self.minimum_object_lifetime_ms)

@@ -449,7 +449,7 @@ class Reference_Trackable_Object:
         # Initialize history data
         self.update_id(nice_id, full_id)
         self.update_from_detection(detection_object, current_frame_index, current_epoch_ms, current_datetime)
-        
+    
     # .................................................................................................................
     
     def __repr__(self):        
@@ -461,7 +461,7 @@ class Reference_Trackable_Object:
     @classmethod
     def set_max_samples(cls, max_samples):
         cls.max_samples = min(max_samples, cls.max_allowable_samples)
-        
+    
     # .................................................................................................................
     
     @classmethod
@@ -513,7 +513,7 @@ class Reference_Trackable_Object:
         self.set_descendant_id(new_full_id)
         
         return new_descendant
-        
+    
     # .................................................................................................................
     
     def update_id(self, short_id, full_id):
@@ -538,7 +538,7 @@ class Reference_Trackable_Object:
         '''
         
         self.ancestor_id = ancestor_id
-        
+    
     # .................................................................................................................
     
     def set_descendant_id(self, descendant_id):
@@ -568,16 +568,16 @@ class Reference_Trackable_Object:
         
         # Copy new data into object
         self.verbatim_update(new_hull_array, new_xy_cen_array, new_color_sample_rgb, new_track_status)
-        
+    
     # .................................................................................................................
-        
+    
     def update_from_self(self, propagation_weight = -1.0):
         
         ''' Function which specifies how to update an object from it's own data (i.e. no detection available) '''
         
         use_propagation = (propagation_weight > 0.0)
         self.propagate_from_self(propagation_weight) if use_propagation else self.duplicate_from_self()
-        
+    
     # .................................................................................................................
     
     def get_detection_parameters(self, detection_object):
@@ -588,9 +588,9 @@ class Reference_Trackable_Object:
         '''
         
         return detection_object.hull_array, detection_object.xy_center_array, detection_object.color_sample_rgb
-       
+    
     # .................................................................................................................
-
+    
     def verbatim_update(self, new_hull_array, new_xy_center_array, new_color_sample_rgb, new_track_status = 1):
         
         '''
@@ -611,7 +611,7 @@ class Reference_Trackable_Object:
         
         # Update tracking status (should be True/1 if we're matched to something, otherwise False/0)
         self.track_status_history.append(new_track_status)
-        
+    
     # .................................................................................................................
     
     def duplicate_from_self(self):
@@ -624,9 +624,9 @@ class Reference_Trackable_Object:
         
         # Use existing update function to avoid duplicating tracking logic...
         self.verbatim_update(new_hull_array, new_xy_cen_array, new_color_sample_rgb, new_track_status)
-        
+    
     # .................................................................................................................
-        
+    
     def propagate_from_self(self, weighting = 0.9, new_track_status = 0):
         
         ''' Function which propagates an objects trajectory, using it's own history '''
@@ -718,9 +718,9 @@ class Reference_Trackable_Object:
                               "hull": self._deque_of_arrays_to_list(self.hull_history, final_num_samples)}
         
         return tracking_data_dict, final_num_samples
-        
+    
     # .................................................................................................................
-        
+    
     def _update_final_match_data(self, current_frame_index, current_epoch_ms, current_datetime):
         
         # Update the last match timing, since we've matched with a new detection
@@ -733,7 +733,7 @@ class Reference_Trackable_Object:
     @staticmethod
     def _deque_of_arrays_to_list(deque_of_arrays, final_sample_index):
         return [each_array.tolist() for each_array in deque_of_arrays][:final_sample_index]
-        
+    
     # .................................................................................................................
     #%% Postioning functions
     
