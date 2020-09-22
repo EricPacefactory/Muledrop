@@ -275,8 +275,8 @@ def get_rtsp_framerate_estimate(video_reader_ref, minutes_to_run = 1):
     
     # Crash the system if the framerate makes no sense
     # (may happen if the camera isn't working properly during this connecton attempt)
-    bad_framerate = (1 < framerate_estimate < 65)
-    if bad_framerate:
+    good_framerate = (1 < framerate_estimate < 65)
+    if not good_framerate:
         error_message = "Bad framerate ({:.1f}), something wrong with the camera?".format(framerate_estimate)
         raise ValueError(error_message)
     
