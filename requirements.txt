@@ -13,7 +13,7 @@ tqdm==4.*
 # Improved JSON library (compared to built-in python lib)
 ujson==1.*
 
-# Library for GET/POST requests
+# Libraries for GET/POST & websocket requests
 requests==2.*
 websockets==8.*
 
