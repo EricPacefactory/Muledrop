@@ -15,6 +15,7 @@ ujson==1.*
 
 # Library for GET/POST requests
 requests==2.*
+websockets==8.*
 
 # Simple web framework
 Flask==1.*
