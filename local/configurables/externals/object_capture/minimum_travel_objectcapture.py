@@ -91,6 +91,55 @@ class Configurable(Reference_Object_Capture):
                            "Also note that this value is interpretted relative to the tracking frame",
                            "co-ordinate system, so warping effects will be taken into account"])
         
+        self.sampling_factor = \
+        self.ctrl_spec.attach_slider(
+                "sampling_factor",
+                label = "Sampling factor",
+                default_value = 1 / 10,
+                min_value = 1 / 200, max_value = 1.0, step_size = 1/1000,
+                return_type = float,
+                zero_referenced = True,
+                units = "normalized",
+                tooltip = ["To avoid heavy computations when determining travel distance",
+                           "(particularly for long-lived objects), the object xy co-ordinates can be",
+                           "downsampled before checking the travel distance. This also has the effect of",
+                           "requiring the object to 'stay' at a far distance for some time to be saved.",
+                           "This setting determines what fraction of the samples are used for the computation.",
+                           "Increasing this value will result in more accurate travel distance calculations",
+                           "for all objects in general, at the expense of slower computation times"])
+        
+        self.minimum_samples = \
+        self.ctrl_spec.attach_slider(
+                "minimum_samples",
+                label = "Minimum samples",
+                default_value = 9,
+                min_value = 3, max_value = 50,
+                return_type = int,
+                zero_referenced = True,
+                units = "samples",
+                tooltip = ["This setting controls the minimum number of samples used when checking",
+                           "the object travel distance. This is meant to counter-act downsampling",
+                           "functionality, so that in the case of short-lived objects,",
+                           "we don't end up with too few samples!",
+                           "Increasing this value will result in more accurate travel distance calculations",
+                           "for short-lived objects, at the expense of slower computation times"])
+        
+        self.maximum_samples = \
+        self.ctrl_spec.attach_slider(
+                "maximum_samples",
+                label = "Maximum samples",
+                default_value = 50,
+                min_value = 15, max_value = 500,
+                return_type = int,
+                zero_referenced = True,
+                units = "samples",
+                tooltip = ["This setting controls the maximum number of samples used when checking",
+                           "the object travel distance. This is meant to place an upper limit on sampling",
+                           "when dealing with very long-lived objects, which may still have thousands",
+                           "of samples even after applying the sampling factor.",
+                           "Increasing this value will result in more accurate travel distance calculations",
+                           "for long-lived objects, at the expense of slower computation times"])
+    
     # .................................................................................................................
     
     def reset(self):
@@ -105,6 +154,10 @@ class Configurable(Reference_Object_Capture):
         
         # Reset pre-caluclated scaling values
         self.reset()
+        
+        # Make sure the min/max downsample values are correctly ordered (i.e. min <= max)
+        self.minimum_samples, self.maximum_samples = \
+        sorted([self.minimum_samples, self.maximum_samples])
     
     # .................................................................................................................
     
@@ -114,28 +167,24 @@ class Configurable(Reference_Object_Capture):
         # Set up frame scaling data, if needed
         self._update_frame_scaling(object_metadata)
         
-        # Figure out how far the object travelled from it's original starting point
-        object_xy_array_px = (np.float32((object_metadata["tracking"]["xy_center"])) * self._frame_scaling)
-        object_initial_xy_px = object_xy_array_px[0, :]
+        # Figure out the max number of samples to check for travel distance
+        num_samples_total = object_metadata["num_samples"]
+        num_samples_to_check = int(num_samples_total * self.sampling_factor)
+        num_samples_to_check = max(self.minimum_samples, min(self.maximum_samples, num_samples_to_check))
         
-        # As a short-cut, we'll check the last point to see if it was already far enough
-        object_final_xy_px = object_xy_array_px[-1, :]
-        final_travel_distsq_px = np.int32(np.round(np.sum(np.square(object_final_xy_px - object_initial_xy_px))))
-        save_object_data = (final_travel_distsq_px >= self._min_travel_distsq_px)
-        if save_object_data:
-            return save_object_data
+        # Generate a sampling step size & sample indices (with min/max bounding for protection)
+        sample_idx_step_size = int(num_samples_total / num_samples_to_check)
+        sample_idx_step_size = max(1, min(num_samples_total - 1, sample_idx_step_size))
+        sample_idxs = np.arange(0, num_samples_total, sample_idx_step_size)
         
-        # As a follow-up shortcut, we'll check if the mid-point was far enough
-        num_samples = len(object_xy_array_px)
-        mid_point_idx = int(num_samples / 2)
-        object_mid_xy_px = object_xy_array_px[mid_point_idx, :]
-        mid_travel_distsq_px = np.int32(np.round(np.sum(np.square(object_mid_xy_px - object_initial_xy_px))))
-        save_object_data = (mid_travel_distsq_px >= self._min_travel_distsq_px)
-        if save_object_data:
-            return save_object_data
+        # Grab the down-samples xy points and convert to arrays for speed-up
+        object_xy_samples = [object_metadata["tracking"]["xy_center"][each_idx] for each_idx in sample_idxs]
+        object_xy_samples_array_px = (np.float32(object_xy_samples) * self._frame_scaling)
+        object_initial_xy_px = object_xy_samples_array_px[0, :]
         
-        # If we get this far, we'll have to check all object poitns to see if it travelled far enough to save
-        travel_distsq_px = np.int32(np.round(np.sum(np.square(object_xy_array_px - object_initial_xy_px), axis = 1)))
+        # Check distance travelled relative to object starting point to see if it should be saved
+        object_xy_delta = (object_xy_samples_array_px - object_initial_xy_px)
+        travel_distsq_px = np.int32(np.round(np.sum(np.square(object_xy_delta), axis = 1)))
         save_object_data = np.any(travel_distsq_px >= self._min_travel_distsq_px)
         
         return save_object_data
