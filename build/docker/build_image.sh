@@ -8,20 +8,7 @@ image_name="realtime_image"
 
 
 # -------------------------------------------------------------------------
-# Prompt to run git pull
-
-# Assume no by default, since we don't want to modify files accidentally
-container_restart="always"
-echo ""
-read -p "Run git pull before build? (y/[n]) " user_response
-case "$user_response" in
-  y|Y ) git pull;;
-  * ) ;;
-esac
-
-
-# -------------------------------------------------------------------------
-# Automated commands
+# Figure out pathing
 
 # Get shared pathing info
 this_script_relative_path=$0
@@ -33,6 +20,22 @@ build_folder_path=$(dirname $docker_folder_path)
 root_project_folder_path=$(dirname $build_folder_path)
 build_name=$(basename $root_project_folder_path)
 dockerfile_path="$docker_folder_path/Dockerfile"
+
+
+# -------------------------------------------------------------------------
+# Prompt to run git pull
+
+# Assume no by default, since we don't want to modify files accidentally
+echo ""
+read -p "Run git pull before build? (y/[n]) " user_response
+case "$user_response" in
+  y|Y ) pushd $root_project_folder_path > /dev/null; git pull; popd > /dev/null;;
+  * ) ;;
+esac
+
+
+# -------------------------------------------------------------------------
+# Build new image
 
 # Some feedback
 echo ""
