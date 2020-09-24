@@ -204,12 +204,21 @@ class Configurable(Reference_Background_Capture):
         # Finally, try to create a background image by taking the median of corresponding pixels along all captures
         try:
             new_background_image = np.uint8(np.round(np.median(frame_stack, axis = 0)))
-            if np.isnan(new_background_image):
-                new_background_image = None
             
-        except TypeError as err:
-            print("Error generating median background!")
-            print(err)
+            # Check that the result is properly shaped/sized
+            correct_dimensions = (len(new_background_image.shape) == 3)
+            bg_height, bg_width = new_background_image.shape[0:2]
+            correct_shape = (bg_width == target_width) and (bg_height == target_height)
+            if not (correct_dimensions and correct_shape):
+                print("Error generating background!",
+                      "  Correct dimensions: {}".format(correct_dimensions),
+                      "  Correct shape: {}".format(correct_shape), sep = "\n")
+                new_background_image = None
+        
+        except (AttributeError, IndexError, TypeError, ValueError) as err:
+            error_type = err.__class__.__name__
+            print("Error generating median background! ({})".format(error_type), err, sep = "\n")
+            new_background_image = None
 
         return new_background_image
     
