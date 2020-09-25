@@ -241,7 +241,17 @@ class Server_Access:
     
     # .................................................................................................................
     
-    def get_disk_usage(self, server_url, *,
+    def get_memory_usage(self, *,
+                         use_gzip = False, no_data_response = None, raise_errors = True):
+        
+        # Build url
+        req_url = self._build_http_request_url("get-memory-usage")
+        
+        return get_json(req_url, use_gzip, self.timeout_sec, no_data_response, raise_errors)
+    
+    # .................................................................................................................
+    
+    def get_disk_usage(self, *,
                        use_gzip = False, no_data_response = None, raise_errors = True):
         
         # Build url

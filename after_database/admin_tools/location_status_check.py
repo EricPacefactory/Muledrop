@@ -49,20 +49,15 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
-import requests
-
-from collections import OrderedDict
-
 from local.lib.common.environment import get_dbserver_protocol
 from local.lib.common.timekeeper_utils import isoformat_to_datetime, get_local_datetime
-from local.lib.common.feedback import print_time_taken_sec
 
 from local.lib.ui_utils.cli_selections import Resource_Selector
 from local.lib.ui_utils.script_arguments import script_arg_builder
 
-from local.lib.file_access_utils.locations import load_location_info_dict, unpack_location_info_dict
+from local.online_database.request_from_dbserver import Server_Access, Camerainfo, Snapshots
 
-from local.online_database.post_to_dbserver import check_server_connection
+from local.lib.file_access_utils.locations import load_location_info_dict, unpack_location_info_dict
 
 from local.eolib.utils.quitters import ide_quit
 
@@ -102,64 +97,6 @@ def parse_statuscheck_args(debug_print = False):
     return ap_result
 
 # .....................................................................................................................
-
-def build_url(server_url, *route_addons):
-    
-    # Force all add-ons to be strings
-    addon_strs = [str(each_addon) for each_addon in route_addons]
-    
-    # Remove any leading/trails slashes from add-ons
-    clean_addons = [each_addon.strip("/") for each_addon in addon_strs]
-    
-    # Combine add-ons to server url
-    request_url = "/".join([server_url, *clean_addons])
-    
-    return request_url
-
-# .....................................................................................................................
-
-def build_newest_camerainfo_url(server_url, camera_select):
-    return build_url(server_url, camera_select, "camerainfo", "get-newest-metadata")
-
-# .....................................................................................................................
-
-def build_newest_snapshot_url(server_url, camera_select):
-    return build_url(server_url, camera_select, "snapshots", "get-newest-metadata")
-
-# .....................................................................................................................
-# .....................................................................................................................
-
-
-# ---------------------------------------------------------------------------------------------------------------------
-#%% Network Functions
-
-# .....................................................................................................................
-
-def get_json(request_url, message_on_error = "Error requesting data!", raise_error = True):
-    
-    # Request data from the server
-    post_response = requests.get(request_url)
-    if post_response.status_code != 200:
-        if raise_error:
-            raise SystemError("{}\n@ {}".format(message_on_error, request_url))
-        return None
-    
-    # Convert json response data to python data type
-    return_data = post_response.json()
-    
-    return return_data
-
-# .....................................................................................................................
-
-def request_camera_list(server_url):
-    
-    # Build route for requesting camera names and make request
-    request_url = build_url(server_url, "get-all-camera-names")
-    camera_names_list = get_json(request_url)
-    
-    return camera_names_list
-
-# .....................................................................................................................
 # .....................................................................................................................
 
 
@@ -190,24 +127,39 @@ location_info_dict = load_location_info_dict(all_locations_folder_path, location
 host_ip, _, _, dbserver_port, _ = \
 unpack_location_info_dict(location_info_dict)
 
-# Build server url & confirm it's accessible before we try to request data from it
-server_url = "{}://{}:{}".format(dbserver_protocol, host_ip, dbserver_port)
-print("", "Checking connection ({})".format(server_url), sep = "\n")
-connection_is_valid = check_server_connection(server_url)
+# Confirm that we have a connection to the server
+server_ref = Server_Access(host_ip, dbserver_port, is_secured = False)
+connection_is_valid = server_ref.check_server_connection()
 if not connection_is_valid:
-    ide_quit("Couldn't connect to data server! ({})".format(server_url))
-print("  --> Success")
+    ide_quit("Couldn't connect to data server! ({})".format(server_ref.server_url))
 
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Get camera listing from the database
 
 # Get camera names to check
-camera_names_list = request_camera_list(server_url)
+camera_names_list = server_ref.get_all_camera_names()
 longest_name_len = max([len(each_name) for each_name in camera_names_list])
 
-# Get the current time, so we can compare to camera metadata
-current_dt = get_local_datetime()
+# Set up all data access objects
+caminfo_dict = {}
+snaps_dict = {}
+for each_camera_name in camera_names_list:
+    caminfo_dict[each_camera_name] = Camerainfo(server_ref, location_path, each_camera_name)
+    snaps_dict[each_camera_name] = Snapshots(server_ref, location_path, each_camera_name)
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Print server info
+
+# Get basic info about the state of the server
+server_memory_dict = server_ref.get_memory_usage()
+server_disk_dict = server_ref.get_disk_usage()
+print("",
+      "{} ({})".format(location_select.upper(), host_ip),
+      "  Disk Usage: {}%".format(server_disk_dict.get("percent_usage", "unknown")),
+      "   RAM Usage: {}%".format(server_memory_dict.get("ram_percent_usage", "unknown")),
+      sep = "\n")
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -220,22 +172,26 @@ seconds_per_hour = (60.0 * 60.0)
 print("", "Camera lifetimes:", sep = "\n")
 for each_camera_name in camera_names_list:
     
-    # Build urls to request newest data, for each camera
-    caminfo_url = build_newest_camerainfo_url(server_url, each_camera_name)
+    # For convenience
+    camera_name_to_print = each_camera_name.rjust(longest_name_len)
     
-    # Download newest data
-    newest_caminfo_metadata = get_json(caminfo_url, "Error requesting newest camera info!")
+    # Try to get newest metadata
+    newest_caminfo_metadata = caminfo_dict[each_camera_name].get_newest_metadata(raise_errors = False)
+    if newest_caminfo_metadata is None:
+        print("  {}: error retrieving metadata...".format(camera_name_to_print))
+        continue
     
-    # Get timing info from metadata
+    # Get timing info from newest metadata
     camera_start_dt_isoformat = newest_caminfo_metadata["start_datetime_isoformat"]
     camera_start_dt = isoformat_to_datetime(camera_start_dt_isoformat)
     
     # Get 'time since' newest entries
-    camera_lifetime_sec = (current_dt - camera_start_dt).total_seconds()
+    current_dt = get_local_datetime()
+    camera_lifetime_sec = max(0, (current_dt - camera_start_dt).total_seconds())
     
     # Convert times to more readable format & print
     camera_lifetime_hrs = int((camera_lifetime_sec / seconds_per_hour))
-    print("  {}: {:.0f} hrs".format(each_camera_name.rjust(longest_name_len), camera_lifetime_hrs))
+    print("  {}: {:.0f} hrs".format(camera_name_to_print, camera_lifetime_hrs))
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -245,19 +201,25 @@ for each_camera_name in camera_names_list:
 print("", "Most recent snapshot:", sep = "\n")
 for each_camera_name in camera_names_list:
     
-    # Build url to request snapshot data
-    snap_url = build_newest_snapshot_url(server_url, each_camera_name)
-    newest_snap_metadata = get_json(snap_url, "Error requesting newest snapshot info!")
+    # For convenience
+    camera_name_to_print = each_camera_name.rjust(longest_name_len)
     
-    # Get timing from metadata
+    # Try to get newest metadata
+    newest_snap_metadata = snaps_dict[each_camera_name].get_newest_metadata(raise_errors = False)
+    if newest_snap_metadata is None:
+        print("  {}: error retrieving metadata...".format(camera_name_to_print))
+        continue
+    
+    # Get timing info from newest metadata
     snap_dt_isoformat = newest_snap_metadata["datetime_isoformat"]
     snap_dt = isoformat_to_datetime(snap_dt_isoformat)
     
     # Get 'time since' newest entry
-    snap_age_sec = (current_dt - snap_dt).total_seconds()
+    current_dt = get_local_datetime()
+    snap_age_sec = max(0, (current_dt - snap_dt).total_seconds())
     
     # Convert times to more readable format & print
-    print("  {}: {:.0f} sec".format(each_camera_name.rjust(longest_name_len), snap_age_sec))
+    print("  {}: {:.0f} sec".format(camera_name_to_print, snap_age_sec))
 
 # Add a blank space at the end for aesthetics
 print("")
