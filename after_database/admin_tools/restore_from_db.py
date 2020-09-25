@@ -167,7 +167,7 @@ unpack_location_info_dict(location_info_dict)
 server_ref = Server_Access(host_ip, dbserver_port, is_secured = False)
 connection_is_valid = server_ref.check_server_connection()
 if not connection_is_valid:
-    ide_quit("Couldn't connect to data server! ({})".format(server_ref.server_url))
+    ide_quit("Couldn't connect to data server! ({})".format(server_ref.server_http_url))
 print("  --> Success")
 
 
