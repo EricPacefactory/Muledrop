@@ -115,6 +115,14 @@ def parse_restore_args(debug_print = False):
                                           "value can be set to download fewer snapshots",
                                           "at the expense of a coarser resolution in time."]))
     
+    # Add arguments for disabling certain data downloads
+    ap_obj.add_argument("-no_bgs", "--no_background_data", default = False, action = "store_true",
+                        help = "If set, background images or metadata will not be downloaded")
+    ap_obj.add_argument("-no_objs", "--no_object_data", default = False, action = "store_true",
+                        help = "If set, object data will not be downloaded")
+    ap_obj.add_argument("-no_stns", "--no_station_data", default = False, action = "store_true",
+                        help = "If set, station data will not be downloaded")
+    
     # Evaluate args now
     ap_result = vars(ap_obj.parse_args())
     
@@ -130,6 +138,9 @@ def parse_restore_args(debug_print = False):
 # Get script arguments
 ap_result = parse_restore_args()
 n_snapshots = ap_result["n_snapshots"]
+no_bg_data = ap_result["no_background_data"]
+no_obj_data = ap_result["no_object_data"]
+no_stn_data = ap_result["no_station_data"]
 dbserver_protocol = ap_result["protocol"]
 
 
@@ -211,10 +222,10 @@ end_epoch_ms = datetime_to_epoch_ms(user_end_dt)
 time_range_args = (start_epoch_ms, end_epoch_ms)
 camerainfo_count = caminfo.get_count_by_time_range(*time_range_args)
 configinfo_count = cfginfo.get_count_by_time_range(*time_range_args)
-background_count = backgrounds.get_count_by_time_range(*time_range_args)
+background_count = 0 if no_bg_data else backgrounds.get_count_by_time_range(*time_range_args)
 snapshot_count = snapshots.get_count_by_time_range(*time_range_args)
-object_count = objects.get_count_by_time_range(*time_range_args)
-station_count = stations.get_count_by_time_range(*time_range_args)
+object_count = 0 if no_obj_data else objects.get_count_by_time_range(*time_range_args)
+station_count = 0 if no_stn_data else stations.get_count_by_time_range(*time_range_args)
 
 # Calculate the number of snapshots if we're downsampling
 use_snapshot_downsampling = (0 < n_snapshots < snapshot_count)
