@@ -123,6 +123,11 @@ def parse_restore_args(debug_print = False):
     ap_obj.add_argument("-no_stns", "--no_station_data", default = False, action = "store_true",
                         help = "If set, station data will not be downloaded")
     
+    # Add argument for downloading data over full time-range, mainly for debugging use
+    ap_obj.add_argument("-full", "--full_time_range", default = False, action = "store_true",
+                        help = ["If set, data over the full time-range will be downloaded",
+                                "Mainly intended for debugging use when running offline"])
+    
     # Evaluate args now
     ap_result = vars(ap_obj.parse_args())
     
@@ -142,6 +147,7 @@ no_bg_data = ap_result["no_background_data"]
 no_obj_data = ap_result["no_object_data"]
 no_stn_data = ap_result["no_station_data"]
 dbserver_protocol = ap_result["protocol"]
+download_full_time_range = ap_result["full_time_range"]
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -202,13 +208,19 @@ bounding_end_dt = isoformat_to_datetime(snap_bounding_times_dict["max_datetime_i
 local_dt = get_local_datetime()
 show_date_on_input = (bounding_end_dt.date() != local_dt.date())
 
-# Restrict the time range if we get a ton of data
-bounding_start_dt, bounding_end_dt = \
-DTIP.limit_start_end_range(bounding_start_dt, bounding_end_dt, max_timedelta_hours = 10/60)
-
-# Prompt user to select time range to download
-user_start_dt, user_end_dt = DTIP.cli_prompt_start_end_datetimes(bounding_start_dt, bounding_end_dt,
-                                                                 always_show_date = show_date_on_input)
+# If using 'full time-range' argument, use bounding times for download. Otherwise prompt the user
+if download_full_time_range:
+    user_start_dt = bounding_start_dt
+    user_end_dt = bounding_end_dt
+    
+else:
+    # Restrict the time range if we get a ton of data
+    bounding_start_dt, bounding_end_dt = \
+    DTIP.limit_start_end_range(bounding_start_dt, bounding_end_dt, max_timedelta_hours = 10/60)
+    
+    # Prompt user to select time range to download
+    user_start_dt, user_end_dt = DTIP.cli_prompt_start_end_datetimes(bounding_start_dt, bounding_end_dt,
+                                                                     always_show_date = show_date_on_input)
 
 # Convert user input times to epoch values
 start_epoch_ms = datetime_to_epoch_ms(user_start_dt)
