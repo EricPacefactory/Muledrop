@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Thu Oct 10 15:03:41 2019
+Created on Tue Sep 28 18:04:17 2020
 
 @author: eo
 """
@@ -59,7 +59,6 @@ from local.configurables.core.preprocessor._helper_functions import unwarp_from_
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
-    
 
 class Configurable(Reference_Preprocessor):
     
@@ -98,21 +97,21 @@ class Configurable(Reference_Preprocessor):
         
         self.enable_transform = \
         self.ctrl_spec.attach_toggle(
-                "enable_transform",
-                label = "Enable Transform",
+                "enable_transform", 
+                label = "Enable Transform", 
                 default_value = True,
                 visible = True,
                 tooltip = "Used to enable/disable the correction. Useful for checking the effect and/or performance")
         
         self.region_orientation_deg = \
         self.ctrl_spec.attach_menu(
-                "region_orientation_deg",
-                label = "Orientation",
-                default_value = "Default",
+                "region_orientation_deg", 
+                label = "Orientation", 
+                default_value = "Default", 
                 option_label_value_list = [("Default", 0),
                                            ("+90 Degrees", 90),
                                            ("+180 Degrees", 180),
-                                           ("+270 Degrees", 270),],
+                                           ("+270 Degrees", 270),], 
                 tooltip = "Alter the orientation of the perspective zone.")
         
         self.width_scale_factor = \
@@ -143,23 +142,113 @@ class Configurable(Reference_Preprocessor):
         
         self.interpolation_type = \
         self.ctrl_spec.attach_menu(
-                "interpolation_type",
-                label = "Interpolation",
-                default_value = "Nearest",
+                "interpolation_type", 
+                label = "Interpolation", 
+                default_value = "Nearest", 
                 option_label_value_list = [("Nearest", cv2.INTER_NEAREST),
                                            ("Bilinear", cv2.INTER_LINEAR),
-                                           ("Area", cv2.INTER_AREA)],
-                tooltip = "Set the interpolation style for pixels sampled at fractional indices",
+                                           ("Area", cv2.INTER_AREA)], 
+                tooltip = "Set the interpolation style for pixels sampled at fractional indices", 
                 visible = True)
         
         # .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . Control Group 2 .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
+        
+        self.ctrl_spec.new_control_group("Warping Controls")
+        
+        self.w_sampling_factor = \
+        self.ctrl_spec.attach_slider(
+                "w_sampling_factor", 
+                label = "Horizontal Correction Sampling Factor",
+                default_value = 1.0,
+                min_value = 0.0, max_value = 1.0, step_size = 1/100,
+                return_type = float,
+                zero_referenced = True,
+                units = "normalized",
+                tooltip = ["Determines the fraction of pixels (along the columns of output image)",
+                           "for which a unique perspective correction will be calculated.",
+                           "Included to maintain consistency with original implementation,",
+                           "however the maximum value should be fine in most cases"])
+        
+        self.h_sampling_factor = \
+        self.ctrl_spec.attach_slider(
+                "h_sampling_factor", 
+                label = "Vertical Correction Sampling Factor",
+                default_value = 1.0,
+                min_value = 0.0, max_value = 1.0, step_size = 1/100,
+                return_type = float,
+                zero_referenced = True,
+                units = "normalized",
+                tooltip = ["Determines the fraction of pixels (along the rows of output image)",
+                           "for which a unique perspective correction will be calculated.",
+                           "Included to maintain consistency with original implementation,",
+                           "however the maximum value should be fine in most cases"])
+        
+        self.warp_left = \
+        self.ctrl_spec.attach_slider(
+                "warp_left", 
+                label = "Warp Left", 
+                default_value = 0.5,
+                min_value = 0.0, max_value = 1.0, step_size = 1/1000,
+                return_type = float,
+                zero_referenced = True,
+                units = "normalized",
+                tooltip = ["Used to re-distribute points in the output image by altering the spacing",
+                           "of points near the left side of the image.",
+                           "Small values will compress the region, while large values will expand it",
+                           "The default value is often fine"])
+        
+        self.warp_right = \
+        self.ctrl_spec.attach_slider(
+                "warp_right", 
+                label = "Warp Right", 
+                default_value = 0.5,
+                min_value = 0.0, max_value = 1.0, step_size = 1/1000,
+                return_type = float,
+                zero_referenced = True,
+                units = "normalized",
+                tooltip = ["Used to re-distribute points in the output image by altering the spacing",
+                           "of points near the right side of the image.",
+                           "Small values will compress the region, while large values will expand it",
+                           "The default value is often fine"])
+        
+        self.warp_top = \
+        self.ctrl_spec.attach_slider(
+                "warp_top", 
+                label = "Warp Top", 
+                default_value = 0.5,
+                min_value = 0.0, max_value = 1.0, step_size = 1/1000,
+                return_type = float,
+                zero_referenced = True,
+                units = "normalized",
+                tooltip = ["Used to re-distribute points in the output image by altering the spacing",
+                           "of points near the top of the image.",
+                           "Small values will compress the region, while large values will expand it",
+                           "In common cases (objects moving into the distance as they move bottom-to-top),",
+                           "this value should be 'large' compared to the bottom warp"])
+        
+        self.warp_bottom = \
+        self.ctrl_spec.attach_slider(
+                "warp_bottom", 
+                label = "Warp Bottom", 
+                default_value = 0.5,
+                min_value = 0.0, max_value = 1.0, step_size = 1/1000,
+                return_type = float,
+                zero_referenced = True,
+                units = "normalized",
+                tooltip = ["Used to re-distribute points in the output image by altering the spacing",
+                           "of points near the bottom of the image.",
+                           "Small values will compress the region, while large values will expand it",
+                           "In common cases (objects moving into the distance as they move bottom-to-top),",
+                           "this value should be 'small' compared to the top warp"])
+        
+        # .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . Control Group 3 .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
         
         self.ctrl_spec.new_control_group("Extension Controls")
         
         self.extend_left = \
         self.ctrl_spec.attach_slider(
-                "extend_left",
-                label = "Extend Left",
+                "extend_left", 
+                label = "Extend Left", 
                 default_value = 0.0,
                 min_value = -0.5, max_value = 2.5, step_size = 1/1000,
                 return_type = float,
@@ -169,8 +258,8 @@ class Configurable(Reference_Preprocessor):
         
         self.extend_right = \
         self.ctrl_spec.attach_slider(
-                "extend_right",
-                label = "Extend Right",
+                "extend_right", 
+                label = "Extend Right", 
                 default_value = 0.0,
                 min_value = -0.5, max_value = 2.5, step_size = 1/1000,
                 return_type = float,
@@ -180,8 +269,8 @@ class Configurable(Reference_Preprocessor):
         
         self.extend_top = \
         self.ctrl_spec.attach_slider(
-                "extend_top",
-                label = "Extend Top",
+                "extend_top", 
+                label = "Extend Top", 
                 default_value = 0.0,
                 min_value = -0.5, max_value = 2.5, step_size = 1/1000,
                 return_type = float,
@@ -191,8 +280,8 @@ class Configurable(Reference_Preprocessor):
         
         self.extend_bottom = \
         self.ctrl_spec.attach_slider(
-                "extend_bottom",
-                label = "Extend Bottom",
+                "extend_bottom", 
+                label = "Extend Bottom", 
                 default_value = 0.0,
                 min_value = -0.5, max_value = 2.5, step_size = 1/1000,
                 return_type = float,
@@ -225,12 +314,9 @@ class Configurable(Reference_Preprocessor):
         self._output_h = output_h
         self.set_output_wh()
         
-        # Get warping matrix
-        self._in_to_out_matrix, self._out_to_in_matrix = \
-        self.get_warp_matrices(output_w, output_h, zone_tl, zone_tr, zone_br, zone_bl)
-        
-        # Build the x/y sampling maps needed by remap function
-        self.x_mapping, self.y_mapping = self.build_mapping(self._out_to_in_matrix, output_w, output_h)
+        # Rebuild the x/y transformation mappings
+        self.x_mapping, self.y_mapping = \
+        self.build_mapping(self._output_w, self._output_h, zone_tl, zone_tr, zone_br, zone_bl)
     
     # .................................................................................................................
     
@@ -252,91 +338,75 @@ class Configurable(Reference_Preprocessor):
     
     # .................................................................................................................
     
-    def get_warp_matrices(self, output_width, output_height, tl, tr, br, bl):
+    def build_mapping(self, output_width, output_height, tl, tr, br, bl):
         
-        # Bundle the input region co-ordinates in the required format
-        input_region = np.float32((tl,tr,br,bl))
+        # Figure out downsampling points
+        width_samples = int(round((output_width * self.w_sampling_factor)))
+        height_samples = int(round(output_height * self.h_sampling_factor))
         
-        # Build a matching 'output region' that we want our input co-ords to map to
-        output_region = np.float32([(0, 0),
-                                    (output_width - 1, 0),
-                                    (output_width - 1, output_height - 1),
-                                    (0, output_height - 1)])
-            
-        # Use OpenCV function to get the warping matrix, which maps input -> output, and also generate inverse
-        in_to_out_warp_matrix = cv2.getPerspectiveTransform(input_region, output_region)
-        out_to_in_warp_matrix = np.linalg.inv(in_to_out_warp_matrix)
+        # Force a minimum of at least 5 samples
+        width_samples = max(width_samples, 5)
+        height_samples = max(height_samples, 5)
         
-        return in_to_out_warp_matrix, out_to_in_warp_matrix
+        # Calculate all (distorted) normalized co-ordinates for horizontal/vertical pixel mappings
+        x_strides = self._distort_u(np.linspace(0.0, 1.0, width_samples, dtype = np.float32))
+        y_strides = self._distort_v(np.linspace(0.0, 1.0, height_samples, dtype = np.float32))
+        
+        # Get vectors describing the step-direction for sampling along the edges of the drawn quad
+        top_edge_sampling_vector = (tr - tl)
+        bot_edge_sampling_vector = (br - bl)
+        
+        # Get all of the (x,y) co-ordinates of sampling points along the top/bottom edges of the drawn quad
+        # --> Results in vectors with shape: (width_samples, 2)
+        top_edge_xy_px = tl + np.outer(x_strides, top_edge_sampling_vector)
+        bot_edge_xy_px = bl + np.outer(x_strides, bot_edge_sampling_vector)
+        
+        # Get the vectors describing the step-directions for sampling vertically, top-to-bottom of the drawn quad
+        # --> Results in vector with shape: (width_samples, 2)
+        top_to_bot_sampling_vectors = (bot_edge_xy_px - top_edge_xy_px)
+        
+        # Generate the grid of sampling points for x & y seperately, relative to the top edge of the drawn quad
+        # --> Calculated by multiplying every y_stride value by each vertical (top-to-bot) sampling vector
+        #   --> y_strides is a 1D vector (one element for each row of output) of length: height_samples
+        #   --> Each vertical sampling vector (one vector for each column of output) is of shape: (width_samples, 2)
+        # --> So result is grid of shape: (height_samples, width_samples, 2)
+        xy_sampling_grid_relative_to_top_edge = np.einsum("h,wd->hwd", y_strides, top_to_bot_sampling_vectors)
+        
+        # Convert top_edge_xy_px to a grid, so it can be used as an offset for the (relative) sampling grid
+        # --> top_edge_xy_px (holds xy offset for every coloumn of output) is of shape: (width_samples, 2)
+        #   --> Grid is generated by repeating xy offset values for every row of output (i.e. height_samples)
+        # --> So result is a grid of shape: (height_samples, width_samples, 2)
+        top_edge_xy_offset_as_grid = np.repeat(np.expand_dims(top_edge_xy_px, axis = 0), height_samples, axis = 0)
+        
+        # Finally, generate the x/y mappings by adding the top edge offset to the (relative) sampling grid
+        # --> Base calculation results in grid of shape: (height_samples, width_samples, 2)
+        #   --> To get x/y mappings separately, rollaxis is used to get shape: (2, width_samples, height_samples)
+        # --> Results in two grids each with shape: (height_samples, width_samples)
+        x_mapping, y_mapping = np.rollaxis(xy_sampling_grid_relative_to_top_edge + top_edge_xy_offset_as_grid, 2)
+
+        # Scale up x/y mappings to the proper output sizes, in case downsampling was used
+        grid_height, grid_width = x_mapping.shape
+        needs_w_scaling = (grid_width != output_width)
+        needs_h_scaling = (grid_height != output_height)
+        needs_scaling = (needs_w_scaling or needs_h_scaling)
+        if needs_scaling:
+            output_wh = (output_width, output_height)
+            x_mapping = cv2.resize(x_mapping, dsize = output_wh, interpolation = cv2.INTER_LINEAR)
+            y_mapping = cv2.resize(y_mapping, dsize = output_wh, interpolation = cv2.INTER_LINEAR)
+        
+        return x_mapping, y_mapping
     
     # .................................................................................................................
     
-    def build_mapping(self, out_to_in_warp_matrix, output_width, output_height):
-        
-        '''
-        Function which generates the x/y pixel sampling maps, needed by the cv2.remap(...) function
-        Takes in an in-to-out matrix, found by inverting the result from the cv2.getPerspectiveTransform(...) function
-        
-        Inputs:
-            out_to_in_warp_matrix: (matrix) Warping matrix, obtained by inverting the result from
-                                    calling cv2.getPerspectiveTransform(...)
-                                    
-            output_width: (integer) Target width of the output image (after unwarping)
-            
-            output_height: (integer) Target height of the output image (after unwarping)
-            
-        Returns:
-            x_mapping, y_mapping 
-            (float32 arrays with shape output_width x output_height)
-        
-        Note:
-        The use of remap (with x/y mappings) 
-        and warpPerspective (with in_to_out_warp_matrix) 
-        give the same result:
-          cv2.remap(frame, x_mapping, y_mapping) == cv2.warpPerspective(frame, in_to_out_warp_matrix, out_wh)
-        
-        However, the remap approach is noticeably faster and allows for chained transformations in the future
-        '''
-        
-        # See the following link for more info:
-        # https://docs.opencv.org/3.4/da/d54/group__imgproc__transform.html#gaf73673a7e8e18ec6963e3774e6a94b87
-        #
-        # The warpPerspective function calculates: output(x, y) = input( u(x,y), v(x,y) )
-        # Where:
-        #   u = A / D
-        #   v = B / D
-        #
-        # The values for A, B and D are given by:
-        #   A = W11 * x + W12 * y + W13
-        #   B = W21 * x + W22 * y + W23
-        #   D = W31 * x + W32 * y + W33
-        # Where W is the inverse of the matrix obtained from the cv2.getPerspectiveTransform(...) function
-        # Notice that we can write this as a matrix/vector multiplication:
-        #   ABD = W x XY1
-        # Where ABD is a vector holding the [A, B, D] terms we wish to calculate,
-        # W is a matrix holding the Wij terms
-        # and XY1 is a vector holding the [x, y, 1] values representing a single pixel location
-        # These values need to be calculated for every single x/y pixel location!        
-        
-        # Generate input pixel sampling indices for the output image
-        x_indices = np.arange(0, output_width)
-        y_indices = np.arange(0, output_height)
-        x_index_mesh, y_index_mesh = np.meshgrid(x_indices, y_indices)
-        ones_mesh = np.ones_like(x_index_mesh)
-        
-        # The output(x, y) and A/B/D values can be calculated using the 'tensordot' function
-        # which can perform a 'matrix multiply' along the depth of an input tensor.
-        # So if we bundle the x & y pixel locations, along with a matrix of ones,
-        # we can perform the calculation for A, B and D for every pixel in a single shot!
-        output_xy1_mesh = np.stack((x_index_mesh, y_index_mesh, ones_mesh))
-        x_numerator, y_numerator, shared_denominator = np.tensordot(out_to_in_warp_matrix, output_xy1_mesh, axes = 1)
-        
-        # Finally, we just calculate the x/y mappings from the A, B, D calculation results
-        convert_to_remap_units = lambda np_array: np.float32(np_array)
-        x_mapping = convert_to_remap_units(x_numerator / shared_denominator)
-        y_mapping = convert_to_remap_units(y_numerator / shared_denominator)
-        
-        return x_mapping, y_mapping
+    def _distort_u(self, u):
+        #return u
+        return (perlin_bias(u, self.warp_right) * u) + (perlin_bias(u, (1 - self.warp_left)) * (1 - u))
+
+    # .................................................................................................................
+    
+    def _distort_v(self, v):
+        #return v
+        return (perlin_bias(v,self. warp_bottom) * v) + (perlin_bias(v, (1 - self.warp_top)) * (1 - v))
         
     # .................................................................................................................
     
@@ -344,7 +414,7 @@ class Configurable(Reference_Preprocessor):
         
         # Get input frame size for pixelization
         in_width, in_height = self.input_wh
-        frame_scaling = np.float32((in_width - 1, in_height - 1))
+        frame_scaling = np.float32((in_width, in_height))
         
         # Get perspective quad as an array for convenience
         perspective_quad_norm = np.float32(self.quad_draw_list[0])
@@ -420,38 +490,7 @@ class Configurable(Reference_Preprocessor):
         return unwarp_from_mapping(warped_normalized_xy_npfloat32,
                                    self.input_wh, self.output_wh,
                                    self.x_mapping, self.y_mapping)
-    
-    # .................................................................................................................
-    
-    def alt_unwarp_xy(self, warped_normalized_xy_npfloat32):
         
-        ''' 
-        Test to try to handle unwarping using direct equations, instead of LUT lookups 
-        Need to compare speed to LUT option...
-        '''
-        
-        # For convenience
-        outw, outh = self.output_wh
-        inw, inh = self.input_wh
-        out_to_in = self._out_to_in_matrix
-        
-        # Get scaling factors
-        out_scaling = np.float32((outw - 1, outh - 1))
-        in_scaling = np.float32((1 / (inw - 1), 1 / (inh - 1)))
-        
-        # Warp 'output' co-ordinates back into the input image co-ordinates
-        warped_xy_to_px = warped_normalized_xy_npfloat32 * out_scaling
-        xy1_px = np.append(warped_xy_to_px, 1)
-        x_numerator, y_numerator, shared_denominator = np.matmul(out_to_in, xy1_px)
-        
-        out_x = (x_numerator / shared_denominator)
-        out_y = (y_numerator / shared_denominator)
-        
-        out_xy_px = np.float32((out_x, out_y))
-        out_xy_norm = out_xy_px * in_scaling
-        
-        return out_xy_norm    
-    
     # .................................................................................................................
     # .................................................................................................................
 
@@ -481,59 +520,74 @@ def draw_extended_quad(frame, configurable_ref, color = (255, 255, 0), thickness
     
     return display_frame
 
-# .................................................................................................................
+# .....................................................................................................................
 
-def draw_warped_grid(unwarped_frame, configurable_ref,
-                     grid_line_color = (255, 255, 255), thickness = 2, line_type = cv2.LINE_AA):
+def perlin_bias(x, k):
     
-    '''
-    Function which draws a grid onto the unwarped image, based on the warping applied by the preprocessor
-    '''
+    ''' From Mike's perspective transform functions '''
     
-    # Get frame size, so we can draw using normalized co-ords
-    frame_height, frame_width = unwarped_frame.shape[0:2]
-    frame_scaling = np.float32((frame_width - 1, frame_height - 1))
+    # Avoid log(0) errors
+    if k < 0.001:
+        return np.zeros_like(x)
     
-    # For clarity
-    is_closed = False
-    
-    # Generate (warped) grid points
-    x_points = np.linspace(0, 1, 8)
-    y_points = np.linspace(0, 1, 20)
-    num_y = len(y_points)
-    num_x = len(x_points)
-    
-    for each_y_point in y_points:
-        
-        xys_array = np.vstack((x_points, np.repeat(each_y_point, num_x))).T
-        xy_unwarped_norm = configurable_ref.unwarp_xy(xys_array)
-        xy_unwarped_px = np.int32(np.round(xy_unwarped_norm * frame_scaling))
-        cv2.polylines(unwarped_frame, [xy_unwarped_px], is_closed, grid_line_color, thickness, line_type)
-        
-    for each_x_point in x_points:
-        
-        xys_array = np.vstack((np.repeat(each_x_point, num_y), y_points)).T
-        xy_unwarped_norm = configurable_ref.unwarp_xy(xys_array)
-        xy_unwarped_px = np.int32(np.round(xy_unwarped_norm * frame_scaling))
-        cv2.polylines(unwarped_frame, [xy_unwarped_px], is_closed, grid_line_color, thickness, line_type)
-        
-        
-    return unwarped_frame
+    return np.power(x, np.log(k) / np.log(0.5))
 
 # .....................................................................................................................
 # .....................................................................................................................
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Demo
     
 if __name__ == "__main__":
-    pass
     
+    # Example values for testing
+    output_width = 900
+    output_height = 753
+    tl = np.array([545.4261, -4.0055633])
+    tr = np.array([1280.,0.])
+    br = np.array([1280.,720.])
+    bl = np.array([381.29788, 730.01385])
+    
+    def ex_distort_u(u):
+        warp_left, warp_right = 0.5, 0.5
+        return (perlin_bias(u, warp_right) * u) + (perlin_bias(u, (1 - warp_left)) * (1 - u))
+    
+    def ex_distort_v(v):
+        warp_top, warp_bottom = 0.5, 0.5
+        return (perlin_bias(v, warp_bottom) * v) + (perlin_bias(v, (1 - warp_top)) * (1 - v))
+    
+    # Calculate all (distorted) normalized co-ordinates for horizontal/vertical pixel mappings
+    x_strides = ex_distort_u(np.linspace(0.0, 1.0, output_width, dtype = np.float32))
+    y_strides = ex_distort_v(np.linspace(0.0, 1.0, output_height, dtype = np.float32))
+    
+    # Get vectors describing the step-direction for sampling along the edges of the drawn quad
+    top_edge_sampling_vector = (tr - tl)
+    bot_edge_sampling_vector = (br - bl)
+    
+    # Get all of the (x,y) co-ordinates of sampling points along the top/bottom edges of the drawn quad
+    # --> Results in vectors with shape: (w, 2)
+    top_edge_xy_px = tl + np.outer(x_strides, top_edge_sampling_vector)
+    bot_edge_xy_px = bl + np.outer(x_strides, bot_edge_sampling_vector)
+    
+    # Get the vectors describing the step-directions for sampling vertically, top-to-bottom of the drawn quad
+    # --> Results in vector with shape: (w, 2)
+    top_to_bot_sampling_vectors = (bot_edge_xy_px - top_edge_xy_px)
+    
+    # Generate the grid of sampling points for x & y seperately, relative to the top edge of the drawn quad
+    # --> (h, w, 2)
+    xy_sampling_grid_relative_to_top_edge = np.einsum("h,wd->hwd", y_strides, top_to_bot_sampling_vectors)
+    
+    # Convert top_edge_xy_px to a grid, so it can be used as an offset for the (relative) sampling grid
+    # --> (h, w, 2)
+    top_edge_xy_offset_as_grid = np.repeat(np.expand_dims(top_edge_xy_px, axis = 0), output_height, axis = 0)
+    
+    # Finally, generate the x/y mappings by adding the top edge offset to the (relative) sampling grid
+    # --> Each output: (h, w)
+    x_mapping, y_mapping = np.rollaxis(xy_sampling_grid_relative_to_top_edge + top_edge_xy_offset_as_grid, 2)
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Scrap
 
-# TODO:
-# - implement more efficient unwarping, using transformation matrix directly!
-# - consider combining this with fov correction!!!
 
