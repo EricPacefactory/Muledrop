@@ -540,11 +540,7 @@ def get_human_readable_timestamp(input_datetime = None):
     if input_datetime is None:
         input_datetime = get_local_datetime()
     
-    # Format timestamp in a more human readable way, without leaving out info
-    human_readable_str = input_datetime.strftime("%Y/%m/%d %I:%M:%S%p (%Z)")
-    # --> Note: '%P' (which writes am/pm) is not supported on Windows! Must use '%p" (which writes AM/PM)
-        
-    return human_readable_str
+    return datetime_to_human_readable_string(input_datetime)
 
 # .....................................................................................................................
 
@@ -657,6 +653,21 @@ def isoformat_to_epoch_ms(datetime_isoformat_string):
 
 # .....................................................................................................................
 
+def datetime_to_human_readable_string(input_datetime):
+    
+    '''
+    Converts a datetime object into a 'human friendly' string
+    Example:
+        "2019-01-30 05:11:33 PM (-0400 UTC)"
+    
+    Note: This function assumes the datetime object has timezone information (tzinfo)
+    '''
+    
+    # --> Note: '%P' (which writes am/pm) is not supported on Windows! Must use '%p" (which writes AM/PM)
+    return input_datetime.strftime("%Y-%m-%d %I:%M:%S %p (%z UTC)")
+
+# .....................................................................................................................
+
 def datetime_to_isoformat_string(input_datetime):
     
     '''
@@ -762,6 +773,32 @@ def any_time_type_to_epoch_ms(time_value):
 
 # .....................................................................................................................
 # .....................................................................................................................
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Reporting functions
+
+# .....................................................................................................................
+
+def timestamped_log(message):
+    
+    '''
+    Function which takes a message and returns a printable string with a timestamp
+    The format of the output string is: "<timestamp>  |  <message>"
+    '''
+    
+    # Get current time
+    locat_dt = get_local_datetime()
+    timestamp_str = datetime_to_human_readable_string(locat_dt)
+    
+    # Prefix message with timestamp
+    print_str =  "{}  |  {}".format(timestamp_str, message)
+    
+    return print_str
+
+# .....................................................................................................................
+# .....................................................................................................................
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Misc functions

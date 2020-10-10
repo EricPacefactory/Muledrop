@@ -61,7 +61,7 @@ from tempfile import TemporaryDirectory
 
 from waitress import serve as wsgi_serve
 
-from local.lib.common.timekeeper_utils import get_human_readable_timestamp
+from local.lib.common.timekeeper_utils import get_human_readable_timestamp, timestamped_log
 from local.lib.common.environment import get_env_location_select
 from local.lib.common.environment import get_ctrlserver_protocol, get_ctrlserver_host, get_ctrlserver_port
 
@@ -808,6 +808,10 @@ wsgi_app = Flask(__name__,
                  template_folder = template_folder_path)
 CORS(wsgi_app)
 
+# Some feedback, mostly for docker logs
+start_msg = timestamped_log("Started control server! ({})".format(LOCATION_SELECT))
+print("", start_msg, sep = "\n", flush = True)
+
 # .....................................................................................................................
 
 @wsgi_app.route("/")
@@ -1051,14 +1055,3 @@ if __name__ == "__main__":
 #   - include way to provide github token (PAT)
 #   - include way to specify github repo (for eventual git-pull update system)
 # - split routes for cleanliness (may be tough due to reliance on globals... esp. rtsp procs)
-
-'''
-STOPPED HERE
-- CONTINUE CHECKING THREADING (SEEMED TO WORK ON BASIC TEST)
-    - NEED TO MAKE SURE ALL OTHER FUNCTIONS STILL WORK PROPERLY
-- NEED TO TRY WITH ACTUAL CAMERA CONNECTION (REMOTE TO COEXTEC OR USE TECHFORM?)
-- NEED TO UPDATE VIDEO/CAMERA BEHAVIOR TO SHUTDOWN ON RECONNECT ERRORS! LET AUTOLAUNCH HANDLE IT
-    - THEN RUN ON MAGNA SITES TO TEST?!
-        - DECO + TECHFORM ARE GOOD CANDIDATES
-        - coextec is only site showing forcefully-downed cameras...
-'''
