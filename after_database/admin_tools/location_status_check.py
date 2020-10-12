@@ -176,9 +176,10 @@ for each_camera_name in camera_names_list:
     camera_name_to_print = each_camera_name.rjust(longest_name_len)
     
     # Try to get newest metadata
-    newest_caminfo_metadata = caminfo_dict[each_camera_name].get_newest_metadata(raise_errors = False)
-    if newest_caminfo_metadata is None:
-        print("  {}: error retrieving metadata...".format(camera_name_to_print))
+    try:
+        newest_caminfo_metadata = caminfo_dict[each_camera_name].get_newest_metadata(raise_errors = True)
+    except:
+        print("  {}: ERROR".format(camera_name_to_print))
         continue
     
     # Get timing info from newest metadata
@@ -205,9 +206,10 @@ for each_camera_name in camera_names_list:
     camera_name_to_print = each_camera_name.rjust(longest_name_len)
     
     # Try to get newest metadata
-    newest_snap_metadata = snaps_dict[each_camera_name].get_newest_metadata(raise_errors = False)
-    if newest_snap_metadata is None:
-        print("  {}: error retrieving metadata...".format(camera_name_to_print))
+    try:
+        newest_snap_metadata = snaps_dict[each_camera_name].get_newest_metadata(raise_errors = True)
+    except:
+        print("  {}: ERROR".format(camera_name_to_print))
         continue
     
     # Get timing info from newest metadata
