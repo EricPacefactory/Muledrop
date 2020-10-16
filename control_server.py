@@ -263,7 +263,8 @@ class RTSP_Processes:
         
         # Check on all known processes and tag the ones that have stopped for clean up
         cameras_to_delete_list = []
-        for each_camera_name in self._proc_dict.keys():
+        cameras_to_check_list = list(self._proc_dict.keys())
+        for each_camera_name in cameras_to_check_list:
             camera_is_running = self._check_camera_is_running_no_lock(each_camera_name)
             if not camera_is_running:
                 cameras_to_delete_list.append(each_camera_name)
@@ -338,7 +339,8 @@ class RTSP_Processes:
         
         # Go through all known cameras and shut them down (with a lock, so autolauncher can't interfere)
         with self._thread_lock:
-            for each_camera_name in self._proc_dict.keys():
+            cameras_to_stop_list = list(self._proc_dict.keys())
+            for each_camera_name in cameras_to_stop_list:
                 self._stop_camera_no_lock(each_camera_name, wait_for_camera_to_stop = False)
         
         # Optional delay to allow all cameras to finish shutting down properly before we move on
