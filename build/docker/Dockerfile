@@ -2,7 +2,7 @@
 #%% Base setup
 
 # Start with Open-CV base
-FROM pacefactory/scv2_opencv_base:1.0.0
+FROM pacefactory/scv2_opencv_base:1.0.1
 
 
 # -----------------------------------------------------------------------------
