@@ -1,18 +1,17 @@
 # -----------------------------------------------------------------------------
 #%% Base setup
 
-# Start with ubuntu-python base
-FROM pacefactory/scv2_ubuntupython_base:1.0.2
+# Start with Open-CV base
+FROM pacefactory/scv2_opencv_base:1.0.0
 
 
 # -----------------------------------------------------------------------------
 #%% Install system dependencies
 
-# Update repo records & install helpful utils + open-cv compat. libraries
+# Update repo records & install helpful utils
 RUN apt-get update && \
     apt-get install --quiet --assume-yes \
-    ranger unzip zip \
-    libsm6 libxext6 libxrender-dev
+    ranger unzip zip
 
 
 # -----------------------------------------------------------------------------
