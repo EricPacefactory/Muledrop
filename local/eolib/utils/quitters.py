@@ -44,6 +44,9 @@ def ide_quit(ide_error_message = "IDE Quit", prepend_empty_newlines = 1):
     
     # Try to quit from IDE catcher first (otherwise use python quit, which is cleaner)
     ide_catcher(ide_error_message)
+    
+    # If we get here, we didn't hit the ide quit, so print out the quit message
+    print(ide_error_message)
     quit()
 
 # .....................................................................................................................

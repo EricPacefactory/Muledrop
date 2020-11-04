@@ -125,13 +125,28 @@ def parse_restore_args(debug_print = False):
     
     # Add argument for downloading data over full time-range, mainly for debugging use
     ap_obj.add_argument("-full", "--full_time_range", default = False, action = "store_true",
-                        help = ["If set, data over the full time-range will be downloaded",
-                                "Mainly intended for debugging use when running offline"])
+                        help = "\n".join(["If set, data over the full time-range will be downloaded",
+                                          "Mainly intended for debugging use when running offline"]))
     
     # Evaluate args now
     ap_result = vars(ap_obj.parse_args())
     
     return ap_result
+
+# .....................................................................................................................
+
+def print_request_error(error):
+    
+    # Print warning about errors and direct user to the 'safe' restore script instead
+    print("",
+          "Error requesting data from dbserver:",
+          "  --> {}".format(str(error)),
+          "",
+          "Try using the 'safe_restore_from_db.py' script instead",
+          "",
+          sep = "\n", flush = True)
+    
+    return
 
 # .....................................................................................................................
 # .....................................................................................................................
@@ -173,7 +188,8 @@ unpack_location_info_dict(location_info_dict)
 server_ref = Server_Access(host_ip, dbserver_port, is_secured = False)
 connection_is_valid = server_ref.check_server_connection()
 if not connection_is_valid:
-    ide_quit("Couldn't connect to data server! ({})".format(server_ref.server_http_url))
+    server_http_url, _ = server_ref.get_server_urls()
+    ide_quit("Couldn't connect to data server! ({})".format(server_http_url))
 print("  --> Success")
 
 
@@ -291,55 +307,67 @@ delete_existing_report_data(location_select_folder_path, camera_select,
 # Start timing
 start_time_sec = perf_counter()
 
-# Get camera info data
-if camerainfo_count > 0:
+try:
     
-    # Get the save folder for camerainfo metadata
-    caminfo_save_folder = caminfo.build_metadata_save_path()
+    # Get camera info data
+    if camerainfo_count > 0:
+        
+        # Get the save folder for camerainfo metadata
+        caminfo_save_folder = caminfo.build_metadata_save_path()
+        
+        # Download & save metadata
+        print("", "Saving camera info metadata", sep = "\n", flush = True)
+        caminfo_md_list = caminfo.get_many_metadata_by_time_range(*time_range_args)
+        for each_cam_md_dict in tqdm(caminfo_md_list):
+            save_jsongz_metadata(caminfo_save_folder, each_cam_md_dict)
+        pass
     
-    # Download & save metadata
-    print("", "Saving camera info metadata", sep = "\n", flush = True)
-    caminfo_md_list = caminfo.get_many_metadata_by_time_range(*time_range_args)
-    for each_cam_md_dict in tqdm(caminfo_md_list):
-        save_jsongz_metadata(caminfo_save_folder, each_cam_md_dict)
     
-    pass
-
-
-# Get config info data
-if configinfo_count > 0:
+    # Get config info data
+    if configinfo_count > 0:
+        
+        # Get the save folder for configinfo metadata
+        cfginfo_save_folder = cfginfo.build_metadata_save_path()
+        
+        # Download & save metadata
+        print("", "Saving config info metadata", sep = "\n", flush = True)
+        cfginfo_md_list = cfginfo.get_many_metadata_by_time_range(*time_range_args)
+        for each_cfg_md_dict in tqdm(cfginfo_md_list):
+            save_jsongz_metadata(cfginfo_save_folder, each_cfg_md_dict)
+        pass
     
-    # Get the save folder for configinfo metadata
-    cfginfo_save_folder = cfginfo.build_metadata_save_path()
     
-    # Download & save metadata
-    print("", "Saving config info metadata", sep = "\n", flush = True)
-    cfginfo_md_list = cfginfo.get_many_metadata_by_time_range(*time_range_args)
-    for each_cfg_md_dict in tqdm(cfginfo_md_list):
-        save_jsongz_metadata(cfginfo_save_folder, each_cfg_md_dict)
+    # Get background data (websocket)
+    if background_count > 0:
+        print("", "Saving background data", sep = "\n", flush = True)
+        backgrounds.save_stream_many_metadata_by_time_range(*time_range_args)
     
-    pass
+    
+    # Get object data (websocket)
+    if object_count > 0:
+        print("", "Saving object data", sep = "\n", flush = True)
+        objects.save_stream_many_metadata_by_time_range(*time_range_args)
+    
+    
+    # Get station info (websocket)
+    if station_count > 0:
+        print("", "Saving station data", sep = "\n", flush = True)
+        stations.save_stream_many_metadata_by_time_range(*time_range_args)
+    
+    
+    # Get snapshot data (websocket)
+    if snapshot_count > 0:
+        print("", "Saving snapshot data", sep = "\n", flush = True)
+        snapshots.save_stream_many_metadata_by_time_range_n_samples(*time_range_args, n_snapshots)
 
-# Get background data
-if background_count > 0:
-    print("", "Saving background data", sep = "\n", flush = True)
-    backgrounds.save_stream_many_metadata_by_time_range(*time_range_args)
 
-# Get object data (websocket)
-if object_count > 0:
-    print("", "Saving object data", sep = "\n", flush = True)
-    objects.save_stream_many_metadata_by_time_range(*time_range_args)
+except KeyboardInterrupt:
+    # Handle intentional keyboard quitting (i.e. ctrl + c)
+    print("", "Keyboard cancel!", "Quitting...", sep = "\n", flush = True)
 
-
-# Get station info (websocket)
-if station_count > 0:
-    print("", "Saving station data", sep = "\n", flush = True)
-    stations.save_stream_many_metadata_by_time_range(*time_range_args)
-
-# Get snapshot data (websocket)
-if snapshot_count > 0:
-    print("", "Saving snapshot data", sep = "\n", flush = True)
-    snapshots.save_stream_many_metadata_by_time_range_n_samples(*time_range_args, n_snapshots)
+except Exception as err:
+    # Handle unexpected errors
+    print_request_error(err)
 
 
 # ---------------------------------------------------------------------------------------------------------------------

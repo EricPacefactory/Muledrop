@@ -51,7 +51,6 @@ find_path_to_local()
 
 import requests
 import asyncio
-import ujson
 
 from tqdm import tqdm
 
@@ -90,7 +89,7 @@ class Server_Access:
         self.is_secured = None
         self.server_http_url = None
         self.server_websocket_url = None
-        self.set_server_url(dbserver_host, dbserver_port, is_secured)
+        self.set_server_urls(dbserver_host, dbserver_port, is_secured)
         
         # Store timeout settings (shared across all requests)
         self.timeout_sec = None
@@ -178,7 +177,18 @@ class Server_Access:
     
     # .................................................................................................................
     
-    def set_server_url(self, host = None, port = None, is_secured = False):
+    def get_server_urls(self):
+        
+        '''
+        Returns:
+            http_url, websocket_url
+        '''
+        
+        return self.server_http_url, self.server_websocket_url
+    
+    # .................................................................................................................
+    
+    def set_server_urls(self, host = None, port = None, is_secured = False):
         
         # Only update if not 'None'
         if host is not None:
@@ -192,7 +202,7 @@ class Server_Access:
         self.server_http_url = self._build_http_url(raise_error = False)
         self.server_websocket_url = self._build_websocket_url(raise_error = False)
         
-        return
+        return self.server_http_url, self.server_websocket_url
     
     # .................................................................................................................
     
