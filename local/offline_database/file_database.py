@@ -1020,7 +1020,7 @@ class Object_DB(File_DB):
     
     # .................................................................................................................
     
-    def get_ids_at_target_time(self, target_time):
+    def get_object_ids_at_target_time(self, target_time):
         
         # Convert time value into epoch_ms value to search database
         target_epoch_ms = any_time_type_to_epoch_ms(target_time)
@@ -1034,6 +1034,18 @@ class Object_DB(File_DB):
                      first_epoch_ms AND final_epoch_ms
                      """.format(self._table_name, target_epoch_ms)
                      
+        # Get data from database!
+        object_ids_list = self._fetch_1d_list(select_cmd)
+        
+        return object_ids_list
+    
+    # .................................................................................................................
+    
+    def get_all_object_ids(self):
+        
+        # Build string to get total object count
+        select_cmd = "SELECT full_id FROM {}".format(self._table_name)
+        
         # Get data from database!
         object_ids_list = self._fetch_1d_list(select_cmd)
         
@@ -1679,6 +1691,11 @@ def launch_dbs(location_select_folder_path, camera_select, *dbs_to_launch,
         launch_args_dict = launch_lut[safe_db_name]
         load_db = launch_one_db(**init_args, **launch_args_dict)
         loaded_dbs_list.append(load_db)
+    
+    # If only a single db was requested, return an item as opposed to the list
+    only_one_db = (len(loaded_dbs_list) == 1)
+    if only_one_db:
+        return loaded_dbs_list[0]
     
     return loaded_dbs_list
 

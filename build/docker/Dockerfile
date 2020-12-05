@@ -31,7 +31,7 @@ ENV HOME                        /home/scv2
 
 # Set pathing to the locations folder, which holds camera configurations
 ENV ALL_LOCATIONS_FOLDER_PATH   $HOME/locations
-ENV LOCATION_SELECT             None
+ENV LOCATION_SELECT             localhost
 
 # Set variables for accessing the database server
 ENV DBSERVER_HOST               localhost

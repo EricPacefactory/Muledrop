@@ -271,7 +271,7 @@ class Pedestrian_Detection_Object(Reference_Detection_Object):
         
         # Very simple variant of the reference detection object. Simply hard-codes an empty classification dictionary
         # (normally, the format should be: {"class_label_1": score_1, "class_label_2": score_2, etc.})
-        ped_classification_dict = {"predestrian": 1.0}
+        ped_classification_dict = {"pedestrian": 1.0}
         super().__init__(contour, ped_classification_dict, display_frame)
     
     # .................................................................................................................
