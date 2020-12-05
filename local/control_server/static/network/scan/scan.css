@@ -1,0 +1,56 @@
+
+/* ----------------------------------------------------------------- */
+/* Override shared styling */
+/* ----------------------------------------------------------------- */
+
+:root {
+  --page_accent: rgb(62, 73, 87);
+}
+
+
+/* ----------------------------------------------------------------- */
+/* UI styling */
+
+/* Styling for scan button */
+#scan_button_div {
+  text-align: center;
+  margin: auto;
+  padding: 1em;
+  border: 1px solid black;
+  background-color: var(--dark_background);
+  color: var(--light_text);
+  cursor: pointer;
+  max-width: 150px;
+}
+
+/* Styling for scan results start/error text */
+.scan_message_p {
+  text-align: center;
+  margin: auto;
+  padding: 2em;
+  color: var(--light_text);
+}
+
+/* Styling for container holding ip address listing (for open rtsp ports) */
+.scan_result_ul {
+  margin: auto;
+  padding: 2em;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  justify-content: center;
+  align-items: center;
+  align-content: center;
+  list-style: none;
+  width: 60%;
+}
+
+/* Styling for individual ip addresses in the presented list */
+.scan_result_ip_li {
+  margin: 0.4em;
+  background-color: var(--page_accent);
+  padding: 1em;
+  border: 1px solid black;
+  color: var(--light_text);
+  user-select: text;
+  text-align: center;
+}

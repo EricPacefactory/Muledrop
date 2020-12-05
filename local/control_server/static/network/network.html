@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Network Options</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" href="data:;base64,iVBORw0KGgo=">
+    <link rel="stylesheet" type="text/css" href="/shared/shared.css">
+    <link rel="stylesheet" type="text/css" href="/network/network.css">
+</head>
+
+<body>
+
+    <!-- Generic div to hold page content. CSS for this element is stored in shared file -->
+    <div class="layout_wrapper_div">
+
+        <header>Network</header>
+
+        <div id="nav_container">
+            <a href="/network/scan" id="scan_link">
+                <div class="button_div">
+                    <img src = "/network/icons/scan.svg">
+                    <div class="button_text">Scan</div>
+                </div>
+            </a>
+
+            <a href="/network/connect" id="connect_link">
+                <div class="button_div" id="status_btn">
+                    <img src = "/network/icons/connect.svg">
+                    <div class="button_text">Connect</div>
+                </div>
+            </a>
+
+            <a href="/network/video-sample" id="sample_link">
+                <div class="button_div">
+                    <img src = "/network/icons/video_sample.svg">
+                    <div class="button_text">Video Sample</div>
+                </div>
+            </a>
+
+        </div>
+
+        <footer onclick="window.location.href='/'">BACK</footer>
+    </div>
+    
+    <script src="/network/network.js"></script>
+</body>
+
+</html>
+

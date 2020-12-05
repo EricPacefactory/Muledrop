@@ -105,6 +105,18 @@ footer:hover {
   animation-fill-mode: backwards;
 }
 
+/* Styling for basic info displays */
+.explanation_div {
+  text-align: center;
+  margin: auto;
+  padding: 1em;
+  border: 1px solid black;
+  background-color: var(--dark_gray);
+  color: var(--light_text);
+  width: 60%;
+}
+
+
 
 /* ----------------------------------------------------------------- */
 /* Shared content loading animation */

@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Connect</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" href="data:;base64,iVBORw0KGgo=">
+    <link rel="stylesheet" type="text/css" href="/shared/shared.css">
+    <link rel="stylesheet" type="text/css" href="/network/connect/connect.css">
+</head>
+
+<body>
+
+    <!-- Generic div to hold page content. CSS for this element is stored in shared file -->
+    <div class="layout_wrapper_div">
+
+        <header>Camera Connect</header>
+
+        <!-- Container div to help arrange main elements of this page into a column -->
+        <div id="content_container_div">
+
+            <!-- Container holding display image & info -->
+            <div id="diplay_container_div">
+
+                <!-- Div used to provide feedback about connection status -->
+                <div id="connect_status_div">Enter RTSP info and click connect to test connection</div>
+
+                <!-- Div to be populated with image data when connection attempt succeeds (done in js) -->
+                <div id="connect_image_div">
+                    <p>no image data</p>
+                </div>
+
+                <!-- Div used to provide video source information -->
+                <div id="source_info_div"></div>
+            </div>
+
+            <!-- Div holding all inputs/button -->
+            <div id="controls_container_div">
+
+                <!-- Form holding all RTSP connection inputs -->
+                <ul class="inputs_holder_ul">
+                    <li class="input_li">
+                        <label class="label_for_input">IP Address</label>
+                        <input id="ip_address_input" class="text_input" type="text">
+                    </li>
+                    <li class="input_li">
+                        <label class="label_for_input">Route</label>
+                        <input id="route_input" class="text_input" type="text">
+                    </li>
+                    <li class="input_li">
+                        <label class="label_for_input">Username</label>
+                        <input id="username_input" class="text_input" type="text">
+                    </li>
+                    <li class="input_li">
+                        <label class="label_for_input">Password</label>
+                        <input id="password_input" class="text_input" type="text">
+                    </li>
+                </ul>
+            
+                <!-- Button used to trigger RTSP connection attempts -->
+                <div id="connect_btn_div">Connect</div>
+
+            </div>
+
+        </div> <!-- End of content_container_div -->
+
+        <footer onclick="window.location.href='/network'">BACK</footer>
+    </div>
+
+    <script src="/network/connect/connect.js"></script>
+
+</body>
+</html>
+

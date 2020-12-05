@@ -54,10 +54,13 @@ import shutil
 import subprocess
 import signal
 import threading
+import base64
 
 from time import sleep
 from random import random as unit_random
 from tempfile import TemporaryDirectory
+
+from cv2 import VideoCapture, imencode, resize, CAP_PROP_FPS, CAP_PROP_FOURCC
 
 from waitress import serve as wsgi_serve
 
@@ -81,6 +84,8 @@ from flask_cors import CORS
 
 from local.eolib.utils.quitters import ide_catcher
 from local.eolib.utils.files import create_missing_folder_path, create_missing_folders_from_file
+from local.eolib.utils.network import build_rtsp_string, check_valid_ip, check_connection
+from local.eolib.utils.network import scan_for_open_port, get_own_ip
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -786,7 +791,7 @@ ap_result = parse_control_args()
 #%% Set up globals
 
 # Get location selection through script arguments, in case it's being overriden
-arg_location_select = ap_result.get("location")
+arg_location_select = ap_result.get("location", "localhost")
 
 # Create selector so we can access existing report data
 SELECTOR = Resource_Selector(load_selection_history = False, save_selection_history = False)
@@ -1022,6 +1027,207 @@ def debug_filechange_route():
 
 
 # ---------------------------------------------------------------------------------------------------------------------
+#%% Network routes
+
+# .....................................................................................................................
+
+@wsgi_app.route("/network")
+def network_route():
+    return wsgi_app.send_static_file("network/network.html")
+
+# .....................................................................................................................
+
+@wsgi_app.route("/network/scan")
+def scan_rtsp_sources_route():
+    return wsgi_app.send_static_file("network/scan/scan.html")
+
+# .....................................................................................................................
+
+@wsgi_app.route("/network/connect")
+def check_rtsp_connect_route():
+    return wsgi_app.send_static_file("network/connect/connect.html")
+
+# .....................................................................................................................
+
+@wsgi_app.route("/network/video-sample")
+def video_sample_route():
+    return wsgi_app.send_static_file("network/video_sample/video_sample.html")
+
+# .....................................................................................................................
+
+@wsgi_app.route("/network/get-server-ip")
+def control_network_get_default_ip():
+    
+    return_result = {"server_ip": get_own_ip()}
+    
+    return jsonify(return_result)
+
+# .....................................................................................................................
+
+@wsgi_app.route("/control/network/scan-rtsp-ports", methods = ["GET", "POST"])
+def control_network_search_rtsp_ports_route():
+    
+    ''' Route used to check for open rtsp ports '''
+    
+    # For clarity
+    port_to_scan = 554
+    base_ip_address = None
+    connection_timeout_sec = 0.5
+    n_workers = 32
+    
+    # If a post request is used, check for modifiers to the port scanner arguments
+    if flask_request.method == "POST":
+        post_data_dict = flask_request.get_json(force = True)
+        base_ip_address = post_data_dict.get("base_ip_address", base_ip_address)
+        connection_timeout_sec = post_data_dict.get("connection_timeout_sec", connection_timeout_sec)
+        n_workers = post_data_dict.get("n_workers", n_workers)
+    
+    # Run port scan!
+    reported_base_ip_address, open_ips_list = \
+    scan_for_open_port(port_to_scan, connection_timeout_sec, base_ip_address, n_workers)
+    
+    # Bundle outputs
+    return_result = {"open_ips_list": open_ips_list,
+                     "base_ip_address": reported_base_ip_address,
+                     "port": port_to_scan}
+    
+    return jsonify(return_result)
+
+# .....................................................................................................................
+
+@wsgi_app.route("/control/network/test-camera-connect", methods = ["POST"])
+def control_network_test_camera_connect_route():
+    
+    ''' Route used to check if rtsp info connects to a camera. Returns a sample image on success '''
+    
+    # For clarity
+    max_dimension = 640
+    connection_timeout_sec = 3
+    default_username = ""
+    default_password = ""
+    default_route = ""
+    
+    # Initialize outputs
+    connect_success = False
+    b64_jpg_str = None
+    video_source_info = {}
+    error_message = None
+    
+    # Setup nifty/slightly hacky lambda to handle consistent response formatting
+    connect_response = lambda _ = None: jsonify({"connect_success": connect_success,
+                                                 "b64_jpg": b64_jpg_str,
+                                                 "video_source_info": video_source_info,
+                                                 "error_msg": error_message})
+    
+    # Get post data
+    post_data_dict = flask_request.get_json(force = True)
+    
+    # Bail if the ip address isn't given
+    ip_not_in_post_data = ("ip_address" not in post_data_dict)
+    if ip_not_in_post_data:
+        error_message = "no ip address provided!"
+        return connect_response()
+    
+    # Get settings (or defaults) from post data
+    ip_address = post_data_dict["ip_address"]
+    username = post_data_dict.get("username", default_username)
+    password = post_data_dict.get("password", default_password)
+    route = post_data_dict.get("route", default_route)
+    
+    # Check that the ip address is valid
+    ip_is_valid = check_valid_ip(ip_address, localhost_is_valid = False)
+    if not ip_is_valid:
+        ip_address = ip_address if ip_address else "none given"
+        error_message = "ip address is not valid ({})".format(ip_address)
+        return connect_response()
+    
+    # Try http connection to camera, since this will fail quicker if the ip isn't a real device
+    connection_is_valid = \
+    check_connection(ip_address, connection_timeout_sec = connection_timeout_sec, localhost_is_valid = False)
+    if not connection_is_valid:
+        error_message = "cannot connect to ip ({})".format(ip_address)
+        return connect_response()
+    
+    # Construct the rtsp string for connecting
+    rtsp_string = build_rtsp_string(ip_address, username, password, route, when_ip_is_bad_return = None)
+    if rtsp_string is None:
+        error_message = "bad rtsp string"
+        return connect_response()
+    
+    try:
+        # Test camera connection (with error catching, to deal with internal opencv errors)
+        connect_success = False
+        vcap = VideoCapture(rtsp_string)
+        if vcap.isOpened():
+            
+            # Try to read a single frame
+            connect_success, sample_frame = vcap.read()
+            frame_is_ok = (sample_frame is not None)
+            if connect_success and frame_is_ok:
+                
+                # Figure out shrunken frame size (for display purposes)
+                frame_height, frame_width = sample_frame.shape[0:2]
+                height_scale = (max_dimension / frame_height)
+                width_scale = (max_dimension / frame_width)
+                scale_factor = min(height_scale, width_scale)
+                shrink_wh = (int(round(frame_width * scale_factor)), int(round(frame_height * scale_factor)))
+                
+                # Downsize the frame and convert to base64 jpg for output
+                shrunk_frame = resize(sample_frame, dsize = shrink_wh)
+                _, shrunk_jpg = imencode(".jpg", shrunk_frame)
+                b64_jpg_str = base64.b64encode(shrunk_jpg).decode('utf-8')
+                
+                # Try to get encoding
+                codec = "unknown"
+                try:
+                    fourcc_int = int(vcap.get(CAP_PROP_FOURCC))
+                    codec = fourcc_int.to_bytes(4, 'little').decode()
+                except:
+                    pass
+                
+                # Try to get frame rate
+                framerate = None
+                try:
+                    framerate = vcap.get(CAP_PROP_FPS)
+                except:
+                    pass
+                
+                # Bundle get video source info
+                video_source_info = {"width": frame_width,
+                                     "height": frame_height,
+                                     "framerate": framerate,
+                                     "codec": codec}
+                
+                # Wipe out any error messages that we may have set
+                error_message = None
+        
+        else:
+            # If we get here, we couldn't open the rtsp source but the IP was probably valid
+            error_message = "bad username/password or route"
+        
+    except Exception as err:
+        error_message = str(err)
+        pass
+    
+    # Close connection to the camera, no matter what happened
+    try:
+        vcap.release()
+        
+    except NameError:
+        # Occurs if vcap was never defined (i.e. VideoCapture call fails)
+        pass
+    
+    except AttributeError:
+        # Occurs if vcap doesn't have release function (i.e. vcap is None or otherwise wasn't set properly)
+        pass
+    
+    return connect_response()
+
+# .....................................................................................................................
+# .....................................................................................................................
+
+
+# ---------------------------------------------------------------------------------------------------------------------
 #%% *** Launch server ***
 
 if __name__ == "__main__":
@@ -1057,3 +1263,9 @@ if __name__ == "__main__":
 #   - include way to provide github token (PAT)
 #   - include way to specify github repo (for eventual git-pull update system)
 # - split routes for cleanliness (may be tough due to reliance on globals... esp. rtsp procs)
+
+# More TODOs:
+# - Set up page for uploading camera configs json data & have it update/write to filesystem
+# - Set up routes to allow create new cameras (with rtsp info inputs)
+# - May want a system for switching camera configs between pre-defined defaults
+

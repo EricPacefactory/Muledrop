@@ -13,6 +13,8 @@ Created on Mon Dec 17 18:54:22 2018
 import socket
 from ipaddress import ip_address as ip_to_obj
 
+from multiprocessing import Pool
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Define classes
@@ -93,9 +95,7 @@ def parse_rtsp_string(rtsp_string):
     # Get ip, port and route
     ip_port, *route = ip_port_route.split("/") if "/" in ip_port_route else (ip_port_route, "")
     ip_address, port = ip_port.split(":") if ":" in ip_port else (ip_port, 554)
-    ip_is_valid = check_valid_ip(ip_address, localhost_is_valid = False)
-    if not ip_is_valid:
-        raise NameError("IP is not valid! ({})".format(ip_address))
+    check_valid_ip(ip_address)
     
     # Clean up the port/route values
     port = int(port)
@@ -169,17 +169,91 @@ def check_connection(ip_address, port = 80, connection_timeout_sec = 3, localhos
     # Intialize output
     connection_success = False
     
-    # Try to connect
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        sock.settimeout(connection_timeout_sec)
-        try:
-            sock.connect((ip_address, int(port)))
-            connection_success = True
-        except socket.error:
-            connection_success = False
+    try:
+        # Try to connect
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.settimeout(connection_timeout_sec)
+            try:
+                sock.connect((ip_address, int(port)))
+                connection_success = True
+            except socket.error:
+                connection_success = False
+    
+    except KeyboardInterrupt:
+        connection_success = False
 
     return connection_success
 
+# .....................................................................................................................
+
+def scan_for_open_port(port,
+                       connection_timeout_sec = 0.5,
+                       base_ip_address = None,
+                       n_workers = 32):
+    
+    '''
+    Function used to check connections on a target port, across all ips (#.#.#.1 -to- #.#.#.254) using
+    a base ip (if not provided, uses the ip of this computer). Returns a list of ips which have
+    the target port open as well as the base IP address that was used
+    
+    Inputs:
+        port -> (Integer) Port to be scanned
+        
+        connection_timeout_sec -> (Float) Amount of time to wait (per ip address) for a connection attempt
+        
+        base_ip_address -> (String) Base ip to use for scan (i.e. the first 3 ip components to use for scan)
+                                    If not provided, will use the machines own ip as the base
+        
+        n_workers -> (Integer) Number of parallel workers to use for the scan
+    
+    Outputs:
+        report_base_ip_address, open_ips_list (list of strings)
+    
+    Note:
+    The combined value of timeout and number of workers can greatly alter the amount of time
+    needed for this function to complete.
+    Roughly, the amount of time needed for this function to complete is given by:
+        time to complete (seconds) = 1 + connection_timeout_sec * (256 / n_workers)
+    
+    '''
+    
+    # Create the base ip address (using our own ip) if it isn't provided
+    if base_ip_address is None:
+        base_ip_address = get_own_ip()
+    
+    # Make sure the base ip has only 3 components, since we want to modify the final 
+    try:
+        ip_components = base_ip_address.split(".")
+        base_ip_address = ".".join(ip_components[0:3])
+        
+    except (NameError, IndexError, AttributeError):
+        base_ip_address = "192.160.0"
+    
+    # Generate the list of ip addresses to scan (by replacing final ip component with 1-254)
+    ip_scan_list = ["{}.{}".format(base_ip_address, k) for k in range(1, 255)]
+    
+    # Generate list versions of all 'check connection' args, to be passed in to worker pool
+    num_ips = len(ip_scan_list)
+    port_scan_list = [port] * num_ips
+    timeout_scan_list = [connection_timeout_sec] * num_ips
+    localhost_valid_scan_list = [False] * num_ips
+    
+    # Finally, gather all the function arguments for pooling
+    args_iter = zip(ip_scan_list, port_scan_list, timeout_scan_list, localhost_valid_scan_list)
+    
+    # Run the 'check_connection' function in parallel to scan ports
+    with Pool(n_workers) as worker_pool:
+        connection_success_list = worker_pool.starmap(check_connection, args_iter)
+    
+    # Take out only the successful connections and format as a list of ip addresses
+    check_open_ips_iter = zip(ip_scan_list, connection_success_list)
+    open_ips_list = [each_ip for each_ip, port_is_open in check_open_ips_iter if port_is_open]
+    
+    # Build an output copy of the base ip address, with wildcard to indicate variable ip values
+    report_base_ip_address = "{}.*".format(base_ip_address)
+    
+    return report_base_ip_address, open_ips_list
+    
 # .....................................................................................................................
 # .....................................................................................................................
 
@@ -191,7 +265,7 @@ def check_connection(ip_address, port = 80, connection_timeout_sec = 3, localhos
 
 def _ip_is_localhost(ip_address):
     
-    ''' Helper function used to check if hte provided IP is just the localhost string '''
+    ''' Helper function used to check if the provided IP is just the localhost string '''
     
     return ("localhost" in ip_address)
 

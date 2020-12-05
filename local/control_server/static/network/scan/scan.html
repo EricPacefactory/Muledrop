@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>RTSP Scan</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" href="data:;base64,iVBORw0KGgo=">
+    <link rel="stylesheet" type="text/css" href="/shared/shared.css">
+    <link rel="stylesheet" type="text/css" href="/network/scan/scan.css">
+</head>
+
+<body>
+
+    <!-- Generic div to hold page content. CSS for this element is stored in shared file -->
+    <div class="layout_wrapper_div">
+
+        <header>RTSP Scan</header>
+
+        <!-- Container div to help arrange main elements of this page into a column -->
+        <div class="content_container_div">
+
+            <!-- Explanation of how rtsp scan works -->
+            <div class="explanation_div">
+                <p>Scan for IP addresses with open RTSP ports</p>
+            </div>
+            <div id="scan_results_div">
+                <p class="scan_message_p"></p>
+            </div>
+
+        </div>
+
+        <footer id="page_back_btn" onclick="window.location.href='/network'">BACK</footer>
+    </div>
+
+    <script src="/network/scan/scan.js"></script>
+
+</body>
+</html>
