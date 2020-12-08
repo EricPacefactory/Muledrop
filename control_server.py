@@ -1055,7 +1055,7 @@ def video_sample_route():
 
 # .....................................................................................................................
 
-@wsgi_app.route("/network/get-server-ip")
+@wsgi_app.route("/control/network/get-server-ip")
 def control_network_get_default_ip():
     
     return_result = {"server_ip": get_own_ip()}
