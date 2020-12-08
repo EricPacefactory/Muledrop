@@ -72,8 +72,6 @@ class Configurable(Reference_Preprocessor):
         # Allocate storage for calculated mapping
         self.x_mapping = None
         self.y_mapping = None
-        self._in_to_out_matrix = None
-        self._out_to_in_matrix = None
         
         # Allocate storage for calculated values
         self._extended_quad_px = None

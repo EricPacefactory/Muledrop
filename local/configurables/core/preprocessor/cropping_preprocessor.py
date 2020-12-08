@@ -49,9 +49,14 @@ find_path_to_local()
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Imports
 
+import cv2
 import numpy as np
 
+from local.lib.common.images import max_dimension_downscale
+
 from local.configurables.core.preprocessor.reference_preprocessor import Reference_Preprocessor
+
+from local.configurables.core.preprocessor._helper_functions import unwarp_from_mapping
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -67,15 +72,19 @@ class Configurable(Reference_Preprocessor):
         # Inherit reference functionality
         super().__init__(location_select_folder_path, camera_select, input_wh, file_dunder = __file__)
         
-        # Allocate storage for calculated values
-        self._output_w = None
-        self._output_h = None
-        self._enable_cropping = True
-        self._crop_y1y2x1x2 = None
+        # Pre-calculate input frame sizing info
+        input_width, input_height = input_wh
+        self.in_width_scale = (input_width - 1)
+        self.in_height_scale = (input_height - 1)
+        self.in_xy_center = np.float32([self.in_width_scale, self.in_height_scale]) / 2.0
+        
+        # Allocate storage for calculated mapping
+        self.x_mapping = None
+        self.y_mapping = None
         
         # .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . Control Group 1 .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
         
-        self.ctrl_spec.new_control_group("Scaling Controls")
+        self.ctrl_spec.new_control_group("General Controls")
         
         self.enable_transform = \
         self.ctrl_spec.attach_toggle(
@@ -84,64 +93,97 @@ class Configurable(Reference_Preprocessor):
                 default_value = True,
                 visible = True)
         
+        self.rotation_angle_deg = \
+        self.ctrl_spec.attach_slider(
+                "rotation_angle_deg",
+                label = "Rotation",
+                default_value = 0,
+                min_value = 0, max_value = 360, step_size = 1/10,
+                return_type = float,
+                zero_referenced = True,
+                units = "degrees",
+                tooltip = "Rotation applied to the image prior to cropping")
+        
+        self.translate_x_px = \
+        self.ctrl_spec.attach_slider(
+                "translate_x_px",
+                label = "Translate X",
+                default_value = 0,
+                min_value = -1000, max_value = 1000, step_size = 1,
+                return_type = int,
+                zero_referenced = False,
+                units = "pixels",
+                tooltip = "Translation (in x-direction) applied to the rotated image, prior to cropping")
+        
+        self.translate_y_px = \
+        self.ctrl_spec.attach_slider(
+                "translate_y_px",
+                label = "Translate Y",
+                default_value = 0,
+                min_value = -1000, max_value = 1000, step_size = 1,
+                return_type = float,
+                zero_referenced = False,
+                units = "pixels",
+                tooltip = "Translation (in y-direction) applied to the rotated image, prior to cropping")
+        
+        self.interpolation_type = \
+        self.ctrl_spec.attach_menu(
+                "interpolation_type", 
+                label = "Interpolation", 
+                default_value = "Nearest", 
+                option_label_value_list = [("Nearest", cv2.INTER_NEAREST),
+                                           ("Bilinear", cv2.INTER_LINEAR),
+                                           ("Area", cv2.INTER_AREA)], 
+                tooltip = "Set the interpolation style for pixels sampled at fractional indices", 
+                visible = True)
+        
         # .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . Control Group 2 .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
         
-        self.ctrl_spec.new_control_group("Width Cropping Controls")
+        self.ctrl_spec.new_control_group("Cropping Controls")
         
-        self.left_edge_crop = \
+        self.crop_width_norm = \
         self.ctrl_spec.attach_slider(
-                "left_edge_crop",
-                label = "Left Edge",
-                default_value = 0.0,
-                min_value = 0.0, max_value = 1.0, step_size = 1/1000,
+                "crop_width_norm",
+                label = "Crop width",
+                default_value = 0.5,
+                min_value = 0.05, max_value = 1.0, step_size = 1/1000,
                 return_type = float,
                 zero_referenced = True,
                 units = "normalized",
-                tooltip = "Location of the left edge (after cropping) relative to the input frame")
+                tooltip = "Width to crop from the input image")
         
-        self.right_edge_crop = \
+        self.crop_height_norm = \
         self.ctrl_spec.attach_slider(
-                "right_edge_crop",
-                label = "Right Edge",
-                default_value = 1.0,
-                min_value = 0.0, max_value = 1.0, step_size = 1/1000,
+                "crop_height_norm",
+                label = "Crop height",
+                default_value = 0.5,
+                min_value = 0.05, max_value = 1.0, step_size = 1/1000,
                 return_type = float,
                 zero_referenced = True,
                 units = "normalized",
-                tooltip = "Location of the right edge (after cropping) relative to the input frame")
+                tooltip = "Height to crop from the input image")
         
-        # .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . Control Group 3 .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
-        
-        self.ctrl_spec.new_control_group("Height Cropping Controls")
-        
-        self.top_edge_crop = \
+        self.max_dimension_px = \
         self.ctrl_spec.attach_slider(
-                "top_edge_crop",
-                label = "Top Edge",
-                default_value = 0.0,
-                min_value = 0.0, max_value = 1.0, step_size = 1/1000,
-                return_type = float,
+                "max_dimension_px",
+                label = "Max dimension",
+                default_value = 640,
+                min_value = 100, max_value = 1280,
+                units = "pixels",
+                return_type = int,
                 zero_referenced = True,
-                units = "normalized",
-                tooltip = "Location of the top edge (after cropping) relative to the input frame")
+                tooltip = "Scale the cropped image so that the maximum dimension is at most this value")
         
-        self.bot_edge_crop = \
-        self.ctrl_spec.attach_slider(
-                "bot_edge_crop",
-                label = "Bottom Edge",
-                default_value = 1.0,
-                min_value = 0.0, max_value = 1.0, step_size = 1/1000,
-                return_type = float,
-                zero_referenced = True,
-                units = "normalized",
-                tooltip = "Location of the bottom edge (after cropping) relative to the input frame")
-        
-        
+        pass
+    
     # .................................................................................................................
     
     def set_output_wh(self):
         # OVERRIDING FROM PARENT CLASS
-        self.output_wh = (self._output_w, self._output_h)
+        
+        # Get output sizing from x/y mapping
+        output_height, output_width = self.x_mapping.shape        
+        self.output_wh = (output_width, output_height)
         
     # .................................................................................................................
     
@@ -153,32 +195,97 @@ class Configurable(Reference_Preprocessor):
     
     def setup(self, variable_update_dictionary):
         
+        self.x_mapping, self.y_mapping = self.build_mapping()
         
-        # Convert (normalized) crop values to pixel co-ordinates
-        input_width, input_height = self.input_wh
+        return
+    
+    # .................................................................................................................
+    
+    def build_mapping(self):
         
-        x1_px = int(round(self.left_edge_crop * (input_width - 1)))
-        x2_px = int(round(self.right_edge_crop * (input_width - 1)))
-        y1_px = int(round(self.top_edge_crop * (input_height - 1)))
-        y2_px = int(round(self.bot_edge_crop * (input_height - 1)))
+        # Get cropping points (in pixels)
+        left_edge_px, right_edge_px, top_edge_px, bot_edge_px = self._calculate_base_crop_points()
         
-        # Make sure boundaries are ordered correctly and that there is a minimum sized frame after cropping
-        x1 = min(x1_px, input_width - 10 - 1)
-        x2 = max(x1_px + 10, x2_px) + 1
-        y1 = min(y1_px, input_height - 10 - 1)
-        y2 = max(y1_px + 10, y2_px) + 1
+        # Calculate some output sizing info
+        input_crop_width_px = int(round(1 + right_edge_px - left_edge_px))
+        input_crop_height_px = int(round(1 + bot_edge_px - top_edge_px))
+        input_crop_wh = (input_crop_width_px, input_crop_height_px)
         
-        # Bundle cropping co-ords for convenience
-        self._crop_y1y2x1x2 = [y1, y2, x1, x2]
+        # Scale down cropped segment based on max dimension settings
+        _, output_wh = max_dimension_downscale(input_crop_wh, self.max_dimension_px)
+        output_width, output_height = output_wh
         
-        # Figure out the output sizing, and decide if we need to enable cropping
-        output_width = (x2 - x1)
-        output_height = (y2 - y1)
-        self._enable_cropping = (output_width != input_width) or (output_height != input_height)
+        # Get base x/y mapping (without rotation & translation)
+        x_samples_px = np.linspace(left_edge_px, right_edge_px, output_width, dtype = np.float32)
+        y_samples_px = np.linspace(top_edge_px, bot_edge_px, output_height, dtype = np.float32)
+        base_x_mesh, base_y_mesh = np.meshgrid(x_samples_px, y_samples_px)
+        base_xy_mesh  = np.dstack((base_x_mesh, base_y_mesh))
         
-        # Finally, store the output sizing for the next stage
-        self._output_w = output_width
-        self._output_h = output_height        
+        # Calculation rotation
+        rotation_matrix = self._build_rotation_matrix(self.rotation_angle_deg)
+        
+        # Apply rotation
+        centered_mesh = (base_xy_mesh - self.in_xy_center)        
+        rotated_mesh = np.tensordot(centered_mesh, rotation_matrix, axes = 1)
+        
+        # Apply translation (taking into account rotation)
+        rotated_translate_vec = self._build_translation_vector(rotation_matrix, self.translate_x_px, self.translate_y_px)
+        rotated_mesh = rotated_mesh + rotated_translate_vec
+        
+        # Undo centering to map back to positive co-ordinates
+        rotated_mesh = (rotated_mesh + self.in_xy_center)
+        
+        # Finally, separate the x/y mappings for applying all transformations
+        x_mapping = rotated_mesh[:, :, 0]
+        y_mapping = rotated_mesh[:, :, 1]
+        
+        return x_mapping, y_mapping
+    
+    # .................................................................................................................
+    
+    def _calculate_base_crop_points(self):
+        
+        # Contruct left/right bounding box points
+        half_crop_width_norm = (self.crop_width_norm / 2.0)
+        left_edge_px = (self.in_width_scale * (0.5 - half_crop_width_norm))
+        right_edge_px = (self.in_width_scale * (0.5 + half_crop_width_norm))
+        
+        # Contruct top/bottom bounding box points
+        half_crop_height_norm = (self.crop_height_norm / 2.0)
+        top_edge_px = (self.in_height_scale * (0.5 - half_crop_height_norm))
+        bot_edge_px = (self.in_height_scale * (0.5 + half_crop_height_norm))
+        
+        return left_edge_px, right_edge_px, top_edge_px, bot_edge_px
+    
+    # .................................................................................................................
+    
+    def _build_rotation_matrix(self, rotation_angle_deg):
+        
+        ''' Calculates a 2D rotation matrix '''
+        
+        # Calculate 2D rotation matrix
+        rotation_angle_radians = np.radians(rotation_angle_deg)
+        cos_ang = np.cos(rotation_angle_radians)
+        sin_ang = np.sin(rotation_angle_radians)
+        rotation_matrix = np.float32([(cos_ang, -sin_ang),
+                                      (sin_ang, cos_ang)])
+            
+        return rotation_matrix
+    
+    # .................................................................................................................
+    
+    def _build_translation_vector(self, rotation_matrix, translate_x, translate_y):
+        
+        ''' Calculates a rotation-corrected translation vector '''
+        
+        # For clarity. Needed because math y-axis and image y-axis are inverted from one another
+        invert_y = np.float32([1.0, -1.0])
+        
+        # Calculate & apply translation (taking into account rotation)
+        translate_vec = np.float32([self.translate_x_px, self.translate_y_px]) * invert_y
+        rotated_translate_vec = np.matmul(rotation_matrix, translate_vec) * invert_y
+            
+        return rotated_translate_vec
     
     # .................................................................................................................
     
@@ -189,15 +296,10 @@ class Configurable(Reference_Preprocessor):
             return frame
         
         try:
-            
-            # Only crop if we have cropping co-ords!
-            if self._enable_cropping:
-                y1, y2, x1, x2 = self._crop_y1y2x1x2
-                return frame[y1:y2, x1:x2]
-            return frame
+            return cv2.remap(frame, self.x_mapping, self.y_mapping, self.interpolation_type)
         
-        except IndexError as err:
-            self.log("INDEXING ERROR ({})".format(self.script_name))
+        except cv2.error as err:
+            self.log("ERROR TRANSFORMING ({})".format(self.script_name))
             if self.configure_mode:
                 raise err
         
@@ -206,23 +308,16 @@ class Configurable(Reference_Preprocessor):
     # .................................................................................................................
     
     def unwarp_required(self):
-        # Only need to unwarp if cropping is enabled
-        return self._enable_cropping
+        # Only need to unwarp if the transform is enabled
+        return self.enable_transform
     
     # .................................................................................................................
 
     def unwarp_xy(self, warped_normalized_xy_npfloat32):
-        
-        # Get important crop scaling values
-        input_width, input_height = self.input_wh
-        crop_width, crop_height = self.output_wh
-        crop_y1, _, crop_x1, _ = self._crop_y1y2x1x2
-        
-        # If we do crop, the unwarp is handled 
-        new_x = ((warped_normalized_xy_npfloat32[:, 0] * (crop_width - 1) + crop_x1) / (input_width - 1))
-        new_y = ((warped_normalized_xy_npfloat32[:, 1] * (crop_height - 1) + crop_y1) / (input_height - 1))
-        
-        return np.vstack((new_x, new_y)).T
+        # Standard unwarp implementation
+        return unwarp_from_mapping(warped_normalized_xy_npfloat32,
+                                   self.input_wh, self.output_wh,
+                                   self.x_mapping, self.y_mapping)
         
     # .................................................................................................................
     # .................................................................................................................
@@ -236,13 +331,18 @@ class Configurable(Reference_Preprocessor):
 # .....................................................................................................................
 # .....................................................................................................................
 
+
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Demo
     
 if __name__ == "__main__":
     pass
-    
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Scrap
 
+# TODO:
+# - clean up implementation (esp. the build mapping)
+#   - ideally turn more steps into re-usable functions to be shared by ui if possible (avoids duplication)
+    
