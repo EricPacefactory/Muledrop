@@ -187,22 +187,28 @@ def check_connection(ip_address, port = 80, connection_timeout_sec = 3, localhos
 # .....................................................................................................................
 
 def scan_for_open_port(port,
-                       connection_timeout_sec = 0.5,
                        base_ip_address = None,
+                       range_start = 1,
+                       range_end = 254,
+                       connection_timeout_sec = 0.5,
                        n_workers = 32):
     
     '''
-    Function used to check connections on a target port, across all ips (#.#.#.1 -to- #.#.#.254) using
-    a base ip (if not provided, uses the ip of this computer). Returns a list of ips which have
+    Function used to check connections on a target port, across all ips (#.#.#.start -to- #.#.#.end) using
+    a base ip (if not provided, uses the ip of the host machine). Returns a list of ips which have
     the target port open as well as the base IP address that was used
     
     Inputs:
         port -> (Integer) Port to be scanned
         
-        connection_timeout_sec -> (Float) Amount of time to wait (per ip address) for a connection attempt
-        
         base_ip_address -> (String) Base ip to use for scan (i.e. the first 3 ip components to use for scan)
                                     If not provided, will use the machines own ip as the base
+        
+        range_start -> (Integer) Start of IP range to scan. Must be a positive number
+        
+        range_end -> (Integer) End of IP range to scan. Must be less than 256
+        
+        connection_timeout_sec -> (Float) Amount of time to wait (per ip address) for a connection attempt
         
         n_workers -> (Integer) Number of parallel workers to use for the scan
     
@@ -230,7 +236,8 @@ def scan_for_open_port(port,
         base_ip_address = "192.160.0"
     
     # Generate the list of ip addresses to scan (by replacing final ip component with 1-254)
-    ip_scan_list = ["{}.{}".format(base_ip_address, k) for k in range(1, 255)]
+    _, scan_start, scan_end, _ = sorted([0, int(range_start), int(range_end), 255])
+    ip_scan_list = ["{}.{}".format(base_ip_address, k) for k in range(scan_start, 1 + scan_end)]
     
     # Generate list versions of all 'check connection' args, to be passed in to worker pool
     num_ips = len(ip_scan_list)
@@ -242,6 +249,7 @@ def scan_for_open_port(port,
     args_iter = zip(ip_scan_list, port_scan_list, timeout_scan_list, localhost_valid_scan_list)
     
     # Run the 'check_connection' function in parallel to scan ports
+    n_workers = max(n_workers, num_ips)
     with Pool(n_workers) as worker_pool:
         connection_success_list = worker_pool.starmap(check_connection, args_iter)
     
@@ -253,7 +261,7 @@ def scan_for_open_port(port,
     report_base_ip_address = "{}.*".format(base_ip_address)
     
     return report_base_ip_address, open_ips_list
-    
+
 # .....................................................................................................................
 # .....................................................................................................................
 

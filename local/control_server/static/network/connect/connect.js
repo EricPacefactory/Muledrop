@@ -7,6 +7,7 @@ const getelem_connect_button = () => document.getElementById("connect_btn_div");
 const getelem_status_message = () => document.getElementById("connect_status_div");
 const getelem_image_container = () => document.getElementById("connect_image_div");
 const getelem_video_info_message = () => document.getElementById("source_info_div");
+const getelem_page_back_btn = () => document.getElementById("page_back_btn");
 const set_busy_cursor = () => document.body.style.cursor = "wait";
 const reset_cursor = () => document.body.style.cursor = "auto";
 
@@ -134,6 +135,9 @@ function set_to_connect_in_progress() {
 
   // Show spinning cursor
   set_busy_cursor();
+
+  // Hide the back button to prevent user from easily leaving the page during connection attempt
+  change_back_button_visibility(false);
 }
 
 // .....................................................................................................................
@@ -145,6 +149,9 @@ function return_from_connect_in_progress() {
 
   // Reset mouse cursor
   reset_cursor();
+
+  // Show the back button so the user can return to main menu(s)
+  change_back_button_visibility(true);
 }
 
 // .....................................................................................................................
@@ -158,11 +165,29 @@ function update_status_text(status_msg) {
   return
 }
 
+// .....................................................................................................................
+
 function update_video_info(video_info_msg) {
 
   // Replace video info message with new text
   const video_info_ref = getelem_video_info_message();
   video_info_ref.innerText = video_info_msg;
+
+  return
+}
+
+// .....................................................................................................................
+
+function change_back_button_visibility(is_visible) {
+
+  /* Helper function used to show/hide the page back button at the bottom of the page */
+
+  // For clarity
+  const visibility_setting = is_visible ? "visible" : "hidden";
+
+  // Update the button element
+  const btn_ref = getelem_page_back_btn();
+  btn_ref.style.visibility = visibility_setting;
 
   return
 }

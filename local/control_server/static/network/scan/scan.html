@@ -18,15 +18,46 @@
         <header>RTSP Scan</header>
 
         <!-- Container div to help arrange main elements of this page into a column -->
-        <div class="content_container_div">
+        <div id="content_container_div" class="content_container_div">
 
-            <!-- Explanation of how rtsp scan works -->
+            <!--  -->
+            <div id="controls_container_div">
+
+                <!-- Form holding all RTSP scan inputs -->
+                <ul class="inputs_holder_ul">
+                    <li class="input_li">
+                        <label class="label_for_input">Base IP Address</label>
+                        <input id="ip_address_input" class="text_input" type="text" value="auto">
+                    </li>
+                    <li class="input_li">
+                        <label class="label_for_input">Start of range</label>
+                        <input id="start_range_input" class="text_input" type="text" value=1>
+                    </li>
+                    <li class="input_li">
+                        <label class="label_for_input">End of range</label>
+                        <input id="end_range_input" class="text_input" type="text" value=254>
+                    </li>
+                </ul>
+
+                <!-- Button used to trigger RTSP scan -->
+                <div id="scan_btn_div">Scan</div>
+
+            </div>
+
+
+
+            <!-- Container div which holds scan results & feedback -->
+            <div id="results_container_div">
+                <p>Enter scan settings and click scan to begin</p>
+            </div>
+
+            <!-- Explanation of how rtsp scan works 
             <div class="explanation_div">
                 <p>Scan for IP addresses with open RTSP ports</p>
             </div>
             <div id="scan_results_div">
                 <p class="scan_message_p"></p>
-            </div>
+            </div> -->
 
         </div>
 

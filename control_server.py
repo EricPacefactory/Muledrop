@@ -1064,7 +1064,7 @@ def control_network_get_default_ip():
 
 # .....................................................................................................................
 
-@wsgi_app.route("/control/network/scan-rtsp-ports", methods = ["GET", "POST"])
+@wsgi_app.route("/control/network/scan-rtsp-ports", methods = ["POST"])
 def control_network_search_rtsp_ports_route():
     
     ''' Route used to check for open rtsp ports '''
@@ -1075,23 +1075,74 @@ def control_network_search_rtsp_ports_route():
     connection_timeout_sec = 0.5
     n_workers = 32
     
-    # If a post request is used, check for modifiers to the port scanner arguments
-    if flask_request.method == "POST":
-        post_data_dict = flask_request.get_json(force = True)
-        base_ip_address = post_data_dict.get("base_ip_address", base_ip_address)
-        connection_timeout_sec = post_data_dict.get("connection_timeout_sec", connection_timeout_sec)
-        n_workers = post_data_dict.get("n_workers", n_workers)
+    # Initialize outputs
+    scan_success = False
+    open_ips_list = []
+    base_ip_address = None
+    error_message = None
+    
+    # Setup nifty/slightly hacky lambda to handle consistent response formatting
+    scan_response = lambda _ = None: jsonify({"scan_success": scan_success,
+                                              "open_ips_list": open_ips_list,
+                                              "base_ip_address": base_ip_address,
+                                              "error_msg": error_message})
+    
+    # Get post data
+    post_data_dict = flask_request.get_json(force = True)
+    
+    # Get settings (or defaults) from post data
+    base_ip_address = post_data_dict.get("base_ip_address", None)
+    start_scan_range = post_data_dict.get("start_scan_range", 1)
+    end_scan_range = post_data_dict.get("end_scan_range", 254)
+    
+    # Set base ip to a proper value if needed
+    use_default_base_ip = ((base_ip_address == "auto") or (base_ip_address == ""))
+    if use_default_base_ip:
+        base_ip_address = get_own_ip()
+    
+    # Verify that the base ip is valid
+    ip_is_valid = False
+    try:
+        # Try to split/format IP address as a series of 3 u8-integers, to check that it's valid
+        split_ip = base_ip_address.split(".")
+        first_3_ips = split_ip[0:3]
+        ip_is_valid = all([0 <= int(each_value) <= 255 for each_value in first_3_ips]) and (len(first_3_ips) == 3)
+        
+    except:
+        ip_is_valid = False
+    
+    # Bail on bad base IP addresses
+    if not ip_is_valid:
+        error_message = "Invalid base IP"
+        return scan_response()
+    
+    # Try to interpret the start/end range as integer values
+    range_is_valid = False
+    try:
+        start_scan_range = int(start_scan_range)
+        end_scan_range = int(end_scan_range)
+        range_is_valid = True
+        
+    except:
+        range_is_valid = False
+    
+    # Bail on bad range values
+    if not range_is_valid:
+        error_message = "Bad start/end range. Must be values between 0-255"
+        return scan_response()
     
     # Run port scan!
-    reported_base_ip_address, open_ips_list = \
-    scan_for_open_port(port_to_scan, connection_timeout_sec, base_ip_address, n_workers)
+    try:
+        base_ip_address, open_ips_list = \
+        scan_for_open_port(port_to_scan, base_ip_address, start_scan_range, end_scan_range,
+                           connection_timeout_sec, n_workers)
+        scan_success = True
+        
+    except Exception as err:
+        scan_success = False
+        error_message = str(err)
     
-    # Bundle outputs
-    return_result = {"open_ips_list": open_ips_list,
-                     "base_ip_address": reported_base_ip_address,
-                     "port": port_to_scan}
-    
-    return jsonify(return_result)
+    return scan_response()
 
 # .....................................................................................................................
 

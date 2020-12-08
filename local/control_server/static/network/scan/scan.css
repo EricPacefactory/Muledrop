@@ -11,16 +11,84 @@
 /* ----------------------------------------------------------------- */
 /* UI styling */
 
+/* Styling for container that manages page-level positioning of ui blocks */
+#content_container_div {
+  display: flex;
+  flex-flow: row nowrap;
+  align-items: center;
+  justify-content: space-evenly;
+}
+
 /* Styling for scan button */
-#scan_button_div {
-  text-align: center;
-  margin: auto;
-  padding: 1em;
-  border: 1px solid black;
-  background-color: var(--dark_background);
+#scan_btn_div {
+  padding: 0.5em;
+  margin-left: auto;
+  margin-right: auto;
+  margin-top: 2em;
+  margin-bottom: 0.5em;
+  background-color: var(--page_accent);
+  border: solid 1px black;
   color: var(--light_text);
   cursor: pointer;
+  text-align: center;
+  font-weight: bold;
+  font-size: large;
+  font-variant: small-caps;
   max-width: 150px;
+}
+
+/* Styling for extra feedback when hovering the scan button */
+#scan_btn_div:hover {
+  color: white;
+  border: solid 1px white;
+}
+
+
+/* Styling for container holding all RTSP info inputs & labels */
+.inputs_holder_ul {
+  margin: 0.5em;
+  padding: 0em;
+  display: flex;
+  flex-flow: column nowrap;
+  width: -moz-fit-content;
+  width: fit-content;
+}
+
+/* Styling for container holding label (e.g. Username) + text input elements */
+.input_li {
+  margin: 1em;
+  display: flex;
+  flex-flow: column nowrap;
+  min-width: 300px;
+  max-width: 400px;
+}
+
+/* Styling for text above input entries */
+.label_for_input {
+  font-weight: bold;
+  text-align: center;
+  color: var(--light_text);
+}
+
+/* Styling for input text boxes */
+input[type=text] {
+  padding: 0.5em;
+  background-color: var(--light_text);
+  border: 2px solid var(--light_text);;
+  border-radius: 3px;
+  color: black;
+  font-weight: bold;
+  box-sizing: border-box;
+  text-align: center;
+}
+
+input[type=text]:focus {
+  border: 2px solid black;
+}
+
+/* Styling for container holding scan results */
+#results_container_div {
+  color: var(--light_text);
 }
 
 /* Styling for scan results start/error text */
@@ -34,23 +102,20 @@
 /* Styling for container holding ip address listing (for open rtsp ports) */
 .scan_result_ul {
   margin: auto;
-  padding: 2em;
+  padding: 0.5em;
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  justify-content: center;
-  align-items: center;
-  align-content: center;
+  grid-template-columns: repeat(6, 1fr);
   list-style: none;
-  width: 60%;
 }
 
 /* Styling for individual ip addresses in the presented list */
 .scan_result_ip_li {
   margin: 0.4em;
   background-color: var(--page_accent);
-  padding: 1em;
+  padding: 0.6em;
   border: 1px solid black;
   color: var(--light_text);
   user-select: text;
   text-align: center;
+  border-radius: 4px;
 }
