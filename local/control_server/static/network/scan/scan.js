@@ -29,6 +29,16 @@ const GLOBAL = {"controls_enabled": true};
 const scan_btn_ref = getelem_scan_button();
 scan_btn_ref.addEventListener("click", run_scan);
 
+/*
+// FOR DEBUG (generate example ips to display)
+let ips = []
+for(let i = 0; i < 30; i++){
+  ips[i] = `192.168.0.${i}`;
+}
+let rtsp_scan_json = {"scan_success": true, "open_ips_list": ips, "base_ip_address": "auto", "error_msg": null};
+parse_response(rtsp_scan_json);
+*/
+
 
 // ---------------------------------------------------------------------------------------------------------------------
 // Define functions
@@ -96,15 +106,6 @@ function read_inputs() {
 // .....................................................................................................................
 
 function parse_response(rtsp_scan_json) {
-
-  /*
-  // FOR DEBUG (generate example ips to display)
-  ips = []
-  for(let i = 0; i < 30; i++){
-    ips[i] = `192.168.0.${i}`;
-  }
-  rtsp_scan_json = {"scan_success": true, "open_ips_list": ips, "base_ip_address": "auto", "error_msg": null};
-  */
 
   // Unpack the response, with default values (assuming an error by default)
   const default_err_msg = "no response from server";

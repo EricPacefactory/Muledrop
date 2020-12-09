@@ -13,10 +13,28 @@
 
 /* Styling for container that manages page-level positioning of ui blocks */
 #content_container_div {
-  display: flex;
-  flex-flow: row nowrap;
+  margin-left: auto;
+  margin-right: auto;
+  margin-top: 2em;
+  margin-bottom: 2em;
   align-items: center;
-  justify-content: space-evenly;
+  justify-content: center;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4em;
+  height: 60vh;
+}
+
+/* Styling for container holding controls */
+#controls_container_div {
+  margin: 3em;
+  max-height: 60vh;
+}
+
+/* Styling for container holding scan results */
+#results_container_div {
+  color: var(--light_text);
+  max-height: 60vh;
 }
 
 /* Styling for scan button */
@@ -46,12 +64,15 @@
 
 /* Styling for container holding all RTSP info inputs & labels */
 .inputs_holder_ul {
-  margin: 0.5em;
+  margin-left: auto;
+  margin-right: auto;
+  margin-bottom: 0.5em;
   padding: 0em;
   display: flex;
   flex-flow: column nowrap;
   width: -moz-fit-content;
   width: fit-content;
+  max-height: 60vh;
 }
 
 /* Styling for container holding label (e.g. Username) + text input elements */
@@ -86,11 +107,6 @@ input[type=text]:focus {
   border: 2px solid black;
 }
 
-/* Styling for container holding scan results */
-#results_container_div {
-  color: var(--light_text);
-}
-
 /* Styling for scan results start/error text */
 .scan_message_p {
   text-align: center;
@@ -104,8 +120,10 @@ input[type=text]:focus {
   margin: auto;
   padding: 0.5em;
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  grid-template-columns: repeat(3, 1fr);
+  overflow-y: auto;
   list-style: none;
+  max-height: 60vh;
 }
 
 /* Styling for individual ip addresses in the presented list */
