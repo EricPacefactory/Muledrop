@@ -181,7 +181,11 @@ def check_connection(ip_address, port = 80, connection_timeout_sec = 3, localhos
     
     except KeyboardInterrupt:
         connection_success = False
-
+    
+    except Exception as err:
+        print("", "check_connection got unknown error:", str(err), sep = "\n", flush = True)
+        connection_success = False
+    
     return connection_success
 
 # .....................................................................................................................
@@ -249,7 +253,7 @@ def scan_for_open_port(port,
     args_iter = zip(ip_scan_list, port_scan_list, timeout_scan_list, localhost_valid_scan_list)
     
     # Run the 'check_connection' function in parallel to scan ports
-    n_workers = max(n_workers, num_ips)
+    n_workers = min(n_workers, num_ips)
     with Pool(n_workers) as worker_pool:
         connection_success_list = worker_pool.starmap(check_connection, args_iter)
     
