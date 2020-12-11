@@ -81,7 +81,7 @@ class Configurable(Reference_Object_Capture):
         self.ctrl_spec.attach_slider(
                 "minimum_travel_distance_norm",
                 label = "Minimum Travel Distance",
-                default_value = 0.075,
+                default_value = 0.085,
                 min_value = 0, max_value = 0.5, step_size = 1/1000,
                 return_type = float,
                 zero_referenced = True,
