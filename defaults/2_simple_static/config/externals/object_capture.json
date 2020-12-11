@@ -1,9 +1,12 @@
 {
   "access_info": {
-    "configuration_utility": "minimum_lifetime",
-    "script_name": "minimum_lifetime_objectcapture"
+    "configuration_utility": "minimum_travel",
+    "script_name": "minimum_travel_objectcapture"
   },
   "setup_data": {
-    "minimum_object_lifetime_ms": 3250
+    "maximum_samples": 50,
+    "minimum_samples": 9,
+    "minimum_travel_distance_norm": 0.085,
+    "sampling_factor": 0.1
   }
 }
