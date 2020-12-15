@@ -169,7 +169,8 @@ main_process = \
 Reconfigurable_Video_Loop(loader,
                           ordered_display_list = [Detection_Display(1, 4, 1,
                                                                     window_name = "Detections & Edge Decay Zones",
-                                                                    drawing_json = edge_drawing_spec),
+                                                                    drawing_json = edge_drawing_spec,
+                                                                    show_ids = True),
                                                   Custom_Tracking_Display(1, 2, 2),
                                                   Filtered_Binary_Display(3, 2, 2)])
 
