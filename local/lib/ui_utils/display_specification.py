@@ -359,6 +359,7 @@ class Detection_Display(Display_Window_Specification):
                  window_name = "Detection",
                  show_outlines = True,
                  show_bounding_boxes = False,
+                 show_ids = False,
                  line_color = (255, 255, 0)):
         
         # Inherit from parent class
@@ -371,6 +372,7 @@ class Detection_Display(Display_Window_Specification):
         # Store display configuration details
         self._show_outlines = show_outlines
         self._show_bounding_boxes = show_bounding_boxes
+        self._show_ids = show_ids
         self._line_color = line_color
         
     # .................................................................................................................
@@ -387,17 +389,23 @@ class Detection_Display(Display_Window_Specification):
         frame_h, frame_w = detection_frame.shape[0:2]
         frame_wh = np.array((frame_w - 1, frame_h - 1))
         
-        for each_det in detection_ref_dict.values():
+        for each_det_id, each_det_ref in detection_ref_dict.items():
             
             # Draw the blob outline
             if self._show_outlines:
-                det_hull = np.int32(np.round(each_det.hull_array * frame_wh))
+                det_hull = np.int32(np.round(each_det_ref.hull_array * frame_wh))
                 cv2.polylines(detection_frame, [det_hull], True, self._line_color, 1, cv2.LINE_AA)
             
             # Draw the bounding box
             if self._show_bounding_boxes:
-                tl, br = np.int32(np.round(each_det.tl_br * frame_wh))
+                tl, br = np.int32(np.round(each_det_ref.tl_br * frame_wh))
                 cv2.rectangle(detection_frame, tuple(tl), tuple(br), self._line_color, 2, cv2.LINE_4)
+            
+            # Draw detection ids
+            if self._show_ids:
+                tl, _ = np.int32(np.round(each_det_ref.tl_br * frame_wh))
+                cv2.putText(detection_frame, "{}".format(each_det_id), tuple(tl),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
         
         return detection_frame
     
