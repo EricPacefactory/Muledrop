@@ -131,7 +131,7 @@ class Configurable(Reference_Tracker):
         self.ctrl_spec.attach_slider(
                 "track_history_samples",
                 label = "Track History",
-                default_value = 55000,
+                default_value = 20000,
                 min_value = 3, max_value = Smoothed_Trackable_Object.max_allowable_samples,
                 zero_referenced = True,
                 return_type = int,
@@ -313,11 +313,30 @@ class Configurable(Reference_Tracker):
         tracked_object_dict, still_unmatched_tobj_ids, still_unmatched_det_ids = \
         self._tobj_overlaps(tracked_object_dict, unmatched_tobj_ids, detection_ref_dict, unmatched_detection_ids)
         
-        # Match remaining tracked objects using remaining detections
-        tracked_object_dict, still_unmatched_tobj_ids, still_unmatched_det_ids = \
-        self._update_obj_tracking(tracked_object_dict, still_unmatched_tobj_ids,
+        # Get a listing of which unmatched objects are being actively tracked and decaying
+        active_unmatched_tobj_ids = []
+        decaying_unmatched_tobj_ids = []
+        for each_tobj_id in still_unmatched_tobj_ids:
+            is_active = tracked_object_dict[each_tobj_id].track_status
+            if is_active:
+                active_unmatched_tobj_ids.append(each_tobj_id)
+            else:
+                decaying_unmatched_tobj_ids.append(each_tobj_id)
+        
+        # Match 'active' tracked objects
+        tracked_object_dict, still_unmatched_active_tobj_ids, still_unmatched_det_ids = \
+        self._update_obj_tracking(tracked_object_dict, active_unmatched_tobj_ids,
                                   detection_ref_dict, still_unmatched_det_ids,
                                   current_frame_index, current_epoch_ms, current_datetime)
+        
+        # Match 'decaying' tracked objects
+        tracked_object_dict, still_unmatched_decaying_tobj_ids, still_unmatched_det_ids = \
+        self._update_obj_tracking(tracked_object_dict, decaying_unmatched_tobj_ids,
+                                  detection_ref_dict, still_unmatched_det_ids,
+                                  current_frame_index, current_epoch_ms, current_datetime)
+        
+        # Combine 'still unmatched' active/decaying ids
+        still_unmatched_tobj_ids = still_unmatched_active_tobj_ids + still_unmatched_decaying_tobj_ids
         
         return tracked_object_dict, still_unmatched_tobj_ids, still_unmatched_det_ids
     
@@ -328,10 +347,32 @@ class Configurable(Reference_Tracker):
                                           detection_ref_dict, unmatched_detection_ids,
                                           current_frame_index, current_epoch_ms, current_datetime):
         
-        # Match validation objects to remaining unmatched detections
-        return self._update_obj_tracking(validation_object_dict, unmatched_vobj_ids,
-                                         detection_ref_dict, unmatched_detection_ids,
-                                         current_frame_index, current_epoch_ms, current_datetime)
+        # Get a listing of which unmatched objects are being actively tracked and decaying
+        active_unmatched_vobj_ids = []
+        decaying_unmatched_vobj_ids = []
+        for each_vobj_id in unmatched_vobj_ids:
+            is_active = validation_object_dict[each_vobj_id].track_status
+            if is_active:
+                active_unmatched_vobj_ids.append(each_vobj_id)
+            else:
+                decaying_unmatched_vobj_ids.append(each_vobj_id)
+        
+        # Match 'active' validation objects
+        validation_object_dict, still_unmatched_active_vobj_ids, still_unmatched_det_ids = \
+        self._update_obj_tracking(validation_object_dict, active_unmatched_vobj_ids,
+                                  detection_ref_dict, unmatched_detection_ids,
+                                  current_frame_index, current_epoch_ms, current_datetime)
+        
+        # Match 'decaying' validation objects
+        validation_object_dict, still_unmatched_decaying_vobj_ids, still_unmatched_det_ids = \
+        self._update_obj_tracking(validation_object_dict, decaying_unmatched_vobj_ids,
+                                  detection_ref_dict, still_unmatched_det_ids,
+                                  current_frame_index, current_epoch_ms, current_datetime)
+        
+        # Combine 'still unmatched' active/dcecaying ids
+        still_unmatched_vobj_ids = still_unmatched_active_vobj_ids + still_unmatched_decaying_vobj_ids
+        
+        return validation_object_dict, still_unmatched_vobj_ids, still_unmatched_det_ids
 
     # .................................................................................................................
     
