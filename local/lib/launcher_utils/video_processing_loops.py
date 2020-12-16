@@ -422,11 +422,7 @@ class Reconfigurable_Video_Loop(Video_Processing_Loop):
                 # Read video frames & get timing info
                 req_break, frame, read_time_sec, *fed_time_args = self.read_frames()
                 if req_break:
-                    self.loader.vreader.reset_videocapture()
-                    req_break, frame, read_time_sec, *fed_time_args = self.read_frames()
-                    if req_break:
-                        print("", "ERROR RESETTING VIDEO CAPTURE!", sep = "\n")
-                        break
+                    break
                 
                 prev_fed_time_args = fed_time_args
                 
@@ -472,6 +468,22 @@ class Reconfigurable_Video_Loop(Video_Processing_Loop):
         # Clean up any open resources
         self.clean_up(*prev_fed_time_args)
         cv2.destroyAllWindows()
+    
+    # .................................................................................................................
+    
+    def read_frames(self):
+        
+        # Grab frames from the video source (with timing information for each frame!)
+        req_break, input_frame, read_time_sec, current_frame_index, current_epoch_ms, current_datetime = \
+        self.loader.vreader.read()
+        
+        # If a break is requested, try resetting the video capture
+        if req_break:
+            req_break, input_frame, read_time_sec, current_frame_index, current_epoch_ms, current_datetime = \
+            self.loader.vreader.read()
+            print("", "ERROR RESETTING RECONFIGURABLE VIDEO CAPTURE!", sep = "\n")
+        
+        return req_break, input_frame, read_time_sec, current_frame_index, current_epoch_ms, current_datetime
     
     # .................................................................................................................
     
