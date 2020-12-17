@@ -917,6 +917,10 @@ def control_cameras_delete_background_route(camera_select):
     --> Should be replaced/incorporated into a proper set of 'camera editor' functions/UI in the future
     '''
     
+    # For logging purposes
+    log_msg = timestamped_log("Manual background deletion triggered ({})".format(camera_select))
+    print("", log_msg, sep = "\n", flush = True)
+    
     # Make sure we got a valid camera (bail if not!)
     all_camera_names_list = get_existing_camera_names_list(LOCATION_SELECT_FOLDER_PATH)
     bad_camera_select = (camera_select not in all_camera_names_list)
