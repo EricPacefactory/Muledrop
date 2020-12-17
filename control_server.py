@@ -75,8 +75,10 @@ from local.lib.file_access_utils.shared import build_camera_path, build_logging_
 from local.lib.file_access_utils.reporting import build_base_report_path
 from local.lib.file_access_utils.logging import build_stdout_log_file_path, build_stderr_log_file_path
 from local.lib.file_access_utils.state_files import load_state_file, delete_state_file
+from local.lib.file_access_utils.resources import reset_background_resources_folder
 
 from local.lib.file_access_utils.control_server import Autolaunch_Settings, get_existing_camera_names_list
+from local.lib.file_access_utils.control_server import bad_response
 
 from flask import Flask, jsonify, redirect, render_template
 from flask import request as flask_request
@@ -902,6 +904,46 @@ def control_cameras_autolaunch_route(camera_select, enable_autolaunch):
     camera_launching = RTSP_PROC.set_camera_autolaunch(camera_select, enable_autolaunch_bool)
     if camera_launching:
         sleep(3.0)
+    
+    return redirect("/status")
+
+# .....................................................................................................................
+
+@wsgi_app.route("/control/cameras/delete-background/<string:camera_select>")
+def control_cameras_delete_background_route(camera_select):
+    
+    '''
+    Hacky/temporary route used to manually delete camera backgrounds (and force a restart)
+    --> Should be replaced/incorporated into a proper set of 'camera editor' functions/UI in the future
+    '''
+    
+    # Make sure we got a valid camera (bail if not!)
+    all_camera_names_list = get_existing_camera_names_list(LOCATION_SELECT_FOLDER_PATH)
+    bad_camera_select = (camera_select not in all_camera_names_list)
+    if bad_camera_select:
+        return bad_response({"error": "Camera not found! ({})".format(camera_select)})
+    
+    # Disable camera autolaunch, so it doesn't go off while we're messing with the camera file system
+    autolaunch_was_enabled = RTSP_PROC.get_camera_autolaunch(camera_select)
+    RTSP_PROC.set_camera_autolaunch(camera_select, enable_autolaunch = False)
+    
+    # Stop the camera, since we're messing with it's file system
+    camera_was_running = RTSP_PROC.check_camera_is_running(camera_select)
+    if camera_was_running:
+        RTSP_PROC.stop_camera(camera_select)
+    
+    # Delete the background resource folders if possible
+    delete_success, _, _ = reset_background_resources_folder(LOCATION_SELECT_FOLDER_PATH, camera_select)
+    if not delete_success:
+        return bad_response({"error": "No background folder to delete for camera: {}".format(camera_select)})
+    
+    # Restart the camera if it was running previously
+    if camera_was_running:
+        RTSP_PROC.start_camera(camera_select, post_launch_delay_sec = 3.0)
+    
+    # Re-enable autolaunch if needed
+    if autolaunch_was_enabled:
+        RTSP_PROC.set_camera_autolaunch(camera_select, enable_autolaunch = True)
     
     return redirect("/status")
 

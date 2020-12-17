@@ -145,21 +145,32 @@ def build_base_resources_path(location_select_folder_path, camera_select, *path_
 # .....................................................................................................................
 
 # ---------------------------------------------------------------------------------------------------------------------
-#%% Pathing functions
+#%% Backgrounds folder functions
+
+# .....................................................................................................................
+
+def build_background_resources_folder_path(location_select_folder_path, camera_select, *path_joins):
+    return build_base_resources_path(location_select_folder_path, camera_select, "backgrounds", *path_joins)
 
 # .....................................................................................................................
 
 def build_background_capture_folder_path(location_select_folder_path, camera_select):    
-    return build_base_resources_path(location_select_folder_path, camera_select, "backgrounds", "captures")
+    return build_background_resources_folder_path(location_select_folder_path, camera_select, "captures")
 
 # .....................................................................................................................
 
 def build_background_generate_folder_path(location_select_folder_path, camera_select):
-    return build_base_resources_path(location_select_folder_path, camera_select, "backgrounds", "generated")
+    return build_background_resources_folder_path(location_select_folder_path, camera_select, "generated")
 
 # .....................................................................................................................
 
 def reset_capture_folder(location_select_folder_path, camera_select):
+    
+    '''
+    Function which completely wipes out the 'capture' background resources folder and all it's contents,
+    but re-creates it (now empty) afterwards
+    Note: This function doesn't validate the location/camera selection! Be sure the location & camera are valid
+    '''
     
     # Build path to captures folder, delete it, then remake it
     capture_folder_path = build_background_capture_folder_path(location_select_folder_path, camera_select)
@@ -173,6 +184,12 @@ def reset_capture_folder(location_select_folder_path, camera_select):
 
 def reset_generate_folder(location_select_folder_path, camera_select):
     
+    '''
+    Function which completely wipes out the 'generated' background resources folder and all it's contents,
+    but re-creates it (now empty) afterwards
+    Note: This function doesn't validate the location/camera selection! Be sure the location & camera are valid
+    '''
+    
     # Build path to generate folder, delete it, then remake it
     generate_folder_path = build_background_generate_folder_path(location_select_folder_path, camera_select)
     if os.path.exists(generate_folder_path):
@@ -180,6 +197,29 @@ def reset_generate_folder(location_select_folder_path, camera_select):
     os.makedirs(generate_folder_path, exist_ok = True)
     
     return generate_folder_path
+
+# .....................................................................................................................
+
+def reset_background_resources_folder(location_select_folder_path, camera_select):
+    
+    '''
+    Helper function which clears both the captured & generated background resource folders
+    Will only try to clear/re-make the resources folders if the parent background resources folder already exists
+    '''
+    
+    # Initialize outputs
+    clear_successful = False
+    capture_folder_path = None
+    generate_folder_path = None
+    
+    # Make sure the parent folder exists, since we don't want to create empty folders otherwise
+    parent_folder_path = build_background_resources_folder_path(location_select_folder_path, camera_select)
+    if os.path.exists(parent_folder_path):
+        capture_folder_path = reset_capture_folder(location_select_folder_path, camera_select)
+        generate_folder_path = reset_generate_folder(location_select_folder_path, camera_select)
+        clear_successful = True
+    
+    return clear_successful, capture_folder_path, generate_folder_path
 
 # .....................................................................................................................
 # .....................................................................................................................
