@@ -105,6 +105,7 @@ class File_Configuration_Loader:
         self.vreader = None
         self.video_wh = None
         self.video_fps = None
+        self.video_codec = None
         self.video_type = None
         self.estimated_video_fps = None
         self.playback_settings = None
@@ -218,6 +219,7 @@ class File_Configuration_Loader:
                             "start_datetime_isoformat": start_datetime_isoformat,
                             "start_epoch_ms": start_epoch_ms,
                             "video_select": self.video_select,
+                            "video_codec": self.video_codec,
                             "reported_video_fps": self.video_fps,
                             "estimated_video_fps": self.estimated_video_fps,
                             "video_width": video_width,
@@ -320,6 +322,7 @@ class File_Configuration_Loader:
         self.vreader = Video_Reader(self.location_select_folder_path, self.camera_select, self.video_select)
         self.video_wh = self.vreader.video_wh
         self.video_fps = self.vreader.video_fps
+        self.video_codec = self.vreader.video_codec
         self.video_type = self.vreader.video_type
         
         return self.vreader
@@ -625,6 +628,7 @@ class RTSP_Configuration_Loader(File_Configuration_Loader):
         self.vreader = Video_Reader(self.location_select_folder_path, self.camera_select)
         self.video_wh = self.vreader.video_wh
         self.video_fps = self.vreader.video_fps
+        self.video_codec = self.vreader.video_codec
         self.video_type = self.vreader.video_type
         
         return self.vreader

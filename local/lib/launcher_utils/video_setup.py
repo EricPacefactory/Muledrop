@@ -53,7 +53,7 @@ import threading
 import queue
 import cv2
 
-from time import sleep, perf_counter
+from time import perf_counter
 
 from local.lib.file_access_utils.video import video_info_from_name
 from local.lib.file_access_utils.rtsp import load_rtsp_config, check_valid_rtsp_ip
@@ -80,6 +80,7 @@ class Base_Video_Reader:
         self.timekeeper = Timekeeper(start_datetime_isoformat, timelapse_factor)
 
         # Get video info
+        self.video_codec = self._check_video_codec()
         self.video_fps = self.get(cv2.CAP_PROP_FPS)
         self.video_width = int(self.get(cv2.CAP_PROP_FRAME_WIDTH))
         self.video_height = int(self.get(cv2.CAP_PROP_FRAME_HEIGHT))
@@ -212,6 +213,22 @@ class Base_Video_Reader:
     
     def _start_videocapture(self):
         self.vcap = safe_VideoCapture(self.video_source)
+    
+    # .................................................................................................................
+    
+    def _check_video_codec(self):
+        
+        ''' Helper function used to figure out video codec (as a string), for example: 'h264' '''
+        
+        # Try to get codec with heavy-handed error handling, because the info is encoded very strangely!
+        codec = "unknown"
+        try:
+            fourcc_int = int(self.vcap.get(cv2.CAP_PROP_FOURCC))
+            codec = fourcc_int.to_bytes(4, "little").decode()
+        except (AttributeError, TypeError):
+            pass
+        
+        return codec
     
     # .................................................................................................................
     # .................................................................................................................
