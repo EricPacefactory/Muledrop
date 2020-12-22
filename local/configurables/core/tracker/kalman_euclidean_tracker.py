@@ -125,7 +125,7 @@ class Configurable(Reference_Tracker):
         self.ctrl_spec.attach_slider(
                 "track_history_samples",
                 label = "Track History",
-                default_value = 25000,
+                default_value = 20000,
                 min_value = 3, max_value = Reference_Trackable_Object.max_allowable_samples,
                 zero_referenced = True,
                 return_type = int,

@@ -121,7 +121,7 @@ class Reference_Detector(Core_Configurable_Base):
 
 # /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 # /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    
+
 
 class Reference_Detection_Object:
     
@@ -142,13 +142,6 @@ class Reference_Detection_Object:
         
         # Store x/y center points base on hull
         self.xy_center_array = np.mean(hull_px, axis = 0) * self._xy_loc_scaling
-        
-        # Extract color from xy center point
-        frame_height, frame_width = display_frame.shape[0:2]
-        x_center_px = int(round((frame_width - 1) * self.xy_center_array[0]))
-        y_center_px = int(round((frame_height - 1) * self.xy_center_array[1]))
-        color_sample_bgr = display_frame[y_center_px, x_center_px, :]
-        self.color_sample_rgb = np.flip(color_sample_bgr).tolist()
         
         # Handle cases where there is no hull area (single pixels, row/column contours and tight-triangles)
         no_hull_area = (hull_area_px < 1.0)
@@ -191,6 +184,11 @@ class Reference_Detection_Object:
         # (Should be of the form: {"class_label_1": score_1, "class_label_2": score_2, etc.})
         self.realtime_classification_dict = realtime_classification_dict
         
+        # Store color proportion data
+        cropped_frame = self._get_cropped_display(display_frame)
+        masked_bgr_rows = self._get_row_of_masked_pixels(cropped_frame)
+        self.color_proportions = self._get_hsv_color_proportions(masked_bgr_rows)
+    
     # .................................................................................................................
     
     def __repr__(self):
@@ -207,7 +205,7 @@ class Reference_Detection_Object:
     
     def in_zones(self, zones_list):
         
-        ''' Function which checks if this object is within a list of zones '''
+        ''' Function which checks if this detection is within a list of zones '''
         
         for each_zone in zones_list:
             
@@ -235,6 +233,170 @@ class Reference_Detection_Object:
     @property
     def xy_center_tuple(self):
         return tuple(self.xy_center_array)
+    
+    # .................................................................................................................
+    #%% Image manipulations
+    
+    # .................................................................................................................
+    
+    def _get_cropped_display(self, display_frame, max_dimension = 50, blur_size = 3):
+        
+        '''
+        Helper function which takes in a display image and crops down
+        to the bounding box of this detection (based on the hull)
+        Also downscales the result if it is too large and applies bluring
+        '''
+        
+        # Get display scaling
+        frame_height, frame_width = display_frame.shape[0:2]
+        display_scaling = np.float32([(frame_width - 1), (frame_height - 1)])
+        tl_display = np.int32(np.round(self.top_left * display_scaling))
+        br_display = np.int32(np.round(self.bot_right * display_scaling))
+        
+        # Use detection bounding-box to crop out a rectangular copy of the detection from the display image
+        x1, y1 = tl_display
+        x2, y2 = br_display
+        color_crop_px = display_frame[y1:y2, x1:x2, :]
+        
+        # Downscale the cropped image if needed
+        crop_height, crop_width = color_crop_px.shape[0:2]
+        width_factor = np.ceil(crop_width / max_dimension)
+        height_factor = np.ceil(crop_height / max_dimension)
+        scale_factor = max(1, width_factor, height_factor)
+        needs_downscale = (scale_factor > 1)
+        if needs_downscale:
+            scale_width = crop_width / scale_factor
+            scale_height = crop_height / scale_factor
+            scale_wh = (int(scale_width), int(scale_height))
+            color_crop_px = cv2.resize(color_crop_px, dsize = scale_wh, interpolation = cv2.INTER_NEAREST)
+        
+        # Apply blurring to help reduce noise
+        color_crop_px = cv2.blur(color_crop_px, (3, 3), borderType = cv2.BORDER_REFLECT)
+        
+        return color_crop_px
+    
+    # .................................................................................................................
+    
+    def _get_row_of_masked_pixels(self, cropped_frame):
+        
+        '''
+        Helper function which takes a cropped frame, applies masking based on the detection hull,
+        then indexes out only the pixels within the hull. Outputs as a single row of bgr values,
+        assuming N pixels remain after masking, the result will have shape: N x 1 x 3
+        '''
+        
+        # Generate a mask based on the detection hull, adjusted to fit over the cropped image of the detection
+        crop_height, crop_width = cropped_frame.shape[0:2]
+        crop_scaling = np.float32([crop_width - 1, crop_height - 1])
+        cropped_hull_norm = (self.hull_array - self.top_left) / (self.bot_right - self.top_left)
+        hull_pts_px = np.int32(np.round(crop_scaling * cropped_hull_norm))
+        hull_mask_1ch = np.zeros((crop_height, crop_width), dtype = np.uint8)
+        hull_mask_1ch = cv2.fillConvexPoly(hull_mask_1ch, hull_pts_px, 255)
+        
+        # Convert the mask to a 1D logical aray and use it to index out pixels from the cropped image
+        # Note: this results in a listing of pixel values, not a useable image!
+        hull_mask_1ch_logical = (hull_mask_1ch > 0)
+        masked_bgr_rows = cropped_frame[hull_mask_1ch_logical, :]
+        
+        # Convert back to an 'image' format (this way we can directly use opencv functions on the result)
+        # -> Result will have dimensions of N x 1 x 3 as opposed to being N x 3
+        masked_bgr_rows = np.expand_dims(masked_bgr_rows, 1)
+        
+        return masked_bgr_rows
+    
+    # .................................................................................................................
+    
+    def _get_hsv_color_proportions(self, bgr_rows):
+        
+        '''
+        Helper function used to bin pixels into 8 regions which can be described (roughly) as follows: 
+            - dark, light
+            - red, yellow, green, cyan, blue, magenta
+        
+        The resulting counts of pixels-per-color bin is returned as a list of integers,
+        where the total count is normalized to 1000, so that each entry in the
+        returned list represents the proportion of each color bin
+        
+        The bins are segmented from the (cylindrical) hsv color space
+        From a side-view of the cylindrical co-ord system (with the 'value' channel running vertically),
+        the bins are divided approximately as follows:
+             ___________
+            |   |   |   |
+            |   | L |   |
+            | H |___| H |
+            |   |   |   |
+            |___| D |___|
+            |___________|
+        
+        Where D represents the 'dark' segment,
+        L represents the 'light' segment,
+        and H represents different hue segments
+        Note that there are 6 separate hue segments (RYGCBM) which wrap around the cylinder (not shown)
+        '''
+        
+        # Convert to hsv (not full!) so we can more easily define meaninngful color bins
+        # hsv mapping: hue -> [0, 179], sat -> [0, 255], val -> [0, 255]
+        hsv_rows = cv2.cvtColor(bgr_rows, cv2.COLOR_BGR2HSV)
+        
+        # For clarity
+        low_sat_l = 63
+        low_sat_u = low_sat_l + 1
+        low_val_l = 63
+        low_val_u = low_val_l + 1
+        
+        # For convenience
+        hsv_in_range = lambda l_hsv, h_hsv: np.sum(np.bool8(cv2.inRange(hsv_rows, np.uint8(l_hsv), np.uint8(h_hsv))))
+        hue_in_range = lambda low_hue, high_hue: hsv_in_range([low_hue, low_sat_u, low_val_u], [high_hue, 255, 255])
+        
+        # Map a full short cylindrical base to dark regions
+        # (convers all hues, all saturations and very low brightness values)
+        dark_1_start = [0, 0, 0]
+        dark_1_end = [255, 255, low_val_l]
+        dark_pixels = hsv_in_range(dark_1_start, dark_1_end)
+        
+        # Also map a small lower-central tube to dark regions
+        # (covers all hues, low saturations and low brightness values)
+        dark_2_start = [0, 0, low_val_u]
+        dark_2_end = [255, low_sat_l, 127]
+        dark_pixels += hsv_in_range(dark_2_start, dark_2_end)
+        
+        # Map a small upper-central tube to light region
+        # (covers all hues, low saturations and high brightness values)
+        light_start = [0, 0, 128]
+        light_end = [255, low_sat_l, 255]
+        light_pixels = hsv_in_range(light_start, light_end)
+        
+        # Get red pixel counts, which wrap around hsv space and need to be counted in two sets...
+        # (covers red hues, middle-to-high saturation, middle-to-high brightness values)
+        red_pixels = hue_in_range(0, 14)
+        red_pixels += hue_in_range(165, 179)
+        
+        # Get remaining color counts based on rgb (and cmy) binning
+        # (covers target hue ranges, middle-to-high saturation, middle-to-high brightness values)
+        yellow_pixels = hue_in_range(15, 44)
+        green_pixels = hue_in_range(45, 74)
+        cyan_pixels = hue_in_range(75, 104)
+        blue_pixels = hue_in_range(105, 134)
+        magenta_pixels = hue_in_range(135, 164)
+        
+        # Arrange counts in a reasonably intuitive way
+        num_pixels = hsv_rows.shape[0]
+        pixel_color_counts = np.float32([dark_pixels, light_pixels,
+                                         red_pixels, yellow_pixels,
+                                         green_pixels, cyan_pixels,
+                                         blue_pixels, magenta_pixels])
+        
+        '''
+        # Sanity check. Slower way to determine total pixel count but useful to check for double-counting
+        total_count = np.sum(pixel_color_counts)
+        if (num_pixels != total_count):
+            print("Error! Double counting color pixels:", num_pixels, total_count)
+        '''
+        
+        # Scale pixel counts to proportional values (integer values scaled to 1000)
+        color_prop = np.int32(np.round(1000 * pixel_color_counts / num_pixels)).tolist()
+        
+        return color_prop
 
     # .................................................................................................................
     # .................................................................................................................

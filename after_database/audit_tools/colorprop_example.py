@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Wed Sep  9 11:56:31 2020
+Created on Fri Dec 11 16:04:39 2020
 
 @author: eo
 """
@@ -66,6 +66,7 @@ from local.offline_database.classification_reconstruction import create_objects_
 from local.lib.ui_utils.local_ui.windows_base import Simple_Window
 
 from local.eolib.utils.cli_tools import Datetime_Input_Parser as DTIP
+from local.eolib.video.text_rendering import normalized_text
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -168,7 +169,13 @@ class Callback_Sequencer:
 # =====================================================================================================================
     
 
-class Hover_Color_Object(Smooth_Hover_Object_Reconstruction):
+class Hover_Colorprop_Object(Smooth_Hover_Object_Reconstruction):
+    
+    # Hard-code display colors corresponding to proportion data
+    proportion_bgr_colors = [(0,0,0), (255,255,255),        # Black, white
+                             (0,0,255), (0,235,235),        # Red, yellow
+                             (0, 235, 0), (235, 235, 0),    # Green, cyan
+                             (235, 0, 0), (235, 0, 235)]    # Blue, magenta
     
     # .................................................................................................................
     
@@ -179,10 +186,14 @@ class Hover_Color_Object(Smooth_Hover_Object_Reconstruction):
         super().__init__(object_metadata, frame_wh, global_start_datetime_isoformat, global_end_datetime_isoformat,
                          smoothing_factor)
         
-        # Store color sample data (in bgr format for convenience)
-        color_samples_rgb_list = object_metadata["tracking"]["color_samples_rgb"]
-        color_samples_bgr_array = np.fliplr(np.uint8(color_samples_rgb_list))
-        self.color_samples_array = np.expand_dims(color_samples_bgr_array, 0)
+        # Get color proportion data from object metadata
+        detection_data = object_metadata.get("detection", {})
+        color_prop_list = detection_data.get("color_proportions", None)
+        self.has_color_data = (color_prop_list is not None)
+        
+        # Store color proportion data
+        color_prop_array = np.int32(color_prop_list) if self.has_color_data else None
+        self.color_prop_array = color_prop_array
     
     # .................................................................................................................
     
@@ -206,16 +217,96 @@ class Hover_Color_Object(Smooth_Hover_Object_Reconstruction):
     
     # .................................................................................................................
     
+    def draw_color_playback_indicator(self, colorbar_frame, snap_frame_index,
+                                      line_fg_color = (255,255,255), line_bg_color = (0,0,0),
+                                      line_type = cv2.LINE_4):
+        
+        ''' Function used to draw vertical playback indicator onto the colorbar display during animations '''
+        
+        # Don't draw anything if the object didn't exist yet!
+        start_idx = self.start_idx
+        end_idx = self.end_idx        
+        idx_in_range = start_idx <= snap_frame_index <= end_idx
+        if not idx_in_range:
+            return colorbar_frame
+        
+        # Make copy of colorbar so we don't destroy the original
+        display_frame = colorbar_frame.copy()
+        frame_height, frame_width = display_frame.shape[0:2]
+        
+        # Figure out where to draw the playback indicator
+        idx_as_fraction = (snap_frame_index - start_idx) / (end_idx - start_idx)
+        x_px = int(round((frame_width - 1) * idx_as_fraction))
+        pt1 = (x_px, -5)
+        pt2 = (x_px, frame_height + 5)
+        
+        # Draw playback indicator with foreground/background coloring
+        cv2.line(display_frame, pt1, pt2, line_bg_color, 2, line_type)
+        cv2.line(display_frame, pt1, pt2, line_fg_color, 1, line_type)
+        
+        return display_frame
+    
+    # .................................................................................................................
+    
     def draw_colorbar(self, colorbar_frame):
+        
+        ''' Function used to create a colorbar image (from color proportion data) '''
         
         # Get bar sizing, so we can output the proper sized image
         bar_height, bar_width = colorbar_frame.shape[0:2]
         bar_wh = (bar_width, bar_height)
         
-        # Create 'image' out of color samples, for display
-        colorbar_frame = cv2.resize(self.color_samples_array, dsize = bar_wh, interpolation = cv2.INTER_NEAREST)
+        # Bail if there is no color data
+        if not self.has_color_data:
+            blank_frame = np.full((bar_height, bar_width, 3), (40, 40, 40), dtype = np.uint8)
+            _, colorbar_frame = normalized_text(blank_frame, "No color data!", (0.5, 0.5), color = (10, 80, 255))
+            return colorbar_frame
+        
+        # Draw each of the proportion samples in separate 'blocks' with bars representing proportion sizing
+        block_frames = []
+        for each_proportion_entry in self.color_prop_array:
+            new_block_frame = self._draw_one_proportion_block(each_proportion_entry)
+            block_frames.append(new_block_frame)
+        
+        # Stack all color proporation visuals side-by-side and scale to fit displayed image
+        colorbar_frame = np.hstack(block_frames)
+        colorbar_frame = cv2.resize(colorbar_frame, dsize = bar_wh, interpolation = cv2.INTER_NEAREST)
         
         return colorbar_frame
+    
+    # .................................................................................................................
+    
+    def _draw_one_proportion_block(self, proportion_data, block_height = 50, interpolation_type = cv2.INTER_NEAREST):
+        
+        '''
+        Function used to draw a single entry of color proportion data
+        Many single entries can be drawn and stacked together for visualization
+        '''
+        
+        # For clarity
+        block_width = 1
+        block_wh = (block_width, block_height)
+        
+        # Calculate the height of each (independently!) drawn block
+        segment_heights = np.int32(np.round(block_height * proportion_data / sum(proportion_data)))
+        
+        # Build up output block by stacking solidly colored segments on top of one another
+        segments_list = []
+        for each_color, each_seg_height in zip(self.proportion_bgr_colors, segment_heights):
+            
+            # Skip missing/overly small segments
+            if each_seg_height < 1:
+                continue
+        
+            # Create new solid color block for each color and add to list
+            segment_shape = (each_seg_height, block_width, 3)
+            new_segment = np.full(segment_shape, each_color, dtype = np.uint8)
+            segments_list.append(new_segment)
+        
+        # Resize to target block sizing, in case segments are missing/rounding changes the size
+        block_frame = cv2.resize(np.vstack(segments_list), dsize = block_wh, interpolation = interpolation_type)
+        
+        return block_frame
     
     # .................................................................................................................
     # .................................................................................................................
@@ -280,8 +371,11 @@ def show_looping_animation(snapshot_database, object_database, object_ref, color
         # Draw timestamp to indicate help playback position
         cnr_timestamp.draw_timestamp(snap_image, snap_md)
         
+        # Draw playback position indicator on to the colorbar
+        color_bar_ind = object_ref.draw_color_playback_indicator(colorbar_frame, snap_frame_idx)
+        
         # Display the snapshot image, but stop if the window is closed
-        combined_frame = np.vstack((snap_image, colorbar_frame))
+        combined_frame = np.vstack((snap_image, color_bar_ind))
         winexists = anim_window.imshow(combined_frame)
         if not winexists:
             break
@@ -356,10 +450,10 @@ frame_wh = (frame_width, frame_height)
 obj_metadata_generator = obj_db.load_metadata_by_time_range(user_start_dt, user_end_dt)
 
 # Create dictionary of 'reconstructed' objects based on object metadata
-obj_dict = Hover_Color_Object.create_reconstruction_dict(obj_metadata_generator,
-                                                         frame_wh,
-                                                         user_start_dt,
-                                                         user_end_dt)
+obj_dict = Hover_Colorprop_Object.create_reconstruction_dict(obj_metadata_generator,
+                                                             frame_wh,
+                                                             user_start_dt,
+                                                             user_end_dt)
 
 # Organize objects by class label -> then by object id (nested dictionaries)
 obj_id_list, obj_by_class_dict, obj_id_to_class_dict = create_objects_by_class_dict(class_db, obj_dict)
@@ -378,7 +472,7 @@ hover_map = Hover_Mapping(obj_by_class_dict)
 trails_background = create_trail_frame_from_object_reconstruction(bg_frame, ordered_obj_list)
 
 # Create background bar frame for drawing color sample info
-bar_height = 22
+bar_height = 50
 bar_bg_color = (40,40,40)
 bar_background = np.full((bar_height, frame_width, 3), bar_bg_color, dtype=np.uint8)
 
@@ -394,7 +488,7 @@ trail_hover_callback = Hover_Callback(frame_wh)
 cb_sequencer = Callback_Sequencer("trails", trail_hover_callback, frame_wh)
 
 # Set up main display window
-disp_window = Simple_Window("Color Sample Viewer")
+disp_window = Simple_Window("Color Data Viewer")
 disp_window.attach_callback(cb_sequencer)
 disp_window.move_corner_pixels(50, 50)
 print("", "Press Esc to close", "", sep= "\n", flush = True)
