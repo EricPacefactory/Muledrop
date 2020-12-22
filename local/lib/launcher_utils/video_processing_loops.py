@@ -479,6 +479,7 @@ class Reconfigurable_Video_Loop(Video_Processing_Loop):
         
         # If a break is requested, try resetting the video capture
         if req_break:
+            self.loader.vreader.set_current_frame(0)
             req_break, input_frame, read_time_sec, current_frame_index, current_epoch_ms, current_datetime = \
             self.loader.vreader.read()
             print("", "ERROR RESETTING RECONFIGURABLE VIDEO CAPTURE!", sep = "\n")
