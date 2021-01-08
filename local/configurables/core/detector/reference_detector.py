@@ -131,6 +131,10 @@ class Reference_Detection_Object:
     
     def __init__(self, contour, realtime_classification_dict, display_frame):
         
+        # Store a property for assigning classifications during detection
+        # (Should be of the form: {"class_label_1": score_1, "class_label_2": score_2, etc.})
+        self.realtime_classification_dict = realtime_classification_dict
+        
         # Get a simplified representation of the contour
         full_hull = cv2.convexHull(contour)
         num_points, _, _ = full_hull.shape
@@ -180,14 +184,8 @@ class Reference_Detection_Object:
         # Store width/height in format that allows reconstruction of tl/br using x/y center coords
         self.width, self.height = np.float32(self.bot_right - self.top_left)
         
-        # Store a property for assigning classifications during detection
-        # (Should be of the form: {"class_label_1": score_1, "class_label_2": score_2, etc.})
-        self.realtime_classification_dict = realtime_classification_dict
-        
-        # Store color proportion data
-        cropped_frame = self._get_cropped_display(display_frame)
-        masked_bgr_rows = self._get_row_of_masked_pixels(cropped_frame)
-        self.color_proportions = self._get_hsv_color_proportions(masked_bgr_rows)
+        # Store imaging data
+        self.imaging_data_dict = self._get_imaging_data(display_frame)
     
     # .................................................................................................................
     
@@ -239,6 +237,24 @@ class Reference_Detection_Object:
     
     # .................................................................................................................
     
+    def _get_imaging_data(self, display_frame):
+        
+        ''' Function used to bundle together all image-based data values to be included in metadata '''
+        
+        # Crop detection from display for further processing
+        cropped_frame = self._get_cropped_display(display_frame)
+        
+        # Bin + count pixel colors
+        masked_bgr_rows = self._get_row_of_masked_pixels(cropped_frame)
+        color_proportions = self._get_hsv_color_proportions(masked_bgr_rows)
+        
+        # Build imaging data
+        imaging_data_dict = {"color_proportions": color_proportions}
+        
+        return imaging_data_dict
+    
+    # .................................................................................................................
+    
     def _get_cropped_display(self, display_frame, max_dimension = 50, blur_size = 3):
         
         '''
@@ -265,9 +281,9 @@ class Reference_Detection_Object:
         scale_factor = max(1, width_factor, height_factor)
         needs_downscale = (scale_factor > 1)
         if needs_downscale:
-            scale_width = crop_width / scale_factor
-            scale_height = crop_height / scale_factor
-            scale_wh = (int(scale_width), int(scale_height))
+            scale_width = max(1, int(crop_width / scale_factor))
+            scale_height = max(1, int(crop_height / scale_factor))
+            scale_wh = (scale_width, scale_height)
             color_crop_px = cv2.resize(color_crop_px, dsize = scale_wh, interpolation = cv2.INTER_NEAREST)
         
         # Apply blurring to help reduce noise

@@ -52,7 +52,7 @@ find_path_to_local()
 import cv2
 import numpy as np
 
-from collections import deque
+from collections import deque, defaultdict
 
 from local.lib.common.timekeeper_utils import datetime_to_isoformat_string
 
@@ -443,8 +443,8 @@ class Reference_Trackable_Object:
         # Allocate storage for historical variables
         self.hull_history = deque([], maxlen = self.max_samples)
         self.xy_center_history = deque([], maxlen = self.max_samples)
-        self.color_proportions_history = deque([], maxlen = self.max_samples)
         self.track_status_history = deque([], maxlen = self.max_samples)
+        self.imaging_data_historys = defaultdict(deque)
         
         # Initialize history data
         self.update_id(nice_id, full_id)
@@ -564,10 +564,10 @@ class Reference_Trackable_Object:
         
         # Get detection data
         new_track_status = 1
-        new_hull_array, new_xy_cen_array, new_color_proportions = self.get_detection_parameters(detection_object)
+        new_hull_array, new_xy_cen_array, new_imaging_data_dict = self.get_detection_parameters(detection_object)
         
         # Copy new data into object
-        self.verbatim_update(new_hull_array, new_xy_cen_array, new_color_proportions, new_track_status)
+        self.verbatim_update(new_hull_array, new_xy_cen_array, new_imaging_data_dict, new_track_status)
     
     # .................................................................................................................
     
@@ -587,11 +587,11 @@ class Reference_Trackable_Object:
         See the reference_detector.py for the reference detection object and it's available properties
         '''
         
-        return detection_object.hull_array, detection_object.xy_center_array, detection_object.color_proportions
+        return detection_object.hull_array, detection_object.xy_center_array, detection_object.imaging_data_dict
     
     # .................................................................................................................
     
-    def verbatim_update(self, new_hull_array, new_xy_center_array, new_color_proportions, new_track_status = 1):
+    def verbatim_update(self, new_hull_array, new_xy_center_array, new_imaging_data_dict, new_track_status = 1):
         
         '''
         Update object properties verbatim (i.e. take input data as final, no other processing)
@@ -606,8 +606,8 @@ class Reference_Trackable_Object:
         # Update centering position
         self.xy_center_history.append(new_xy_center_array)
         
-        # Update color proportions listing
-        self.color_proportions_history.append(new_color_proportions)
+        # Update imaging data listings
+        self._update_imaging_history(new_imaging_data_dict)
         
         # Update tracking status (should be True/1 if we're matched to something, otherwise False/0)
         self.track_status_history.append(new_track_status)
@@ -620,10 +620,10 @@ class Reference_Trackable_Object:
         new_hull_array = self.hull_array
         new_xy_cen_array = self.xy_center_array
         new_track_status = 0
-        new_color_proportions = self.color_proportions
+        new_imaging_data_dict = self.imaging_data_dict
         
         # Use existing update function to avoid duplicating tracking logic...
-        self.verbatim_update(new_hull_array, new_xy_cen_array, new_color_proportions, new_track_status)
+        self.verbatim_update(new_hull_array, new_xy_cen_array, new_imaging_data_dict, new_track_status)
     
     # .................................................................................................................
     
@@ -637,10 +637,10 @@ class Reference_Trackable_Object:
         # Generate 'new' update values, which are just copies of existing data, since we have no other data source
         new_hull_array = self.hull_array + vxy_array
         new_xy_cen_array = self.xy_center_array + vxy_array
-        new_color_proportions = self.color_proportions
+        new_imaging_data_dict = self.imaging_data_dict
         
         # Use existing update function to avoid duplicating tracking logic...
-        self.verbatim_update(new_hull_array, new_xy_cen_array, new_color_proportions, new_track_status)
+        self.verbatim_update(new_hull_array, new_xy_cen_array, new_imaging_data_dict, new_track_status)
     
     # .................................................................................................................
     
@@ -651,7 +651,8 @@ class Reference_Trackable_Object:
         is_final = (self.descendant_id == 0)
         
         # Bundle tracking data together for clarity
-        detection_data_dict, tracking_data_dict, final_num_samples = self._get_reporting_data(lifetime_ms, is_final)
+        report_imaging_data_dict, report_tracking_data_dict, final_num_samples = \
+        self._get_reporting_data(lifetime_ms, is_final)
         
         # Generate json-friendly data to save
         save_data_dict = {"_id": self.full_id,
@@ -670,10 +671,26 @@ class Reference_Trackable_Object:
                           "final_datetime_isoformat": datetime_to_isoformat_string(self.final_match_datetime),
                           "lifetime_ms": lifetime_ms,
                           "bdb_classifier": self.before_db_classification,
-                          "detection": detection_data_dict,
-                          "tracking": tracking_data_dict}
+                          "imaging": report_imaging_data_dict,
+                          "tracking": report_tracking_data_dict}
         
         return save_data_dict
+    
+    # .................................................................................................................
+    
+    def _update_imaging_history(self, new_imaging_data_dict):
+        
+        '''
+        Helper function used to build up imaging data lists over time
+        Input is expected to be a dictionary with single {key: value} pairs, per frame.
+        Builds up a dictionary of matching keys with lists (or deques) of the sequence of these values over time
+        '''
+        
+        # Append new values for every key
+        for each_field, each_value in new_imaging_data_dict.items():
+            self.imaging_data_historys[each_field].append(each_value)
+        
+        return
     
     # .................................................................................................................
     
@@ -697,13 +714,12 @@ class Reference_Trackable_Object:
         final_num_samples = self.num_samples + last_good_rel_idx + 1
         num_decay_samples_removed = abs(last_good_rel_idx) - 1
         
-        # Calculate downsampled color data (roughly two samples per second)
-        num_color_samples = 1 + int(lifetime_ms / 500)
-        downsample_idxs = np.int32(np.round(np.linspace(0, final_num_samples - 1, num_color_samples)))
-        output_color_props_list = [self.color_proportions_history[k] for k in downsample_idxs]
-        
-        # Bundle detection data together for clarity
-        detection_data_dict = {"color_proportions": output_color_props_list}
+        # Calculate downsampled imaging data (roughly 2 samples per second)
+        num_imaging_samples = 1 + int(lifetime_ms / 500)
+        downsample_idxs = np.int32(np.round(np.linspace(0, final_num_samples - 1, num_imaging_samples)))
+        report_imaging_data_dict = {}
+        for each_field, each_history in self.imaging_data_historys.items():
+            report_imaging_data_dict[each_field] = [each_history[k] for k in downsample_idxs]
         
         # Bundle tracking data together for clarity
         tracking_data_dict = {"num_validation_samples": self.num_validation_samples,
@@ -714,7 +730,7 @@ class Reference_Trackable_Object:
                               "xy_center": self._deque_of_arrays_to_list(self.xy_center_history, final_num_samples),
                               "hull": self._deque_of_arrays_to_list(self.hull_history, final_num_samples)}
         
-        return detection_data_dict, tracking_data_dict, final_num_samples
+        return report_imaging_data_dict, tracking_data_dict, final_num_samples
     
     # .................................................................................................................
     
@@ -810,8 +826,13 @@ class Reference_Trackable_Object:
     # .................................................................................................................
     
     @property
-    def color_proportions(self):
-        return self.color_proportions_history[-1]
+    def imaging_data_dict(self):
+        
+        output_dict = {}
+        for each_key, each_history in self.imaging_data_historys.items():
+            output_dict[each_key] = each_history[-1]
+        
+        return output_dict
     
     # .................................................................................................................
     
@@ -884,14 +905,14 @@ class Smoothed_Trackable_Object(Reference_Trackable_Object):
         self._update_final_match_data(current_frame_index, current_epoch_ms, current_datetime)
         
         # Get detection data
-        new_hull_array, new_xy_cen_array, new_color_proportions = self.get_detection_parameters(detection_object)
+        new_hull_array, new_xy_cen_array, new_imaging_data_dict = self.get_detection_parameters(detection_object)
         
         # Apply smooth updates
-        self.smooth_update(new_hull_array, new_xy_cen_array, new_color_proportions)
+        self.smooth_update(new_hull_array, new_xy_cen_array, new_imaging_data_dict)
         
     # .................................................................................................................
     
-    def smooth_update(self, new_hull_array, new_xy_cen_array, new_color_proportions):
+    def smooth_update(self, new_hull_array, new_xy_cen_array, new_imaging_data_dict):
         
         try:
             
@@ -908,7 +929,7 @@ class Smoothed_Trackable_Object(Reference_Trackable_Object):
         
         # Update object state using smoothed values
         new_track_status = 1
-        self.verbatim_update(new_hull_array, smooth_xy_cen_array, new_color_proportions, new_track_status)
+        self.verbatim_update(new_hull_array, smooth_xy_cen_array, new_imaging_data_dict, new_track_status)
     
     # .................................................................................................................
     

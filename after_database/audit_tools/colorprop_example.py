@@ -187,8 +187,8 @@ class Hover_Colorprop_Object(Smooth_Hover_Object_Reconstruction):
                          smoothing_factor)
         
         # Get color proportion data from object metadata
-        detection_data = object_metadata.get("detection", {})
-        color_prop_list = detection_data.get("color_proportions", None)
+        imaging_data = object_metadata.get("imaging", {})
+        color_prop_list = imaging_data.get("color_proportions", None)
         self.has_color_data = (color_prop_list is not None)
         
         # Store color proportion data
@@ -262,7 +262,7 @@ class Hover_Colorprop_Object(Smooth_Hover_Object_Reconstruction):
             _, colorbar_frame = normalized_text(blank_frame, "No color data!", (0.5, 0.5), color = (10, 80, 255))
             return colorbar_frame
         
-        # Draw each of the proportion samples in separate 'blocks' with bars representing proportion sizing
+        # Draw each of the proportion values as separate 'blocks' with bars representing proportion sizing
         block_frames = []
         for each_proportion_entry in self.color_prop_array:
             new_block_frame = self._draw_one_proportion_block(each_proportion_entry)
@@ -287,7 +287,7 @@ class Hover_Colorprop_Object(Smooth_Hover_Object_Reconstruction):
         block_width = 1
         block_wh = (block_width, block_height)
         
-        # Calculate the height of each (independently!) drawn block
+        # Calculate the height of each (independently!) drawn segment
         segment_heights = np.int32(np.round(block_height * proportion_data / sum(proportion_data)))
         
         # Build up output block by stacking solidly colored segments on top of one another
@@ -471,7 +471,7 @@ hover_map = Hover_Mapping(obj_by_class_dict)
 # Generate the background display frame, containing all object trails
 trails_background = create_trail_frame_from_object_reconstruction(bg_frame, ordered_obj_list)
 
-# Create background bar frame for drawing color sample info
+# Create background bar frame for drawing color proportion info
 bar_height = 50
 bar_bg_color = (40,40,40)
 bar_background = np.full((bar_height, frame_width, 3), bar_bg_color, dtype=np.uint8)
