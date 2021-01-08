@@ -220,7 +220,7 @@ class Reference_FG_Extractor(Core_Configurable_Base):
         '''
         
         # Place background processing here
-        err_msg = "Must implement a 'update_internal_background_copy() function ({})".format(self.script_name)
+        err_msg = "Must implement a 'process_background_frame() function ({})".format(self.script_name)
         raise NotImplementedError(err_msg)
         
         return bg_frame

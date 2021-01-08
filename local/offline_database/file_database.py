@@ -60,6 +60,8 @@ from local.lib.file_access_utils.reporting import build_camera_info_metadata_rep
 from local.lib.file_access_utils.reporting import build_config_info_metadata_report_path
 from local.lib.file_access_utils.reporting import build_snapshot_image_report_path
 from local.lib.file_access_utils.reporting import build_snapshot_metadata_report_path
+from local.lib.file_access_utils.reporting import build_background_image_report_path
+from local.lib.file_access_utils.reporting import build_background_metadata_report_path
 from local.lib.file_access_utils.reporting import build_object_metadata_report_path
 from local.lib.file_access_utils.reporting import build_station_metadata_report_path
 
@@ -659,12 +661,173 @@ class Background_DB(File_DB):
         
         # Build key info
         primary_key = "epoch_ms"
-        required_keys_set = {"frame_index"}
+        required_keys_set = {"frame_index", "datetime_isoformat"}
         
         # Inherit from parent
         super().__init__(location_select_folder_path, camera_select, primary_key, required_keys_set,
                          db_path, check_same_thread, debug_connect)
         
+        # Set up pathing to load image data
+        self.bg_images_folder_path = build_background_image_report_path(location_select_folder_path,
+                                                                        camera_select)
+        
+        # Check that the background path is valid before continuing
+        background_image_folder_exists = os.path.exists(self.bg_images_folder_path)
+        if not background_image_folder_exists:
+            raise FileNotFoundError("Couldn't find background image folder:\n{}".format(self.bg_images_folder_path))
+        
+        pass
+    
+    # .................................................................................................................
+    
+    def get_total_image_count(self):
+        
+        # Build string to total snapshot count
+        select_cmd = "SELECT count(epoch_ms) FROM {}".format(self._table_name)
+        
+        # Get data from database!
+        image_count = self._fetchone_item(select_cmd, return_if_missing = -1)
+        
+        return image_count
+    
+    # .................................................................................................................
+    
+    def get_bounding_epoch_ms(self):
+        
+        # Build string to get min/max datetimes from backgrounds
+        select_cmd = "SELECT min(epoch_ms), max(epoch_ms) FROM {}".format(self._table_name)
+        
+        # Get data from database!
+        min_epoch_ms, max_epoch_ms = self._fetchone_tuple(select_cmd, return_if_missing = (-1, 1))
+        
+        return min_epoch_ms, max_epoch_ms
+    
+    # .................................................................................................................
+    
+    def get_bounding_datetimes(self):
+        
+        # First get bounding epoch times of bounding backgrounds
+        min_epoch_ms, max_epoch_ms = self.get_bounding_epoch_ms()
+        
+        # Build string to get the corresponding datetime strings for the bounding epoch values
+        select_min_cmd = "SELECT datetime_isoformat FROM {} WHERE epoch_ms = {}".format(self._table_name,
+                                                                                        min_epoch_ms)
+        select_max_cmd = "SELECT datetime_isoformat FROM {} WHERE epoch_ms = {}".format(self._table_name,
+                                                                                        max_epoch_ms)
+        
+        # Get data from database!
+        min_dt_isoformat = self._fetchone_item(select_min_cmd, return_if_missing = -1)
+        max_dt_isoformat = self._fetchone_item(select_max_cmd, return_if_missing = -1)
+        
+        # Finally, convert datetime isoformat strings back to datetime objects
+        min_dt = isoformat_to_datetime(min_dt_isoformat)
+        max_dt = isoformat_to_datetime(max_dt_isoformat)
+        
+        return min_dt, max_dt
+    
+    # .................................................................................................................
+    
+    def get_all_background_times_by_time_range(self, start_time, end_time):
+        
+        # Convert input times to epoch values
+        start_epoch_ms = any_time_type_to_epoch_ms(start_time)
+        end_epoch_ms = any_time_type_to_epoch_ms(end_time)
+        
+        # Build command string for getting all background times between start/end
+        select_cmd = "SELECT epoch_ms FROM {} WHERE epoch_ms BETWEEN {} and {}".format(self._table_name,
+                                                                                       start_epoch_ms,
+                                                                                       end_epoch_ms)
+        
+        # Get data from database!
+        all_bg_epoch_ms_times_list = self._fetch_1d_list(select_cmd)
+        
+        return all_bg_epoch_ms_times_list
+    
+    # .................................................................................................................
+    
+    def get_newest_image(self):
+        
+        ''' Convenience function which grabs the newest (by ems) available background image '''
+        
+        # Build string to get max epoch from background data & retrieve data
+        select_cmd = "SELECT max(epoch_ms) FROM {}".format(self._table_name)
+        newest_ems = self._fetchone_item(select_cmd, return_if_missing = -1)
+        
+        # Grab only the image component
+        bg_image, _ = self.load_background_image(newest_ems)
+        
+        return bg_image
+    
+    # .................................................................................................................
+    
+    def get_oldest_image(self):
+        
+        ''' Convenience function which grabs the oldest (by ems) available background image '''
+        
+        # Build string to get max epoch from background data & retrieve data
+        select_cmd = "SELECT min(epoch_ms) FROM {}".format(self._table_name)
+        oldest_ems = self._fetchone_item(select_cmd, return_if_missing = -1)
+        
+        # Grab only the image component
+        bg_image, _ = self.load_background_image(oldest_ems)
+        
+        return bg_image
+    
+    # .................................................................................................................
+    
+    def load_background_metadata_by_ems(self, target_epoch_ms):
+        
+        '''
+        Function which returns background metadata for a given epoch timing
+        
+        Inputs:
+            target background epoch_ms time (must be a valid time!)
+        
+        Outputs:
+            metadata_dictionary
+        '''
+        
+        
+        # Build selection commands
+        select_cmd = "SELECT {} FROM {} WHERE epoch_ms = {}".format(self._metadata_key,
+                                                                    self._table_name,
+                                                                    target_epoch_ms)
+        
+        # Get data from database!
+        metadata_json = self._fetchone_item(select_cmd, return_if_missing = None)
+        if metadata_json is None:
+            metadata_json = "{}"
+        
+        # Convert to python dictionary so we can actually interact with it!
+        metadata_dict = fast_json_to_dict(metadata_json)
+        
+        return metadata_dict
+    
+    # .................................................................................................................
+    
+    def load_background_image(self, target_epoch_ms):
+        
+        '''
+        Function which loads image data for a background at the given target epoch_ms time
+        
+        Inputs:
+            target background epoch_ms time (must be a valid time!)
+        
+        Outputs:
+            background_image, background_frame_index
+        '''
+        
+        # First get background metadata, so we can look up the correct image by name
+        bg_md = self.load_background_metadata_by_ems(target_epoch_ms)
+        bg_epoch_ms = bg_md["epoch_ms"]
+        bg_frame_index = bg_md["frame_index"]
+        
+        # Read the jpg data and store it if we're caching jpgs
+        jpg_data_array = read_encoded_jpg(self.bg_images_folder_path, bg_epoch_ms)
+        image_data = decode_image_data(jpg_data_array)
+        
+        return image_data, bg_frame_index
+    
     # .................................................................................................................
     # .................................................................................................................
 
@@ -704,15 +867,15 @@ class Snap_DB(File_DB):
     
     # .................................................................................................................
     
-    def get_total_snapshot_count(self):
+    def get_total_image_count(self):
         
         # Build string to total snapshot count
         select_cmd = "SELECT count(epoch_ms) FROM {}".format(self._table_name)
         
         # Get data from database!
-        snapshot_count = self._fetchone_item(select_cmd, return_if_missing = -1)
+        image_count = self._fetchone_item(select_cmd, return_if_missing = -1)
         
-        return snapshot_count
+        return image_count
     
     # .................................................................................................................
     
@@ -864,6 +1027,36 @@ class Snap_DB(File_DB):
                        "upper_epoch_ms": ceil_snapshot_epoch_ms}
         
         return return_dict
+    
+    # .................................................................................................................
+    
+    def get_newest_image(self):
+        
+        ''' Convenience function which grabs the newest (by ems) available snapshot image '''
+        
+        # Build string to get max epoch from snapshot data & retrieve data
+        select_cmd = "SELECT max(epoch_ms) FROM {}".format(self._table_name)
+        newest_ems = self._fetchone_item(select_cmd, return_if_missing = -1)
+        
+        # Grab only the image component
+        snapshot_image, _ = self.load_snapshot_image(newest_ems)
+        
+        return snapshot_image
+    
+    # .................................................................................................................
+    
+    def get_oldest_image(self):
+        
+        ''' Convenience function which grabs the oldest (by ems) available snapshot image '''
+        
+        # Build string to get max epoch from snapshot data & retrieve data
+        select_cmd = "SELECT min(epoch_ms) FROM {}".format(self._table_name)
+        oldest_ems = self._fetchone_item(select_cmd, return_if_missing = -1)
+        
+        # Grab only the image component
+        snapshot_image, _ = self.load_snapshot_image(oldest_ems)
+        
+        return snapshot_image
     
     # .................................................................................................................
     
@@ -1538,6 +1731,18 @@ def post_snapshot_report_metadata(location_select_folder_path, camera_select, da
     time_taken_sec = post_from_folder_path(snapshot_metadata_folder_path, database)
     
     return time_taken_sec
+
+# .....................................................................................................................
+
+def post_background_report_metadata(location_select_folder_path, camera_select, database):
+    
+    # Build pathing to background report data
+    background_metadata_folder_path = build_background_metadata_report_path(location_select_folder_path,
+                                                                            camera_select)
+    
+    time_taken_sec = post_from_folder_path(background_metadata_folder_path, database)
+    
+    return time_taken_sec
     
 # .....................................................................................................................
 
@@ -1650,6 +1855,9 @@ def launch_dbs(location_select_folder_path, camera_select, *dbs_to_launch,
                   "snapshots": {"print_name": "Snapshots",
                                 "class_to_init": Snap_DB,
                                 "post_function": post_snapshot_report_metadata},
+                  "backgrounds": {"print_name": "Backgrounds",
+                                "class_to_init": Background_DB,
+                                "post_function": post_background_report_metadata},
                   "objects": {"print_name": "Objects",
                               "class_to_init": Object_DB,
                               "post_function": post_object_report_metadata},
@@ -1680,7 +1888,7 @@ def launch_dbs(location_select_folder_path, camera_select, *dbs_to_launch,
         # Convert each name to lowercase + remove spaces to ensure consistency
         safe_db_name = each_db_name.lower().replace(" ", "_")
         if safe_db_name not in launch_lut.keys():
-            valid_db_names_list = list(launch_lut.keyss())
+            valid_db_names_list = list(launch_lut.keys())
             err_msg_list = ["Can't load db: {}".format(each_db_name),
                             "Name not recognized! Should be one of:",
                             "{}".format(*valid_db_names_list)]

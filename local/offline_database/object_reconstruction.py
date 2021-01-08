@@ -697,13 +697,17 @@ class Object_Density_Bars_Display:
     
     # .................................................................................................................
     
-    def __init__(self, object_density_by_class_dict, class_colors_dict):
+    def __init__(self, object_density_by_class_dict, class_colors_dict,
+                 draw_class_labels_on_subset = True,
+                 draw_class_labels_on_full = True):
         
         # Store inputs
         self.num_classes = len(object_density_by_class_dict)
         self.density_data_dict = object_density_by_class_dict
         self.ordered_names_list = sorted(object_density_by_class_dict.keys())
         self.class_colors_dict = class_colors_dict
+        self.draw_class_labels_on_subset = draw_class_labels_on_subset
+        self.draw_class_labels_on_full = draw_class_labels_on_full
     
     # .................................................................................................................
     
@@ -742,8 +746,11 @@ class Object_Density_Bars_Display:
                                                       bar_bg_color,
                                                       bar_height)
             
-            # Add the class label to the bar image and store for combining
-            density_bar_img = draw_bar_label(density_bar_img, each_class_label)
+            # Add the class label to the bar image if needed
+            if self.draw_class_labels_on_full:
+                density_bar_img = draw_bar_label(density_bar_img, each_class_label)
+            
+            # Store each bar (one per class) for combining
             density_bar_imgs_list.append(density_bar_img)
         
         # Combine all density images together
@@ -775,8 +782,11 @@ class Object_Density_Bars_Display:
                                                             bar_bg_color,
                                                             bar_height)
             
-            # Add the class label to the subset bar image and store for combining
-            subset_bar_img = draw_bar_label(subset_bar_img, each_class_label)
+            # Add the class label to the subset bar image if needed
+            if self.draw_class_labels_on_subset:
+                subset_bar_img = draw_bar_label(subset_bar_img, each_class_label)
+            
+            # Store each bar (one per class) for combining
             subset_bar_imgs_list.append(subset_bar_img)
         
         # Combine all bar images together
