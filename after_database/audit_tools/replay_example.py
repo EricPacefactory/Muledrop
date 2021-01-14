@@ -132,6 +132,7 @@ def parse_replay_args():
     # Set defaults
     default_timestamp_pos = "br"
     default_relative_timestamp = False
+    default_class_labels = False
     
     # Set up argument parsing
     ap = argparse.ArgumentParser(formatter_class = argparse.RawTextHelpFormatter)
@@ -147,14 +148,20 @@ def parse_replay_args():
                                       "(e.g. video time) as opposed to absolute time.",
                                       "Note, a timestamp position must be set to see the timestamp!"]))
     
+    ap.add_argument("-l", "--show_class_labels", default = default_class_labels, action = "store_true",
+                    help = "\n".join(["If set, shows class labels drawn over top of the",
+                                      "object density bar plot at the bottom of the frame",
+                                      "(this affects recording)"]))
+    
     # Get arg inputs into a dictionary
     args = vars(ap.parse_args())
     
     # Get script arg values
     arg_timestamp_position = args["timestamp_position"]
     arg_relative_timestamp = args["relative_timestamp"]
+    arg_class_labels = args["show_class_labels"]
     
-    return arg_timestamp_position, arg_relative_timestamp
+    return arg_timestamp_position, arg_relative_timestamp, arg_class_labels
 
 # .....................................................................................................................
 
@@ -196,7 +203,7 @@ def create_video_recorder(project_root_path, location_select, camera_select,
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Get script arguments
 
-timestamp_pos_arg, enable_relative_timestamp = parse_replay_args()
+timestamp_pos_arg, enable_relative_timestamp, show_class_labels = parse_replay_args()
 
 # ---------------------------------------------------------------------------------------------------------------------
 #%% Make selections
@@ -292,7 +299,8 @@ ordered_obj_list = get_ordered_object_list(obj_id_list, obj_by_class_dict, obj_i
 # Get counts of each class label over time, their colors & create an object to handle density display creation
 object_density_by_class_dict = get_object_density_by_class(snap_db, snap_times_ms_list, obj_by_class_dict)
 _, _, all_label_colors_dict = class_db.get_label_color_luts()
-objdensity_data_display = Object_Density_Bars_Display(object_density_by_class_dict, all_label_colors_dict)
+objdensity_data_display = Object_Density_Bars_Display(object_density_by_class_dict, all_label_colors_dict,
+                                                      draw_class_labels_on_subset = show_class_labels)
 
 # Set up bar sizing
 ref_bar_wh = ((screen_width -  2 * screen_pad_x), 25)

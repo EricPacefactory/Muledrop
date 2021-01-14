@@ -210,6 +210,8 @@ def load_matching_config(configurable_ref):
     target_script_name = configurable_ref.script_name
     
     # Check if file access matches
+    target_script_name, _ = os.path.splitext(target_script_name)
+    saved_script_name, _ = os.path.splitext(saved_script_name)
     script_match = (target_script_name == saved_script_name)
     if script_match:
         return setup_data_dict

@@ -307,6 +307,23 @@ class Controls_Specification:
         return real_default
     
     # .................................................................................................................
+    
+    def attach_norender(self, variable_name, *, default_value, return_type = None,
+                        tooltip = "", save_with_config = True):
+        
+        '''
+        Function used to associate an 'un-renderable' data entry with a controllable variable
+        Note that this is not advisable in most cases since it creates a controllable value
+        with no UI to control it!
+        Therefore, this data type is likely only useful for storage of computer-generated results
+        '''
+        
+        input_values = get_function_arg_dict(locals())
+        self._add_new_control("raw", **input_values, visible = False)
+        
+        return default_value
+    
+    # .................................................................................................................
 
     def _add_new_control(self, control_type, **control_spec):
         
@@ -355,6 +372,7 @@ def convert_return_types(control_list):
                        str: "string",
                        list: "list",
                        tuple: "tuple",
+                       dict: "dict",
                        None: None}
     
     # For convenience
@@ -457,8 +475,6 @@ if __name__ == "__main__":
     cspec.attach_toggle("fast_blur",
                         label = "Bluriness",
                         default_value = False)
-    
-    
     
     cspec.new_control_group("Thresholding Controls")
     
