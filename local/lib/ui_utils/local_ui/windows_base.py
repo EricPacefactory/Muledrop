@@ -73,10 +73,14 @@ class Simple_Window:
         
         # Get window name so we can continue to refer to this window!
         self.window_name = window_name
+        self.display_frame = None
+        self.is_hidden = (not create_on_startup)
+        self._hidden_xy = None
         
-        # Allocate variables for (potential) mouse-xy feedback
+        # Allocate variables for (potential) mouse-xy feedback or other callback
         self.enable_mouse_feedback = provide_mouse_xy
-        self._mouse_feedback = None
+        self._mouse_callback = Mouse_Follower() if provide_mouse_xy else None
+        self._callback_data = None
         
         # Variables for recording the window position
         self.x_px = None
@@ -108,7 +112,7 @@ class Simple_Window:
     
     @property
     def mouse_xy(self):
-        return self._mouse_feedback.xy if self.enable_mouse_feedback else None
+        return self._mouse_callback.xy if self.enable_mouse_feedback else None
     
     # ................................................................................................................. 
     
@@ -138,6 +142,7 @@ class Simple_Window:
         # Only update showing if the window exists & a valid image is supplied
         if window_exists and valid_frame_data:
             cv2.imshow(self.window_name, display_frame)
+            self.display_frame = display_frame
         
         return window_exists
     
@@ -220,8 +225,14 @@ class Simple_Window:
         
     def attach_callback(self, mouse_callback, callback_data = {}, create_if_missing = True):
         
-        self._create_window_if_missing(create_if_missing)
+        # Check if mouse xy was already requested (can't have 2 callbacks!)
+        if self.enable_mouse_feedback:
+            raise AttributeError("Cannot attach callback when already providing mouse xy!")
+        
+        # Set callback and store for reference
         cv2.setMouseCallback(self.window_name, mouse_callback, callback_data)
+        self._mouse_callback = mouse_callback
+        self._callback_data = callback_data
         
         return self
     
@@ -250,10 +261,9 @@ class Simple_Window:
         self.imshow_blank()
         self.move_corner_pixels(x_pixels = 50, y_pixels = 50, create_if_missing = False)
         
-        # Enable mouse xy reporting, if needed
-        if self.enable_mouse_feedback:
-            self._mouse_feedback = Mouse_Follower()
-            cv2.setMouseCallback(self.window_name, self._mouse_feedback)
+        # Attach callback if needed
+        if self._mouse_callback is not None:
+            cv2.setMouseCallback(self.window_name, self._mouse_callback, self._callback_data)
         
         return self
     
@@ -270,7 +280,44 @@ class Simple_Window:
         return
     
     # .................................................................................................................
+    
+    def hide(self):
+        
+        ''' Function that captures the current window image & position, then closes the window '''
+        
+        # Store the last known xy values (if they were set)
+        has_xy = (self.x_px is not None) and (self.y_px is not None)
+        self._hidden_xy = (self.x_px, self.y_px) if has_xy else None
+        
+        # Keep track of whether the window existed before hiding, since we don't want to restore closed windows
+        self.is_hidden = self.exists()
+        self.close()
+        
+        return
+    
     # .................................................................................................................
+    
+    def unhide(self):
+        
+        ''' Function used to re-create windows that have been hidden '''
+        
+        # Don't unhide windows that weren't previously hidden (i.e. don't re-create intentionally closed windows)
+        if not self.is_hidden:
+            return
+        
+        # Re-create the window and move it to the previous xy location
+        self._create_window_if_missing()
+        if self._hidden_xy is not None:
+            self.move_corner_pixels(*self._hidden_xy)
+        
+        # Re-show the last displayed frame
+        self.imshow(self.display_frame)
+    
+        return
+    
+    # .................................................................................................................
+    # .................................................................................................................
+
 
 # /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 # /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1063,6 +1110,28 @@ class Mouse_Follower:
 #%% Define functions
 
 # .....................................................................................................................
+
+def hide_windows(*window_refs):
+    
+    ''' Helper function used to hide multiple windows (must pass instances of Simple_Window or derivatives!) '''
+    
+    for each_window_ref in window_refs:
+        each_window_ref.hide()
+    
+    return window_refs
+
+# .....................................................................................................................
+
+def unhide_windows(*window_refs):
+    
+    ''' Helper function used to unhide multiple windows '''
+    
+    for each_window_ref in window_refs:
+        each_window_ref.unhide()
+    
+    return window_refs
+
+# .....................................................................................................................
        
 def simple_affine(min_value, max_value, step_size = 1, return_type = None):
     
@@ -1187,11 +1256,13 @@ if __name__ == "__main__":
     
     # Set up example mouse follower
     follower = Mouse_Follower()
+    f2 = Mouse_Follower()
     
     # Window creation & callback assignment
     window_name = "FOLLOWER EXAMPLE"
     cv2.namedWindow(window_name)    
     cv2.setMouseCallback(window_name, follower)
+    cv2.setMouseCallback(window_name, f2)
     
     while True:
         
@@ -1200,6 +1271,7 @@ if __name__ == "__main__":
         
         # Draw mouse location as an example
         drawn_frame = follower.draw_mouse_xy(display_frame)
+        #drawn_frame = f2.draw_mouse_xy(drawn_frame, point_color=(0,0,0))
         cv2.imshow(window_name, drawn_frame)
         
         # Get keypress

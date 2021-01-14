@@ -56,7 +56,7 @@ import numpy as np
 from tqdm import tqdm
 
 from local.lib.ui_utils.cli_selections import Resource_Selector
-from local.lib.ui_utils.local_ui.windows_base import Simple_Window
+from local.lib.ui_utils.local_ui.windows_base import Simple_Window, hide_windows, unhide_windows
 from local.lib.ui_utils.screen_info import Screen_Info
 
 from local.lib.file_access_utils.settings import load_recording_info
@@ -330,7 +330,7 @@ ref_window_y = screen_height - ref_img_height - screen_pad_y
 # Create a window for displaying station data as a reference
 ref_drag_callback = Drag_Callback(ref_frame_wh)
 ref_window_title = "Reference Object Activity"
-ref_window = Simple_Window(ref_window_title, provide_mouse_xy = True)
+ref_window = Simple_Window(ref_window_title)
 ref_window.attach_callback(ref_drag_callback)
 ref_window.move_corner_pixels(ref_window_x, ref_window_y)
 ref_window.imshow(initial_ref_bars_img)
@@ -486,9 +486,11 @@ while True:
     
     # Check for recording trigger
     if keypress == record_keypress:
+        hidden_windows_list = hide_windows(ref_window, disp_window)
         user_confirm_record = cli_confirm("Record video?", default_response = False)
         if user_confirm_record:
             break
+        unhide_windows(*hidden_windows_list)
 
 # Clean up
 cv2.destroyAllWindows()
