@@ -355,7 +355,7 @@ ref_window_y = screen_height - ref_img_height - screen_pad_y
 # Create a window for displaying station data as a reference
 ref_drag_callback = Drag_Callback(ref_frame_wh)
 ref_window_title = "Reference Station Data"
-ref_window = Simple_Window(ref_window_title, provide_mouse_xy = True)
+ref_window = Simple_Window(ref_window_title)
 ref_window.attach_callback(ref_drag_callback)
 ref_window.move_corner_pixels(ref_window_x, ref_window_y)
 ref_window.imshow(initial_ref_bars_img)

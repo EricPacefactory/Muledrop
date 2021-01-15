@@ -339,7 +339,7 @@ class Object_Reconstruction:
                 return output_frame
             
             sample_idx = self.frame_index_to_sample_index(frame_index)
-            plot_trail_xy = self.trail_xy[:sample_idx]
+            plot_trail_xy = self.trail_xy[:(1 + sample_idx)]
         else:
             plot_trail_xy = self.trail_xy
         
