@@ -121,6 +121,14 @@ def create_supervised_label_entry(object_id, topclass_label, subclass_label = ""
 
 # .....................................................................................................................
 
+def get_svlabel_object_id(supervised_labels_dict):
+    
+    ''' Helper function for getting the object id out of a given object svlabel entry '''
+    
+    return supervised_labels_dict["full_id"]
+
+# .....................................................................................................................
+
 def get_svlabel_topclass_label(supervised_labels_dict, object_id = None):
     
     ''' Helper function for getting the topclass label from the supervised labels, for a given object id '''
@@ -232,9 +240,9 @@ def load_single_supervised_label(location_select_folder_path, camera_select, obj
 
 # .....................................................................................................................
     
-def load_all_supervised_labels(location_select_folder_path, camera_select, object_id_list):
+def load_all_supervised_labels(location_select_folder_path, camera_select, object_id_list = None):
     
-    ''' Function which loads all '''
+    ''' Function which loads all supervised label data in a dictionary indexed by object id '''
     
     # Build parent folder path
     svlabels_folder_path = build_supervised_labels_folder_path(location_select_folder_path, camera_select)
@@ -243,16 +251,30 @@ def load_all_supervised_labels(location_select_folder_path, camera_select, objec
     # Get label to use as default, if nothing is available
     default_label_if_missing, _ = reserved_unclassified_label()
     
-    # Load all of target object IDs labelling data into a dictionary
+    # If object ID list is missing, just load all svlabel files directly
     nested_svlabels_dict = {}
-    for each_full_id in object_id_list:
+    no_obj_ids_list = (object_id_list is None)
+    if no_obj_ids_list:
         
-        # Get a single object labeling entry
-        single_object_entry = load_single_supervised_label(location_select_folder_path, camera_select,
-                                                           each_full_id, default_label_if_missing)
+        # Grab every svlabel file and load it's contents
+        all_svlabel_files = os.listdir(svlabels_folder_path)
+        all_svlabel_paths = (os.path.join(svlabels_folder_path, each_file) for each_file in all_svlabel_files)
+        for each_svlabel_path in all_svlabel_paths:
+            svlabel_dict = load_config_json(each_svlabel_path)
+            each_full_id = get_svlabel_object_id(svlabel_dict)
+            nested_svlabels_dict[each_full_id] = svlabel_dict
         
-        # Bundle all object IDs together
-        nested_svlabels_dict[each_full_id] = single_object_entry
+    else:
+    
+        # Load all of the svlabel data for the target object IDs
+        for each_full_id in object_id_list:
+            
+            # Get a single object labeling entry
+            single_object_entry = load_single_supervised_label(location_select_folder_path, camera_select,
+                                                               each_full_id, default_label_if_missing)
+            
+            # Bundle all object IDs together
+            nested_svlabels_dict[each_full_id] = single_object_entry
     
     return nested_svlabels_dict
 
