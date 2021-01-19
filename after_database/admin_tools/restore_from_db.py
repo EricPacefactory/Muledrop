@@ -60,7 +60,7 @@ from local.lib.common.environment import get_dbserver_protocol
 from local.lib.ui_utils.cli_selections import Resource_Selector
 from local.lib.ui_utils.script_arguments import script_arg_builder
 
-from local.online_database.request_from_dbserver import Server_Access
+from local.online_database.request_from_dbserver import Server_Access, Camera_Data_Access
 from local.online_database.request_from_dbserver import Camerainfo, Configinfo, Backgrounds
 from local.online_database.request_from_dbserver import Snapshots, Objects, Stations
 
@@ -177,7 +177,7 @@ project_root_path, all_locations_folder_path = selector.get_shared_pathing()
 #%% Set up access to data server
 
 # Select location to communicate with
-location_select, location_path = selector.location()
+location_select, location_select_folder_path = selector.location()
 
 # Get location connection info
 location_info_dict = load_location_info_dict(all_locations_folder_path, location_select, error_if_missing = True)
@@ -197,19 +197,22 @@ print("  --> Success")
 #%% Set camera selection
 
 # First get a list of available cameras from the server
-camera_names_list = server_ref.get_all_camera_names()
+server_camera_names_list = server_ref.get_all_camera_names()
 
 # Prompt user to select which camera they'd like to download data for
-select_idx, camera_select = cli_select_from_list(camera_names_list, "Select camera:")
+select_idx, server_camera_select = cli_select_from_list(server_camera_names_list, "Select server camera:")
 
 # Set up all data access objects
-access_args = (server_ref, location_path, camera_select)
-caminfo = Camerainfo(*access_args)
-cfginfo = Configinfo(*access_args)
-backgrounds = Backgrounds(*access_args)
-snapshots = Snapshots(*access_args)
-objects = Objects(*access_args)
-stations = Stations(*access_args)
+camera_data_ref = Camera_Data_Access(server_ref, location_select_folder_path, server_camera_select)
+caminfo = Camerainfo(camera_data_ref)
+cfginfo = Configinfo(camera_data_ref)
+backgrounds = Backgrounds(camera_data_ref)
+snapshots = Snapshots(camera_data_ref)
+objects = Objects(camera_data_ref)
+stations = Stations(camera_data_ref)
+
+# Get local naming for saved camera data
+_, report_camera_select = camera_data_ref.get_camera_select()
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -276,6 +279,8 @@ print("","",
       "  {} objects".format(object_count),
       "  {} station datasets".format(station_count),
       "  {}".format(snapshot_count_str),
+      "",
+      "  {}".format(report_camera_select),
       sep = "\n")
 
 # Give the user a chance to cancel the download, if they don't like the dataset numbers
@@ -288,15 +293,14 @@ if not user_confirm_download:
 #%% Prepare the save folder
 
 # Create the camera folder, if needed
-location_select_folder_path = selector.get_location_select_folder_path(location_select)
-selector.create_empty_camera_folder(location_select, camera_select)
+selector.create_empty_camera_folder(location_select, report_camera_select)
 
 # Save selections for convenience
 selector.save_location_select(location_select)
-selector.save_camera_select(camera_select)
+selector.save_camera_select(report_camera_select)
 
 # Remove existing data, if needed
-delete_existing_report_data(location_select_folder_path, camera_select,
+delete_existing_report_data(location_select_folder_path, report_camera_select,
                             enable_deletion = True,
                             enable_deletion_prompt = True)
 

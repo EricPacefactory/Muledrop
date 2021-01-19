@@ -277,20 +277,23 @@ class Server_Access:
 # =====================================================================================================================
 
 
-class Camera_Data_Retrieval:
+class Camera_Data_Access:
     
     # .................................................................................................................
     
-    def __init__(self, server_access_ref, location_select_folder_path, camera_select):
+    def __init__(self, server_access_ref, location_select_folder_path, server_camera_select):
         
         # Store server access reference
         self.server_access = server_access_ref
         
         # Allocate storage for camera selection
         self.location_select_folder_path = None
-        self.camera_select = None
+        self.server_camera_select = None
+        self.report_camera_select = None
+        
+        # Initialize pathing variables
         self.set_location_select_folder_path(location_select_folder_path)
-        self.set_camera_select(camera_select)
+        self.set_camera_select(server_camera_select)
     
     # .................................................................................................................
     
@@ -302,7 +305,7 @@ class Camera_Data_Retrieval:
         "/(http_url)/(camera_select)/add/ons/.../etc"
         '''
         
-        return self.server_access._build_http_request_url(self.camera_select, *route_addons)
+        return self.server_access._build_http_request_url(self.server_camera_select, *route_addons)
     
     # .................................................................................................................
     
@@ -314,12 +317,12 @@ class Camera_Data_Retrieval:
         "/(websocket_url)/(camera_select)/add/ons/.../etc"
         '''
         
-        return self.server_access._build_websocket_request_url(self.camera_select, *route_addons)
+        return self.server_access._build_websocket_request_url(self.server_camera_select, *route_addons)
     
     # .................................................................................................................
     
     def get_report_args(self):
-        return (self.location_select_folder_path, self.camera_select)
+        return (self.location_select_folder_path, self.report_camera_select)
     
     # .................................................................................................................
     
@@ -328,30 +331,40 @@ class Camera_Data_Retrieval:
     
     # .................................................................................................................
     
-    def set_camera_select(self, camera_select):
-        self.camera_select = camera_select
-    
-    # .................................................................................................................
-    # .................................................................................................................
-
-
-# =====================================================================================================================
-# =====================================================================================================================
-
-
-class Camerainfo(Camera_Data_Retrieval):
+    def set_camera_select(self, server_camera_select):
+        self.server_camera_select = server_camera_select
+        self.report_camera_select = "{}_remote".format(server_camera_select)
     
     # .................................................................................................................
     
-    def __init__(self, server_access_ref, location_select_folder_path, camera_select):
+    def get_camera_select(self):
         
-        # Inherit from parent class
-        super().__init__(server_access_ref, location_select_folder_path, camera_select)
+        ''' Returns: server_camera_select, report_camera_select '''
+        
+        return self.server_camera_select, self.report_camera_select
+    
+    # .................................................................................................................
+    # .................................................................................................................
+
+
+# =====================================================================================================================
+# =====================================================================================================================
+
+
+class Camerainfo:
+    
+    # .................................................................................................................
+    
+    def __init__(self, camera_data_access_ref):
+        
+        # Store reference to camera data retriever & server timeout setting
+        self.camera_access = camera_data_access_ref
+        self.server_timeout_sec = camera_data_access_ref.server_access.timeout_sec
     
     # .................................................................................................................
     
     def _build_camerainfo_url(self, *route_addons):
-        return self._build_camera_http_request_url("camerainfo", *route_addons)
+        return self.camera_access._build_camera_http_request_url("camerainfo", *route_addons)
     
     # .................................................................................................................
     
@@ -361,7 +374,7 @@ class Camerainfo(Camera_Data_Retrieval):
         # Build the request url
         req_url = self._build_camerainfo_url("get-oldest-metadata")
         
-        return get_json(req_url, use_gzip, self.server_access.timeout_sec, no_data_response, raise_errors)
+        return get_json(req_url, use_gzip, self.server_timeout_sec, no_data_response, raise_errors)
     
     # .................................................................................................................
     
@@ -369,7 +382,7 @@ class Camerainfo(Camera_Data_Retrieval):
         
         ''' Helper function which returns the metadata (json) save pathing for camera info'''
         
-        report_args = self.get_report_args()
+        report_args = self.camera_access.get_report_args()
         save_folder_path = build_camera_info_metadata_report_path(*report_args)
         if create_folder_if_missing:
             create_missing_folder_path(save_folder_path)
@@ -384,7 +397,7 @@ class Camerainfo(Camera_Data_Retrieval):
         # Build the request url
         req_url = self._build_camerainfo_url("get-newest-metadata")
         
-        return get_json(req_url, use_gzip, self.server_access.timeout_sec, no_data_response, raise_errors)
+        return get_json(req_url, use_gzip, self.server_timeout_sec, no_data_response, raise_errors)
     
     # .................................................................................................................
     
@@ -397,7 +410,7 @@ class Camerainfo(Camera_Data_Retrieval):
         # Build the request url
         req_url = self._build_camerainfo_url("get-active-metadata", "by-time-target", target_ems)
         
-        return get_json(req_url, use_gzip, self.server_access.timeout_sec, no_data_response, raise_errors)
+        return get_json(req_url, use_gzip, self.server_timeout_sec, no_data_response, raise_errors)
     
     # .................................................................................................................
     
@@ -410,7 +423,7 @@ class Camerainfo(Camera_Data_Retrieval):
         # Build the request url
         req_url = self._build_camerainfo_url("get-many-metadata", "by-time-range", start_ems, end_ems)
         
-        return get_json(req_url, use_gzip, self.server_access.timeout_sec, no_data_response, raise_errors)
+        return get_json(req_url, use_gzip, self.server_timeout_sec, no_data_response, raise_errors)
     
     # .................................................................................................................
     
@@ -422,7 +435,7 @@ class Camerainfo(Camera_Data_Retrieval):
         
         # Build the request url
         req_url = self._build_camerainfo_url("count", "by-time-range", start_ems, end_ems)
-        count_dict = get_json(req_url, use_gzip, self.server_access.timeout_sec, no_data_response, raise_errors)
+        count_dict = get_json(req_url, use_gzip, self.server_timeout_sec, no_data_response, raise_errors)
         
         return count_dict.get("count", 0)
     
@@ -434,19 +447,20 @@ class Camerainfo(Camera_Data_Retrieval):
 # =====================================================================================================================
 
 
-class Configinfo(Camera_Data_Retrieval):
+class Configinfo:
     
     # .................................................................................................................
     
-    def __init__(self, server_access_ref, location_select_folder_path, camera_select):
+    def __init__(self, camera_data_access_ref):
         
-        # Inherit from parent class
-        super().__init__(server_access_ref, location_select_folder_path, camera_select)
+        # Store reference to camera data retriever & server timeout setting
+        self.camera_access = camera_data_access_ref
+        self.server_timeout_sec = camera_data_access_ref.server_access.timeout_sec
     
     # .................................................................................................................
     
     def _build_configinfo_url(self, *route_addons):
-        return self._build_camera_http_request_url("configinfo", *route_addons)
+        return self.camera_access._build_camera_http_request_url("configinfo", *route_addons)
     
     # .................................................................................................................
     
@@ -456,7 +470,7 @@ class Configinfo(Camera_Data_Retrieval):
         # Build the request url
         req_url = self._build_configinfo_url("get-oldest-metadata")
         
-        return get_json(req_url, use_gzip, self.server_access.timeout_sec, no_data_response, raise_errors)
+        return get_json(req_url, use_gzip, self.server_timeout_sec, no_data_response, raise_errors)
     
     # .................................................................................................................
     
@@ -464,7 +478,7 @@ class Configinfo(Camera_Data_Retrieval):
         
         ''' Helper function which returns the metadata (json) save pathing for config info data'''
         
-        report_args = self.get_report_args()
+        report_args = self.camera_access.get_report_args()
         save_folder_path = build_config_info_metadata_report_path(*report_args)
         if create_folder_if_missing:
             create_missing_folder_path(save_folder_path)
@@ -479,7 +493,7 @@ class Configinfo(Camera_Data_Retrieval):
         # Build the request url
         req_url = self._build_configinfo_url("get-newest-metadata")
         
-        return get_json(req_url, use_gzip, self.server_access.timeout_sec, no_data_response, raise_errors)
+        return get_json(req_url, use_gzip, self.server_timeout_sec, no_data_response, raise_errors)
     
     # .................................................................................................................
     
@@ -492,7 +506,7 @@ class Configinfo(Camera_Data_Retrieval):
         # Build the request url
         req_url = self._build_configinfo_url("get-active-metadata", "by-time-target", target_ems)
         
-        return get_json(req_url, use_gzip, self.server_access.timeout_sec, no_data_response, raise_errors)
+        return get_json(req_url, use_gzip, self.server_timeout_sec, no_data_response, raise_errors)
     
     # .................................................................................................................
     
@@ -505,7 +519,7 @@ class Configinfo(Camera_Data_Retrieval):
         # Build the request url
         req_url = self._build_configinfo_url("get-many-metadata", "by-time-range", start_ems, end_ems)
         
-        return get_json(req_url, use_gzip, self.server_access.timeout_sec, no_data_response, raise_errors)
+        return get_json(req_url, use_gzip, self.server_timeout_sec, no_data_response, raise_errors)
     
     # .................................................................................................................
     
@@ -517,7 +531,7 @@ class Configinfo(Camera_Data_Retrieval):
         
         # Build the request url
         req_url = self._build_configinfo_url("count", "by-time-range", start_ems, end_ems)
-        count_dict = get_json(req_url, use_gzip, self.server_access.timeout_sec, no_data_response, raise_errors)
+        count_dict = get_json(req_url, use_gzip, self.server_timeout_sec, no_data_response, raise_errors)
         
         return count_dict.get("count", 0)
     
@@ -529,24 +543,25 @@ class Configinfo(Camera_Data_Retrieval):
 # =====================================================================================================================
 
 
-class Backgrounds(Camera_Data_Retrieval):
+class Backgrounds:
     
     # .................................................................................................................
     
-    def __init__(self, server_access_ref, location_select_folder_path, camera_select):
+    def __init__(self, camera_data_access_ref):
         
-        # Inherit from parent class
-        super().__init__(server_access_ref, location_select_folder_path, camera_select)
+        # Store reference to camera data retriever & server timeout setting
+        self.camera_access = camera_data_access_ref
+        self.server_timeout_sec = camera_data_access_ref.server_access.timeout_sec
     
     # .................................................................................................................
     
     def _build_backgrounds_url(self, *route_addons):
-        return self._build_camera_http_request_url("backgrounds", *route_addons)
+        return self.camera_access._build_camera_http_request_url("backgrounds", *route_addons)
     
     # .................................................................................................................
     
     def _build_background_websocket_url(self, *route_addons):
-        return self._build_camera_websocket_request_url("backgrounds", *route_addons)
+        return self.camera_access._build_camera_websocket_request_url("backgrounds", *route_addons)
     
     # .................................................................................................................
     
@@ -556,7 +571,7 @@ class Backgrounds(Camera_Data_Retrieval):
         # Build the request url
         req_url = self._build_backgrounds_url("get-bounding-times")
         
-        return get_json(req_url, use_gzip, self.server_access.timeout_sec, no_data_response, raise_errors)
+        return get_json(req_url, use_gzip, self.server_timeout_sec, no_data_response, raise_errors)
     
     # .................................................................................................................
     
@@ -564,7 +579,7 @@ class Backgrounds(Camera_Data_Retrieval):
         
         ''' Helper function which returns the metadata (json) save pathing for backgrounds'''
         
-        report_args = self.get_report_args()
+        report_args = self.camera_access.get_report_args()
         save_folder_path = build_background_metadata_report_path(*report_args)
         if create_folder_if_missing:
             create_missing_folder_path(save_folder_path)
@@ -577,7 +592,7 @@ class Backgrounds(Camera_Data_Retrieval):
         
         ''' Helper function which returns the image (jpg) save pathing for backgrounds'''
         
-        report_args = self.get_report_args()
+        report_args = self.camera_access.get_report_args()
         save_folder_path = build_background_image_report_path(*report_args)
         if create_folder_if_missing:
             create_missing_folder_path(save_folder_path)
@@ -595,7 +610,7 @@ class Backgrounds(Camera_Data_Retrieval):
         # Build the request url
         req_url = self._build_backgrounds_url("get-ems-list", "by-time-range", start_ems, end_ems)
         
-        return get_json(req_url, use_gzip, self.server_access.timeout_sec, no_data_response, raise_errors)
+        return get_json(req_url, use_gzip, self.server_timeout_sec, no_data_response, raise_errors)
     
     # .................................................................................................................
     
@@ -605,7 +620,7 @@ class Backgrounds(Camera_Data_Retrieval):
         # Build the request url
         req_url = self._build_backgrounds_url("get-newest-metadata")
         
-        return get_json(req_url, use_gzip, self.server_access.timeout_sec, no_data_response, raise_errors)
+        return get_json(req_url, use_gzip, self.server_timeout_sec, no_data_response, raise_errors)
     
     # .................................................................................................................
     
@@ -615,7 +630,7 @@ class Backgrounds(Camera_Data_Retrieval):
         # Build the request url
         req_url = self._build_backgrounds_url("get-one-metadata", "by-ems", target_ems)
         
-        return get_json(req_url, use_gzip, self.server_access.timeout_sec, no_data_response, raise_errors)
+        return get_json(req_url, use_gzip, self.server_timeout_sec, no_data_response, raise_errors)
     
     # .................................................................................................................
     
@@ -625,7 +640,7 @@ class Backgrounds(Camera_Data_Retrieval):
         # Build the request url
         req_url = self._build_backgrounds_url("get-active-metadata", "by-ems", target_ems)
         
-        return get_json(req_url, use_gzip, self.server_access.timeout_sec, no_data_response, raise_errors)
+        return get_json(req_url, use_gzip, self.server_timeout_sec, no_data_response, raise_errors)
     
     # .................................................................................................................
     
@@ -638,7 +653,7 @@ class Backgrounds(Camera_Data_Retrieval):
         # Build the request url
         req_url = self._build_backgrounds_url("get-many-metadata", "by-time-range", start_ems, end_ems)
         
-        return get_json(req_url, use_gzip, self.server_access.timeout_sec, no_data_response, raise_errors)
+        return get_json(req_url, use_gzip, self.server_timeout_sec, no_data_response, raise_errors)
     
     # .................................................................................................................
     
@@ -648,7 +663,7 @@ class Backgrounds(Camera_Data_Retrieval):
         # Build the request url
         req_url = self._build_backgrounds_url("get-newest-image")
         
-        return get_jpg(req_url, self.server_access.timeout_sec, no_data_response, raise_errors)
+        return get_jpg(req_url, self.server_timeout_sec, no_data_response, raise_errors)
     
     # .................................................................................................................
     
@@ -658,7 +673,7 @@ class Backgrounds(Camera_Data_Retrieval):
         # Build the request url
         req_url = self._build_backgrounds_url("get-one-image", "by-ems", target_ems)
         
-        return get_jpg(req_url, self.server_access.timeout_sec, no_data_response, raise_errors)
+        return get_jpg(req_url, self.server_timeout_sec, no_data_response, raise_errors)
     
     # .................................................................................................................
     
@@ -668,7 +683,7 @@ class Backgrounds(Camera_Data_Retrieval):
         # Build the request url
         req_url = self._build_backgrounds_url("get-active-image", "by-ems", target_ems)
         
-        return get_jpg(req_url, self.server_access.timeout_sec, no_data_response, raise_errors)
+        return get_jpg(req_url, self.server_timeout_sec, no_data_response, raise_errors)
     
     # .................................................................................................................
     
@@ -681,7 +696,7 @@ class Backgrounds(Camera_Data_Retrieval):
         # Build the request url
         req_url = self._build_backgrounds_url("get-one-b64-jpg", "by-ems", target_ems)
         
-        return get_str(req_url, use_gzip, self.server_access.timeout_sec, no_data_response, raise_errors)
+        return get_str(req_url, use_gzip, self.server_timeout_sec, no_data_response, raise_errors)
     
     # .................................................................................................................
     
@@ -693,7 +708,7 @@ class Backgrounds(Camera_Data_Retrieval):
         
         # Build the request url
         req_url = self._build_backgrounds_url("count", "by-time-range", start_ems, end_ems)
-        count_dict = get_json(req_url, use_gzip, self.server_access.timeout_sec, no_data_response, raise_errors)
+        count_dict = get_json(req_url, use_gzip, self.server_timeout_sec, no_data_response, raise_errors)
         
         return count_dict.get("count", 0)
     
@@ -729,24 +744,25 @@ class Backgrounds(Camera_Data_Retrieval):
 # =====================================================================================================================
 
 
-class Snapshots(Camera_Data_Retrieval):
+class Snapshots:
     
     # .................................................................................................................
     
-    def __init__(self, server_access_ref, location_select_folder_path, camera_select):
+    def __init__(self, camera_data_access_ref):
         
-        # Inherit from parent class
-        super().__init__(server_access_ref, location_select_folder_path, camera_select)
+        # Store reference to camera data retriever & server timeout setting
+        self.camera_access = camera_data_access_ref
+        self.server_timeout_sec = camera_data_access_ref.server_access.timeout_sec
     
     # .................................................................................................................
     
     def _build_snapshots_url(self, *route_addons):
-        return self._build_camera_http_request_url("snapshots", *route_addons)
+        return self.camera_access._build_camera_http_request_url("snapshots", *route_addons)
     
     # .................................................................................................................
     
     def _build_snapshots_websocket_url(self, *route_addons):
-        return self._build_camera_websocket_request_url("snapshots", *route_addons)
+        return self.camera_access._build_camera_websocket_request_url("snapshots", *route_addons)
     
     # .................................................................................................................
     
@@ -754,7 +770,7 @@ class Snapshots(Camera_Data_Retrieval):
         
         ''' Helper function which returns the metadata (json) save pathing for snapshots'''
         
-        report_args = self.get_report_args()
+        report_args = self.camera_access.get_report_args()
         save_folder_path = build_snapshot_metadata_report_path(*report_args)
         if create_folder_if_missing:
             create_missing_folder_path(save_folder_path)
@@ -767,7 +783,7 @@ class Snapshots(Camera_Data_Retrieval):
         
         ''' Helper function which returns the image (jpg) save pathing for snapshots'''
         
-        report_args = self.get_report_args()
+        report_args = self.camera_access.get_report_args()
         save_folder_path = build_snapshot_image_report_path(*report_args)
         if create_folder_if_missing:
             create_missing_folder_path(save_folder_path)
@@ -782,7 +798,7 @@ class Snapshots(Camera_Data_Retrieval):
         # Build the request url
         req_url = self._build_snapshots_url("get-bounding-times")
         
-        return get_json(req_url, use_gzip, self.server_access.timeout_sec, no_data_response, raise_errors)
+        return get_json(req_url, use_gzip, self.server_timeout_sec, no_data_response, raise_errors)
     
     # .................................................................................................................
     
@@ -795,7 +811,7 @@ class Snapshots(Camera_Data_Retrieval):
         # Build the request url
         req_url = self._build_snapshots_url("get-ems-list", "by-time-range", start_ems, end_ems)
         
-        return get_json(req_url, use_gzip, self.server_access.timeout_sec, no_data_response, raise_errors)
+        return get_json(req_url, use_gzip, self.server_timeout_sec, no_data_response, raise_errors)
     
     # .................................................................................................................
     
@@ -808,7 +824,7 @@ class Snapshots(Camera_Data_Retrieval):
         # Build the request url
         req_url = self._build_snapshots_url("get-closest-ems", "by-time-target", target_ems)
         
-        return get_json(req_url, use_gzip, self.server_access.timeout_sec, no_data_response, raise_errors)
+        return get_json(req_url, use_gzip, self.server_timeout_sec, no_data_response, raise_errors)
     
     # .................................................................................................................
     
@@ -818,7 +834,7 @@ class Snapshots(Camera_Data_Retrieval):
         # Build the request url
         req_url = self._build_snapshots_url("get-newest-metadata")
         
-        return get_json(req_url, use_gzip, self.server_access.timeout_sec, no_data_response, raise_errors)
+        return get_json(req_url, use_gzip, self.server_timeout_sec, no_data_response, raise_errors)
     
     # .................................................................................................................
     
@@ -828,7 +844,7 @@ class Snapshots(Camera_Data_Retrieval):
         # Build the request url
         req_url = self._build_snapshots_url("get-one-metadata", "by-ems", target_ems)
         
-        return get_json(req_url, use_gzip, self.server_access.timeout_sec, no_data_response, raise_errors)
+        return get_json(req_url, use_gzip, self.server_timeout_sec, no_data_response, raise_errors)
     
     # .................................................................................................................
     
@@ -841,7 +857,7 @@ class Snapshots(Camera_Data_Retrieval):
         # Build the request url
         req_url = self._build_snapshots_url("get-closest-metadata", "by-time-target", target_ems)
         
-        return get_json(req_url, use_gzip, self.server_access.timeout_sec, no_data_response, raise_errors)
+        return get_json(req_url, use_gzip, self.server_timeout_sec, no_data_response, raise_errors)
     
     # .................................................................................................................
     
@@ -854,7 +870,7 @@ class Snapshots(Camera_Data_Retrieval):
         # Build the request url
         req_url = self._build_snapshots_url("get-many-metadata", "by-time-range", start_ems, end_ems)
         
-        return get_json(req_url, use_gzip, self.server_access.timeout_sec, no_data_response, raise_errors)
+        return get_json(req_url, use_gzip, self.server_timeout_sec, no_data_response, raise_errors)
     
     # .................................................................................................................
     
@@ -869,7 +885,7 @@ class Snapshots(Camera_Data_Retrieval):
         req_url = self._build_snapshots_url("get-many-metadata", "by-time-range", "skip-n",
                                             start_ems, end_ems, skip_n_int)
         
-        return get_json(req_url, use_gzip, self.server_access.timeout_sec, no_data_response, raise_errors)
+        return get_json(req_url, use_gzip, self.server_timeout_sec, no_data_response, raise_errors)
     
     # .................................................................................................................
     
@@ -884,7 +900,7 @@ class Snapshots(Camera_Data_Retrieval):
         req_url = self._build_snapshots_url("get-many-metadata", "by-time-range", "n-samples",
                                             start_ems, end_ems, n_samples_int)
         
-        return get_json(req_url, use_gzip, self.server_access.timeout_sec, no_data_response, raise_errors)
+        return get_json(req_url, use_gzip, self.server_timeout_sec, no_data_response, raise_errors)
     
     # .................................................................................................................
     
@@ -894,7 +910,7 @@ class Snapshots(Camera_Data_Retrieval):
         # Build the request url
         req_url = self._build_snapshots_url("get-newest-image")
         
-        return get_jpg(req_url, self.server_access.timeout_sec, no_data_response, raise_errors)
+        return get_jpg(req_url, self.server_timeout_sec, no_data_response, raise_errors)
     
     # .................................................................................................................
     
@@ -904,7 +920,7 @@ class Snapshots(Camera_Data_Retrieval):
         # Build the request url
         req_url = self._build_snapshots_url("get-one-image", "by-ems", target_ems)
         
-        return get_jpg(req_url, self.server_access.timeout_sec, no_data_response, raise_errors)
+        return get_jpg(req_url, self.server_timeout_sec, no_data_response, raise_errors)
     
     # .................................................................................................................
     
@@ -917,7 +933,7 @@ class Snapshots(Camera_Data_Retrieval):
         # Build the request url
         req_url = self._build_snapshots_url("get-one-b64-jpg", "by-ems", target_ems)
         
-        return get_str(req_url, use_gzip, self.server_access.timeout_sec, no_data_response, raise_errors)
+        return get_str(req_url, use_gzip, self.server_timeout_sec, no_data_response, raise_errors)
     
     # .................................................................................................................
     
@@ -929,7 +945,7 @@ class Snapshots(Camera_Data_Retrieval):
         
         # Build the request url
         req_url = self._build_snapshots_url("count", "by-time-range", start_ems, end_ems)
-        count_dict = get_json(req_url, use_gzip, self.server_access.timeout_sec, no_data_response, raise_errors)
+        count_dict = get_json(req_url, use_gzip, self.server_timeout_sec, no_data_response, raise_errors)
         
         return count_dict.get("count", 0)
     
@@ -966,24 +982,25 @@ class Snapshots(Camera_Data_Retrieval):
 # =====================================================================================================================
 
 
-class Objects(Camera_Data_Retrieval):
+class Objects:
     
     # .................................................................................................................
     
-    def __init__(self, server_access_ref, location_select_folder_path, camera_select):
+    def __init__(self, camera_data_access_ref):
         
-        # Inherit from parent class
-        super().__init__(server_access_ref, location_select_folder_path, camera_select)
+        # Store reference to camera data retriever & server timeout setting
+        self.camera_access = camera_data_access_ref
+        self.server_timeout_sec = camera_data_access_ref.server_access.timeout_sec
     
     # .................................................................................................................
     
     def _build_objects_url(self, *route_addons):
-        return self._build_camera_http_request_url("objects", *route_addons)
+        return self.camera_access._build_camera_http_request_url("objects", *route_addons)
     
     # .................................................................................................................
     
     def _build_objects_websocket_url(self, *route_addons):
-        return self._build_camera_websocket_request_url("objects", *route_addons)
+        return self.camera_access._build_camera_websocket_request_url("objects", *route_addons)
     
     # .................................................................................................................
     
@@ -991,7 +1008,7 @@ class Objects(Camera_Data_Retrieval):
         
         ''' Helper function which returns the metadata (json) save pathing for objects'''
         
-        report_args = self.get_report_args()
+        report_args = self.camera_access.get_report_args()
         save_folder_path = build_object_metadata_report_path(*report_args)
         if create_folder_if_missing:
             create_missing_folder_path(save_folder_path)
@@ -1006,7 +1023,7 @@ class Objects(Camera_Data_Retrieval):
         # Build the request url
         req_url = self._build_objects_url("get-newest-metadata")
         
-        return get_json(req_url, use_gzip, self.server_access.timeout_sec, no_data_response, raise_errors)
+        return get_json(req_url, use_gzip, self.server_timeout_sec, no_data_response, raise_errors)
     
     # .................................................................................................................
     
@@ -1016,7 +1033,7 @@ class Objects(Camera_Data_Retrieval):
         # Build the request url
         req_url = self._build_objects_url("get-all-ids-list")
         
-        return get_json(req_url, use_gzip, self.server_access.timeout_sec, no_data_response, raise_errors)
+        return get_json(req_url, use_gzip, self.server_timeout_sec, no_data_response, raise_errors)
     
     # .................................................................................................................
     
@@ -1029,7 +1046,7 @@ class Objects(Camera_Data_Retrieval):
         # Build the request url
         req_url = self._build_objects_url("get-ids-list", "by-time-target", target_ems)
         
-        return get_json(req_url, use_gzip, self.server_access.timeout_sec, no_data_response, raise_errors)
+        return get_json(req_url, use_gzip, self.server_timeout_sec, no_data_response, raise_errors)
     
     # .................................................................................................................
     
@@ -1042,7 +1059,7 @@ class Objects(Camera_Data_Retrieval):
         # Build the request url
         req_url = self._build_objects_url("get-ids-list", "by-time-range", start_ems, end_ems)
         
-        return get_json(req_url, use_gzip, self.server_access.timeout_sec, no_data_response, raise_errors)
+        return get_json(req_url, use_gzip, self.server_timeout_sec, no_data_response, raise_errors)
     
     # .................................................................................................................
     
@@ -1052,7 +1069,7 @@ class Objects(Camera_Data_Retrieval):
         # Build the request url
         req_url = self._build_objects_url("get-one-metadata", "by-id", target_id)
         
-        return get_json(req_url, use_gzip, self.server_access.timeout_sec, no_data_response, raise_errors)
+        return get_json(req_url, use_gzip, self.server_timeout_sec, no_data_response, raise_errors)
     
     # .................................................................................................................
     
@@ -1065,7 +1082,7 @@ class Objects(Camera_Data_Retrieval):
         # Build the request url
         req_url = self._build_objects_url("get-many-metadata", "by-time-target", target_ems)
         
-        return get_json(req_url, use_gzip, self.server_access.timeout_sec, no_data_response, raise_errors)
+        return get_json(req_url, use_gzip, self.server_timeout_sec, no_data_response, raise_errors)
     
     # .................................................................................................................
     
@@ -1078,7 +1095,7 @@ class Objects(Camera_Data_Retrieval):
         # Build the request url
         req_url = self._build_objects_url("get-many-metadata", "by-time-range", start_ems, end_ems)
         
-        return get_json(req_url, use_gzip, self.server_access.timeout_sec, no_data_response, raise_errors)
+        return get_json(req_url, use_gzip, self.server_timeout_sec, no_data_response, raise_errors)
     
     # .................................................................................................................
     
@@ -1091,7 +1108,7 @@ class Objects(Camera_Data_Retrieval):
         # Build the request url
         req_url = self._build_objects_url("count", "by-time-target", target_ems)
         
-        return get_json(req_url, use_gzip, self.server_access.timeout_sec, no_data_response, raise_errors)
+        return get_json(req_url, use_gzip, self.server_timeout_sec, no_data_response, raise_errors)
     
     # .................................................................................................................
     
@@ -1103,7 +1120,7 @@ class Objects(Camera_Data_Retrieval):
         
         # Build the request url
         req_url = self._build_objects_url("count", "by-time-range", start_ems, end_ems)
-        count_dict = get_json(req_url, use_gzip, self.server_access.timeout_sec, no_data_response, raise_errors)
+        count_dict = get_json(req_url, use_gzip, self.server_timeout_sec, no_data_response, raise_errors)
         
         return count_dict.get("count", 0)
     
@@ -1114,7 +1131,7 @@ class Objects(Camera_Data_Retrieval):
         
         # Build the request url
         req_url = self._build_objects_url("set-indexing")
-        count_dict = get_json(req_url, use_gzip, self.server_access.timeout_sec, no_data_response, raise_errors)
+        count_dict = get_json(req_url, use_gzip, self.server_timeout_sec, no_data_response, raise_errors)
         
         return count_dict.get("count", 0)
     
@@ -1146,24 +1163,25 @@ class Objects(Camera_Data_Retrieval):
 # =====================================================================================================================
 
 
-class Stations(Camera_Data_Retrieval):
+class Stations:
     
     # .................................................................................................................
     
-    def __init__(self, server_access_ref, location_select_folder_path, camera_select):
+    def __init__(self, camera_data_access_ref):
         
-        # Inherit from parent class
-        super().__init__(server_access_ref, location_select_folder_path, camera_select)
+        # Store reference to camera data retriever & server timeout setting
+        self.camera_access = camera_data_access_ref
+        self.server_timeout_sec = camera_data_access_ref.server_access.timeout_sec
     
     # .................................................................................................................
     
     def _build_stations_url(self, *route_addons):
-        return self._build_camera_http_request_url("stations", *route_addons)
+        return self.camera_access._build_camera_http_request_url("stations", *route_addons)
     
     # .................................................................................................................
     
     def _build_stations_websocket_url(self, *route_addons):
-        return self._build_camera_websocket_request_url("stations", *route_addons)
+        return self.camera_access._build_camera_websocket_request_url("stations", *route_addons)
     
     # .................................................................................................................
     
@@ -1171,7 +1189,7 @@ class Stations(Camera_Data_Retrieval):
         
         ''' Helper function which returns the metadata (json) save pathing for station data'''
         
-        report_args = self.get_report_args()
+        report_args = self.camera_access.get_report_args()
         save_folder_path = build_station_metadata_report_path(*report_args)
         if create_folder_if_missing:
             create_missing_folder_path(save_folder_path)
@@ -1186,7 +1204,7 @@ class Stations(Camera_Data_Retrieval):
         # Build the request url
         req_url = self._build_stations_url("get-oldest-metadata")
         
-        return get_json(req_url, use_gzip, self.server_access.timeout_sec, no_data_response, raise_errors)
+        return get_json(req_url, use_gzip, self.server_timeout_sec, no_data_response, raise_errors)
     
     # .................................................................................................................
     
@@ -1196,7 +1214,7 @@ class Stations(Camera_Data_Retrieval):
         # Build the request url
         req_url = self._build_stations_url("get-newest-metadata")
         
-        return get_json(req_url, use_gzip, self.server_access.timeout_sec, no_data_response, raise_errors)
+        return get_json(req_url, use_gzip, self.server_timeout_sec, no_data_response, raise_errors)
     
     # .................................................................................................................
     
@@ -1206,7 +1224,7 @@ class Stations(Camera_Data_Retrieval):
         # Build the request url
         req_url = self._build_stations_url("get-all-ids-list")
         
-        return get_json(req_url, use_gzip, self.server_access.timeout_sec, no_data_response, raise_errors)
+        return get_json(req_url, use_gzip, self.server_timeout_sec, no_data_response, raise_errors)
     
     # .................................................................................................................
     
@@ -1219,7 +1237,7 @@ class Stations(Camera_Data_Retrieval):
         # Build the request url
         req_url = self._build_stations_url("get-ids-list", "by-time-range", start_ems, end_ems)
         
-        return get_json(req_url, use_gzip, self.server_access.timeout_sec, no_data_response, raise_errors)
+        return get_json(req_url, use_gzip, self.server_timeout_sec, no_data_response, raise_errors)
     
     # .................................................................................................................
     
@@ -1229,7 +1247,7 @@ class Stations(Camera_Data_Retrieval):
         # Build the request url
         req_url = self._build_stations_url("get-one-metadata", "by-id", target_id)
         
-        return get_json(req_url, use_gzip, self.server_access.timeout_sec, no_data_response, raise_errors)
+        return get_json(req_url, use_gzip, self.server_timeout_sec, no_data_response, raise_errors)
     
     # .................................................................................................................
     
@@ -1242,7 +1260,7 @@ class Stations(Camera_Data_Retrieval):
         # Build the request url
         req_url = self._build_stations_url("get-many-metadata", "by-time-range", start_ems, end_ems)
         
-        return get_json(req_url, use_gzip, self.server_access.timeout_sec, no_data_response, raise_errors)
+        return get_json(req_url, use_gzip, self.server_timeout_sec, no_data_response, raise_errors)
     
     # .................................................................................................................
     
@@ -1254,7 +1272,7 @@ class Stations(Camera_Data_Retrieval):
         
         # Build the request url
         req_url = self._build_stations_url("count", "by-time-range", start_ems, end_ems)
-        count_dict = get_json(req_url, use_gzip, self.server_access.timeout_sec, no_data_response, raise_errors)
+        count_dict = get_json(req_url, use_gzip, self.server_timeout_sec, no_data_response, raise_errors)
         
         return count_dict.get("count", 0)
     
@@ -1266,7 +1284,7 @@ class Stations(Camera_Data_Retrieval):
         # Build the request url
         req_url = self._build_stations_url("set-indexing")
         
-        return get_json(req_url, use_gzip, self.server_access.timeout_sec, no_data_response, raise_errors)
+        return get_json(req_url, use_gzip, self.server_timeout_sec, no_data_response, raise_errors)
     
     # .................................................................................................................
     
