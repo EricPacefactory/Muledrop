@@ -56,7 +56,7 @@ import numpy as np
 from tqdm import tqdm
 
 from local.lib.ui_utils.cli_selections import Resource_Selector
-from local.lib.ui_utils.local_ui.windows_base import Simple_Window
+from local.lib.ui_utils.local_ui.windows_base import Simple_Window, hide_windows, unhide_windows
 from local.lib.ui_utils.screen_info import Screen_Info
 
 from local.lib.file_access_utils.settings import load_recording_info
@@ -508,9 +508,11 @@ while True:
     
     # Check for recording trigger
     if keypress == record_keypress:
+        hidden_windows_list = hide_windows(ref_window, disp_window)
         user_confirm_record = cli_confirm("Record video?", default_response = False)
         if user_confirm_record:
             break
+        unhide_windows(*hidden_windows_list)
 
 # Clean up
 cv2.destroyAllWindows()
