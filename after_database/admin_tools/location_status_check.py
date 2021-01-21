@@ -55,7 +55,7 @@ from local.lib.common.timekeeper_utils import isoformat_to_datetime, get_local_d
 from local.lib.ui_utils.cli_selections import Resource_Selector
 from local.lib.ui_utils.script_arguments import script_arg_builder
 
-from local.online_database.request_from_dbserver import Server_Access, Camerainfo, Snapshots
+from local.online_database.request_from_dbserver import Server_Access, Camera_Data_Access, Camerainfo, Snapshots
 
 from local.lib.file_access_utils.locations import load_location_info_dict, unpack_location_info_dict
 
@@ -120,7 +120,7 @@ project_root_path, all_locations_folder_path = selector.get_shared_pathing()
 #%% Set up access to data server
 
 # Select location to communicate with
-location_select, location_path = selector.location()
+location_select, location_select_folder_path = selector.location()
 
 # Get location connection info
 location_info_dict = load_location_info_dict(all_locations_folder_path, location_select, error_if_missing = True)
@@ -146,8 +146,9 @@ longest_name_len = max([len(each_name) for each_name in camera_names_list])
 caminfo_dict = {}
 snaps_dict = {}
 for each_camera_name in camera_names_list:
-    caminfo_dict[each_camera_name] = Camerainfo(server_ref, location_path, each_camera_name)
-    snaps_dict[each_camera_name] = Snapshots(server_ref, location_path, each_camera_name)
+    camera_data_ref = Camera_Data_Access(server_ref, location_select_folder_path, each_camera_name)
+    caminfo_dict[each_camera_name] = Camerainfo(camera_data_ref)
+    snaps_dict[each_camera_name] = Snapshots(camera_data_ref)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
