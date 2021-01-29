@@ -136,22 +136,6 @@ if not connection_is_valid:
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-#%% Get camera listing from the database
-
-# Get camera names to check
-camera_names_list = server_ref.get_all_camera_names()
-longest_name_len = max([len(each_name) for each_name in camera_names_list])
-
-# Set up all data access objects
-caminfo_dict = {}
-snaps_dict = {}
-for each_camera_name in camera_names_list:
-    camera_data_ref = Camera_Data_Access(server_ref, location_select_folder_path, each_camera_name)
-    caminfo_dict[each_camera_name] = Camerainfo(camera_data_ref)
-    snaps_dict[each_camera_name] = Snapshots(camera_data_ref)
-
-
-# ---------------------------------------------------------------------------------------------------------------------
 #%% Print server info
 
 # Get basic info about the state of the server
@@ -162,6 +146,28 @@ print("",
       "  Disk Usage: {}%".format(server_disk_dict.get("percent_usage", "unknown")),
       "   RAM Usage: {}%".format(server_memory_dict.get("ram_percent_usage", "unknown")),
       sep = "\n")
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+#%% Get camera listing from the database
+
+# Get camera names to check
+camera_names_list = server_ref.get_all_camera_names()
+longest_name_len = max([len(each_name) for each_name in camera_names_list] + [0])
+
+# Bail if there are no cameras
+no_cameras = (len(camera_names_list) == 0)
+if no_cameras:
+    print("", "No camera data available!", sep = "\n")
+    ide_quit()
+
+# Set up all data access objects
+caminfo_dict = {}
+snaps_dict = {}
+for each_camera_name in camera_names_list:
+    camera_data_ref = Camera_Data_Access(server_ref, location_select_folder_path, each_camera_name)
+    caminfo_dict[each_camera_name] = Camerainfo(camera_data_ref)
+    snaps_dict[each_camera_name] = Snapshots(camera_data_ref)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
